@@ -37,7 +37,7 @@ MMPlayer utiliza las tecnologías más punteras del ecosistema móvil para garan
 
 - **Core**: React Native & Expo con TypeScript para un código robusto y tipado.
 - **Base de Datos**: Arquitectura relacional offline con [WatermelonDB](https://github.com/Nozbe/WatermelonDB), utilizando SQLite para gestionar miles de pistas con latencia cero.
-- **Motor de Audio**: Implementación nativa con [React Native Track Player](https://react-native-track-player.js.org/), gestionando servicios en segundo plano a nivel de sistema operativo.
+- **Motor de Audio**: Implementación nativa con [React Native Track Player](https://github.com/doublesymmetry/react-native-track-player), gestionando servicios en segundo plano a nivel de sistema operativo.
 - **Gestión de Estado**: Lógica de reproducción centralizada con [Zustand](https://github.com/pmndrs/zustand) para una reactividad instantánea.
 - **Arquitectura**: Preparado para la Nueva Arquitectura de React Native (TurboModules).
 
