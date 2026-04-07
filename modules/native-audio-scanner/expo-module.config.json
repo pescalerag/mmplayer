@@ -1,0 +1,7 @@
+{
+  "name": "NativeAudioScanner",
+  "platforms": ["android"],
+  "android": {
+    "modules": ["expo.modules.nativeaudioscanner.NativeAudioScannerModule"]
+  }
+}

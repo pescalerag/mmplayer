@@ -1,0 +1,9 @@
+{
+  "name": "native-audio-scanner",
+  "version": "1.0.0",
+  "description": "Native audio scanner",
+  "main": "index.ts",
+  "peerDependencies": {
+    "expo": "*"
+  }
+}
