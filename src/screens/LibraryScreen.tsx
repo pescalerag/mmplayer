@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
@@ -17,12 +17,6 @@ import { ScannerService } from '../services/ScannerService';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 
-const formatDuration = (seconds?: number | null) => {
-    if (!seconds) return '0:00';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-};
 
 // ----- TRACK ITEMS -----
 const TrackCard = ({ track, album, artists }: { track: Track, album: Album, artists: any }) => {
@@ -56,9 +50,10 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
 const TrackList = ({ tracks, bottomOffset, topOffset }: { tracks: Track[], bottomOffset: number, topOffset: number }) => {
 
     // 2. CORRECCIÓN: Usamos useCallback para que la función de renderizado sea estable en memoria.
-    const renderItem = React.useCallback(({ item }: { item: Track }) => (
-        <EnhancedTrackCard track={item} />
-    ), []);
+    const renderItem = React.useCallback((info: { item: Track }) => {
+        const { item } = info;
+        return <EnhancedTrackCard track={item} />;
+    }, []);
 
     return (
         <FlatList
@@ -91,7 +86,7 @@ const EnhancedTrackList = withObservables([], () => ({
 }))(TrackList);
 
 // ----- ALBUM ITEMS -----
-const AlbumCard = memo(({ album, onPress }: { album: Album, onPress?: () => void }) => {
+const AlbumCard = memo(function AlbumCard({ album, onPress }: { album: Album, onPress?: () => void }) {
     const [artistName, setArtistName] = useState('Cargando...');
 
     useEffect(() => {
@@ -150,14 +145,16 @@ const EnhancedAlbumList = withObservables([], () => ({
 
 
 // ----- ARTIST ITEMS -----
-const ArtistCard = memo(({ artist, onPress }: { artist: Artist, onPress?: () => void }) => (
-    <LibraryCard
-        title={artist.name}
-        imageUrl={artist.imageUrl}
-        placeholderIcon="person"
-        onPress={onPress}
-    />
-));
+const ArtistCard = memo(function ArtistCard({ artist, onPress }: { artist: Artist, onPress?: () => void }) {
+    return (
+        <LibraryCard
+            title={artist.name}
+            imageUrl={artist.imageUrl}
+            placeholderIcon="person"
+            onPress={onPress}
+        />
+    );
+});
 
 const ArtistList = ({ artists, bottomOffset, topOffset }: { artists: Artist[], bottomOffset: number, topOffset: number }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
@@ -194,12 +191,9 @@ type TabType = 'albums' | 'artists' | 'tracks';
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
-    const isFocused = useIsFocused();
     const [activeTab, setActiveTab] = useState<TabType>('albums');
     const [scanning, setScanning] = useState(false);
-    const [scanCurrent, setScanCurrent] = useState(0);
-    const [scanTotal, setScanTotal] = useState(0);
-    const [scanPhase, setScanPhase] = useState('');
+    const scanningRef = useRef(false);
 
     // Estado para guardar la altura dinámica del Título + Selectores
     const [headerHeight, setHeaderHeight] = useState(130);
@@ -208,31 +202,25 @@ export default function LibraryScreen() {
     // TabBar + MiniPlayer + Margen
     const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
 
-    const syncLibrary = async () => {
-        if (Platform.OS !== 'android' || scanning) return;
+    const syncLibrary = useCallback(async () => {
+        if (Platform.OS !== 'android' || scanningRef.current) return;
+
+        scanningRef.current = true;
         setScanning(true);
         try {
-            await ScannerService.cleanDeletedFiles((phase) => {
-                setScanPhase(phase);
-            });
-            await ScannerService.autoScanAndroid((current, total, phase) => {
-                setScanCurrent(current);
-                setScanTotal(total);
-                setScanPhase(phase);
-            });
+            await ScannerService.cleanDeletedFiles();
+            await ScannerService.autoScanAndroid();
         } catch (error) {
             console.error('Scan error:', error);
         } finally {
             setScanning(false);
-            setScanPhase('');
-            setScanCurrent(0);
-            setScanTotal(0);
+            scanningRef.current = false;
         }
-    };
+    }, []);
 
     useEffect(() => {
         syncLibrary();
-    }, []);
+    }, [syncLibrary]);
 
     return (
         <LinearGradient
@@ -270,7 +258,6 @@ export default function LibraryScreen() {
 
             {/* 3. CAPA DE LA INTERFAZ (FRENTE) */}
             <View
-                // onLayout mide automáticamente la altura en píxeles de todo este bloque
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
                 style={{ paddingTop: insets.top + 10 }}
             >

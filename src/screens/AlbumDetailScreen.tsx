@@ -105,7 +105,11 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                         </TouchableOpacity>
                     )
                 }
-                metaInfo={`${album.year ? `${album.year} · ` : ''}${tracks.length} ${tracks.length === 1 ? 'canción' : 'canciones'}${!isLoadingTracks && totalDuration > 0 ? ` · ${formatAlbumDuration(totalDuration)}` : ''}`}
+                metaInfo={[
+                    album.year,
+                    `${tracks.length} ${tracks.length === 1 ? 'canción' : 'canciones'}`,
+                    !isLoadingTracks && totalDuration > 0 ? formatAlbumDuration(totalDuration) : null
+                ].filter(Boolean).join(' · ')}
                 onBack={handleBack}
                 onHome={() => navigation.popToTop()}
                 renderExtra={() => (
@@ -128,7 +132,8 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
         </>
     );
 
-    const renderItem = React.useCallback(({ item, index }: { item: Track; index: number }) => {
+    const renderItem = React.useCallback((info: { item: Track; index: number }) => {
+        const { item, index } = info;
         const showDiscHeader = index === 0 || tracks[index - 1].discNumber !== item.discNumber;
 
         return (

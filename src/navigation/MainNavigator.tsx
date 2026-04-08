@@ -16,59 +16,89 @@ import { RootStackParamList } from './types';
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
+type TabBarIconProps = {
+    routeName: string;
+    focused: boolean;
+    color: string;
+};
+
+const TabBarIcon = ({ routeName, focused, color }: TabBarIconProps) => {
+    let iconName: React.ComponentProps<typeof Ionicons>['name'];
+
+    if (routeName === 'Inicio') {
+        iconName = focused ? 'home' : 'home-outline';
+    } else if (routeName === 'Biblioteca') {
+        iconName = focused ? 'library' : 'library-outline';
+    } else if (routeName === 'Configuración') {
+        iconName = focused ? 'settings' : 'settings-outline';
+    } else {
+        iconName = 'help-outline';
+    }
+
+    return <Ionicons name={iconName} size={32} color={color} />;
+};
+
+const HomeIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <TabBarIcon routeName="Inicio" color={color} focused={focused} />
+);
+
+const LibraryIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <TabBarIcon routeName="Biblioteca" color={color} focused={focused} />
+);
+
+const SettingsIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <TabBarIcon routeName="Configuración" color={color} focused={focused} />
+);
+
+const TabBarBackground = () => (
+    <LinearGradient
+        colors={[
+            'rgba(0, 0, 0, 0)',
+            'rgba(0, 0, 0, 0.65)',
+            'rgba(0, 0, 0, 0.90)',
+            'rgba(0, 0, 0, 0.98)',
+            '#000000'
+        ]}
+        locations={[0, 0.2, 0.45, 0.75, 1]}
+        style={StyleSheet.absoluteFill}
+    />
+);
+
 function MainTabs() {
     const insets = useSafeAreaInsets();
 
+    const screenOptions = React.useMemo(() => ({
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: '#ffffffff',
+        tabBarInactiveTintColor: 'rgba(154, 154, 154, 1)',
+        tabBarStyle: {
+            borderTopWidth: 0,
+            backgroundColor: 'transparent',
+            elevation: 0,
+            position: 'absolute' as const,
+            height: 60 + insets.bottom,
+        },
+        tabBarIconStyle: {
+            width: 40,
+            height: 40,
+        },
+        tabBarBackground: TabBarBackground,
+        headerShown: false,
+        unmountOnBlur: true,
+    }), [insets]);
+
     return (
         <View style={{ flex: 1 }}>
-            <Tab.Navigator
-                screenOptions={({ route }) => ({
-                    tabBarIcon: ({ focused, color }) => {
-                        let iconName: any;
-                        if (route.name === 'Inicio') {
-                            iconName = focused ? 'home' : 'home-outline';
-                        } else if (route.name === 'Biblioteca') {
-                            iconName = focused ? 'library' : 'library-outline';
-                        } else if (route.name === 'Configuración') {
-                            iconName = focused ? 'settings' : 'settings-outline';
-                        }
-                        return <Ionicons name={iconName} size={32} color={color} />;
-                    },
-                    tabBarShowLabel: false,
-                    tabBarActiveTintColor: '#ffffffff',
-                    tabBarInactiveTintColor: 'rgba(154, 154, 154, 1)',
-                    tabBarStyle: {
-                        borderTopWidth: 0,
-                        backgroundColor: 'transparent',
-                        elevation: 0,
-                        position: 'absolute',
-                        height: 60 + insets.bottom,
-                    },
-                    tabBarIconStyle: {
-                        width: 40,
-                        height: 40,
-                    },
-                    tabBarBackground: () => (
-                        <LinearGradient
-                            colors={[
-                                'rgba(0, 0, 0, 0)',
-                                'rgba(0, 0, 0, 0.65)',
-                                'rgba(0, 0, 0, 0.90)',
-                                'rgba(0, 0, 0, 0.98)',
-                                '#000000'
-                            ]}
-                            locations={[0, 0.20, 0.45, 0.75, 1]}
-                            style={StyleSheet.absoluteFill}
-                        />
-                    ),
-                    headerShown: false,
-                    unmountOnBlur: true,
-                })}
-            >
-                <Tab.Screen name="Inicio" component={HomeScreen} />
+            <Tab.Navigator screenOptions={screenOptions}>
+                <Tab.Screen 
+                    name="Inicio" 
+                    component={HomeScreen} 
+                    options={{ tabBarIcon: HomeIcon }}
+                />
                 <Tab.Screen
                     name="Biblioteca"
                     component={LibraryNavigator}
+                    options={{ tabBarIcon: LibraryIcon }}
                     listeners={({ navigation }) => ({
                         tabPress: (e) => {
                             const state = navigation.getState();
@@ -79,13 +109,17 @@ function MainTabs() {
                         },
                     })}
                 />
-                <Tab.Screen name="Configuración" component={SettingsScreen} />
+                <Tab.Screen 
+                    name="Configuración" 
+                    component={SettingsScreen} 
+                    options={{ tabBarIcon: SettingsIcon }}
+                />
             </Tab.Navigator>
 
-            <View 
+            <View
                 pointerEvents="box-none"
-                style={{ 
-                    position: 'absolute', 
+                style={{
+                    position: 'absolute',
                     bottom: 60 + insets.bottom + 12,
                     left: 12,
                     right: 12,
@@ -102,13 +136,13 @@ export default function MainNavigator() {
     return (
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
             <RootStack.Screen name="Main" component={MainTabs} />
-            <RootStack.Screen 
-                name="Player" 
-                component={PlayerScreen} 
-                options={{ 
+            <RootStack.Screen
+                name="Player"
+                component={PlayerScreen}
+                options={{
                     presentation: 'modal',
                     animation: 'slide_from_bottom'
-                }} 
+                }}
             />
         </RootStack.Navigator>
     );
