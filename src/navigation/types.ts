@@ -7,6 +7,12 @@ export type LibraryStackParamList = {
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
 };
 
+export type SearchStackParamList = {
+    Search: undefined;
+    ArtistDetail: { artistId: string; fromPlayer?: boolean };
+    AlbumDetail: { albumId: string; fromPlayer?: boolean };
+};
+
 export type RootStackParamList = {
     Main: undefined;
     Player: undefined;

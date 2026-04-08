@@ -11,6 +11,7 @@ import HomeScreen from '../screens/HomeScreen';
 import PlayerScreen from '../screens/PlayerScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryNavigator from './LibraryNavigator';
+import SearchNavigator from './SearchNavigator';
 import { RootStackParamList } from './types';
 
 const Tab = createBottomTabNavigator();
@@ -31,6 +32,8 @@ const TabBarIcon = ({ routeName, focused, color }: TabBarIconProps) => {
         iconName = focused ? 'library' : 'library-outline';
     } else if (routeName === 'Configuración') {
         iconName = focused ? 'settings' : 'settings-outline';
+    } else if (routeName === 'Buscar') {
+        iconName = focused ? 'search' : 'search-outline';
     } else {
         iconName = 'help-outline';
     }
@@ -48,6 +51,10 @@ const LibraryIcon = ({ color, focused }: { color: string; focused: boolean }) =>
 
 const SettingsIcon = ({ color, focused }: { color: string; focused: boolean }) => (
     <TabBarIcon routeName="Configuración" color={color} focused={focused} />
+);
+
+const SearchIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <TabBarIcon routeName="Buscar" color={color} focused={focused} />
 );
 
 const TabBarBackground = () => (
@@ -94,6 +101,11 @@ function MainTabs() {
                     name="Inicio" 
                     component={HomeScreen} 
                     options={{ tabBarIcon: HomeIcon }}
+                />
+                <Tab.Screen
+                    name="Buscar"
+                    component={SearchNavigator}
+                    options={{ tabBarIcon: SearchIcon }}
                 />
                 <Tab.Screen
                     name="Biblioteca"
