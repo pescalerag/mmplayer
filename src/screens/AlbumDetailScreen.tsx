@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import DetailHeaderLayout from '../components/DetailHeaderLayout';
-import { formatAlbumDuration } from '../utils/time';
 import {
     ActivityIndicator,
+    BackHandler,
     Dimensions,
     FlatList,
     InteractionManager,
@@ -14,10 +13,10 @@ import {
     Text,
     TouchableOpacity,
     View,
-    BackHandler,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DetailHeaderLayout from '../components/DetailHeaderLayout';
+import { formatAlbumDuration } from '../utils/time';
 
 import SectionHeader from '../components/SectionHeader';
 import TrackRow from '../components/TrackRow';
@@ -25,7 +24,7 @@ import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
-import { AlbumDetailRouteProp, LibraryNavigationProp } from '../navigation/types';
+import { AlbumDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 
@@ -46,7 +45,7 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
 
 
     const totalDuration = tracks.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0);
-    
+
     const handleBack = () => {
         if (fromPlayer) {
             navigation.setParams({ fromPlayer: false });
@@ -106,7 +105,11 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                         </TouchableOpacity>
                     )
                 }
-                metaInfo={`${album.year ? `${album.year} · ` : ''}${tracks.length} ${tracks.length === 1 ? 'canción' : 'canciones'}${!isLoadingTracks && totalDuration > 0 ? ` · ${formatAlbumDuration(totalDuration)}` : ''}`}
+                metaInfo={[
+                    album.year,
+                    `${tracks.length} ${tracks.length === 1 ? 'canción' : 'canciones'}`,
+                    !isLoadingTracks && totalDuration > 0 ? formatAlbumDuration(totalDuration) : null
+                ].filter(Boolean).join(' · ')}
                 onBack={handleBack}
                 onHome={() => navigation.popToTop()}
                 renderExtra={() => (
@@ -129,7 +132,8 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
         </>
     );
 
-    const renderItem = React.useCallback(({ item, index }: { item: Track; index: number }) => {
+    const renderItem = React.useCallback((info: { item: Track; index: number }) => {
+        const { item, index } = info;
         const showDiscHeader = index === 0 || tracks[index - 1].discNumber !== item.discNumber;
 
         return (
@@ -239,11 +243,11 @@ export default function AlbumDetailScreen() {
     }
 
     return (
-        <AlbumDetailContent 
-            album={album} 
-            artist={artist!} 
-            tracks={tracks} 
-            isLoadingTracks={!areTracksReady} 
+        <AlbumDetailContent
+            album={album}
+            artist={artist!}
+            tracks={tracks}
+            isLoadingTracks={!areTracksReady}
             fromPlayer={route.params.fromPlayer}
         />
     );

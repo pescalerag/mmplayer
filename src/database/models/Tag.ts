@@ -2,9 +2,9 @@ import { Model } from '@nozbe/watermelondb';
 import { children, field, text } from '@nozbe/watermelondb/decorators';
 
 export default class Tag extends Model {
-    static table = 'tags';
+    static readonly table = 'tags';
 
-    static associations = {
+    static readonly associations = {
         track_tags: { type: 'has_many' as const, foreignKey: 'tag_id' },
     };
 

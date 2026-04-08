@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import DetailHeaderLayout from '../components/DetailHeaderLayout';
 import {
     ActivityIndicator,
     Alert,
+    BackHandler,
     Dimensions,
     FlatList,
     InteractionManager,
@@ -18,10 +18,9 @@ import {
     Text,
     TouchableOpacity,
     View,
-    BackHandler,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DetailHeaderLayout from '../components/DetailHeaderLayout';
 
 import LibraryCard from '../components/LibraryCard';
 import SectionHeader from '../components/SectionHeader';
@@ -30,7 +29,7 @@ import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
-import { ArtistDetailRouteProp, LibraryNavigationProp } from '../navigation/types';
+import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 
@@ -41,9 +40,9 @@ const sanitizeArtistName = (name: string) => {
     return name
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]/g, "_")
-        .replace(/_+/g, "_")
+        .replaceAll(/[\u0300-\u036f]/g, "")
+        .replaceAll(/[^a-z0-9]/g, "_")
+        .replaceAll(/_+/g, "_")
         .trim();
 };
 const ALBUMS_PREVIEW = 6;
@@ -54,16 +53,18 @@ const TRACKS_PREVIEW = 10;
 const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track,
     album: track.album.observe(),
-}))(({ track, album, index, onPress }: { track: Track; album: Album; index?: number; onPress?: (trackId: string) => void }) => (
-    <TrackRow
-        track={track}
-        index={index}
-        coverUrl={album?.coverUrl}
-        onPress={onPress}
-    />
-));
+}))(function ArtistTrackRow({ track, album, index, onPress }: { track: Track; album: Album; index?: number; onPress?: (trackId: string) => void }) {
+    return (
+        <TrackRow
+            track={track}
+            index={index}
+            coverUrl={album?.coverUrl}
+            onPress={onPress}
+        />
+    );
+});
 
-const AlbumCardWithNav = memo(({ album, onPress }: { album: Album; onPress: () => void }) => {
+const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { album: Album; onPress: () => void }) {
     return (
         <View style={styles.albumCardWrapper}>
             <LibraryCard
@@ -77,7 +78,7 @@ const AlbumCardWithNav = memo(({ album, onPress }: { album: Album; onPress: () =
 });
 
 // Componente para la cabecera separado para evitar re-renders de toda la FlatList
-const ArtistHeader = memo(({
+const ArtistHeader = memo(function ArtistHeader({
     artist,
     albums,
     tracksCount,
@@ -91,7 +92,7 @@ const ArtistHeader = memo(({
     fromPlayer,
     showAllTracks,
     setShowAllTracks
-}: any) => {
+}: any) {
     const handleBack = () => {
         if (fromPlayer) {
             navigation.setParams({ fromPlayer: false });
@@ -101,13 +102,19 @@ const ArtistHeader = memo(({
         }
     };
 
+    const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
+    const trackLabel = tracksCount === 1 ? 'canción' : 'canciones';
+    const metaInfo = isLoadingContent
+        ? 'Cargando contenido...'
+        : `${albums.length} ${albumLabel} · ${tracksCount} ${trackLabel}`;
+
     return (
         <>
             <DetailHeaderLayout
                 title={artist.name}
                 imageUrl={showHeaderImage ? artist.imageUrl : null}
                 placeholderIcon="person"
-                metaInfo={isLoadingContent ? 'Cargando contenido...' : `${albums.length} ${albums.length === 1 ? 'álbum' : 'álbumes'} · ${tracksCount} ${tracksCount === 1 ? 'canción' : 'canciones'}`}
+                metaInfo={metaInfo}
                 onBack={handleBack}
                 onHome={() => navigation.popToTop()}
                 renderExtra={() => (
@@ -170,6 +177,32 @@ const ArtistHeader = memo(({
     );
 });
 
+const cleanupOldImage = async (oldPath: string | null | undefined, newPath: string) => {
+    if (!oldPath || oldPath === newPath || !oldPath.startsWith('file://')) return;
+
+    try {
+        await FileSystem.deleteAsync(oldPath, { idempotent: true });
+    } catch (e) {
+        console.warn('Silently ignored error deleting old image:', e);
+    }
+};
+
+const saveImageToLocalFile = async (assetUri: string, artistName: string, oldPath: string | null | undefined) => {
+    if (Platform.OS === 'web') return assetUri;
+
+    const baseDir = FileSystem.documentDirectory;
+    if (!baseDir) throw new Error('No se pudo acceder al directorio');
+
+    const sanitized = sanitizeArtistName(artistName);
+    const fileName = `artist_${sanitized}.jpg`;
+    const newPath = baseDir.endsWith('/') ? `${baseDir}${fileName}` : `${baseDir}/${fileName}`;
+
+    await cleanupOldImage(oldPath, newPath);
+    await FileSystem.copyAsync({ from: assetUri, to: newPath });
+
+    return newPath;
+};
+
 interface Props {
     artist: Artist;
     albums: Album[];
@@ -213,51 +246,39 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fro
 
     const showHeaderImage = useMemo(() => !!artist.imageUrl && !imageError, [artist.imageUrl, imageError]);
 
+    // 3. The newly simplified main callback
     const handlePickPhoto = useCallback(async () => {
+        let result;
+
+        // Step A: Pick the document
         try {
-            const result = await DocumentPicker.getDocumentAsync({
+            result = await DocumentPicker.getDocumentAsync({
                 type: 'image/*',
                 copyToCacheDirectory: true,
             });
-
-            const assets = result.assets;
-            if (assets && assets[0]) {
-                try {
-                    let permanentUri: string;
-                    const asset = assets[0];
-
-                    if (Platform.OS === 'web') {
-                        permanentUri = asset.uri;
-                    } else {
-                        const baseDir = FileSystem.documentDirectory;
-                        if (!baseDir) throw new Error('No se pudo acceder al directorio');
-
-                        const sanitized = sanitizeArtistName(artist.name);
-                        const fileName = `artist_${sanitized}.jpg`;
-                        const newPath = baseDir.endsWith('/') ? `${baseDir}${fileName}` : `${baseDir}/${fileName}`;
-
-                        const oldPath = artist.imageUrl;
-                        if (oldPath && oldPath !== newPath && oldPath.startsWith('file://')) {
-                            try { await FileSystem.deleteAsync(oldPath, { idempotent: true }); } catch (e) { }
-                        }
-
-                        await FileSystem.copyAsync({ from: asset.uri, to: newPath });
-                        permanentUri = newPath;
-                    }
-
-                    setImageError(false);
-                    await database.write(async () => {
-                        await artist.update(a => { a.imageUrl = permanentUri; });
-                    });
-                    Alert.alert('¡Éxito!', 'La foto del artista se ha actualizado.');
-                } catch (e) {
-                    console.error('Error guardando foto:', e);
-                    Alert.alert('Error', 'No se pudo guardar la foto.');
-                }
-            }
         } catch (error) {
             console.error('PickPhoto: Error al lanzar explorador:', error);
             Alert.alert('Error', 'Hubo un problema al abrir el explorador.');
+            return;
+        }
+
+        // Early return if no asset was selected, flattening the rest of the function
+        const asset = result.assets?.[0];
+        if (!asset) return;
+
+        // Step B: Process the file and update the database
+        try {
+            const permanentUri = await saveImageToLocalFile(asset.uri, artist.name, artist.imageUrl);
+
+            setImageError(false);
+            await database.write(async () => {
+                await artist.update(a => { a.imageUrl = permanentUri; });
+            });
+
+            Alert.alert('¡Éxito!', 'La foto del artista se ha actualizado.');
+        } catch (e) {
+            console.error('Error guardando foto:', e);
+            Alert.alert('Error', 'No se pudo guardar la foto.');
         }
     }, [artist]);
 
@@ -268,13 +289,16 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fro
         }
     }, [tracks]);
 
-    const renderItem = useCallback(({ item, index }: { item: Track; index: number }) => (
-        <ArtistTrackRow
-            track={item}
-            index={index + 1}
-            onPress={handleTrackPress}
-        />
-    ), [handleTrackPress]);
+    const renderItem = useCallback((info: { item: Track; index: number }) => {
+        const { item, index } = info;
+        return (
+            <ArtistTrackRow
+                track={item}
+                index={index + 1}
+                onPress={handleTrackPress}
+            />
+        );
+    }, [handleTrackPress]);
 
     // Usamos el componente Header estable
     const listHeader = useMemo(() => (
@@ -377,11 +401,11 @@ export default function ArtistDetailScreen() {
     }
 
     return (
-        <ArtistDetailContent 
-            artist={artist} 
-            albums={albums} 
-            tracks={tracks} 
-            isLoadingContent={!areAlbumsReady} 
+        <ArtistDetailContent
+            artist={artist}
+            albums={albums}
+            tracks={tracks}
+            isLoadingContent={!areAlbumsReady}
             fromPlayer={route.params.fromPlayer}
         />
     );

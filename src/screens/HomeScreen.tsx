@@ -2,7 +2,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Layout } from '../theme/theme';
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();

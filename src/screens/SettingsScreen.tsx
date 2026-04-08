@@ -19,9 +19,9 @@ import { Layout } from '../theme/theme';
 
 // Tipos para los observables
 interface SettingsProps {
-    tracksCount: number;
-    albumsCount: number;
-    artistsCount: number;
+    readonly tracksCount: number;
+    readonly albumsCount: number;
+    readonly artistsCount: number;
 }
 
 function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsProps) {

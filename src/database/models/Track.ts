@@ -2,13 +2,13 @@ import { Model, Q } from '@nozbe/watermelondb';
 import { children, field, lazy, relation, text } from '@nozbe/watermelondb/decorators';
 
 export default class Track extends Model {
-    static table = 'tracks';
+    static readonly table = 'tracks';
 
-    static associations = {
-        albums:              { type: 'belongs_to' as const, key: 'album_id' },
-        artists:             { type: 'belongs_to' as const, key: 'artist_id' },
-        track_tags:          { type: 'has_many'   as const, foreignKey: 'track_id' },
-        track_collaborators: { type: 'has_many'   as const, foreignKey: 'track_id' },
+    static readonly associations = {
+        albums: { type: 'belongs_to' as const, key: 'album_id' },
+        artists: { type: 'belongs_to' as const, key: 'artist_id' },
+        track_tags: { type: 'has_many' as const, foreignKey: 'track_id' },
+        track_collaborators: { type: 'has_many' as const, foreignKey: 'track_id' },
     };
 
     @text('title') title: string;
@@ -18,7 +18,7 @@ export default class Track extends Model {
     @field('track_number') trackNumber: number | null;
     @field('disc_number') discNumber: number | null;
 
-    @relation('albums',  'album_id')  album: any;
+    @relation('albums', 'album_id') album: any;
     @relation('artists', 'artist_id') artist: any;
 
     @children('track_tags') trackTags: any;

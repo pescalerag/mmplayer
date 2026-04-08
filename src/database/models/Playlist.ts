@@ -2,9 +2,9 @@ import { Model } from '@nozbe/watermelondb';
 import { children, field, text } from '@nozbe/watermelondb/decorators';
 
 export default class Playlist extends Model {
-    static table = 'playlists';
+    static readonly table = 'playlists';
 
-    static associations = {
+    static readonly associations = {
         playlist_tracks: { type: 'has_many' as const, foreignKey: 'playlist_id' },
     };
 

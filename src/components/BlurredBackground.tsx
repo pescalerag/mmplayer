@@ -11,7 +11,7 @@ interface Props {
     placeholderColors?: string[];
 }
 
-export const BlurredBackground = ({ 
+const BlurredBackground = ({ 
     imageUrl, 
     blurIntensity = 80, 
     gradientColors = ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000000'],
@@ -27,11 +27,13 @@ export const BlurredBackground = ({
 
     return (
         <View style={StyleSheet.absoluteFill}>
-            {!showPlaceholder ? (
+            {showPlaceholder ? (
+                <LinearGradient colors={placeholderColors as any} style={StyleSheet.absoluteFill} />
+            ) : (
                 <>
                     <Image
-                        key={imageUrl}
-                        source={{ uri: imageUrl! }}
+                        key={imageUrl ?? 'none'}
+                        source={{ uri: imageUrl || '' }}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"
                         transition={200}
@@ -48,8 +50,6 @@ export const BlurredBackground = ({
                         style={StyleSheet.absoluteFill}
                     />
                 </>
-            ) : (
-                <LinearGradient colors={placeholderColors as any} style={StyleSheet.absoluteFill} />
             )}
         </View>
     );
