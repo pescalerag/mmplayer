@@ -1,5 +1,7 @@
 import { requireNativeModule } from 'expo-modules-core';
 
+const NativeAudioScannerModule = requireNativeModule('NativeAudioScanner');
+
 export type AudioTag = {
   id: string;
   uri: string;
@@ -10,12 +12,11 @@ export type AudioTag = {
   albumId: string;
   coverUrl: string;
   duration: number;
-  trackNumber?: number;
-  discNumber?: number;
+  trackNumber: number;
+  discNumber: number;
+  year?: number | null; // Nuestro nuevo campo
 };
 
-const NativeAudioScanner = requireNativeModule('NativeAudioScanner');
-
-export function getAudioFiles(): Promise<AudioTag[]> {
-  return NativeAudioScanner.getAudioFiles();
+export async function getAudioFiles(): Promise<AudioTag[]> {
+  return await NativeAudioScannerModule.getAudioFiles();
 }

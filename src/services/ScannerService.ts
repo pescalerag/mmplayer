@@ -78,6 +78,7 @@ const extractFileMetadata = (file: any) => ({
     albumId: file.albumId || file.album?.trim() || 'Álbum Desconocido',
     coverUrl: file.coverUrl || null,
     durationInSeconds: file.duration || 0,
+    year: file.year || null,
 });
 
 // --- 2. Helper to resolve the local artist image ---
@@ -114,7 +115,7 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
                 a.name = name;
                 a.imageUrl = imageUrl;
             });
-            
+
             newArtistOps.push(newArtist);
             artistCache.set(name, newArtist);
             artist = newArtist;
@@ -131,6 +132,7 @@ const resolveAlbum = (
     albumTitle: string,
     primaryArtist: Artist,
     coverUrl: string | null,
+    year: number | null,
     albumCache: Map<string, Album>,
     albumsCollection: any
 ) => {
@@ -142,8 +144,9 @@ const resolveAlbum = (
             a.title = albumTitle;
             a.artist.set(primaryArtist);
             a.coverUrl = coverUrl;
+            a.year = year;
         });
-        
+
         newAlbumOps.push(newAlbum);
         albumCache.set(albumId, newAlbum);
         albumCache.set(albumTitle, newAlbum);
@@ -290,7 +293,15 @@ export const ScannerService = {
                 const primaryArtist = trackArtists[0];
 
                 // 3. Resolve Album
-                const { album, newAlbumOps } = resolveAlbum(meta.albumId, meta.albumTitle, primaryArtist, meta.coverUrl, albumCache, albumsCollection);
+                const { album, newAlbumOps } = resolveAlbum(
+                    meta.albumId, 
+                    meta.albumTitle, 
+                    primaryArtist, 
+                    meta.coverUrl, 
+                    meta.year,
+                    albumCache, 
+                    albumsCollection
+                );
                 batchOps.push(...newAlbumOps);
 
                 // 4. Create Track & Collaborators

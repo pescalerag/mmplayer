@@ -54,22 +54,16 @@ const SearchTrackRowBase = ({ track, album, artists }: { track: Track, album: Al
 const SearchTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe(),
-    artists: track.queryCollaborators.observe() as any, // Cast to any to match Artist[] expectation from Model[]
+    artists: track.queryCollaborators.observe() as any, // Cast to any to match Artist[] expectation
 }))(SearchTrackRowBase);
 SearchTrackRow.displayName = 'SearchTrackRow';
 
-const SearchAlbumCard = memo(function SearchAlbumCard({ album, onPress }: { album: Album, onPress: () => void }) {
-    const [artistName, setArtistName] = useState('...');
-
-    React.useEffect(() => {
-        album.artist.fetch().then((a: Artist | null) => setArtistName(a?.name || 'Unknown'));
-    }, [album]);
-
+const SearchAlbumCardBase = memo(function SearchAlbumCardBase({ album, artist, onPress }: { album: Album, artist: Artist, onPress: () => void }) {
     return (
         <View style={styles.cardContainer}>
             <LibraryCard
                 title={album.title}
-                subtitle={artistName}
+                subtitle={artist?.name || 'Artista Desconocido'}
                 imageUrl={album.coverUrl}
                 placeholderIcon="albums"
                 onPress={onPress}
@@ -77,6 +71,12 @@ const SearchAlbumCard = memo(function SearchAlbumCard({ album, onPress }: { albu
         </View>
     );
 });
+
+const SearchAlbumCard = withObservables(['album'], ({ album }: { album: Album }) => ({
+    album: album.observe(),
+    artist: album.artist.observe(),
+}))(SearchAlbumCardBase);
+SearchAlbumCard.displayName = 'SearchAlbumCard';
 
 const SearchArtistCard = memo(function SearchArtistCard({ artist, onPress }: { artist: Artist, onPress: () => void }) {
     return (
@@ -204,7 +204,9 @@ export default function SearchScreen() {
                     !isLoading && isSearching ? (
                         <View style={styles.emptyContainer}>
                             <Ionicons name="search-outline" size={64} color="#333" />
-                            <Text style={styles.emptyText}>No hemos encontrado nada para &quot;{query}&quot;</Text>
+                            <Text style={styles.emptyText}>
+                                {`No hemos encontrado nada para "${query}"`}
+                            </Text>
                         </View>
                     ) : null
                 }
