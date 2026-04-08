@@ -25,7 +25,7 @@ import Track from '../database/models/Track';
 import { formatTrackTime } from '../utils/time';
 
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 
 // --- UI DEL REPRODUCTOR (SINCRONIZADA) ---

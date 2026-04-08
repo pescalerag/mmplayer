@@ -1,13 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface SectionHeaderProps {
-    title: string;
-    onSeeAll?: () => void;
-    showSeeAll?: boolean;
+    readonly title: string;
+    readonly onSeeAll?: () => void;
+    readonly showSeeAll?: boolean;
 }
 
-export default function SectionHeader({ title, onSeeAll, showSeeAll = false }: SectionHeaderProps) {
+export default function SectionHeader({ title, onSeeAll, showSeeAll = false }: Readonly<SectionHeaderProps>) {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>

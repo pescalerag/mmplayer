@@ -89,7 +89,7 @@ const DetailHeaderLayout = ({
             </View>
 
             {/* Render Extra (FAB, Photo button, etc.) */}
-            {renderExtra && renderExtra()}
+            {renderExtra?.()}
         </View>
     );
 };

@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import TrackPlayer, { 
-  Event, 
-  State, 
-  useTrackPlayerEvents 
+import { useEffect, useRef } from 'react';
+import TrackPlayer, {
+    Event,
+    State,
+    useTrackPlayerEvents
 } from 'react-native-track-player';
 import { usePlayerStore } from '../store/usePlayerStore';
 
@@ -47,8 +47,8 @@ export const TrackPlayerSync = () => {
                 const state = await TrackPlayer.getPlaybackState();
                 const isPlaying = state.state === State.Playing || state.state === State.Buffering;
                 setIsPlaying(isPlaying);
-            } catch (e) {
-                // Silencioso para evitar spam en consola durante el setup
+            } catch (error) {
+                console.error('Error in TrackPlayerSync pulse:', error);
             }
         }, 1000); // Un pulso por segundo es suficiente
 

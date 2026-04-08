@@ -2,9 +2,9 @@ import { Model } from '@nozbe/watermelondb';
 import { children, text } from '@nozbe/watermelondb/decorators';
 
 export default class Artist extends Model {
-    static table = 'artists';
+    static readonly table = 'artists';
 
-    static associations = {
+    static readonly associations = {
         albums: { type: 'has_many' as const, foreignKey: 'artist_id' },
         track_collaborators: { type: 'has_many' as const, foreignKey: 'artist_id' },
     };

@@ -7,19 +7,19 @@ import { formatTrackTime } from '../utils/time';
 
 
 interface TrackRowProps {
-    track: Track;
-    index?: number;
-    coverUrl?: string | null;
-    artistName?: string;
-    onPress?: (trackId: string) => void;
+    readonly track: Track;
+    readonly index?: number;
+    readonly coverUrl?: string | null;
+    readonly artistName?: string;
+    readonly onPress?: (trackId: string) => void;
 }
 
-function TrackRow({ track, index, coverUrl, artistName, onPress }: TrackRowProps) {
+function TrackRow({ track, index, coverUrl, artistName, onPress }: Readonly<TrackRowProps>) {
 
     return (
         <TouchableOpacity
             style={styles.row}
-            onPress={() => onPress && onPress(track.id)}
+            onPress={() => onPress?.(track.id)}
             activeOpacity={0.6}
         >
             {/* Imagen o número de pista */}

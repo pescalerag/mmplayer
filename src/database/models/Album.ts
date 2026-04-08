@@ -2,11 +2,11 @@ import { Model } from '@nozbe/watermelondb';
 import { children, field, relation, text } from '@nozbe/watermelondb/decorators';
 
 export default class Album extends Model {
-    static table = 'albums';
+    static readonly table = 'albums';
 
-    static associations = {
+    static readonly associations = {
         artists: { type: 'belongs_to' as const, key: 'artist_id' },
-        tracks:  { type: 'has_many'   as const, foreignKey: 'album_id' },
+        tracks: { type: 'has_many' as const, foreignKey: 'album_id' },
     };
 
     @text('title') title: string;

@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
 import { Image as ExpoImage } from 'expo-image';
+import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface LibraryCardProps {
-    title: string;
-    subtitle?: string;
-    duration?: string;
-    imageUrl?: string | null;
-    placeholderIcon: keyof typeof Ionicons.glyphMap;
-    onPress?: () => void;
+    readonly title: string;
+    readonly subtitle?: string;
+    readonly duration?: string;
+    readonly imageUrl?: string | null;
+    readonly placeholderIcon: keyof typeof Ionicons.glyphMap;
+    readonly onPress?: () => void;
 }
 
 const { width } = Dimensions.get('window');
@@ -17,7 +17,7 @@ const { width } = Dimensions.get('window');
 // Dividido entre 3 queda aprox 30-32% del ancho.
 const cardWidth = (width - 70) / 3;
 
-export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress }: LibraryCardProps) {
+export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress }: Readonly<LibraryCardProps>) {
     const [imageError, setImageError] = useState(false);
 
     // Reiniciar error cuando cambie la URL de la imagen
@@ -32,7 +32,7 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
             <View style={styles.imageContainer}>
                 {showImage ? (
                     <ExpoImage
-                        source={{ uri: imageUrl! }}
+                        source={{ uri: imageUrl || '' }}
                         style={styles.image}
                         contentFit="cover"
                         cachePolicy="memory-disk"

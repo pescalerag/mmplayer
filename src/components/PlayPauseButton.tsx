@@ -11,7 +11,7 @@ interface Props {
     iconType?: 'circle' | 'normal';
 }
 
-export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, iconType = 'normal' }: Props) {
+export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, iconType = 'normal' }: Readonly<Props>) {
     const isPlaying = usePlayerStore(state => state.isPlaying);
 
     const togglePlayback = async () => {
@@ -23,9 +23,12 @@ export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, i
         }
     };
 
-    const iconName = isPlaying
-        ? (iconType === 'circle' ? 'pause-circle' : 'pause')
-        : (iconType === 'circle' ? 'play-circle' : 'play');
+    let iconName: string;
+    if (iconType === 'circle') {
+        iconName = isPlaying ? 'pause-circle' : 'play-circle';
+    } else {
+        iconName = isPlaying ? 'pause' : 'play';
+    }
 
     return (
         <TouchableOpacity onPress={togglePlayback} style={style}>

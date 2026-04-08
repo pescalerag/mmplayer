@@ -1,12 +1,12 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
+const path = require('node:path');
 
 const config = getDefaultConfig(__dirname);
 
 // 1. Stub out Node.js modules for the web/react-native
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  fs: require.resolve('expo-file-system'), 
+  fs: require.resolve('expo-file-system'),
   path: require.resolve('path-browserify'),
   stream: require.resolve('stream-browserify'),
   events: require.resolve('events'),

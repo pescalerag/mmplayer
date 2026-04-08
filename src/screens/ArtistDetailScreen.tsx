@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import DetailHeaderLayout from '../components/DetailHeaderLayout';
 import {
     ActivityIndicator,
     Alert,
+    BackHandler,
     Dimensions,
     FlatList,
     InteractionManager,
@@ -18,10 +18,9 @@ import {
     Text,
     TouchableOpacity,
     View,
-    BackHandler,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DetailHeaderLayout from '../components/DetailHeaderLayout';
 
 import LibraryCard from '../components/LibraryCard';
 import SectionHeader from '../components/SectionHeader';
@@ -30,7 +29,7 @@ import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
-import { ArtistDetailRouteProp, LibraryNavigationProp } from '../navigation/types';
+import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 
@@ -377,11 +376,11 @@ export default function ArtistDetailScreen() {
     }
 
     return (
-        <ArtistDetailContent 
-            artist={artist} 
-            albums={albums} 
-            tracks={tracks} 
-            isLoadingContent={!areAlbumsReady} 
+        <ArtistDetailContent
+            artist={artist}
+            albums={albums}
+            tracks={tracks}
+            isLoadingContent={!areAlbumsReady}
             fromPlayer={route.params.fromPlayer}
         />
     );
