@@ -15,6 +15,7 @@ import Tag from './models/Tag';
 import Track from './models/Track';
 import TrackTag from './models/TrackTag'; // Tabla pivote
 import TrackCollaborator from './models/TrackCollaborator'; // Nueva tabla pivote
+import SearchHistory from './models/SearchHistory';
 
 // 1. Elegimos el Adaptador correcto dependiendo de la Plataforma
 const adapter = Platform.OS === 'web'
@@ -48,5 +49,6 @@ export const database = new Database({
         PlaylistTrack,
         TrackTag,
         TrackCollaborator,
+        SearchHistory,
     ],
 });

@@ -19,6 +19,13 @@ const sanitizeArtistName = (name: string) => {
         .trim();
 };
 
+/** Elimina acentos y diacríticos para búsquedas sin acento */
+const normalizeText = (value: string) =>
+    value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
 // 1. Helper function to find and delete tracks with missing files
 const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: string) => void) => {
     onProgress?.('Verificando archivos existentes...');
@@ -78,6 +85,7 @@ const extractFileMetadata = (file: any) => ({
     albumId: file.albumId || file.album?.trim() || 'Álbum Desconocido',
     coverUrl: file.coverUrl || null,
     durationInSeconds: file.duration || 0,
+    year: file.year || null,
 });
 
 // --- 2. Helper to resolve the local artist image ---
@@ -112,9 +120,10 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
             const imageUrl = await getLocalArtistImage(name);
             const newArtist = artistsCollection.prepareCreate((a: any) => {
                 a.name = name;
+                a.normalizedName = normalizeText(name);
                 a.imageUrl = imageUrl;
             });
-            
+
             newArtistOps.push(newArtist);
             artistCache.set(name, newArtist);
             artist = newArtist;
@@ -131,6 +140,7 @@ const resolveAlbum = (
     albumTitle: string,
     primaryArtist: Artist,
     coverUrl: string | null,
+    year: number | null,
     albumCache: Map<string, Album>,
     albumsCollection: any
 ) => {
@@ -140,10 +150,12 @@ const resolveAlbum = (
     if (!album) {
         const newAlbum = albumsCollection.prepareCreate((a: any) => {
             a.title = albumTitle;
+            a.normalizedTitle = normalizeText(albumTitle);
             a.artist.set(primaryArtist);
             a.coverUrl = coverUrl;
+            a.year = year;
         });
-        
+
         newAlbumOps.push(newAlbum);
         albumCache.set(albumId, newAlbum);
         albumCache.set(albumTitle, newAlbum);
@@ -167,6 +179,7 @@ const prepareTrackRecords = (
 
     const track = tracksCollection.prepareCreate((t: any) => {
         t.title = meta.title;
+        t.normalizedTitle = normalizeText(meta.title);
         t.fileUrl = file.uri;
         t.duration = meta.durationInSeconds;
         t.isFavorite = false;
@@ -290,7 +303,15 @@ export const ScannerService = {
                 const primaryArtist = trackArtists[0];
 
                 // 3. Resolve Album
-                const { album, newAlbumOps } = resolveAlbum(meta.albumId, meta.albumTitle, primaryArtist, meta.coverUrl, albumCache, albumsCollection);
+                const { album, newAlbumOps } = resolveAlbum(
+                    meta.albumId, 
+                    meta.albumTitle, 
+                    primaryArtist, 
+                    meta.coverUrl, 
+                    meta.year,
+                    albumCache, 
+                    albumsCollection
+                );
                 batchOps.push(...newAlbumOps);
 
                 // 4. Create Track & Collaborators

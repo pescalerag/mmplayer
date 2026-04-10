@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -47,7 +47,7 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
     artists: track.queryCollaborators.observe(),
 }))(TrackCard);
 
-const TrackList = ({ tracks, bottomOffset, topOffset }: { tracks: Track[], bottomOffset: number, topOffset: number }) => {
+const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
 
     // 2. CORRECCIÓN: Usamos useCallback para que la función de renderizado sea estable en memoria.
     const renderItem = React.useCallback((info: { item: Track }) => {
@@ -57,6 +57,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset }: { tracks: Track[], botto
 
     return (
         <FlatList
+            ref={scrollRef}
             data={tracks}
             keyExtractor={t => t.id}
             renderItem={renderItem}
@@ -113,10 +114,11 @@ const AlbumCard = memo(function AlbumCard({ album, onPress }: { album: Album, on
     );
 });
 
-const AlbumList = ({ albums, bottomOffset, topOffset }: { albums: Album[], bottomOffset: number, topOffset: number }) => {
+const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
     return (
         <FlatList
+            ref={scrollRef}
             data={albums}
             keyExtractor={a => a.id}
             renderItem={({ item }) => (
@@ -156,10 +158,11 @@ const ArtistCard = memo(function ArtistCard({ artist, onPress }: { artist: Artis
     );
 });
 
-const ArtistList = ({ artists, bottomOffset, topOffset }: { artists: Artist[], bottomOffset: number, topOffset: number }) => {
+const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
     return (
         <FlatList
+            ref={scrollRef}
             data={artists}
             keyExtractor={a => a.id}
             renderItem={({ item }) => (
@@ -202,6 +205,27 @@ export default function LibraryScreen() {
     // TabBar + MiniPlayer + Margen
     const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
 
+    const flatListRef = useRef<FlatList>(null);
+    useScrollToTop(flatListRef);
+
+    const navigation = useNavigation<LibraryNavigationProp>();
+
+    useEffect(() => {
+        const tabNavigator: any = navigation.getParent();
+        if (!tabNavigator) return;
+
+        const unsubscribe = tabNavigator.addListener('tabPress', (e: any) => {
+            const state = tabNavigator.getState();
+            const currentRoute = state.routes[state.index];
+
+            if (currentRoute.key === e.target) {
+                setActiveTab('albums');
+            }
+        });
+
+        return unsubscribe;
+    }, [navigation]);
+
     const syncLibrary = useCallback(async () => {
         if (Platform.OS !== 'android' || scanningRef.current) return;
 
@@ -231,9 +255,9 @@ export default function LibraryScreen() {
         >
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
-                {activeTab === 'albums' && <EnhancedAlbumList bottomOffset={bottomOffset} topOffset={headerHeight + 20} />}
-                {activeTab === 'artists' && <EnhancedArtistList bottomOffset={bottomOffset} topOffset={headerHeight + 20} />}
-                {activeTab === 'tracks' && <EnhancedTrackList bottomOffset={bottomOffset} topOffset={headerHeight + 20} />}
+                {activeTab === 'albums' && <EnhancedAlbumList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'artists' && <EnhancedArtistList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'tracks' && <EnhancedTrackList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
             </View>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
