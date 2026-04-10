@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 4,
+    version: 5,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -33,6 +33,13 @@ export const mySchema = appSchema({
                 { name: 'name', type: 'string' },
                 { name: 'normalized_name', type: 'string' },
                 { name: 'image_url', type: 'string', isOptional: true },
+            ],
+        }),
+        tableSchema({
+            name: 'search_history',
+            columns: [
+                { name: 'query', type: 'string', isIndexed: true },
+                { name: 'updated_at', type: 'number' },
             ],
         }),
         tableSchema({

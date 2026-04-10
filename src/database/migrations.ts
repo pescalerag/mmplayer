@@ -50,5 +50,17 @@ export const myMigrations = schemaMigrations({
                 }),
             ],
         },
+        {
+            toVersion: 5,
+            steps: [
+                createTable({
+                    name: 'search_history',
+                    columns: [
+                        { name: 'query', type: 'string', isIndexed: true },
+                        { name: 'updated_at', type: 'number' },
+                    ],
+                }),
+            ],
+        },
     ],
 });

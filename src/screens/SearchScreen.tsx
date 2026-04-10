@@ -27,10 +27,23 @@ import { useMusicSearch } from '../hooks/useMusicSearch';
 import { SearchStackParamList } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
+import { useSearchHistory } from '../hooks/useSearchHistory';
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
 // --- ENHANCED COMPONENTS FOR SEARCH ---
+
+const HistoryItem = ({ query, onDelete, onPress }: { query: string, onDelete: () => void, onPress: () => void }) => (
+    <View style={styles.historyItem}>
+        <TouchableOpacity style={styles.historyTextContainer} onPress={onPress}>
+            <Ionicons name="time-outline" size={18} color="#666" style={styles.historyIcon} />
+            <Text style={styles.historyText}>{query}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onDelete} style={styles.historyDelete}>
+            <Ionicons name="close" size={18} color="#666" />
+        </TouchableOpacity>
+    </View>
+);
 
 const SearchTrackRowBase = ({ track, album, artists }: { track: Track, album: Album, artists: Artist[] }) => {
     const artistNames = artists.length > 0
@@ -98,6 +111,14 @@ export default function SearchScreen() {
     const navigation = useNavigation<SearchNavigationProp>();
     const [query, setQuery] = useState('');
     const { results, isLoading, isSearching } = useMusicSearch(query);
+    const { history, saveSearch, clearHistory, deleteHistoryItem } = useSearchHistory();
+
+    const handleSearchSubmit = useCallback(() => {
+        if (query.trim()) {
+            saveSearch(query);
+            Keyboard.dismiss();
+        }
+    }, [query, saveSearch]);
 
     const handleClearSearch = useCallback(() => {
         setQuery('');
@@ -106,6 +127,30 @@ export default function SearchScreen() {
 
     const renderHeader = () => (
         <View style={styles.header}>
+            {!isSearching && history.length > 0 && (
+                <View style={styles.historySection}>
+                    <View style={styles.sectionHeaderWithAction}>
+                        <SectionHeader title="Búsquedas recientes" />
+                        <TouchableOpacity onPress={clearHistory}>
+                            <Text style={styles.clearHistoryText}>Borrar todo</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.historyList}>
+                        {history.map(item => (
+                            <HistoryItem
+                                key={item.id}
+                                query={item.query}
+                                onDelete={() => deleteHistoryItem(item.id)}
+                                onPress={() => {
+                                    setQuery(item.query);
+                                    saveSearch(item.query);
+                                }}
+                            />
+                        ))}
+                    </View>
+                </View>
+            )}
+
             <Text style={styles.resultsTitle}>{isSearching ? 'Resultados' : 'Sugerencias'}</Text>
 
             {/* Artists Section */}
@@ -121,7 +166,10 @@ export default function SearchScreen() {
                             <SearchArtistCard
                                 key={artist.id}
                                 artist={artist}
-                                onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id })}
+                                onPress={() => {
+                                    if (query.trim()) saveSearch(query);
+                                    navigation.navigate('ArtistDetail', { artistId: artist.id });
+                                }}
                             />
                         ))}
                     </ScrollView>
@@ -141,7 +189,10 @@ export default function SearchScreen() {
                             <SearchAlbumCard
                                 key={album.id}
                                 album={album}
-                                onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id })}
+                                onPress={() => {
+                                    if (query.trim()) saveSearch(query);
+                                    navigation.navigate('AlbumDetail', { albumId: album.id });
+                                }}
                             />
                         ))}
                     </ScrollView>
@@ -156,8 +207,16 @@ export default function SearchScreen() {
 
     const renderItem = useCallback((info: { item: Track }) => {
         const { item } = info;
-        return <SearchTrackRow track={item} />;
-    }, []);
+        return (
+            <SearchTrackRow 
+                track={item} 
+                onPress={() => {
+                    if (query.trim()) saveSearch(query);
+                    usePlayerStore.getState().playSingleTrack(item);
+                }} 
+            />
+        );
+    }, [query, saveSearch]);
 
     return (
         <View style={styles.container}>
@@ -177,6 +236,8 @@ export default function SearchScreen() {
                             onChangeText={setQuery}
                             autoCorrect={false}
                             selectionColor="#8B5CF6"
+                            onSubmitEditing={handleSearchSubmit}
+                            returnKeyType="search"
                         />
                         {query.length > 0 && (
                             <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
@@ -296,5 +357,49 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat',
         textAlign: 'center',
         marginTop: 20,
+    },
+    historySection: {
+        marginTop: 10,
+        marginBottom: 20,
+    },
+    sectionHeaderWithAction: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 20,
+    },
+    clearHistoryText: {
+        color: '#8B5CF6',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '600',
+    },
+    historyList: {
+        paddingHorizontal: 20,
+        marginTop: 5,
+    },
+    historyItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1A1A1A',
+    },
+    historyTextContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    historyIcon: {
+        marginRight: 12,
+    },
+    historyText: {
+        color: '#E0E0E0',
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+    },
+    historyDelete: {
+        padding: 5,
     },
 });
