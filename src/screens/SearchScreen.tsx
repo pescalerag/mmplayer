@@ -31,6 +31,15 @@ import { useSearchHistory } from '../hooks/useSearchHistory';
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
+type FilterOption = 'all' | 'artists' | 'albums' | 'tracks';
+
+const FILTER_TABS: { id: FilterOption; label: string }[] = [
+    { id: 'all', label: 'Todo' },
+    { id: 'artists', label: 'Artistas' },
+    { id: 'albums', label: 'Álbumes' },
+    { id: 'tracks', label: 'Canciones' },
+];
+
 // --- ENHANCED COMPONENTS FOR SEARCH ---
 
 const HistoryItem = ({ query, onDelete, onPress }: { query: string, onDelete: () => void, onPress: () => void }) => (
@@ -112,6 +121,7 @@ export default function SearchScreen() {
     const [query, setQuery] = useState('');
     const { results, isLoading, isSearching } = useMusicSearch(query);
     const { history, saveSearch, clearHistory, deleteHistoryItem } = useSearchHistory();
+    const [activeFilter, setActiveFilter] = useState<FilterOption>('all');
 
     const handleSearchSubmit = useCallback(() => {
         if (query.trim()) {
@@ -154,7 +164,7 @@ export default function SearchScreen() {
             <Text style={styles.resultsTitle}>{isSearching ? 'Resultados' : 'Sugerencias'}</Text>
 
             {/* Artists Section */}
-            {results.artists.length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'artists') && results.artists.length > 0 && (
                 <>
                     <SectionHeader title="Artistas" />
                     <ScrollView
@@ -177,7 +187,7 @@ export default function SearchScreen() {
             )}
 
             {/* Albums Section */}
-            {results.albums.length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'albums') && results.albums.length > 0 && (
                 <>
                     <SectionHeader title="Álbumes" />
                     <ScrollView
@@ -199,7 +209,7 @@ export default function SearchScreen() {
                 </>
             )}
 
-            {results.tracks.length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'tracks') && results.tracks.length > 0 && (
                 <SectionHeader title="Canciones" />
             )}
         </View>
@@ -251,26 +261,58 @@ export default function SearchScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* Filtros rápidos */}
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filtersContainer}
+                    style={styles.filtersScroll}
+                >
+                    {FILTER_TABS.map(tab => {
+                        const isActive = activeFilter === tab.id;
+                        return (
+                            <TouchableOpacity
+                                key={tab.id}
+                                style={[styles.filterPill, isActive && styles.filterPillActive]}
+                                onPress={() => setActiveFilter(tab.id)}
+                            >
+                                <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+                                    {tab.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </LinearGradient>
 
             <FlatList
-                data={results.tracks}
+                data={(activeFilter === 'all' || activeFilter === 'tracks') ? results.tracks : []}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
                 ListHeaderComponent={renderHeader}
                 contentContainerStyle={{
                     paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 20
                 }}
-                ListEmptyComponent={
-                    !isLoading && isSearching ? (
+                ListEmptyComponent={(() => {
+                    if (isLoading || !isSearching) return null;
+
+                    // Verificar si hay algún resultado visible según el filtro activo
+                    const hasArtists = (activeFilter === 'all' || activeFilter === 'artists') && results.artists.length > 0;
+                    const hasAlbums = (activeFilter === 'all' || activeFilter === 'albums') && results.albums.length > 0;
+                    const hasTracks = (activeFilter === 'all' || activeFilter === 'tracks') && results.tracks.length > 0;
+
+                    if (hasArtists || hasAlbums || hasTracks) return null;
+
+                    return (
                         <View style={styles.emptyContainer}>
                             <Ionicons name="search-outline" size={64} color="#333" />
                             <Text style={styles.emptyText}>
                                 {`No hemos encontrado nada para "${query}"`}
                             </Text>
                         </View>
-                    ) : null
-                }
+                    );
+                })()}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 removeClippedSubviews={Platform.OS === 'android'}
@@ -401,5 +443,34 @@ const styles = StyleSheet.create({
     },
     historyDelete: {
         padding: 5,
+    },
+    filtersScroll: {
+        marginTop: 15,
+    },
+    filtersContainer: {
+        paddingBottom: 4,
+        flexDirection: 'row',
+    },
+    filterPill: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#1A1A1A',
+        borderWidth: 1,
+        borderColor: '#333',
+        marginRight: 8,
+    },
+    filterPillActive: {
+        backgroundColor: '#8B5CF6',
+        borderColor: '#8B5CF6',
+    },
+    filterText: {
+        color: '#B3B3B3',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    filterTextActive: {
+        color: '#FFFFFF',
     },
 });
