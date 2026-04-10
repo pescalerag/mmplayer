@@ -127,12 +127,12 @@ export default function SearchScreen() {
     const flatListRef = useRef<FlatList>(null);
     useScrollToTop(flatListRef);
 
-    const handleResultClick = useCallback(() => {
-        if (query.trim()) {
-            saveSearch(query);
+    const handleResultClick = useCallback((textToSave: string) => {
+        if (textToSave.trim()) {
+            saveSearch(textToSave);
             Keyboard.dismiss();
         }
-    }, [query, saveSearch]);
+    }, [saveSearch]);
 
     useEffect(() => {
         const tabNavigator: any = navigation.getParent();
@@ -143,8 +143,6 @@ export default function SearchScreen() {
             const currentRoute = state.routes[state.index];
 
             if (currentRoute.key === e.target) {
-                // Forzar scroll al inicio
-                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
                 setQuery('');
                 setActiveFilter('all');
                 Keyboard.dismiss();
@@ -185,6 +183,7 @@ export default function SearchScreen() {
                                 onPress={() => {
                                     setQuery(item.query);
                                     saveSearch(item.query);
+                                    Keyboard.dismiss();
                                 }}
                             />
                         ))}
@@ -208,7 +207,7 @@ export default function SearchScreen() {
                                 key={artist.id}
                                 artist={artist}
                                 onPress={() => {
-                                    handleResultClick();
+                                    handleResultClick(query);
                                     navigation.navigate('ArtistDetail', { artistId: artist.id });
                                 }}
                             />
@@ -231,7 +230,7 @@ export default function SearchScreen() {
                                 key={album.id}
                                 album={album}
                                 onPress={() => {
-                                    handleResultClick();
+                                    handleResultClick(query);
                                     navigation.navigate('AlbumDetail', { albumId: album.id });
                                 }}
                             />
@@ -251,10 +250,10 @@ export default function SearchScreen() {
         return (
             <SearchTrackRow 
                 track={item} 
-                onPress={handleResultClick}
+                onPress={() => handleResultClick(query)}
             />
         );
-    }, [handleResultClick]);
+    }, [handleResultClick, query]);
 
     return (
         <View style={styles.container}>
@@ -290,28 +289,30 @@ export default function SearchScreen() {
                     )}
                 </View>
 
-                {/* Filtros rápidos */}
-                <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.filtersContainer}
-                    style={styles.filtersScroll}
-                >
-                    {FILTER_TABS.map(tab => {
-                        const isActive = activeFilter === tab.id;
-                        return (
-                            <TouchableOpacity
-                                key={tab.id}
-                                style={[styles.filterPill, isActive && styles.filterPillActive]}
-                                onPress={() => setActiveFilter(tab.id)}
-                            >
-                                <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
-                                    {tab.label}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+                {/* Filtros rápidos - Solo visibles al buscar */}
+                {isSearching && (
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.filtersContainer}
+                        style={styles.filtersScroll}
+                    >
+                        {FILTER_TABS.map(tab => {
+                            const isActive = activeFilter === tab.id;
+                            return (
+                                <TouchableOpacity
+                                    key={tab.id}
+                                    style={[styles.filterPill, isActive && styles.filterPillActive]}
+                                    onPress={() => setActiveFilter(tab.id)}
+                                >
+                                    <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+                                        {tab.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                )}
             </LinearGradient>
 
             <FlatList

@@ -219,8 +219,6 @@ export default function LibraryScreen() {
             const currentRoute = state.routes[state.index];
 
             if (currentRoute.key === e.target) {
-                // Forzar scroll al inicio
-                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
                 setActiveTab('albums');
             }
         });
