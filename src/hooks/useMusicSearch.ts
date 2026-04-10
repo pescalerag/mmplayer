@@ -12,6 +12,12 @@ export type SearchResults = {
     artists: Artist[];
 };
 
+const normalizeText = (text: string) =>
+    text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
 export function useMusicSearch(query: string) {
     const [results, setResults] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
     const [suggestions, setSuggestions] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
@@ -38,7 +44,8 @@ export function useMusicSearch(query: string) {
     }, []);
 
     useEffect(() => {
-        if (!query.trim()) {
+        const normalizedQuery = normalizeText(query.trim());
+        if (!normalizedQuery) {
             setResults({ tracks: [], albums: [], artists: [] });
             return;
         }
@@ -46,12 +53,12 @@ export function useMusicSearch(query: string) {
         setIsLoading(true);
         const timeout = setTimeout(async () => {
             try {
-                const searchPattern = `%${Q.sanitizeLikeString(query)}%`;
+                const searchPattern = `%${Q.sanitizeLikeString(normalizedQuery)}%`;
 
                 // PASO 1: Buscar las coincidencias exactas en Artistas y Tags
                 const [artists, tags] = await Promise.all([
                     database.collections.get<Artist>('artists').query(
-                        Q.where('name', Q.like(searchPattern)),
+                        Q.where('normalized_name', Q.like(searchPattern)),
                         Q.take(20)
                     ).fetch(),
                     database.collections.get<Tag>('tags').query(
@@ -67,7 +74,7 @@ export function useMusicSearch(query: string) {
                 // PASO 2: Construir condiciones dinámicas para Canciones
                 // Siempre buscamos por título de canción
                 const trackConditions: any[] = [
-                    Q.where('title', Q.like(searchPattern))
+                    Q.where('normalized_title', Q.like(searchPattern))
                 ];
 
                 // Si encontramos artistas con ese nombre, traemos canciones relacionadas a esos IDs
@@ -86,7 +93,7 @@ export function useMusicSearch(query: string) {
 
                 // PASO 3: Construir condiciones dinámicas para Álbumes
                 const albumConditions: any[] = [
-                    Q.where('title', Q.like(searchPattern))
+                    Q.where('normalized_title', Q.like(searchPattern))
                 ];
 
                 if (artistIds.length > 0) {

@@ -27,5 +27,28 @@ export const myMigrations = schemaMigrations({
                 }),
             ],
         },
+        {
+            toVersion: 4,
+            steps: [
+                addColumns({
+                    table: 'tracks',
+                    columns: [
+                        { name: 'normalized_title', type: 'string' },
+                    ],
+                }),
+                addColumns({
+                    table: 'albums',
+                    columns: [
+                        { name: 'normalized_title', type: 'string' },
+                    ],
+                }),
+                addColumns({
+                    table: 'artists',
+                    columns: [
+                        { name: 'normalized_name', type: 'string' },
+                    ],
+                }),
+            ],
+        },
     ],
 });

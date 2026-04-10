@@ -19,6 +19,13 @@ const sanitizeArtistName = (name: string) => {
         .trim();
 };
 
+/** Elimina acentos y diacríticos para búsquedas sin acento */
+const normalizeText = (value: string) =>
+    value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
 // 1. Helper function to find and delete tracks with missing files
 const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: string) => void) => {
     onProgress?.('Verificando archivos existentes...');
@@ -113,6 +120,7 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
             const imageUrl = await getLocalArtistImage(name);
             const newArtist = artistsCollection.prepareCreate((a: any) => {
                 a.name = name;
+                a.normalizedName = normalizeText(name);
                 a.imageUrl = imageUrl;
             });
 
@@ -142,6 +150,7 @@ const resolveAlbum = (
     if (!album) {
         const newAlbum = albumsCollection.prepareCreate((a: any) => {
             a.title = albumTitle;
+            a.normalizedTitle = normalizeText(albumTitle);
             a.artist.set(primaryArtist);
             a.coverUrl = coverUrl;
             a.year = year;
@@ -170,6 +179,7 @@ const prepareTrackRecords = (
 
     const track = tracksCollection.prepareCreate((t: any) => {
         t.title = meta.title;
+        t.normalizedTitle = normalizeText(meta.title);
         t.fileUrl = file.uri;
         t.duration = meta.durationInSeconds;
         t.isFavorite = false;

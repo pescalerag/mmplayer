@@ -1,12 +1,13 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 3,
+    version: 4,
     tables: [
         tableSchema({
             name: 'tracks',
             columns: [
                 { name: 'title', type: 'string' },
+                { name: 'normalized_title', type: 'string' },
                 { name: 'file_url', type: 'string' }, // La ruta local del archivo
                 { name: 'duration', type: 'number' },
                 { name: 'is_favorite', type: 'boolean' },
@@ -20,6 +21,7 @@ export const mySchema = appSchema({
             name: 'albums',
             columns: [
                 { name: 'title', type: 'string' },
+                { name: 'normalized_title', type: 'string' },
                 { name: 'year', type: 'number', isOptional: true },
                 { name: 'cover_url', type: 'string', isOptional: true }, // Portada local
                 { name: 'artist_id', type: 'string', isIndexed: true },
@@ -29,6 +31,7 @@ export const mySchema = appSchema({
             name: 'artists',
             columns: [
                 { name: 'name', type: 'string' },
+                { name: 'normalized_name', type: 'string' },
                 { name: 'image_url', type: 'string', isOptional: true },
             ],
         }),
@@ -74,4 +77,4 @@ export const mySchema = appSchema({
             ],
         }),
     ],
-});
+});

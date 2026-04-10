@@ -1,6 +1,8 @@
 import { Model } from '@nozbe/watermelondb';
 import { children, text } from '@nozbe/watermelondb/decorators';
 
+
+
 export default class Artist extends Model {
     static readonly table = 'artists';
 
@@ -10,6 +12,7 @@ export default class Artist extends Model {
     };
 
     @text('name') name: string;
+    @text('normalized_name') normalizedName: string;
     @text('image_url') imageUrl: string | null; // isOptional en schema
 
     @children('albums') albums: any;

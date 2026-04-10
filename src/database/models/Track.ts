@@ -1,6 +1,7 @@
 import { Model, Q } from '@nozbe/watermelondb';
 import { children, field, lazy, relation, text } from '@nozbe/watermelondb/decorators';
 
+
 export default class Track extends Model {
     static readonly table = 'tracks';
 
@@ -12,6 +13,7 @@ export default class Track extends Model {
     };
 
     @text('title') title: string;
+    @text('normalized_title') normalizedTitle: string;
     @text('file_url') fileUrl: string;
     @field('duration') duration: number;
     @field('is_favorite') isFavorite: boolean;
