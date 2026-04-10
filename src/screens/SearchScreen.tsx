@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -122,6 +122,27 @@ export default function SearchScreen() {
     const { results, isLoading, isSearching } = useMusicSearch(query);
     const { history, saveSearch, clearHistory, deleteHistoryItem } = useSearchHistory();
     const [activeFilter, setActiveFilter] = useState<FilterOption>('all');
+
+    const flatListRef = useRef<FlatList>(null);
+    useScrollToTop(flatListRef);
+
+    useEffect(() => {
+        const tabNavigator: any = navigation.getParent();
+        if (!tabNavigator) return;
+
+        const unsubscribe = tabNavigator.addListener('tabPress', (e: any) => {
+            const state = tabNavigator.getState();
+            const currentRoute = state.routes[state.index];
+
+            if (currentRoute.key === e.target) {
+                setQuery('');
+                setActiveFilter('all');
+                Keyboard.dismiss();
+            }
+        });
+
+        return unsubscribe;
+    }, [navigation]);
 
     const handleSearchSubmit = useCallback(() => {
         if (query.trim()) {
@@ -287,6 +308,7 @@ export default function SearchScreen() {
             </LinearGradient>
 
             <FlatList
+                ref={flatListRef}
                 data={(activeFilter === 'all' || activeFilter === 'tracks') ? results.tracks : []}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
