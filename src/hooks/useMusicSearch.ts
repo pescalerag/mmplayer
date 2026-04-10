@@ -51,6 +51,10 @@ export function useMusicSearch(query: string) {
         }
 
         setIsLoading(true);
+        
+        // 1. CREAMOS LA BANDERA: Al iniciar este efecto, esta búsqueda es la "activa"
+        let isActive = true;
+
         const timeout = setTimeout(async () => {
             try {
                 const searchPattern = `%${Q.sanitizeLikeString(normalizedQuery)}%`;
@@ -72,21 +76,18 @@ export function useMusicSearch(query: string) {
                 const tagIds = tags.map(t => t.id);
 
                 // PASO 2: Construir condiciones dinámicas para Canciones
-                // Siempre buscamos por título de canción
                 const trackConditions: any[] = [
                     Q.where('normalized_title', Q.like(searchPattern))
                 ];
 
-                // Si encontramos artistas con ese nombre, traemos canciones relacionadas a esos IDs
                 if (artistIds.length > 0) {
                     trackConditions.push(
-                        Q.where('artist_id', Q.oneOf(artistIds)), // Artista principal
-                        Q.on('albums', 'artist_id', Q.oneOf(artistIds)), // Artista del Álbum
-                        Q.on('track_collaborators', 'artist_id', Q.oneOf(artistIds)) // Colaboradores
+                        Q.where('artist_id', Q.oneOf(artistIds)), 
+                        Q.on('albums', 'artist_id', Q.oneOf(artistIds)), 
+                        Q.on('track_collaborators', 'artist_id', Q.oneOf(artistIds)) 
                     );
                 }
 
-                // Si encontramos tags con ese nombre, traemos canciones con esos tags
                 if (tagIds.length > 0) {
                     trackConditions.push(Q.on('track_tags', 'tag_id', Q.oneOf(tagIds)));
                 }
@@ -113,16 +114,26 @@ export function useMusicSearch(query: string) {
                     ).fetch()
                 ]);
 
-                // Como ya buscamos los 'artists' en el Paso 1, podemos devolverlos directamente
-                setResults({ tracks, albums, artists });
+                // 2. EVALUAMOS LA BANDERA: 
+                // Solo actualizamos el estado si el usuario no ha escrito nada nuevo
+                if (isActive) {
+                    setResults({ tracks, albums, artists });
+                }
             } catch (error) {
                 console.error('Search error:', error);
             } finally {
-                setIsLoading(false);
+                // 3. APAGAMOS EL LOADER: Solo si esta sigue siendo la búsqueda activa
+                if (isActive) {
+                    setIsLoading(false);
+                }
             }
         }, 400);
 
-        return () => clearTimeout(timeout);
+        // 4. FUNCIÓN DE LIMPIEZA:
+        return () => {
+            isActive = false;
+            clearTimeout(timeout);
+        };
     }, [query]);
 
     return {

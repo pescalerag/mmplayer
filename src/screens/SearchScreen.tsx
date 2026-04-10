@@ -54,12 +54,13 @@ const HistoryItem = ({ query, onDelete, onPress }: { query: string, onDelete: ()
     </View>
 );
 
-const SearchTrackRowBase = ({ track, album, artists }: { track: Track, album: Album, artists: Artist[] }) => {
+const SearchTrackRowBase = ({ track, album, artists, onPress }: { track: Track, album: Album, artists: Artist[], onPress?: () => void }) => {
     const artistNames = artists.length > 0
         ? artists.map(a => a.name).join(', ')
         : 'Artista Desconocido';
 
     const handlePress = () => {
+        onPress?.();
         usePlayerStore.getState().playSingleTrack(track);
     };
 
@@ -126,6 +127,13 @@ export default function SearchScreen() {
     const flatListRef = useRef<FlatList>(null);
     useScrollToTop(flatListRef);
 
+    const handleResultClick = useCallback(() => {
+        if (query.trim()) {
+            saveSearch(query);
+            Keyboard.dismiss();
+        }
+    }, [query, saveSearch]);
+
     useEffect(() => {
         const tabNavigator: any = navigation.getParent();
         if (!tabNavigator) return;
@@ -135,6 +143,8 @@ export default function SearchScreen() {
             const currentRoute = state.routes[state.index];
 
             if (currentRoute.key === e.target) {
+                // Forzar scroll al inicio
+                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
                 setQuery('');
                 setActiveFilter('all');
                 Keyboard.dismiss();
@@ -198,7 +208,7 @@ export default function SearchScreen() {
                                 key={artist.id}
                                 artist={artist}
                                 onPress={() => {
-                                    if (query.trim()) saveSearch(query);
+                                    handleResultClick();
                                     navigation.navigate('ArtistDetail', { artistId: artist.id });
                                 }}
                             />
@@ -221,7 +231,7 @@ export default function SearchScreen() {
                                 key={album.id}
                                 album={album}
                                 onPress={() => {
-                                    if (query.trim()) saveSearch(query);
+                                    handleResultClick();
                                     navigation.navigate('AlbumDetail', { albumId: album.id });
                                 }}
                             />
@@ -241,13 +251,10 @@ export default function SearchScreen() {
         return (
             <SearchTrackRow 
                 track={item} 
-                onPress={() => {
-                    if (query.trim()) saveSearch(query);
-                    usePlayerStore.getState().playSingleTrack(item);
-                }} 
+                onPress={handleResultClick}
             />
         );
-    }, [query, saveSearch]);
+    }, [handleResultClick]);
 
     return (
         <View style={styles.container}>
@@ -338,6 +345,7 @@ export default function SearchScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 removeClippedSubviews={Platform.OS === 'android'}
+                keyboardDismissMode="on-drag"
             />
         </View>
     );
