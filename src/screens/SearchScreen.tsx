@@ -28,6 +28,7 @@ import { SearchStackParamList } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 import { useSearchHistory } from '../hooks/useSearchHistory';
+import TopMatchCard from '../components/TopMatchCard';
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -120,9 +121,24 @@ export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
     const [query, setQuery] = useState('');
-    const { results, isLoading, isSearching } = useMusicSearch(query);
+    const { results, topMatch, isLoading, isSearching } = useMusicSearch(query);
     const { history, saveSearch, clearHistory, deleteHistoryItem } = useSearchHistory();
     const [activeFilter, setActiveFilter] = useState<FilterOption>('all');
+
+    // --- NUEVA LÓGICA: ¿ES EL ÚNICO RESULTADO? ---
+    const totalResultsCount = results.artists.length + results.albums.length + results.tracks.length;
+    const isOnlyTopMatch = totalResultsCount === 1 && !!topMatch;
+
+    // --- MEJOR RESULTADO POR CATEGORÍA ---
+    const getLocalTopMatch = (): TopMatch => {
+        if (!isSearching) return null;
+        if (activeFilter === 'all') return topMatch;
+        if (activeFilter === 'artists' && results.artists.length > 0) return { type: 'artist', item: results.artists[0] };
+        if (activeFilter === 'albums' && results.albums.length > 0) return { type: 'album', item: results.albums[0] };
+        if (activeFilter === 'tracks' && results.tracks.length > 0) return { type: 'track', item: results.tracks[0] };
+        return null;
+    };
+    const currentTopMatch = getLocalTopMatch();
 
     const flatListRef = useRef<FlatList>(null);
     useScrollToTop(flatListRef);
@@ -133,6 +149,20 @@ export default function SearchScreen() {
             Keyboard.dismiss();
         }
     }, [saveSearch]);
+
+    const handleTopMatchPress = useCallback(() => {
+        if (!currentTopMatch) return;
+        
+        handleResultClick(query);
+
+        if (currentTopMatch.type === 'artist') {
+            navigation.navigate('ArtistDetail', { artistId: (currentTopMatch.item as Artist).id });
+        } else if (currentTopMatch.type === 'album') {
+            navigation.navigate('AlbumDetail', { albumId: (currentTopMatch.item as Album).id });
+        } else if (currentTopMatch.type === 'track') {
+            usePlayerStore.getState().playSingleTrack(currentTopMatch.item as Track);
+        }
+    }, [currentTopMatch, query, handleResultClick, navigation]);
 
     useEffect(() => {
         const tabNavigator: any = navigation.getParent();
@@ -191,56 +221,89 @@ export default function SearchScreen() {
                 </View>
             )}
 
-            <Text style={styles.resultsTitle}>{isSearching ? 'Resultados' : 'Sugerencias'}</Text>
+            {/* Mostrar Sugerencias solo cuando NO estamos buscando */}
+            {!isSearching && (
+                <Text style={styles.resultsTitle}>Sugerencias</Text>
+            )}
 
-            {/* Artists Section */}
-            {(activeFilter === 'all' || activeFilter === 'artists') && results.artists.length > 0 && (
+            {/* Top Match Hero Card */}
+            {isSearching && currentTopMatch && (
                 <>
-                    <SectionHeader title="Artistas" />
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.horizontalScroll}
-                    >
-                        {results.artists.map(artist => (
-                            <SearchArtistCard
-                                key={artist.id}
-                                artist={artist}
-                                onPress={() => {
-                                    handleResultClick(query);
-                                    navigation.navigate('ArtistDetail', { artistId: artist.id });
-                                }}
-                            />
-                        ))}
-                    </ScrollView>
+                    <Text style={styles.resultsTitle}>Mejor resultado</Text>
+                    <TopMatchCard 
+                        match={currentTopMatch}
+                        onPress={handleTopMatchPress}
+                    />
                 </>
             )}
 
-            {/* Albums Section */}
-            {(activeFilter === 'all' || activeFilter === 'albums') && results.albums.length > 0 && (
+            {/* Ocultamos el título de Resultados y las listas si solo hay un Top Match en esta vista */}
+            {(!isOnlyTopMatch && (activeFilter === 'all' || (
+                (activeFilter === 'artists' && results.artists.length > 1) ||
+                (activeFilter === 'albums' && results.albums.length > 1) ||
+                (activeFilter === 'tracks' && results.tracks.length > 1)
+            ))) && (
                 <>
-                    <SectionHeader title="Álbumes" />
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.horizontalScroll}
-                    >
-                        {results.albums.map(album => (
-                            <SearchAlbumCard
-                                key={album.id}
-                                album={album}
-                                onPress={() => {
-                                    handleResultClick(query);
-                                    navigation.navigate('AlbumDetail', { albumId: album.id });
-                                }}
-                            />
-                        ))}
-                    </ScrollView>
-                </>
-            )}
+                    {isSearching && (
+                        <Text style={styles.resultsTitle}>Resultados</Text>
+                    )}
 
-            {(activeFilter === 'all' || activeFilter === 'tracks') && results.tracks.length > 0 && (
-                <SectionHeader title="Canciones" />
+                    {/* Artists Section */}
+                    {(activeFilter === 'all' || activeFilter === 'artists') && results.artists.length > 0 && (
+                        <>
+                            <SectionHeader title={activeFilter === 'all' ? 'Artistas' : 'Otros artistas'} />
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.horizontalScroll}
+                            >
+                                {results.artists
+                                    .filter(artist => activeFilter !== 'artists' || artist.id !== currentTopMatch?.item.id)
+                                    .map(artist => (
+                                        <SearchArtistCard
+                                            key={artist.id}
+                                            artist={artist}
+                                            onPress={() => {
+                                                handleResultClick(query);
+                                                navigation.navigate('ArtistDetail', { artistId: artist.id });
+                                            }}
+                                        />
+                                    ))
+                                }
+                            </ScrollView>
+                        </>
+                    )}
+
+                    {/* Albums Section */}
+                    {(activeFilter === 'all' || activeFilter === 'albums') && results.albums.length > 0 && (
+                        <>
+                            <SectionHeader title={activeFilter === 'all' ? 'Álbumes' : 'Otros álbumes'} />
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.horizontalScroll}
+                            >
+                                {results.albums
+                                    .filter(album => activeFilter !== 'albums' || album.id !== currentTopMatch?.item.id)
+                                    .map(album => (
+                                        <SearchAlbumCard
+                                            key={album.id}
+                                            album={album}
+                                            onPress={() => {
+                                                handleResultClick(query);
+                                                navigation.navigate('AlbumDetail', { albumId: album.id });
+                                            }}
+                                        />
+                                    ))
+                                }
+                            </ScrollView>
+                        </>
+                    )}
+
+                    {(activeFilter === 'all' || activeFilter === 'tracks') && results.tracks.length > 0 && (
+                        <SectionHeader title={activeFilter === 'all' ? 'Canciones' : 'Más canciones'} />
+                    )}
+                </>
             )}
         </View>
     );
@@ -317,7 +380,9 @@ export default function SearchScreen() {
 
             <FlatList
                 ref={flatListRef}
-                data={(activeFilter === 'all' || activeFilter === 'tracks') ? results.tracks : []}
+                data={(!isOnlyTopMatch && (activeFilter === 'all' || (activeFilter === 'tracks' && results.tracks.length > 0))) 
+                    ? (activeFilter === 'tracks' ? results.tracks.slice(1) : results.tracks) 
+                    : []}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
                 ListHeaderComponent={renderHeader}

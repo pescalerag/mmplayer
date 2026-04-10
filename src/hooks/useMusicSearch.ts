@@ -12,6 +12,12 @@ export type SearchResults = {
     artists: Artist[];
 };
 
+export type TopMatch = 
+    | { type: 'artist', item: Artist }
+    | { type: 'album', item: Album }
+    | { type: 'track', item: Track }
+    | null;
+
 const normalizeText = (text: string) =>
     text
         .toLowerCase()
@@ -21,6 +27,7 @@ const normalizeText = (text: string) =>
 export function useMusicSearch(query: string) {
     const [results, setResults] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
     const [suggestions, setSuggestions] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
+    const [topMatch, setTopMatch] = useState<TopMatch>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     // Initial suggestions (Recent or random)
@@ -47,6 +54,7 @@ export function useMusicSearch(query: string) {
         const normalizedQuery = normalizeText(query.trim());
         if (!normalizedQuery) {
             setResults({ tracks: [], albums: [], artists: [] });
+            setTopMatch(null);
             return;
         }
 
@@ -117,7 +125,40 @@ export function useMusicSearch(query: string) {
                 // 2. EVALUAMOS LA BANDERA: 
                 // Solo actualizamos el estado si el usuario no ha escrito nada nuevo
                 if (isActive) {
+                    // --- CALCULAR EL MEJOR RESULTADO ---
+                    let currentTopMatch: TopMatch = null;
+                    
+                    // Buscamos coincidencia exacta primero
+                    const exactArtist = artists.find(a => normalizeText(a.name) === normalizedQuery);
+                    const exactTrack = tracks.find(t => normalizeText(t.title) === normalizedQuery);
+                    const exactAlbum = albums.find(a => normalizeText(a.title) === normalizedQuery);
+
+                    if (exactArtist) currentTopMatch = { type: 'artist', item: exactArtist };
+                    else if (exactTrack) currentTopMatch = { type: 'track', item: exactTrack };
+                    else if (exactAlbum) currentTopMatch = { type: 'album', item: exactAlbum };
+                    // Si no hay exacta, damos prioridad al primer artista, luego canción, luego álbum
+                    else if (artists.length > 0) currentTopMatch = { type: 'artist', item: artists[0] };
+                    else if (tracks.length > 0) currentTopMatch = { type: 'track', item: tracks[0] };
+                    else if (albums.length > 0) currentTopMatch = { type: 'album', item: albums[0] };
+
+                    // --- ENRIQUECIMIENTO DE BÚSQUEDA CRUZADA (Estilo Spotify) ---
+                    if (currentTopMatch && currentTopMatch.type === 'track') {
+                        const track = currentTopMatch.item;
+                        const [relatedArtist, relatedAlbum] = await Promise.all([
+                            track.artist.fetch(),
+                            track.album.fetch()
+                        ]);
+
+                        if (relatedArtist && !artists.some(a => a.id === relatedArtist.id)) {
+                            artists.unshift(relatedArtist);
+                        }
+                        if (relatedAlbum && !albums.some(a => a.id === relatedAlbum.id)) {
+                            albums.unshift(relatedAlbum);
+                        }
+                    }
+
                     setResults({ tracks, albums, artists });
+                    setTopMatch(currentTopMatch);
                 }
             } catch (error) {
                 console.error('Search error:', error);
@@ -138,6 +179,7 @@ export function useMusicSearch(query: string) {
 
     return {
         results: query.trim() ? results : suggestions,
+        topMatch: query.trim() ? topMatch : null,
         isLoading,
         isSearching: !!query.trim()
     };
