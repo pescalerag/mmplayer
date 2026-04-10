@@ -1,5 +1,5 @@
 import { Q } from '@nozbe/watermelondb';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -18,6 +18,8 @@ export type TopMatch =
     | { type: 'track', item: Track }
     | null;
 
+const TRACKS_PER_PAGE = 50;
+
 const normalizeText = (text: string) =>
     text
         .toLowerCase()
@@ -29,6 +31,14 @@ export function useMusicSearch(query: string) {
     const [suggestions, setSuggestions] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
     const [topMatch, setTopMatch] = useState<TopMatch>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    // --- NUEVOS ESTADOS PARA PAGINACIÓN ---
+    const [page, setPage] = useState(0);
+    const [hasMoreTracks, setHasMoreTracks] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    
+    // Referencia para guardar las condiciones de búsqueda y reutilizarlas al paginar
+    const trackConditionsRef = useRef<any[]>([]);
 
     // Initial suggestions (Recent or random)
     useEffect(() => {
@@ -55,10 +65,16 @@ export function useMusicSearch(query: string) {
         if (!normalizedQuery) {
             setResults({ tracks: [], albums: [], artists: [] });
             setTopMatch(null);
+            // RESETEAR PAGINACIÓN
+            setPage(0);
+            setHasMoreTracks(true);
             return;
         }
 
         setIsLoading(true);
+        // RESETEAR PAGINACIÓN AL BUSCAR ALGO NUEVO
+        setPage(0);
+        setHasMoreTracks(true);
         
         // 1. CREAMOS LA BANDERA: Al iniciar este efecto, esta búsqueda es la "activa"
         let isActive = true;
@@ -71,6 +87,7 @@ export function useMusicSearch(query: string) {
                 const [artists, tags] = await Promise.all([
                     database.collections.get<Artist>('artists').query(
                         Q.where('normalized_name', Q.like(searchPattern)),
+                        Q.sortBy('name', Q.asc),
                         Q.take(20)
                     ).fetch(),
                     database.collections.get<Tag>('tags').query(
@@ -100,6 +117,9 @@ export function useMusicSearch(query: string) {
                     trackConditions.push(Q.on('track_tags', 'tag_id', Q.oneOf(tagIds)));
                 }
 
+                // GUARDAMOS LAS CONDICIONES PARA LA PAGINACIÓN
+                trackConditionsRef.current = trackConditions;
+
                 // PASO 3: Construir condiciones dinámicas para Álbumes
                 const albumConditions: any[] = [
                     Q.where('normalized_title', Q.like(searchPattern))
@@ -114,10 +134,13 @@ export function useMusicSearch(query: string) {
                     database.collections.get<Track>('tracks').query(
                         Q.experimentalJoinTables(['albums', 'track_collaborators', 'track_tags']),
                         Q.or(...trackConditions),
-                        Q.take(50)
+                        Q.sortBy('title', Q.asc),
+                        Q.skip(0),
+                        Q.take(TRACKS_PER_PAGE)
                     ).fetch(),
                     database.collections.get<Album>('albums').query(
                         Q.or(...albumConditions),
+                        Q.sortBy('title', Q.asc),
                         Q.take(20)
                     ).fetch()
                 ]);
@@ -157,6 +180,8 @@ export function useMusicSearch(query: string) {
                         }
                     }
 
+                    // Actualizamos si hay más páginas
+                    setHasMoreTracks(tracks.length === TRACKS_PER_PAGE);
                     setResults({ tracks, albums, artists });
                     setTopMatch(currentTopMatch);
                 }
@@ -177,10 +202,44 @@ export function useMusicSearch(query: string) {
         };
     }, [query]);
 
+    // --- FUNCIÓN DE PAGINACIÓN ---
+    const loadMoreTracks = useCallback(async () => {
+        // Evitar dobles llamadas o buscar si ya no hay más
+        if (isLoadingMore || !hasMoreTracks || !query.trim()) return;
+
+        setIsLoadingMore(true);
+        try {
+            const nextPage = page + 1;
+            const nextOffset = nextPage * TRACKS_PER_PAGE;
+
+            const newTracks = await database.collections.get<Track>('tracks').query(
+                Q.experimentalJoinTables(['albums', 'track_collaborators', 'track_tags']),
+                Q.or(...trackConditionsRef.current),
+                Q.sortBy('title', Q.asc),
+                Q.skip(nextOffset),
+                Q.take(TRACKS_PER_PAGE)
+            ).fetch();
+
+            setResults(prev => ({
+                ...prev,
+                tracks: [...prev.tracks, ...newTracks] // Añadimos a la lista existente
+            }));
+            
+            setPage(nextPage);
+            setHasMoreTracks(newTracks.length === TRACKS_PER_PAGE);
+        } catch (error) {
+            console.error('Error loading more tracks:', error);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [isLoadingMore, hasMoreTracks, query, page]);
+
     return {
         results: query.trim() ? results : suggestions,
         topMatch: query.trim() ? topMatch : null,
         isLoading,
-        isSearching: !!query.trim()
+        isSearching: !!query.trim(),
+        loadMoreTracks,
+        isLoadingMore
     };
 }
