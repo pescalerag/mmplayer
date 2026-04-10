@@ -4,6 +4,7 @@ import React, { memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Track from '../database/models/Track';
 import { formatTrackTime } from '../utils/time';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 
 
 interface TrackRowProps {
@@ -15,11 +16,14 @@ interface TrackRowProps {
 }
 
 function TrackRow({ track, index, coverUrl, artistName, onPress }: Readonly<TrackRowProps>) {
+    const openMenu = useTrackMenuStore(state => state.openMenu);
 
     return (
         <TouchableOpacity
             style={styles.row}
             onPress={() => onPress?.(track.id)}
+            onLongPress={() => openMenu(track)}
+            delayLongPress={300}
             activeOpacity={0.6}
         >
             {/* Imagen o número de pista */}
@@ -49,8 +53,17 @@ function TrackRow({ track, index, coverUrl, artistName, onPress }: Readonly<Trac
                 {artistName && <Text style={styles.artist} numberOfLines={1}>{artistName}</Text>}
             </View>
 
-            {/* Duración */}
-            <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
+            {/* Duración y Más */}
+            <View style={styles.rightCol}>
+                <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
+                <TouchableOpacity 
+                    style={styles.moreButton} 
+                    onPress={() => openMenu(track)}
+                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
+                    <Ionicons name="ellipsis-vertical" size={20} color="#B3B3B3" />
+                </TouchableOpacity>
+            </View>
         </TouchableOpacity>
     );
 }
@@ -101,7 +114,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '600',
-        marginLeft: 8,
     },
     indexText: {
         color: '#B3B3B3',
@@ -109,4 +121,12 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat',
         fontWeight: '700',
     },
+    rightCol: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    moreButton: {
+        padding: 4,
+        marginLeft: 4,
+    }
 });

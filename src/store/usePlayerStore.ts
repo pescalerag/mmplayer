@@ -25,6 +25,7 @@ interface PlayerState {
     playSingleTrack: (track: Track) => Promise<void>;
     setActiveTrackById: (trackId: string) => Promise<void>;
     setIsPlaying: (playing: boolean) => void;
+    addToQueue: (track: Track) => Promise<void>;
     clearPlayer: () => Promise<void>;
 }
 
@@ -77,6 +78,16 @@ export const usePlayerStore = create<PlayerState>((set) => ({
     setIsPlaying: (playing) => {
 
         set({ isPlaying: playing });
+    },
+
+    addToQueue: async (track) => {
+        try {
+            const tpTrack = await mapToTPTrack(track);
+            await TrackPlayer.add([tpTrack]);
+            console.log(`🎵 Añadido a la cola: ${track.title}`);
+        } catch (error) {
+            console.error('Error adding to queue:', error);
+        }
     },
 
     clearPlayer: async () => {
