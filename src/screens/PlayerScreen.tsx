@@ -11,13 +11,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
-    useProgress
+    useProgress,
+    useTrackPlayerEvents,
+    Event
 } from 'react-native-track-player';
 import BlurredBackground from '../components/BlurredBackground';
 
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useQueueSheetStore } from '../store/useQueueSheetStore';
 
 import withObservables from '@nozbe/with-observables';
 import PlayPauseButton from '../components/PlayPauseButton';
@@ -35,12 +38,15 @@ interface PlayerScreenUIProps {
     artist: Artist;
     navigation: any;
     formatTimestamp: (s: number) => string;
+    hasNext: boolean;
+    hasPrevious: boolean;
 }
 
 const PlayerScreenUI = ({
-    track, album, artist, navigation, formatTimestamp
+    track, album, artist, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
     const insets = useSafeAreaInsets();
+    const openQueue = useQueueSheetStore(state => state.openQueue);
     const { position, duration } = useProgress();
     const progress = duration > 0 ? (position / duration) * 100 : 0;
 
@@ -130,19 +136,38 @@ const PlayerScreenUI = ({
 
                 {/* Controls */}
                 <View style={styles.controlsContainer}>
-                    <TouchableOpacity onPress={() => {
-                        TrackPlayer.skipToPrevious().catch(() => { });
-                    }} style={styles.controlButton}>
-                        <Ionicons name="play-back" size={40} color="#FFFFFF" />
+                    <TouchableOpacity 
+                        onPress={() => {
+                            TrackPlayer.skipToPrevious().catch(() => { });
+                        }} 
+                        style={styles.controlButton}
+                        disabled={!hasPrevious}
+                    >
+                        <Ionicons name="play-back" size={40} color={hasPrevious ? "#FFFFFF" : "#535353"} />
                     </TouchableOpacity>
 
                     {/* USAMOS EL COMPONENTE UNIVERSAL AQUÍ */}
                     <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
 
-                    <TouchableOpacity onPress={() => {
-                        TrackPlayer.skipToNext().catch(() => { });
-                    }} style={styles.controlButton}>
-                        <Ionicons name="play-forward" size={40} color="#FFFFFF" />
+                    <TouchableOpacity 
+                        onPress={() => {
+                            TrackPlayer.skipToNext().catch(() => { });
+                        }} 
+                        style={styles.controlButton}
+                        disabled={!hasNext}
+                    >
+                        <Ionicons name="play-forward" size={40} color={hasNext ? "#FFFFFF" : "#535353"} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Footer / Secondary Actions */}
+                <View style={[styles.footer, { marginBottom: insets.bottom + 10 }]}>
+                    <TouchableOpacity 
+                        onPress={openQueue} 
+                        style={styles.footerButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <Ionicons name="list" size={24} color="#B3B3B3" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -158,6 +183,8 @@ const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }
 
 const PlayerScreen = () => {
     const activeTrackModel = usePlayerStore(state => state.activeTrack);
+    const hasNext = usePlayerStore(state => state.hasNext);
+    const hasPrevious = usePlayerStore(state => state.hasPrevious);
     const navigation = useNavigation();
 
 
@@ -170,6 +197,8 @@ const PlayerScreen = () => {
             trackModel={activeTrackModel}
             navigation={navigation}
             formatTimestamp={formatTrackTime}
+            hasNext={hasNext}
+            hasPrevious={hasPrevious}
         />
     );
 };
@@ -272,13 +301,21 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-around',
         paddingHorizontal: 32,
-        marginBottom: 64,
+        marginBottom: 32,
     },
     controlButton: {
         padding: 10,
     },
     mainControlButton: {
         padding: 0,
+    },
+    footer: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingHorizontal: 32,
+    },
+    footerButton: {
+        padding: 8,
     },
 });
 

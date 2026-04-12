@@ -25,7 +25,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function TrackMenuSheet() {
     const insets = useSafeAreaInsets();
     const { isVisible, selectedTrack, closeMenu } = useTrackMenuStore();
-    const addToQueue = usePlayerStore(state => state.addToQueue);
+    const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
+    const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
     
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [artistName, setArtistName] = useState('Desconocido');
@@ -113,12 +114,6 @@ export default function TrackMenuSheet() {
 
     if (!shouldRender && !isVisible) return null;
 
-    const handleAddToQueue = () => {
-        if (selectedTrack) {
-            addToQueue(selectedTrack);
-            closeMenu();
-        }
-    };
 
     return (
         <View 
@@ -162,12 +157,36 @@ export default function TrackMenuSheet() {
                     </View>
                 </View>
 
-                {/* Opciones */}
-                <TouchableOpacity style={styles.optionRow} onPress={handleAddToQueue}>
+                {/* OPCIÓN: Añadir a continuación */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (selectedTrack) {
+                            addToQueueNext(selectedTrack);
+                            closeMenu();
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>Añadir a continuación</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir al final */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (selectedTrack) {
+                            addToQueueEnd(selectedTrack);
+                            closeMenu();
+                        }
+                    }}
+                >
                     <View style={styles.iconContainer}>
                         <Ionicons name="list" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a la cola</Text>
+                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>

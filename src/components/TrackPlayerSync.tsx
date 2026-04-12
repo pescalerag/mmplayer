@@ -13,6 +13,7 @@ import { usePlayerStore } from '../store/usePlayerStore';
 export const TrackPlayerSync = () => {
     const setActiveTrackById = usePlayerStore(state => state.setActiveTrackById);
     const setIsPlaying = usePlayerStore(state => state.setIsPlaying);
+    const updateQueueStatus = usePlayerStore(state => state.updateQueueStatus);
     const lastTrackId = useRef<string | null>(null);
 
     // Eventos de TrackPlayer para reacción inmediata
@@ -27,6 +28,7 @@ export const TrackPlayerSync = () => {
             const isPlaying = event.state === State.Playing || event.state === State.Buffering;
             setIsPlaying(isPlaying);
         }
+        await updateQueueStatus();
     });
 
     // SISTEMA DE PULSOS (Fallback manual)
@@ -47,13 +49,16 @@ export const TrackPlayerSync = () => {
                 const state = await TrackPlayer.getPlaybackState();
                 const isPlaying = state.state === State.Playing || state.state === State.Buffering;
                 setIsPlaying(isPlaying);
+
+                // Sincronizar estado de la cola
+                await updateQueueStatus();
             } catch (error) {
                 console.error('Error in TrackPlayerSync pulse:', error);
             }
         }, 1000); // Un pulso por segundo es suficiente
 
         return () => clearInterval(interval);
-    }, [setActiveTrackById, setIsPlaying]);
+    }, [setActiveTrackById, setIsPlaying, updateQueueStatus]);
 
     return null; // Componente lógico, no renderiza nada
 };

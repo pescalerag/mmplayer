@@ -8,6 +8,7 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TrackPlayerSync } from './src/components/TrackPlayerSync';
 import TrackMenuSheet from './src/components/TrackMenuSheet';
+import QueueSheet from './src/components/QueueSheet';
 import MainNavigator from './src/navigation/MainNavigator';
 import { setupPlayer } from './src/services/trackPlayerSetup';
 
@@ -88,6 +89,7 @@ export default function App() {
                     <MainNavigator />
                 </NavigationContainer>
                 <TrackMenuSheet />
+                <QueueSheet />
             </View>
         </SafeAreaProvider>
     );
