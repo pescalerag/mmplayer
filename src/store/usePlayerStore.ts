@@ -2,10 +2,11 @@ import TrackPlayer, { Track as TPTrack } from 'react-native-track-player';
 import { create } from 'zustand';
 import { database } from '../database';
 import Track from '../database/models/Track';
+import Artist from '../database/models/Artist';
 
 async function mapToTPTrack(track: Track): Promise<TPTrack> {
     const album = await track.album.fetch();
-    const artists = await track.queryCollaborators.fetch();
+    const artists = (await track.queryCollaborators.fetch()) as Artist[];
     const artistNames = artists.length > 0 ? artists.map(a => a.name).join(', ') : 'Artista desconocido';
 
     return {
@@ -21,11 +22,12 @@ async function mapToTPTrack(track: Track): Promise<TPTrack> {
 
 interface PlayerState {
     activeTrack: Track | null;
+    playbackContext: string | null;
     isPlaying: boolean;
     hasNext: boolean;
     hasPrevious: boolean;
-    loadQueue: (tracks: Track[], index: number) => Promise<void>;
-    playSingleTrack: (track: Track) => Promise<void>;
+    loadQueue: (tracks: Track[], index: number, context?: string) => Promise<void>;
+    playSingleTrack: (track: Track, context?: string) => Promise<void>;
     setActiveTrackById: (trackId: string) => Promise<void>;
     setIsPlaying: (playing: boolean) => void;
     addToQueueNext: (track: Track) => Promise<void>;
@@ -36,12 +38,12 @@ interface PlayerState {
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
     activeTrack: null,
+    playbackContext: null,
     isPlaying: false,
     hasNext: false,
     hasPrevious: false,
 
-    loadQueue: async (tracks, index) => {
-
+    loadQueue: async (tracks, index, context = 'unknown') => {
         try {
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
 
@@ -49,21 +51,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             await TrackPlayer.add(tpTracks);
             await TrackPlayer.skip(index);
             await TrackPlayer.play();
-            set({ activeTrack: tracks[index] });
+            set({ activeTrack: tracks[index], playbackContext: context });
 
         } catch (error) {
             console.error('Error loading queue:', error);
         }
     },
 
-    playSingleTrack: async (track) => {
-
+    playSingleTrack: async (track, context = 'unknown') => {
         try {
             const tpTrack = await mapToTPTrack(track);
             await TrackPlayer.reset();
             await TrackPlayer.add([tpTrack]);
             await TrackPlayer.play();
-            set({ activeTrack: track });
+            set({ activeTrack: track, playbackContext: context });
 
         } catch (error) {
             console.error('Error playing single track:', error);
@@ -117,7 +118,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
         try {
             await TrackPlayer.reset();
-            set({ activeTrack: null, isPlaying: false, hasNext: false, hasPrevious: false });
+            set({ activeTrack: null, playbackContext: null, isPlaying: false, hasNext: false, hasPrevious: false });
 
         } catch (error) {
             console.error('Error in clearPlayer:', error);

@@ -88,7 +88,7 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
     const handleTrackPress = React.useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
         if (trackIndex !== -1) {
-            usePlayerStore.getState().loadQueue(tracks, trackIndex);
+            usePlayerStore.getState().loadQueue(tracks, trackIndex, `album-${album.id}`);
         }
     }, [tracks]);
 
@@ -116,7 +116,7 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                     tracks.length > 0 && (
                         <TouchableOpacity
                             style={styles.playFab}
-                            onPress={() => usePlayerStore.getState().loadQueue(tracks, 0)}
+                            onPress={() => usePlayerStore.getState().loadQueue(tracks, 0, `album-${album.id}`)}
                         >
                             <Ionicons name="play" size={28} color="#FFFFFF" />
                         </TouchableOpacity>
@@ -146,6 +146,7 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                 )}
                 <TrackRow
                     track={item}
+                    contextId={`album-${album.id}`}
                     index={item.trackNumber || (index + 1)}
                     artistName={artist?.name}
                     onPress={handleTrackPress}

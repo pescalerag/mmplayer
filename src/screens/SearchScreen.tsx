@@ -86,12 +86,13 @@ const SearchTrackRowBase = ({
 
   const handlePress = () => {
     onPress?.();
-    usePlayerStore.getState().playSingleTrack(track);
+    usePlayerStore.getState().playSingleTrack(track, "search");
   };
 
   return (
     <TrackRow
       track={track}
+      contextId="search"
       coverUrl={album?.coverUrl}
       artistName={artistNames}
       onPress={handlePress}
@@ -223,7 +224,7 @@ export default function SearchScreen() {
         albumId: (currentTopMatch.item as Album).id,
       });
     } else if (currentTopMatch.type === "track") {
-      usePlayerStore.getState().playSingleTrack(currentTopMatch.item as Track);
+      usePlayerStore.getState().playSingleTrack(currentTopMatch.item as Track, "search");
     }
   }, [currentTopMatch, query, handleResultClick, navigation]);
 

@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     trackRowActive: {
-        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
     },
     thumbnail: {
         width: 48,
