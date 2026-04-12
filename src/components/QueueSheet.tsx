@@ -132,7 +132,7 @@ export default function QueueSheet() {
                         <Text style={[styles.title, isPlaying && styles.textActive]} numberOfLines={1}>
                             {item.title}
                         </Text>
-                        {isPlaying && <PlayingIndicator isPlaying={isPlayingGlobal} />}
+                        {isPlaying && <PlayingIndicator isPaused={!isPlayingGlobal} />}
                     </View>
                     <Text style={styles.subtitle} numberOfLines={1}>
                         {item.artist || 'Desconocido'}
@@ -266,6 +266,7 @@ const styles = StyleSheet.create({
     titleContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 8,
     },
     title: {
         color: '#FFFFFF',

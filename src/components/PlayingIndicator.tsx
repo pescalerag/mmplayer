@@ -1,60 +1,102 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withRepeat, 
-    withTiming, 
-    withSequence,
-    withDelay,
-    Easing 
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated } from 'react-native';
 
-interface BarProps {
-    delay: number;
-    isPlaying: boolean;
-    minHeight: number;
-    maxHeight: number;
+interface PlayingIndicatorProps {
+    color?: string;
+    isPaused?: boolean;
 }
 
-const Bar = ({ delay, isPlaying, minHeight, maxHeight }: BarProps) => {
-    const height = useSharedValue(minHeight);
+export const PlayingIndicator = ({ color = '#8B5CF6', isPaused = false }: PlayingIndicatorProps) => {
+    // 1. Reducimos a 3 barras usando valores de escala (0.3 a 1.0)
+    const scale1 = useRef(new Animated.Value(0.3)).current;
+    const scale2 = useRef(new Animated.Value(0.3)).current;
+    const scale3 = useRef(new Animated.Value(0.3)).current;
 
     useEffect(() => {
-        if (isPlaying) {
-            height.value = withDelay(
-                delay,
-                withRepeat(
-                    withSequence(
-                        withTiming(maxHeight, { duration: 400 + Math.random() * 200, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-                        withTiming(minHeight + (maxHeight - minHeight) * 0.3, { duration: 300 + Math.random() * 200, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-                        withTiming(maxHeight * 0.8, { duration: 500 + Math.random() * 200, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-                        withTiming(minHeight, { duration: 350 + Math.random() * 200, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-                    ),
-                    -1,
-                    true
-                )
-            );
-        } else {
-            // Cuando está en pausa, volvemos a la altura mínima suavemente o mantenemos una posición estática baja
-            height.value = withTiming(minHeight + 2, { duration: 500 });
+        if (isPaused) {
+            // Si la canción se pausa, las barras bajan suavemente al mínimo
+            Animated.parallel([
+                Animated.timing(scale1, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+                Animated.timing(scale2, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+                Animated.timing(scale3, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+            ]).start();
+            return;
         }
-    }, [isPlaying, minHeight, maxHeight, delay]);
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        height: height.value,
-    }));
+        const animateBar = (anim: Animated.Value, delay: number) => {
+            const runAnimation = () => {
+                Animated.sequence([
+                    Animated.timing(anim, {
+                        toValue: 0.6 + Math.random() * 0.4, // Altura máxima sutil
+                        duration: 500 + Math.random() * 300, // 4. Velocidad más lenta
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(anim, {
+                        toValue: 0.3 + Math.random() * 0.2,
+                        duration: 450 + Math.random() * 250,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(anim, {
+                        toValue: 0.8 + Math.random() * 0.2,
+                        duration: 550 + Math.random() * 350,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(anim, {
+                        toValue: 0.3,
+                        duration: 400 + Math.random() * 200,
+                        useNativeDriver: true,
+                    }),
+                ]).start(({ finished }) => {
+                    if (finished && !isPaused) {
+                        runAnimation();
+                    }
+                });
+            };
 
-    return <Animated.View style={[styles.bar, animatedStyle]} />;
-};
+            const timeout = setTimeout(runAnimation, delay);
+            return timeout;
+        };
 
-export const PlayingIndicator = ({ isPlaying = true }: { isPlaying?: boolean }) => {
+        const t1 = animateBar(scale1, 0);
+        const t2 = animateBar(scale2, 200);
+        const t3 = animateBar(scale3, 400);
+
+        return () => {
+            clearTimeout(t1);
+            clearTimeout(t2);
+            clearTimeout(t3);
+            scale1.stopAnimation();
+            scale2.stopAnimation();
+            scale3.stopAnimation();
+        };
+    }, [isPaused]);
+
+    // Función auxiliar para renderizar la barra con el anclaje inferior usando scaleY + translateY
+    const renderBar = (anim: Animated.Value) => {
+        const BAR_HEIGHT = 10;
+        return (
+            <Animated.View 
+                style={[
+                    styles.bar, 
+                    { 
+                        backgroundColor: color,
+                        height: BAR_HEIGHT,
+                        transform: [
+                            { translateY: BAR_HEIGHT / 2 }, // Movemos el centro al fondo
+                            { scaleY: anim },              // Escalamos
+                            { translateY: -BAR_HEIGHT / 2 } // Devolvemos el centro para que "crezca" hacia arriba
+                        ]
+                    }
+                ]} 
+            />
+        );
+    };
+
     return (
         <View style={styles.container}>
-            <Bar delay={0} isPlaying={isPlaying} minHeight={3} maxHeight={14} />
-            <Bar delay={150} isPlaying={isPlaying} minHeight={5} maxHeight={16} />
-            <Bar delay={300} isPlaying={isPlaying} minHeight={2} maxHeight={12} />
-            <Bar delay={450} isPlaying={isPlaying} minHeight={4} maxHeight={15} />
+            {renderBar(scale1)}
+            {renderBar(scale2)}
+            {renderBar(scale3)}
         </View>
     );
 };
@@ -63,14 +105,12 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        justifyContent: 'space-between',
-        width: 18,
-        height: 18,
-        marginLeft: 8,
+        height: 12, // Contenedor estricto para alineación base
+        gap: 3,
+        paddingBottom: 1, // Ajuste fino para alinear con la base tipográfica
     },
     bar: {
         width: 3,
-        backgroundColor: '#A78BFA', // Violet-400 (Coincide con el active color de la cola)
         borderRadius: 2,
     },
 });

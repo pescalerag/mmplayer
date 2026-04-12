@@ -72,7 +72,7 @@ function TrackRow({
           >
             {track.title}
           </Text>
-          {isCurrentTrack && <PlayingIndicator isPlaying={isActuallyPlaying} />}
+          {isCurrentTrack && <PlayingIndicator isPaused={!isActuallyPlaying} />}
         </View>
         {artistName && (
           <Text style={styles.artist} numberOfLines={1}>
