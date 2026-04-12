@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
+import TrackPlayer from 'react-native-track-player';
 import {
     ActivityIndicator,
     BackHandler,
@@ -42,6 +43,15 @@ interface Props {
 
 function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer }: Props & { isLoadingTracks: boolean }) {
     const navigation = useNavigation<any>();
+
+    // ─── ESTADOS DEL REPRODUCTOR ───
+    const isPlaying = usePlayerStore(state => state.isPlaying);
+    const playbackContext = usePlayerStore(state => state.playbackContext);
+
+    // Determinar si este álbum es el contexto actual
+    const albumContextId = `album-${album.id}`;
+    const isCurrentAlbum = playbackContext === albumContextId;
+    const isCurrentAlbumPlaying = isCurrentAlbum && isPlaying;
 
 
     const totalDuration = tracks.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0);
@@ -88,9 +98,22 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
     const handleTrackPress = React.useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
         if (trackIndex !== -1) {
-            usePlayerStore.getState().loadQueue(tracks, trackIndex, `album-${album.id}`);
+            usePlayerStore.getState().loadQueue(tracks, trackIndex, albumContextId);
         }
-    }, [tracks]);
+    }, [tracks, albumContextId]);
+
+    // ─── LÓGICA DEL BOTÓN FLOTANTE (FAB) ───
+    const handleFabPress = async () => {
+        if (isCurrentAlbum) {
+            if (isPlaying) {
+                await TrackPlayer.pause();
+            } else {
+                await TrackPlayer.play();
+            }
+        } else {
+            usePlayerStore.getState().loadQueue(tracks, 0, albumContextId);
+        }
+    };
 
     const renderHeader = () => (
         <>
@@ -116,9 +139,14 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                     tracks.length > 0 && (
                         <TouchableOpacity
                             style={styles.playFab}
-                            onPress={() => usePlayerStore.getState().loadQueue(tracks, 0, `album-${album.id}`)}
+                            onPress={handleFabPress}
                         >
-                            <Ionicons name="play" size={28} color="#FFFFFF" />
+                            <Ionicons 
+                                name={isCurrentAlbumPlaying ? "pause" : "play"} 
+                                size={28} 
+                                color="#FFFFFF"
+                                style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
+                            />
                         </TouchableOpacity>
                     )
                 )}
