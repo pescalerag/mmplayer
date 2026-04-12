@@ -53,10 +53,11 @@ const TRACKS_PREVIEW = 10;
 const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track,
     album: track.album.observe(),
-}))(function ArtistTrackRow({ track, album, index, onPress }: { track: Track; album: Album; index?: number; onPress?: (trackId: string) => void }) {
+}))(function ArtistTrackRow({ track, album, index, contextId, onPress }: { track: Track; album: Album; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
     return (
         <TrackRow
             track={track}
+            contextId={contextId}
             index={index}
             coverUrl={album?.coverUrl}
             onPress={onPress}
@@ -285,7 +286,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fro
     const handleTrackPress = useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
         if (trackIndex !== -1) {
-            usePlayerStore.getState().loadQueue(tracks, trackIndex);
+            usePlayerStore.getState().loadQueue(tracks, trackIndex, `artist-${artist.id}`);
         }
     }, [tracks]);
 
@@ -294,6 +295,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fro
         return (
             <ArtistTrackRow
                 track={item}
+                contextId={`artist-${artist.id}`}
                 index={index + 1}
                 onPress={handleTrackPress}
             />

@@ -26,12 +26,13 @@ const TrackCard = ({ track, album, artists }: { track: Track, album: Album, arti
 
     // Movemos la lógica aquí para evitar pasar funciones anidadas desde la FlatList
     const handlePress = () => {
-        usePlayerStore.getState().playSingleTrack(track);
+        usePlayerStore.getState().playSingleTrack(track, 'library-songs');
     };
 
     return (
         <TrackRow
             track={track}
+            contextId="library-songs"
             coverUrl={album?.coverUrl}
             artistName={artistNames}
             onPress={handlePress}

@@ -6,6 +6,7 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { TopMatch } from '../hooks/useMusicSearch';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import BlurredBackground from './BlurredBackground';
 
 interface TopMatchCardProps {
@@ -19,12 +20,19 @@ interface LayoutProps {
     imageUrl: string | null;
     type: 'artist' | 'album' | 'track';
     onPress: () => void;
+    onLongPress?: () => void;
 }
 
 // --- SHARED LAYOUT ---
-const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress }: LayoutProps) => {
+const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPress }: LayoutProps) => {
     return (
-        <TouchableOpacity style={styles.container} activeOpacity={0.8} onPress={onPress}>
+        <TouchableOpacity 
+            style={styles.container} 
+            activeOpacity={0.8} 
+            onPress={onPress}
+            onLongPress={onLongPress}
+            delayLongPress={300}
+        >
             {/* Fondo con la imagen usando BlurredBackground */}
             <BlurredBackground 
                 imageUrl={imageUrl} 
@@ -95,6 +103,8 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
         ? collaborators.map(a => a.name).join(', ') 
         : 'Desconocido';
     
+    const openMenu = useTrackMenuStore(state => state.openMenu);
+    
     return (
         <TopMatchCardLayout
             title={track.title}
@@ -102,6 +112,7 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
             imageUrl={album?.coverUrl || null}
             type="track"
             onPress={onPress}
+            onLongPress={() => openMenu(track)}
         />
     );
 });
