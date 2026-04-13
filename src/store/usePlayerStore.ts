@@ -32,7 +32,7 @@ interface PlayerState {
     setIsPlaying: (playing: boolean) => void;
     addToQueueNext: (track: Track) => Promise<void>;
     addToQueueEnd: (track: Track) => Promise<void>;
-    updateQueueStatus: () => Promise<void>;
+    updateQueueStatus: (currentIndex?: number) => Promise<void>;
     clearPlayer: () => Promise<void>;
 }
 
@@ -125,21 +125,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
     },
 
-    updateQueueStatus: async () => {
+    updateQueueStatus: async (currentIndex?: number) => {
         try {
-            const queue = await TrackPlayer.getQueue();
-            const index = await TrackPlayer.getActiveTrackIndex();
+            const index = currentIndex !== undefined ? currentIndex : await TrackPlayer.getActiveTrackIndex();
 
             if (index !== undefined && index !== null) {
+                // 🔥 EL SECRETO DE RENDIMIENTO:
+                // Preguntamos si existe la pista "index + 1" en lugar de descargar toda la cola masiva
+                const nextTrack = await TrackPlayer.getTrack(index + 1);
+                
                 set({
                     hasPrevious: index > 0,
-                    hasNext: index < queue.length - 1
+                    hasNext: nextTrack !== null && nextTrack !== undefined
                 });
             } else {
-                set({
-                    hasPrevious: false,
-                    hasNext: false
-                });
+                set({ hasPrevious: false, hasNext: false });
             }
         } catch (error) {
             console.error('Error updating queue status:', error);

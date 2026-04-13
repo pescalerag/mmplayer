@@ -1,64 +1,81 @@
-import { useEffect, useRef } from 'react';
-import TrackPlayer, {
-    Event,
-    State,
-    useTrackPlayerEvents
-} from 'react-native-track-player';
-import { usePlayerStore } from '../store/usePlayerStore';
+import { useEffect, useRef } from "react";
+import { AppState, AppStateStatus } from "react-native";
+import TrackPlayer, { State } from "react-native-track-player";
+import { usePlayerStore } from "../store/usePlayerStore";
 
-/**
- * Componente que sincroniza el estado de TrackPlayer con el Store de Zustand.
- * Usa un "pulso" (setInterval) para asegurar la sincronización si los eventos fallan.
- */
 export const TrackPlayerSync = () => {
-    const setActiveTrackById = usePlayerStore(state => state.setActiveTrackById);
-    const setIsPlaying = usePlayerStore(state => state.setIsPlaying);
-    const updateQueueStatus = usePlayerStore(state => state.updateQueueStatus);
-    const lastTrackId = useRef<string | null>(null);
+  const lastIndexRef = useRef<number | null>(null);
+  const lastStateRef = useRef<string | null>(null);
 
-    // Eventos de TrackPlayer para reacción inmediata
-    useTrackPlayerEvents([Event.PlaybackActiveTrackChanged, Event.PlaybackState], async (event) => {
-        if (event.type === Event.PlaybackActiveTrackChanged) {
-            if (event.track && event.track.id !== lastTrackId.current) {
-                lastTrackId.current = event.track.id;
-                await setActiveTrackById(event.track.id);
-            }
+  useEffect(() => {
+    console.log('🎧 Iniciando "Smart Pulse" con Dynamic Polling...');
+
+    let intervalId: any;
+
+    const runTick = async () => {
+      try {
+        // 1. Consultas ultraligeras al motor nativo
+        const stateObj = await TrackPlayer.getPlaybackState();
+        const currentState = stateObj.state || stateObj; // Compatibilidad con la v4
+        const currentIndex = await TrackPlayer.getActiveTrackIndex();
+
+        // 2. ¿Ha cambiado el estado de Play/Pause?
+        if (currentState !== lastStateRef.current) {
+          lastStateRef.current = currentState as string;
+          const isPlaying =
+            currentState === State.Playing || currentState === State.Buffering;
+          usePlayerStore.getState().setIsPlaying(isPlaying);
         }
-        if (event.type === Event.PlaybackState) {
-            const isPlaying = event.state === State.Playing || event.state === State.Buffering;
-            setIsPlaying(isPlaying);
+
+        // 3. ¿Ha cambiado la canción activa?
+        if (
+          currentIndex !== undefined &&
+          currentIndex !== null &&
+          currentIndex !== lastIndexRef.current
+        ) {
+          lastIndexRef.current = currentIndex;
+
+          const nativeTrack = await TrackPlayer.getTrack(currentIndex);
+          if (nativeTrack?.id) {
+            await usePlayerStore.getState().setActiveTrackById(nativeTrack.id);
+          }
+
+          // Actualizamos Anterior/Siguiente enviando el nuevo índice
+          await usePlayerStore.getState().updateQueueStatus(currentIndex);
         }
-        await updateQueueStatus();
-    });
+      } catch (error) {
+        // Silenciamos errores durante la inicialización
+      }
+    };
 
-    // SISTEMA DE PULSOS (Fallback manual)
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            try {
-                // Sincronizar canción activa
-                const activeTrack = await TrackPlayer.getActiveTrack();
-                if (activeTrack && activeTrack.id !== lastTrackId.current) {
-                    lastTrackId.current = activeTrack.id;
-                    await setActiveTrackById(activeTrack.id);
-                } else if (!activeTrack && lastTrackId.current !== null) {
-                    lastTrackId.current = null;
-                    // Reset opcional del store si no hay pista
-                }
+    const startPulse = (ms: number) => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(runTick, ms);
+    };
 
-                // Sincronizar estado de reproducción
-                const state = await TrackPlayer.getPlaybackState();
-                const isPlaying = state.state === State.Playing || state.state === State.Buffering;
-                setIsPlaying(isPlaying);
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      const isAppActive = nextAppState === "active";
+      const intervalMs = isAppActive ? 400 : 2000;
 
-                // Sincronizar estado de la cola
-                await updateQueueStatus();
-            } catch (error) {
-                console.error('Error in TrackPlayerSync pulse:', error);
-            }
-        }, 1000); // Un pulso por segundo es suficiente
+      console.log(`📱 AppState: ${nextAppState} | Pulse: ${intervalMs}ms`);
+      startPulse(intervalMs);
+    };
 
-        return () => clearInterval(interval);
-    }, [setActiveTrackById, setIsPlaying, updateQueueStatus]);
+    // Escuchamos cambios de estado (Background/Foreground)
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
 
-    return null; // Componente lógico, no renderiza nada
+    // Inicio inicial basado en el estado actual
+    const currentMs = AppState.currentState === "active" ? 400 : 2000;
+    startPulse(currentMs);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      subscription.remove();
+    };
+  }, []);
+
+  return null;
 };
