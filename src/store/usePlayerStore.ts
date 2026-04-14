@@ -127,22 +127,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     updateQueueStatus: async (currentIndex?: number) => {
         try {
+            console.log("📊 [Store] Evaluando estado de la cola...");
+            const queue = await TrackPlayer.getQueue();
             const index = currentIndex !== undefined ? currentIndex : await TrackPlayer.getActiveTrackIndex();
 
+            console.log(`📊 [Store] Datos de Cola -> Longitud: ${queue.length}, Index Activo: ${index}`);
+
             if (index !== undefined && index !== null) {
-                // 🔥 EL SECRETO DE RENDIMIENTO:
-                // Preguntamos si existe la pista "index + 1" en lugar de descargar toda la cola masiva
-                const nextTrack = await TrackPlayer.getTrack(index + 1);
-                
                 set({
                     hasPrevious: index > 0,
-                    hasNext: nextTrack !== null && nextTrack !== undefined
+                    hasNext: index < queue.length - 1
                 });
+                console.log(`📊 [Store] Resultado Cola -> hasPrevious: ${index > 0}, hasNext: ${index < queue.length - 1}`);
             } else {
                 set({ hasPrevious: false, hasNext: false });
+                console.log(`📊 [Store] Resultado Cola -> Nada reproduciéndose (index missing)`);
             }
         } catch (error) {
-            console.error('Error updating queue status:', error);
+            console.error('❌ [Store] Error actualizando status de la cola:', error);
         }
     },
 }));

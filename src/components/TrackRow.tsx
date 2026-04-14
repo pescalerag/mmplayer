@@ -7,6 +7,7 @@ import { useTrackMenuStore } from "../store/useTrackMenuStore";
 import { formatTrackTime } from "../utils/time";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { PlayingIndicator } from "./PlayingIndicator";
+import { usePlaybackState, State } from "react-native-track-player";
 
 interface TrackRowProps {
   readonly track: Track;
@@ -29,6 +30,7 @@ function TrackRow({
   
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const playbackContext = usePlayerStore((state) => state.playbackContext);
+  
   const isActuallyPlaying = usePlayerStore((state) => state.isPlaying);
 
   const isCurrentTrack = activeTrack?.id === track.id && 

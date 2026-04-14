@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 import {
     ActivityIndicator,
     BackHandler,
@@ -52,7 +52,6 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
     const albumContextId = `album-${album.id}`;
     const isCurrentAlbum = playbackContext === albumContextId;
     const isCurrentAlbumPlaying = isCurrentAlbum && isPlaying;
-
 
     const totalDuration = tracks.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0);
 
