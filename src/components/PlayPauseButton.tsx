@@ -16,10 +16,15 @@ export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, i
 
     const togglePlayback = async () => {
         try {
-            if (isPlaying) await TrackPlayer.pause();
-            else await TrackPlayer.play();
+            if (isPlaying) {
+                console.log("⏸️ [PlayPauseButton] Presionado: Pausa");
+                await TrackPlayer.pause();
+            } else {
+                console.log("▶️ [PlayPauseButton] Presionado: Play");
+                await TrackPlayer.play();
+            }
         } catch (e) {
-            console.error('Error toggling playback:', e);
+            console.error('❌ [PlayPauseButton] Error alternando estado:', e);
         }
     };
 
