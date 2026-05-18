@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
-import React from 'react';
+import React, { useState } from 'react';
+import Slider from '@react-native-community/slider';
 import {
     Dimensions,
     StyleSheet,
@@ -48,7 +49,12 @@ const PlayerScreenUI = ({
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const { position, duration } = useProgress();
-    const progress = duration > 0 ? (position / duration) * 100 : 0;
+
+    // Seeking state: while dragging we use the local value to avoid jumps
+    const [isSeeking, setIsSeeking] = useState(false);
+    const [seekValue, setSeekValue] = useState(0);
+
+    const displayPosition = isSeeking ? seekValue : position;
 
 
 
@@ -123,13 +129,30 @@ const PlayerScreenUI = ({
                     </TouchableOpacity>
                 </View>
 
-                {/* Progress Bar */}
+                {/* Progress Slider */}
                 <View style={styles.progressSection}>
-                    <View style={styles.progressBarBg}>
-                        <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
-                    </View>
+                    <Slider
+                        style={styles.slider}
+                        minimumValue={0}
+                        maximumValue={duration > 0 ? duration : 1}
+                        value={isSeeking ? seekValue : position}
+                        minimumTrackTintColor="#FFFFFF"
+                        maximumTrackTintColor="rgba(255,255,255,0.2)"
+                        thumbTintColor="#FFFFFF"
+                        onSlidingStart={(value) => {
+                            setIsSeeking(true);
+                            setSeekValue(value);
+                        }}
+                        onValueChange={(value) => {
+                            setSeekValue(value);
+                        }}
+                        onSlidingComplete={(value) => {
+                            setIsSeeking(false);
+                            TrackPlayer.seekTo(value).catch(() => {});
+                        }}
+                    />
                     <View style={styles.timeContainer}>
-                        <Text style={styles.timeText}>{formatTimestamp(position)}</Text>
+                        <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
                         <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
                     </View>
                 </View>
@@ -276,15 +299,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 32,
         marginBottom: 32,
     },
-    progressBarBg: {
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    progressBarFill: {
-        height: '100%',
-        backgroundColor: '#FFFFFF',
+    slider: {
+        width: '100%',
+        height: 40,
+        marginVertical: -8,
     },
     timeContainer: {
         flexDirection: 'row',
