@@ -114,6 +114,10 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
         }
     };
 
+    const handleShuffleFabPress = () => {
+        usePlayerStore.getState().startShuffled(tracks, albumContextId);
+    };
+
     const renderHeader = () => (
         <>
             <DetailHeaderLayout
@@ -136,17 +140,28 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                 onHome={() => navigation.popToTop()}
                 renderExtra={() => (
                     tracks.length > 0 && (
-                        <TouchableOpacity
-                            style={styles.playFab}
-                            onPress={handleFabPress}
-                        >
-                            <Ionicons 
-                                name={isCurrentAlbumPlaying ? "pause" : "play"} 
-                                size={28} 
-                                color="#FFFFFF"
-                                style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
-                            />
-                        </TouchableOpacity>
+                        <>
+                            {/* Botón Shuffle */}
+                            <TouchableOpacity
+                                style={styles.shuffleFab}
+                                onPress={handleShuffleFabPress}
+                            >
+                                <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                            </TouchableOpacity>
+
+                            {/* Botón Play/Pause */}
+                            <TouchableOpacity
+                                style={styles.playFab}
+                                onPress={handleFabPress}
+                            >
+                                <Ionicons 
+                                    name={isCurrentAlbumPlaying ? "pause" : "play"} 
+                                    size={28} 
+                                    color="#FFFFFF"
+                                    style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
+                                />
+                            </TouchableOpacity>
+                        </>
                     )
                 )}
             />
@@ -367,6 +382,17 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 4.65,
+    },
+    shuffleFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 86,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     divider: {
         height: 1,

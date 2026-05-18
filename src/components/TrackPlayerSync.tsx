@@ -26,7 +26,7 @@ export const TrackPlayerSync = () => {
         }
 
         if (event.type === Event.PlaybackActiveTrackChanged) {
-            const { index, track } = event;
+            const { index, lastIndex, track } = event;
             
             if (track?.id) {
                 console.log('🔄 [TrackPlayerSync] Track cambió:', track.id);
@@ -35,6 +35,18 @@ export const TrackPlayerSync = () => {
             
             if (index !== undefined) {
                 await usePlayerStore.getState().updateQueueStatus(index);
+            }
+
+            // Si avanzamos hacia adelante, consumimos un slot de la user queue
+            if (
+                index !== undefined &&
+                lastIndex !== undefined &&
+                index > lastIndex
+            ) {
+                const { userQueueSize, decrementUserQueue } = usePlayerStore.getState();
+                if (userQueueSize > 0) {
+                    decrementUserQueue();
+                }
             }
         }
 

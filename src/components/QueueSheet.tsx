@@ -22,6 +22,7 @@ import TrackPlayer, {
     useTrackPlayerEvents,
 } from 'react-native-track-player';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
+import { usePlayerStore } from '../store/usePlayerStore';
 import { PlayingIndicator } from './PlayingIndicator';
 
 const { height, width } = Dimensions.get('window');
@@ -32,6 +33,8 @@ type ActiveTab = 'queue' | 'recent';
 export default function QueueSheet() {
     const { isVisible, closeQueue } = useQueueSheetStore();
     const insets = useSafeAreaInsets();
+    const userQueueSize = usePlayerStore(state => state.userQueueSize);
+    const decrementUserQueue = usePlayerStore(state => state.decrementUserQueue);
 
     // ── Hooks reactivos de RNTP ──
     const currentTrackRNTP = useActiveTrack();
@@ -121,9 +124,11 @@ export default function QueueSheet() {
         }
     };
 
-    const handleRemove = async (globalIndex: number) => {
+    const handleRemove = async (globalIndex: number, isUserQueued: boolean) => {
         try {
             await TrackPlayer.remove(globalIndex);
+            // Si era un track de la user queue, decrementamos el contador
+            if (isUserQueued) decrementUserQueue();
             const [fullQueue, idx] = await Promise.all([
                 TrackPlayer.getQueue(),
                 TrackPlayer.getActiveTrackIndex(),
@@ -170,6 +175,7 @@ export default function QueueSheet() {
     // --- RENDER: FILA DE COLA (próximas) ---
     const renderQueueItem = ({ item, index }: { item: TPTrack; index: number }) => {
         const globalIndex = activeIndex + 1 + index;
+        const isUserQueued = index < userQueueSize;
         return (
             <TouchableOpacity
                 style={styles.trackRow}
@@ -188,12 +194,19 @@ export default function QueueSheet() {
                     </View>
                 )}
                 <View style={styles.trackInfo}>
-                    <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                    <View style={styles.titleRow}>
+                        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                        {isUserQueued && (
+                            <View style={styles.userQueueBadge}>
+                                <Ionicons name="menu" size={12} color="#A78BFA" />
+                            </View>
+                        )}
+                    </View>
                     <Text style={styles.subtitle} numberOfLines={1}>{item.artist || 'Desconocido'}</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.removeButton}
-                    onPress={() => handleRemove(globalIndex)}
+                    onPress={() => handleRemove(globalIndex, isUserQueued)}
                     hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 >
                     <Ionicons name="close-outline" size={24} color="#555" />
@@ -485,6 +498,20 @@ const styles = StyleSheet.create({
     trackInfo: {
         flex: 1,
         marginRight: 10,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    userQueueBadge: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(167, 139, 250, 0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(167, 139, 250, 0.3)',
+        borderRadius: 5,
+        padding: 3,
     },
     titleContainer: {
         flexDirection: 'row',

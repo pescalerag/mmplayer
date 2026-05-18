@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Slider from '@react-native-community/slider';
 import {
     Dimensions,
@@ -14,7 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     useProgress,
     useTrackPlayerEvents,
-    Event
+    Event,
+    RepeatMode,
 } from 'react-native-track-player';
 import BlurredBackground from '../components/BlurredBackground';
 
@@ -51,11 +52,64 @@ const PlayerScreenUI = ({
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const { position, duration } = useProgress();
 
+    // Shuffle — estado global (sobrevive a la navegación)
+    const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
+    const shuffleOriginalQueue = usePlayerStore(state => state.shuffleOriginalQueue);
+    const setShuffleState = usePlayerStore(state => state.setShuffleState);
+
     // Seeking state: while dragging we use the local value to avoid jumps
     const [isSeeking, setIsSeeking] = useState(false);
     const [seekValue, setSeekValue] = useState(0);
 
     const displayPosition = isSeeking ? seekValue : position;
+
+    // ── Repeat mode ──
+    const [repeatMode, setRepeatModeState] = useState<RepeatMode>(RepeatMode.Off);
+
+    useEffect(() => {
+        TrackPlayer.getRepeatMode().then(setRepeatModeState).catch(() => {});
+    }, []);
+
+    const toggleShuffle = async () => {
+        try {
+            const currentQueue = await TrackPlayer.getQueue();
+            const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
+
+            if (!isShuffleEnabled) {
+                // Guardar la cola completa en el store global
+                setShuffleState(true, currentQueue);
+                const upcoming = currentQueue.slice(currentIndex + 1);
+                const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
+                await TrackPlayer.removeUpcomingTracks();
+                if (shuffled.length > 0) await TrackPlayer.add(shuffled);
+            } else {
+                // Buscar la canción actual en la cola original por ID
+                const currentTrack = currentQueue[currentIndex];
+                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
+                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
+                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
+                await TrackPlayer.removeUpcomingTracks();
+                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
+                // Limpiar el store global
+                setShuffleState(false, []);
+            }
+        } catch (e) {
+            console.error('Error toggling shuffle:', e);
+        }
+    };
+
+    const cycleRepeatMode = async () => {
+        try {
+            const next =
+                repeatMode === RepeatMode.Off   ? RepeatMode.Queue :
+                repeatMode === RepeatMode.Queue  ? RepeatMode.Track :
+                                                   RepeatMode.Off;
+            await TrackPlayer.setRepeatMode(next);
+            setRepeatModeState(next);
+        } catch (e) {
+            console.error('Error cycling repeat mode:', e);
+        }
+    };
 
 
 
@@ -175,28 +229,60 @@ const PlayerScreenUI = ({
 
                 {/* Controls */}
                 <View style={styles.controlsContainer}>
-                    <TouchableOpacity 
-                        onPress={() => {
-                            TrackPlayer.skipToPrevious().catch(() => { });
-                        }} 
+
+                    {/* ── SHUFFLE ── */}
+                    <TouchableOpacity
+                        onPress={toggleShuffle}
+                        style={styles.secondaryControlButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <Ionicons
+                            name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
+                            size={24}
+                            color={isShuffleEnabled ? '#A78BFA' : '#535353'}
+                        />
+                    </TouchableOpacity>
+
+                    {/* ── ANTERIOR ── */}
+                    <TouchableOpacity
+                        onPress={() => TrackPlayer.skipToPrevious().catch(() => {})}
                         style={styles.controlButton}
                         disabled={!hasPrevious}
                     >
-                        <Ionicons name="play-back" size={40} color={hasPrevious ? "#FFFFFF" : "#535353"} />
+                        <Ionicons name="play-back" size={38} color={hasPrevious ? '#FFFFFF' : '#535353'} />
                     </TouchableOpacity>
 
-                    {/* USAMOS EL COMPONENTE UNIVERSAL AQUÍ */}
                     <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
 
-                    <TouchableOpacity 
-                        onPress={() => {
-                            TrackPlayer.skipToNext().catch(() => { });
-                        }} 
+                    {/* ── SIGUIENTE ── */}
+                    <TouchableOpacity
+                        onPress={() => TrackPlayer.skipToNext().catch(() => {})}
                         style={styles.controlButton}
                         disabled={!hasNext}
                     >
-                        <Ionicons name="play-forward" size={40} color={hasNext ? "#FFFFFF" : "#535353"} />
+                        <Ionicons name="play-forward" size={38} color={hasNext ? '#FFFFFF' : '#535353'} />
                     </TouchableOpacity>
+
+                    {/* ── REPEAT ── */}
+                    <TouchableOpacity
+                        onPress={cycleRepeatMode}
+                        style={styles.secondaryControlButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <View>
+                            <Ionicons
+                                name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
+                                size={24}
+                                color={
+                                    repeatMode === RepeatMode.Off ? '#535353' : '#A78BFA'
+                                }
+                            />
+                            {repeatMode === RepeatMode.Track && (
+                                <Text style={styles.repeatOneBadge}>1</Text>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+
                 </View>
 
                 {/* Footer / Secondary Actions */}
@@ -353,6 +439,21 @@ const styles = StyleSheet.create({
     },
     footerButton: {
         padding: 8,
+    },
+    secondaryControlButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    repeatOneBadge: {
+        position: 'absolute',
+        bottom: -4,
+        right: -6,
+        color: '#A78BFA',
+        fontSize: 9,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
     },
 });
 
