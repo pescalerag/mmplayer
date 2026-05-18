@@ -99,6 +99,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                 await TrackPlayer.add([tpTrack]);
             }
             console.log(`🎵 Añadido a continuación: ${track.title}`);
+            await get().updateQueueStatus();
         } catch (error) {
             console.error('Error adding to queue next:', error);
         }
@@ -109,6 +110,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             const tpTrack = await mapToTPTrack(track);
             await TrackPlayer.add([tpTrack]);
             console.log(`🎵 Añadido al final de la cola: ${track.title}`);
+            await get().updateQueueStatus();
         } catch (error) {
             console.error('Error adding to queue end:', error);
         }
