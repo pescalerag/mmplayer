@@ -48,6 +48,9 @@ export const TrackPlayerSync = () => {
                     decrementUserQueue();
                 }
             }
+
+            // Guardar estado en disco tras cada cambio de track
+            await usePlayerStore.getState().savePlaybackState();
         }
 
         if (event.type === Event.PlaybackQueueEnded) {

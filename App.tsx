@@ -11,6 +11,7 @@ import TrackMenuSheet from './src/components/TrackMenuSheet';
 import QueueSheet from './src/components/QueueSheet';
 import MainNavigator from './src/navigation/MainNavigator';
 import { setupPlayer } from './src/services/trackPlayerSetup';
+import { usePlayerStore } from './src/store/usePlayerStore';
 
 
 export default function App() {
@@ -31,6 +32,8 @@ export default function App() {
                 });
 
                 await setupPlayer();
+                // Restaurar cola persistida del último cierre de la app
+                await usePlayerStore.getState().restorePlaybackState();
             } catch (e: any) {
                 console.warn('Error en la inicialización:', e);
             } finally {

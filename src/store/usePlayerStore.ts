@@ -1,8 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { Track as TPTrack } from 'react-native-track-player';
 import { create } from 'zustand';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import Artist from '../database/models/Artist';
+
+const PERSISTENCE_KEY = '@player_persistence';
 
 async function mapToTPTrack(track: Track): Promise<TPTrack> {
     const album = await track.album.fetch();
@@ -42,6 +45,8 @@ interface PlayerState {
     clearPlayer: () => Promise<void>;
     setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
     decrementUserQueue: () => void;
+    savePlaybackState: () => Promise<void>;
+    restorePlaybackState: () => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -178,6 +183,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     clearPlayer: async () => {
         try {
             await TrackPlayer.reset();
+            await AsyncStorage.removeItem(PERSISTENCE_KEY);
             set({
                 activeTrack: null,
                 playbackContext: null,
@@ -202,6 +208,93 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // y hay tracks de la user queue pendientes
     decrementUserQueue: () => {
         set(state => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
+    },
+
+    // ── Persistencia en disco ──
+    savePlaybackState: async () => {
+        try {
+            const queue = await TrackPlayer.getQueue();
+            const index = await TrackPlayer.getActiveTrackIndex();
+            const { playbackContext, isShuffleEnabled, shuffleOriginalQueue, userQueueSize } = get();
+
+            if (queue.length === 0) {
+                await AsyncStorage.removeItem(PERSISTENCE_KEY);
+                return;
+            }
+
+            const payload = JSON.stringify({
+                queue,
+                index,
+                playbackContext,
+                isShuffleEnabled,
+                shuffleOriginalQueue,
+                userQueueSize,
+            });
+            await AsyncStorage.setItem(PERSISTENCE_KEY, payload);
+            console.log('💾 [Store] Estado guardado en disco.');
+        } catch (error) {
+            console.error('Error guardando estado de reproducción:', error);
+        }
+    },
+
+    restorePlaybackState: async () => {
+        try {
+            const savedData = await AsyncStorage.getItem(PERSISTENCE_KEY);
+            if (!savedData) {
+                console.log('🔄 [Store] No hay estado previo guardado.');
+                return;
+            }
+
+            const {
+                queue,
+                index,
+                playbackContext,
+                isShuffleEnabled,
+                shuffleOriginalQueue,
+                userQueueSize,
+            } = JSON.parse(savedData);
+
+            if (!queue || queue.length === 0) return;
+
+            console.log(`🔄 [Store] Restaurando ${queue.length} canciones...`);
+
+            // 1. Rehidratar el motor nativo de TrackPlayer
+            await TrackPlayer.reset();
+            await TrackPlayer.add(queue);
+
+            const safeIndex = (index !== undefined && index !== null && index < queue.length) ? index : 0;
+            await TrackPlayer.skip(safeIndex);
+
+            // Iniciamos pausado para no sorprender al usuario al abrir la app
+            await TrackPlayer.pause();
+
+            // 2. Rehidratar el modelo WatermelonDB por ID
+            const activeTPTrack = queue[safeIndex];
+            let trackModel: Track | null = null;
+            if (activeTPTrack?.id) {
+                try {
+                    trackModel = await database.get<Track>('tracks').find(activeTPTrack.id);
+                } catch (dbError) {
+                    console.warn('[Store] No se encontró el modelo en WatermelonDB:', dbError);
+                }
+            }
+
+            // 3. Rehidratar Zustand
+            set({
+                activeTrack: trackModel,
+                playbackContext: playbackContext ?? null,
+                isShuffleEnabled: isShuffleEnabled ?? false,
+                shuffleOriginalQueue: shuffleOriginalQueue ?? [],
+                userQueueSize: userQueueSize ?? 0,
+                isPlaying: false,
+            });
+
+            // 4. Actualizar hasPrevious / hasNext
+            await get().updateQueueStatus(safeIndex);
+            console.log('✅ [Store] Cola restaurada correctamente.');
+        } catch (error) {
+            console.error('Error restaurando estado de reproducción:', error);
+        }
     },
 
     updateQueueStatus: async (currentIndex?: number) => {

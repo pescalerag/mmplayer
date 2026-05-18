@@ -93,6 +93,8 @@ const PlayerScreenUI = ({
                 // Limpiar el store global
                 setShuffleState(false, []);
             }
+            // Guardar el nuevo orden de la cola en disco
+            await usePlayerStore.getState().savePlaybackState();
         } catch (e) {
             console.error('Error toggling shuffle:', e);
         }
