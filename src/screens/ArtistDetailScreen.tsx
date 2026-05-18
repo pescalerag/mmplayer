@@ -453,11 +453,11 @@ const styles = StyleSheet.create({
     photoButton: {
         position: 'absolute',
         top: 50,
-        right: 16,
+        right: 66,
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
     },

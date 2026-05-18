@@ -27,6 +27,7 @@ import withObservables from '@nozbe/with-observables';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
 import { formatTrackTime } from '../utils/time';
+import MarqueeText from '../components/MarqueeText';
 
 
 const { width } = Dimensions.get('window');
@@ -87,7 +88,12 @@ const PlayerScreenUI = ({
                             });
                         }}
                     >
-                        <Text style={styles.headerTitle} numberOfLines={1}>{album.title}</Text>
+                        <MarqueeText
+                            text={album.title}
+                            style={styles.headerTitle}
+                            speed={35}
+                            pauseDuration={2000}
+                        />
                     </TouchableOpacity>
 
                     <View style={{ width: 40 }} />
@@ -112,7 +118,12 @@ const PlayerScreenUI = ({
 
                 {/* Info */}
                 <View style={styles.infoContainer}>
-                    <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
+                    <MarqueeText
+                        text={track.title}
+                        style={styles.title}
+                        speed={45}
+                        pauseDuration={1800}
+                    />
                     <TouchableOpacity
                         onPress={() => {
                             navigation.goBack();
@@ -125,7 +136,12 @@ const PlayerScreenUI = ({
                             });
                         }}
                     >
-                        <Text style={styles.artist} numberOfLines={1}>{artist.name}</Text>
+                        <MarqueeText
+                            text={artist.name}
+                            style={styles.artist}
+                            speed={35}
+                            pauseDuration={2000}
+                        />
                     </TouchableOpacity>
                 </View>
 
@@ -262,7 +278,9 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 32,
+        paddingHorizontal: 32,
+        paddingTop: 16,
+        paddingBottom: 8,
     },
     artwork: {
         width: width - 64,
@@ -280,24 +298,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     infoContainer: {
-        paddingHorizontal: 32,
-        marginBottom: 32,
+        paddingHorizontal: 20,
+        marginBottom: 8,
     },
     title: {
         color: '#FFFFFF',
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: 'bold',
         fontFamily: 'Montserrat',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     artist: {
         color: '#B3B3B3',
-        fontSize: 18,
+        fontSize: 16,
         fontFamily: 'Montserrat',
     },
     progressSection: {
-        paddingHorizontal: 32,
-        marginBottom: 32,
+        paddingHorizontal: 16,
+        marginBottom: 20,
     },
     slider: {
         width: '100%',
@@ -307,7 +325,8 @@ const styles = StyleSheet.create({
     timeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 12,
+        paddingHorizontal: 4,
+        marginTop: 4,
     },
     timeText: {
         color: '#B3B3B3',
@@ -319,7 +338,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-around',
         paddingHorizontal: 32,
-        marginBottom: 32,
+        marginBottom: 16,
     },
     controlButton: {
         padding: 10,
