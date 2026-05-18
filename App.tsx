@@ -12,6 +12,7 @@ import QueueSheet from './src/components/QueueSheet';
 import MainNavigator from './src/navigation/MainNavigator';
 import { setupPlayer } from './src/services/trackPlayerSetup';
 import { usePlayerStore } from './src/store/usePlayerStore';
+import { navigationRef } from './src/navigation/navigationRef';
 
 
 export default function App() {
@@ -71,7 +72,7 @@ export default function App() {
         <SafeAreaProvider>
             <View style={{ flex: 1, backgroundColor: '#000000' }}>
                 <TrackPlayerSync />
-                <NavigationContainer theme={{
+                <NavigationContainer ref={navigationRef} theme={{
                     dark: true,
                     colors: {
                         primary: '#8B5CF6',
@@ -90,9 +91,11 @@ export default function App() {
                 }}>
                     <StatusBar style="light" />
                     <MainNavigator />
+                    {/* Los sheets globales deben estar dentro de NavigationContainer
+                        para que useNavigation() funcione en ellos */}
+                    <TrackMenuSheet />
+                    <QueueSheet />
                 </NavigationContainer>
-                <TrackMenuSheet />
-                <QueueSheet />
             </View>
         </SafeAreaProvider>
     );

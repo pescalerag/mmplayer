@@ -137,7 +137,7 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                     !isLoadingTracks && totalDuration > 0 ? formatAlbumDuration(totalDuration) : null
                 ].filter(Boolean).join(' · ')}
                 onBack={handleBack}
-                onHome={() => navigation.popToTop()}
+                onHome={() => navigation.navigate('Biblioteca' as never)}
                 renderExtra={() => (
                     tracks.length > 0 && (
                         <>

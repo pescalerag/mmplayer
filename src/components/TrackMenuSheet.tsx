@@ -19,17 +19,20 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { navigationRef } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TrackMenuSheet() {
     const insets = useSafeAreaInsets();
-    const { isVisible, selectedTrack, closeMenu } = useTrackMenuStore();
+    const { isVisible, selectedTrack, closeMenu, navCallbacks } = useTrackMenuStore();
     const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
     const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
     
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [artistName, setArtistName] = useState('Desconocido');
+    const [albumId, setAlbumId] = useState<string | null>(null);
+    const [artistId, setArtistId] = useState<string | null>(null);
 
     // Valores animados
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -95,6 +98,8 @@ export default function TrackMenuSheet() {
             ]);
             setImageUrl(album?.coverUrl || null);
             setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : 'Desconocido');
+            setAlbumId(album?.id || null);
+            setArtistId(artists[0]?.id || null);
         };
         loadMetadata();
     }, [selectedTrack]);
@@ -188,6 +193,59 @@ export default function TrackMenuSheet() {
                     </View>
                     <Text style={styles.optionText}>Añadir al final de la cola</Text>
                 </TouchableOpacity>
+
+                {/* ── Separador ── */}
+                <View style={styles.separator} />
+
+                {/* OPCIÓN: Ir al álbum */}
+                {albumId && (
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={() => {
+                            closeMenu();
+                            if (navCallbacks.album) {
+                                // Abierto desde el Player: goBack() + navigate con fromPlayer
+                                navCallbacks.album(albumId);
+                            } else if (navigationRef.isReady()) {
+                                // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
+                                navigationRef.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: { screen: 'AlbumDetail', params: { albumId } }
+                                });
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="disc-outline" size={24} color="#FFFFFF" />
+                        </View>
+                        <Text style={styles.optionText}>Ir al álbum</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* OPCIÓN: Ver artista */}
+                {artistId && (
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={() => {
+                            closeMenu();
+                            if (navCallbacks.artist) {
+                                // Abierto desde el Player: goBack() + navigate con fromPlayer
+                                navCallbacks.artist(artistId);
+                            } else if (navigationRef.isReady()) {
+                                // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
+                                navigationRef.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: { screen: 'ArtistDetail', params: { artistId } }
+                                });
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+                        </View>
+                        <Text style={styles.optionText}>Ver artista</Text>
+                    </TouchableOpacity>
+                )}
             </Animated.View>
         </View>
     );
@@ -269,5 +327,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
+    },
+    separator: {
+        height: 1,
+        backgroundColor: '#282828',
+        marginVertical: 8,
     },
 });

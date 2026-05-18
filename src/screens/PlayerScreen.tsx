@@ -29,6 +29,7 @@ import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
 import { formatTrackTime } from '../utils/time';
 import MarqueeText from '../components/MarqueeText';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 
 
 const { width } = Dimensions.get('window');
@@ -152,7 +153,28 @@ const PlayerScreenUI = ({
                         />
                     </TouchableOpacity>
 
-                    <View style={{ width: 40 }} />
+                    <TouchableOpacity
+                        style={styles.moreButton}
+                        onPress={() => useTrackMenuStore.getState().openMenu(track, {
+                            album: (albumId) => {
+                                navigation.goBack();
+                                navigation.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: { screen: 'AlbumDetail', params: { albumId, fromPlayer: true } }
+                                });
+                            },
+                            artist: (artistId) => {
+                                navigation.goBack();
+                                navigation.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: { screen: 'ArtistDetail', params: { artistId, fromPlayer: true } }
+                                });
+                            },
+                        })}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Artwork */}
@@ -447,6 +469,12 @@ const styles = StyleSheet.create({
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    moreButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     repeatOneBadge: {
         position: 'absolute',
