@@ -4,6 +4,7 @@ import React from 'react';
 import AlbumDetailScreen from '../screens/AlbumDetailScreen';
 import ArtistDetailScreen from '../screens/ArtistDetailScreen';
 import SearchScreen from '../screens/SearchScreen';
+import TagDetailScreen from '../screens/TagDetailScreen';
 import { SearchStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<SearchStackParamList>();
@@ -26,6 +27,11 @@ export default function SearchNavigator() {
                 name="AlbumDetail"
                 component={AlbumDetailScreen}
                 getId={({ params }) => params.albumId}
+            />
+            <Stack.Screen
+                name="TagDetail"
+                component={TagDetailScreen}
+                getId={({ params }) => params.tagId}
             />
         </Stack.Navigator>
     );

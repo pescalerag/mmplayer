@@ -8,9 +8,14 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TrackPlayerSync } from './src/components/TrackPlayerSync';
 import TrackMenuSheet from './src/components/TrackMenuSheet';
+import AlbumMenuSheet from './src/components/AlbumMenuSheet';
 import QueueSheet from './src/components/QueueSheet';
+import TagManagerModal from './src/components/TagManagerModal';
+import TagFormModal from './src/components/TagFormModal';
 import MainNavigator from './src/navigation/MainNavigator';
 import { setupPlayer } from './src/services/trackPlayerSetup';
+import { usePlayerStore } from './src/store/usePlayerStore';
+import { navigationRef } from './src/navigation/navigationRef';
 
 
 export default function App() {
@@ -31,6 +36,8 @@ export default function App() {
                 });
 
                 await setupPlayer();
+                // Restaurar cola persistida del último cierre de la app
+                await usePlayerStore.getState().restorePlaybackState();
             } catch (e: any) {
                 console.warn('Error en la inicialización:', e);
             } finally {
@@ -68,7 +75,7 @@ export default function App() {
         <SafeAreaProvider>
             <View style={{ flex: 1, backgroundColor: '#000000' }}>
                 <TrackPlayerSync />
-                <NavigationContainer theme={{
+                <NavigationContainer ref={navigationRef} theme={{
                     dark: true,
                     colors: {
                         primary: '#8B5CF6',
@@ -87,9 +94,14 @@ export default function App() {
                 }}>
                     <StatusBar style="light" />
                     <MainNavigator />
+                    {/* Los sheets globales deben estar dentro de NavigationContainer
+                        para que useNavigation() funcione en ellos */}
+                    <TrackMenuSheet />
+                    <AlbumMenuSheet />
+                    <QueueSheet />
+                    <TagManagerModal />
+                    <TagFormModal />
                 </NavigationContainer>
-                <TrackMenuSheet />
-                <QueueSheet />
             </View>
         </SafeAreaProvider>
     );

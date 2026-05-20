@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
+import withObservables from '@nozbe/with-observables';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
@@ -10,6 +11,7 @@ import {
     FlatList,
     InteractionManager,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -24,9 +26,12 @@ import TrackRow from '../components/TrackRow';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
+import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import { AlbumDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useTagManagerStore } from '../store/useTagManagerStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { Layout } from '../theme/theme';
 
 const { width } = Dimensions.get('window');
@@ -38,11 +43,13 @@ interface Props {
     album: Album;
     artist: Artist;
     tracks: Track[];
+    tags: Tag[];
     fromPlayer?: boolean;
 }
 
-function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer }: Props & { isLoadingTracks: boolean }) {
+function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks, fromPlayer }: Props & { isLoadingTracks: boolean }) {
     const navigation = useNavigation<any>();
+    const showTagColors = useSettingsStore(state => state.showTagColors);
 
     // ─── ESTADOS DEL REPRODUCTOR ───
     const isPlaying = usePlayerStore(state => state.isPlaying);
@@ -114,12 +121,45 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
         }
     };
 
+    const handleShuffleFabPress = () => {
+        usePlayerStore.getState().startShuffled(tracks, albumContextId);
+    };
+
     const renderHeader = () => (
         <>
             <DetailHeaderLayout
                 title={album.title}
                 imageUrl={album.coverUrl}
                 placeholderIcon="albums"
+                renderHeaderPrefix={() => (
+                    <View style={styles.tagsRow}>
+                        {tags && tags.length > 0 ? (
+                            <ScrollView 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.tagsScroll}
+                            >
+                                {tags.map(t => (
+                                    <TouchableOpacity 
+                                        key={t.id} 
+                                        style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
+                                        onPress={() => useTagManagerStore.getState().openForAlbum(album)}
+                                    >
+                                        <Text style={styles.tagText}>{t.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : (
+                            <TouchableOpacity 
+                                style={styles.addTagButton}
+                                onPress={() => useTagManagerStore.getState().openForAlbum(album)}
+                            >
+                                <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
+                                <Text style={styles.addTagText}>Añadir Tag</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
                 subtitle={
                     artist && (
                         <TouchableOpacity onPress={navigateToArtist}>
@@ -133,20 +173,31 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
                     !isLoadingTracks && totalDuration > 0 ? formatAlbumDuration(totalDuration) : null
                 ].filter(Boolean).join(' · ')}
                 onBack={handleBack}
-                onHome={() => navigation.popToTop()}
+                onHome={() => navigation.navigate('Biblioteca' as never)}
                 renderExtra={() => (
                     tracks.length > 0 && (
-                        <TouchableOpacity
-                            style={styles.playFab}
-                            onPress={handleFabPress}
-                        >
-                            <Ionicons 
-                                name={isCurrentAlbumPlaying ? "pause" : "play"} 
-                                size={28} 
-                                color="#FFFFFF"
-                                style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
-                            />
-                        </TouchableOpacity>
+                        <>
+                            {/* Botón Shuffle */}
+                            <TouchableOpacity
+                                style={styles.shuffleFab}
+                                onPress={handleShuffleFabPress}
+                            >
+                                <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                            </TouchableOpacity>
+
+                            {/* Botón Play/Pause */}
+                            <TouchableOpacity
+                                style={styles.playFab}
+                                onPress={handleFabPress}
+                            >
+                                <Ionicons 
+                                    name={isCurrentAlbumPlaying ? "pause" : "play"} 
+                                    size={28} 
+                                    color="#FFFFFF"
+                                    style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
+                                />
+                            </TouchableOpacity>
+                        </>
                     )
                 )}
             />
@@ -214,6 +265,11 @@ function AlbumDetailContent({ album, artist, tracks, isLoadingTracks, fromPlayer
     );
 }
 
+const EnhancedAlbumDetailContent = withObservables(['album'], ({ album }) => ({
+    album: album.observe(),
+    tags: album.queryTags.observe(),
+}))(AlbumDetailContent);
+
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 export default function AlbumDetailScreen() {
     const route = useRoute<AlbumDetailRouteProp>();
@@ -271,7 +327,7 @@ export default function AlbumDetailScreen() {
     }
 
     return (
-        <AlbumDetailContent
+        <EnhancedAlbumDetailContent
             album={album}
             artist={artist!}
             tracks={tracks}
@@ -333,18 +389,17 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     artistName: {
-        color: '#8B5CF6',
+        color: '#FFFFFF',
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         marginBottom: 4,
     },
     artistNameLink: {
-        color: '#8B5CF6',
+        color: '#FFFFFF',
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
-        textDecorationLine: 'underline',
     },
     albumMeta: {
         color: '#CCCCCC',
@@ -367,6 +422,17 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 4.65,
+    },
+    shuffleFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 86,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     divider: {
         height: 1,
@@ -395,5 +461,39 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         textTransform: 'uppercase',
         letterSpacing: 1,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        minHeight: 24,
+    },
+    tagsScroll: {
+        gap: 6,
+    },
+    tagBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tagText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+    },
+    addTagButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 3,
+    },
+    addTagText: {
+        color: '#B3B3B3',
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
     },
 });

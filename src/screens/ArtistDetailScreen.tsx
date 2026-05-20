@@ -31,6 +31,7 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
 
 const { width } = Dimensions.get('window');
@@ -73,6 +74,7 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { al
                 imageUrl={album.coverUrl}
                 placeholderIcon="albums"
                 onPress={onPress}
+                onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
             />
         </View>
     );
@@ -117,7 +119,7 @@ const ArtistHeader = memo(function ArtistHeader({
                 placeholderIcon="person"
                 metaInfo={metaInfo}
                 onBack={handleBack}
-                onHome={() => navigation.popToTop()}
+                onHome={() => navigation.navigate('Biblioteca' as never)}
                 renderExtra={() => (
                     <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
                         <Ionicons name="camera" size={20} color="#FFFFFF" />
@@ -453,11 +455,11 @@ const styles = StyleSheet.create({
     photoButton: {
         position: 'absolute',
         top: 50,
-        right: 16,
+        right: 66,
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
     },

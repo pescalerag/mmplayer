@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import MarqueeText from './MarqueeText';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -22,6 +23,7 @@ interface DetailHeaderLayoutProps {
     onBack: () => void;
     onHome: () => void;
     renderExtra?: () => React.ReactNode;
+    renderHeaderPrefix?: () => React.ReactNode;
 }
 
 const DetailHeaderLayout = ({
@@ -33,6 +35,7 @@ const DetailHeaderLayout = ({
     onBack,
     onHome,
     renderExtra,
+    renderHeaderPrefix,
 }: DetailHeaderLayoutProps) => {
     return (
         <View style={styles.headerContainer}>
@@ -71,7 +74,14 @@ const DetailHeaderLayout = ({
 
             {/* Info */}
             <View style={styles.headerInfo}>
-                <Text style={styles.title} numberOfLines={2}>{title}</Text>
+                {renderHeaderPrefix?.()}
+                <MarqueeText
+                    text={title}
+                    style={styles.title}
+                    speed={30}
+                    pauseDuration={2000}
+                    spacing={80}
+                />
                 
                 {subtitle && (
                     <View style={styles.subtitleContainer}>

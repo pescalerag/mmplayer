@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -11,20 +13,24 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
-    useProgress,
-    useTrackPlayerEvents,
-    Event
+    RepeatMode,
+    useProgress
 } from 'react-native-track-player';
 import BlurredBackground from '../components/BlurredBackground';
 
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
+import Tag from '../database/models/Tag';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
+import { useTagManagerStore } from '../store/useTagManagerStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 import withObservables from '@nozbe/with-observables';
+import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { formatTrackTime } from '../utils/time';
 
 
@@ -36,6 +42,7 @@ interface PlayerScreenUIProps {
     track: Track;
     album: Album;
     artist: Artist;
+    tags: Tag[];
     navigation: any;
     formatTimestamp: (s: number) => string;
     hasNext: boolean;
@@ -43,12 +50,73 @@ interface PlayerScreenUIProps {
 }
 
 const PlayerScreenUI = ({
-    track, album, artist, navigation, formatTimestamp, hasNext, hasPrevious
+    track, album, artist, tags, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const { position, duration } = useProgress();
-    const progress = duration > 0 ? (position / duration) * 100 : 0;
+    const showTagColors = useSettingsStore(state => state.showTagColors);
+
+    // Shuffle — estado global (sobrevive a la navegación)
+    const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
+    const shuffleOriginalQueue = usePlayerStore(state => state.shuffleOriginalQueue);
+    const setShuffleState = usePlayerStore(state => state.setShuffleState);
+
+    // Seeking state: while dragging we use the local value to avoid jumps
+    const [isSeeking, setIsSeeking] = useState(false);
+    const [seekValue, setSeekValue] = useState(0);
+
+    const displayPosition = isSeeking ? seekValue : position;
+
+    // ── Repeat mode ──
+    const [repeatMode, setRepeatModeState] = useState<RepeatMode>(RepeatMode.Off);
+
+    useEffect(() => {
+        TrackPlayer.getRepeatMode().then(setRepeatModeState).catch(() => {});
+    }, []);
+
+    const toggleShuffle = async () => {
+        try {
+            const currentQueue = await TrackPlayer.getQueue();
+            const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
+
+            if (!isShuffleEnabled) {
+                // Guardar la cola completa en el store global
+                setShuffleState(true, currentQueue);
+                const upcoming = currentQueue.slice(currentIndex + 1);
+                const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
+                await TrackPlayer.removeUpcomingTracks();
+                if (shuffled.length > 0) await TrackPlayer.add(shuffled);
+            } else {
+                // Buscar la canción actual en la cola original por ID
+                const currentTrack = currentQueue[currentIndex];
+                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
+                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
+                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
+                await TrackPlayer.removeUpcomingTracks();
+                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
+                // Limpiar el store global
+                setShuffleState(false, []);
+            }
+            // Guardar el nuevo orden de la cola en disco
+            await usePlayerStore.getState().savePlaybackState();
+        } catch (e) {
+            console.error('Error toggling shuffle:', e);
+        }
+    };
+
+    const cycleRepeatMode = async () => {
+        try {
+            const next =
+                repeatMode === RepeatMode.Off   ? RepeatMode.Queue :
+                repeatMode === RepeatMode.Queue  ? RepeatMode.Track :
+                                                   RepeatMode.Off;
+            await TrackPlayer.setRepeatMode(next);
+            setRepeatModeState(next);
+        } catch (e) {
+            console.error('Error cycling repeat mode:', e);
+        }
+    };
 
 
 
@@ -57,8 +125,8 @@ const PlayerScreenUI = ({
             {/* Background Image with Blur */}
             <BlurredBackground
                 imageUrl={album.coverUrl}
-                blurIntensity={80}
-                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000000']}
+                blurIntensity={10}
+                gradientColors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.7)', '#000000']}
             />
 
             <View style={styles.safeArea}>
@@ -81,10 +149,36 @@ const PlayerScreenUI = ({
                             });
                         }}
                     >
-                        <Text style={styles.headerTitle} numberOfLines={1}>{album.title}</Text>
+                        <MarqueeText
+                            text={album.title}
+                            style={styles.headerTitle}
+                            speed={35}
+                            pauseDuration={2000}
+                        />
                     </TouchableOpacity>
 
-                    <View style={{ width: 40 }} />
+                    <TouchableOpacity
+                        style={styles.moreButton}
+                        onPress={() => useTrackMenuStore.getState().openMenu(track, {
+                            album: (albumId) => {
+                                navigation.goBack();
+                                navigation.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: { screen: 'AlbumDetail', params: { albumId, fromPlayer: true } }
+                                });
+                            },
+                            artist: (artistId) => {
+                                navigation.goBack();
+                                navigation.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: { screen: 'ArtistDetail', params: { artistId, fromPlayer: true } }
+                                });
+                            },
+                        })}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Artwork */}
@@ -106,7 +200,41 @@ const PlayerScreenUI = ({
 
                 {/* Info */}
                 <View style={styles.infoContainer}>
-                    <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
+                    {/* Tags row */}
+                    <View style={styles.tagsRow}>
+                        {tags && tags.length > 0 ? (
+                            <ScrollView 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.tagsScroll}
+                            >
+                                {tags.map(t => (
+                                    <TouchableOpacity 
+                                        key={t.id} 
+                                        style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
+                                        onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                                    >
+                                        <Text style={styles.tagText}>{t.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : (
+                            <TouchableOpacity 
+                                style={styles.addTagButton}
+                                onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                            >
+                                <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
+                                <Text style={styles.addTagText}>Añadir Tag</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    <MarqueeText
+                        text={track.title}
+                        style={styles.title}
+                        speed={45}
+                        pauseDuration={1800}
+                    />
                     <TouchableOpacity
                         onPress={() => {
                             navigation.goBack();
@@ -119,45 +247,99 @@ const PlayerScreenUI = ({
                             });
                         }}
                     >
-                        <Text style={styles.artist} numberOfLines={1}>{artist.name}</Text>
+                        <MarqueeText
+                            text={artist.name}
+                            style={styles.artist}
+                            speed={35}
+                            pauseDuration={2000}
+                        />
                     </TouchableOpacity>
                 </View>
 
-                {/* Progress Bar */}
+                {/* Progress Slider */}
                 <View style={styles.progressSection}>
-                    <View style={styles.progressBarBg}>
-                        <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
-                    </View>
+                    <Slider
+                        style={styles.slider}
+                        minimumValue={0}
+                        maximumValue={duration > 0 ? duration : 1}
+                        value={isSeeking ? seekValue : position}
+                        minimumTrackTintColor="#FFFFFF"
+                        maximumTrackTintColor="rgba(255,255,255,0.2)"
+                        thumbTintColor="#FFFFFF"
+                        onSlidingStart={(value) => {
+                            setIsSeeking(true);
+                            setSeekValue(value);
+                        }}
+                        onValueChange={(value) => {
+                            setSeekValue(value);
+                        }}
+                        onSlidingComplete={(value) => {
+                            setIsSeeking(false);
+                            TrackPlayer.seekTo(value).catch(() => {});
+                        }}
+                    />
                     <View style={styles.timeContainer}>
-                        <Text style={styles.timeText}>{formatTimestamp(position)}</Text>
+                        <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
                         <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
                     </View>
                 </View>
 
                 {/* Controls */}
                 <View style={styles.controlsContainer}>
-                    <TouchableOpacity 
-                        onPress={() => {
-                            TrackPlayer.skipToPrevious().catch(() => { });
-                        }} 
+
+                    {/* ── SHUFFLE ── */}
+                    <TouchableOpacity
+                        onPress={toggleShuffle}
+                        style={styles.secondaryControlButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <Ionicons
+                            name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
+                            size={24}
+                            color={isShuffleEnabled ? '#A78BFA' : '#535353'}
+                        />
+                    </TouchableOpacity>
+
+                    {/* ── ANTERIOR ── */}
+                    <TouchableOpacity
+                        onPress={() => TrackPlayer.skipToPrevious().catch(() => {})}
                         style={styles.controlButton}
                         disabled={!hasPrevious}
                     >
-                        <Ionicons name="play-back" size={40} color={hasPrevious ? "#FFFFFF" : "#535353"} />
+                        <Ionicons name="play-back" size={38} color={hasPrevious ? '#FFFFFF' : '#535353'} />
                     </TouchableOpacity>
 
-                    {/* USAMOS EL COMPONENTE UNIVERSAL AQUÍ */}
                     <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
 
-                    <TouchableOpacity 
-                        onPress={() => {
-                            TrackPlayer.skipToNext().catch(() => { });
-                        }} 
+                    {/* ── SIGUIENTE ── */}
+                    <TouchableOpacity
+                        onPress={() => TrackPlayer.skipToNext().catch(() => {})}
                         style={styles.controlButton}
                         disabled={!hasNext}
                     >
-                        <Ionicons name="play-forward" size={40} color={hasNext ? "#FFFFFF" : "#535353"} />
+                        <Ionicons name="play-forward" size={38} color={hasNext ? '#FFFFFF' : '#535353'} />
                     </TouchableOpacity>
+
+                    {/* ── REPEAT ── */}
+                    <TouchableOpacity
+                        onPress={cycleRepeatMode}
+                        style={styles.secondaryControlButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <View>
+                            <Ionicons
+                                name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
+                                size={24}
+                                color={
+                                    repeatMode === RepeatMode.Off ? '#535353' : '#A78BFA'
+                                }
+                            />
+                            {repeatMode === RepeatMode.Track && (
+                                <Text style={styles.repeatOneBadge}>1</Text>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+
                 </View>
 
                 {/* Footer / Secondary Actions */}
@@ -179,6 +361,7 @@ const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }
     track: trackModel.observe(),
     album: trackModel.album.observe(),
     artist: trackModel.artist.observe(),
+    tags: trackModel.queryTags.observe(),
 }))(PlayerScreenUI);
 
 const PlayerScreen = () => {
@@ -239,12 +422,14 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 32,
+        paddingHorizontal: 32,
+        paddingTop: 16,
+        paddingBottom: 8,
     },
     artwork: {
         width: width - 64,
         height: width - 64,
-        borderRadius: 20,
+        borderRadius: 10,
         backgroundColor: '#282828',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 20 },
@@ -257,39 +442,69 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     infoContainer: {
-        paddingHorizontal: 32,
-        marginBottom: 32,
+        paddingHorizontal: 20,
+        marginBottom: 8,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+        minHeight: 24,
+    },
+    tagsScroll: {
+        gap: 6,
+    },
+    tagBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tagText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+    },
+    addTagButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 3,
+    },
+    addTagText: {
+        color: '#B3B3B3',
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
     },
     title: {
         color: '#FFFFFF',
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: 'bold',
         fontFamily: 'Montserrat',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     artist: {
         color: '#B3B3B3',
-        fontSize: 18,
+        fontSize: 16,
         fontFamily: 'Montserrat',
     },
     progressSection: {
-        paddingHorizontal: 32,
-        marginBottom: 32,
+        paddingHorizontal: 5,
+        marginBottom: 5,
     },
-    progressBarBg: {
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    progressBarFill: {
-        height: '100%',
-        backgroundColor: '#FFFFFF',
+    slider: {
+        width: '100%',
+        height: 40,
+        marginVertical: -8,
     },
     timeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 12,
+        paddingHorizontal: 15,
+        marginTop: 4,
     },
     timeText: {
         color: '#B3B3B3',
@@ -300,22 +515,43 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
-        paddingHorizontal: 32,
-        marginBottom: 32,
+        paddingHorizontal: 4,
+        marginBottom: 10,
     },
     controlButton: {
         padding: 10,
     },
     mainControlButton: {
-        padding: 0,
+        padding: 10,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        paddingHorizontal: 32,
+        paddingHorizontal: 10,
     },
     footerButton: {
         padding: 8,
+    },
+    secondaryControlButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    moreButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    repeatOneBadge: {
+        position: 'absolute',
+        bottom: -4,
+        right: -6,
+        color: '#A78BFA',
+        fontSize: 9,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
     },
 });
 

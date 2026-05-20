@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import {
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { Layout } from '../theme/theme';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -21,6 +23,7 @@ interface SettingsProps {
 function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsProps) {
     const insets = useSafeAreaInsets();
     const [headerHeight, setHeaderHeight] = useState(100);
+    const { showTagColors, setShowTagColors } = useSettingsStore();
 
 
     return (
@@ -77,6 +80,26 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             <Text style={styles.statValue}>{artistsCount}</Text>
                             <Text style={styles.statLabel}>Artistas</Text>
                         </View>
+                    </View>
+                </View>
+
+                {/* --- SECCIÓN DE AJUSTES --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>Visualización</Text>
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>Colores de etiquetas</Text>
+                            <Text style={styles.settingDescription}>
+                                Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.
+                            </Text>
+                        </View>
+                        <Switch
+                            value={showTagColors}
+                            onValueChange={setShowTagColors}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={showTagColors ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
                     </View>
                 </View>
 
@@ -173,6 +196,25 @@ const styles = StyleSheet.create({
         right: 0,
         height: 160,
         zIndex: 1,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4,
+    },
+    settingLabel: {
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#FFFFFF',
+    },
+    settingDescription: {
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        color: '#888',
+        marginTop: 4,
+        lineHeight: 16,
     }
 });
 

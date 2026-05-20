@@ -62,5 +62,17 @@ export const myMigrations = schemaMigrations({
                 }),
             ],
         },
+        {
+            toVersion: 6,
+            steps: [
+                createTable({
+                    name: 'album_tags',
+                    columns: [
+                        { name: 'album_id', type: 'string', isIndexed: true },
+                        { name: 'tag_id', type: 'string', isIndexed: true },
+                    ],
+                }),
+            ],
+        },
     ],
 });

@@ -15,6 +15,7 @@ import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
 import { ScannerService } from '../services/ScannerService';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
 
 
@@ -111,6 +112,7 @@ const AlbumCard = memo(function AlbumCard({ album, onPress }: { album: Album, on
             imageUrl={album.coverUrl}
             placeholderIcon="albums"
             onPress={onPress}
+            onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
         />
     );
 });

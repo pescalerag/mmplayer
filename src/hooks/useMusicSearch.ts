@@ -129,6 +129,10 @@ export function useMusicSearch(query: string) {
                     albumConditions.push(Q.where('artist_id', Q.oneOf(artistIds)));
                 }
 
+                if (tagIds.length > 0) {
+                    albumConditions.push(Q.on('album_tags', 'tag_id', Q.oneOf(tagIds)));
+                }
+
                 // PASO 4: Ejecutar las consultas limpias
                 const [tracks, albums] = await Promise.all([
                     database.collections.get<Track>('tracks').query(
@@ -139,6 +143,7 @@ export function useMusicSearch(query: string) {
                         Q.take(TRACKS_PER_PAGE)
                     ).fetch(),
                     database.collections.get<Album>('albums').query(
+                        Q.experimentalJoinTables(['album_tags']),
                         Q.or(...albumConditions),
                         Q.sortBy('title', Q.asc),
                         Q.take(20)

@@ -1,8 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { Track as TPTrack } from 'react-native-track-player';
 import { create } from 'zustand';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import Artist from '../database/models/Artist';
+
+const PERSISTENCE_KEY = '@player_persistence';
 
 async function mapToTPTrack(track: Track): Promise<TPTrack> {
     const album = await track.album.fetch();
@@ -26,14 +29,26 @@ interface PlayerState {
     isPlaying: boolean;
     hasNext: boolean;
     hasPrevious: boolean;
+    isShuffleEnabled: boolean;
+    shuffleOriginalQueue: TPTrack[];
+    // Número de tracks que el usuario ha añadido manualmente a la cola
+    // (se sitúan después de la canción actual pero antes del contexto del álbum)
+    userQueueSize: number;
     loadQueue: (tracks: Track[], index: number, context?: string) => Promise<void>;
+    startShuffled: (tracks: Track[], context?: string) => Promise<void>;
     playSingleTrack: (track: Track, context?: string) => Promise<void>;
     setActiveTrackById: (trackId: string) => Promise<void>;
     setIsPlaying: (playing: boolean) => void;
     addToQueueNext: (track: Track) => Promise<void>;
     addToQueueEnd: (track: Track) => Promise<void>;
+    addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
+    addMultipleToQueueEnd: (tracks: Track[]) => Promise<void>;
     updateQueueStatus: (currentIndex?: number) => Promise<void>;
     clearPlayer: () => Promise<void>;
+    setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
+    decrementUserQueue: () => void;
+    savePlaybackState: () => Promise<void>;
+    restorePlaybackState: () => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -42,6 +57,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     isPlaying: false,
     hasNext: false,
     hasPrevious: false,
+    isShuffleEnabled: false,
+    shuffleOriginalQueue: [],
+    userQueueSize: 0,
 
     loadQueue: async (tracks, index, context = 'unknown') => {
         try {
@@ -51,10 +69,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             await TrackPlayer.add(tpTracks);
             await TrackPlayer.skip(index);
             await TrackPlayer.play();
-            set({ activeTrack: tracks[index], playbackContext: context });
+            // Al cargar una nueva cola se resetea el shuffle y la cola manual
+            set({ activeTrack: tracks[index], playbackContext: context, isShuffleEnabled: false, shuffleOriginalQueue: [], userQueueSize: 0 });
 
         } catch (error) {
             console.error('Error loading queue:', error);
+        }
+    },
+
+    startShuffled: async (tracks, context = 'unknown') => {
+        try {
+            const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+
+            // 1. Elegir un track de inicio aleatorio
+            const startIndex = Math.floor(Math.random() * tracks.length);
+
+            // 2. Cargar la cola completa en orden original
+            await TrackPlayer.reset();
+            await TrackPlayer.add(tpTracks);
+            await TrackPlayer.skip(startIndex);
+            await TrackPlayer.play();
+
+            // 3. Barajar los tracks que vienen después
+            const upcoming = tpTracks.slice(startIndex + 1);
+            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
+            await TrackPlayer.removeUpcomingTracks();
+            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
+
+            // 4. Guardar estado: shuffle activo, cola original guardada
+            set({
+                activeTrack: tracks[startIndex],
+                playbackContext: context,
+                isShuffleEnabled: true,
+                shuffleOriginalQueue: tpTracks,
+                userQueueSize: 0,
+            });
+        } catch (error) {
+            console.error('Error starting shuffled queue:', error);
         }
     },
 
@@ -64,7 +115,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             await TrackPlayer.reset();
             await TrackPlayer.add([tpTrack]);
             await TrackPlayer.play();
-            set({ activeTrack: track, playbackContext: context });
+            set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
 
         } catch (error) {
             console.error('Error playing single track:', error);
@@ -94,11 +145,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
             if (currentIndex !== undefined && currentIndex !== null) {
+                // Insertar justo después de la canción actual (primer slot de la user queue)
                 await TrackPlayer.add([tpTrack], currentIndex + 1);
             } else {
                 await TrackPlayer.add([tpTrack]);
             }
+            // Incrementar el tamaño de la cola manual
+            set(state => ({ userQueueSize: state.userQueueSize + 1 }));
             console.log(`🎵 Añadido a continuación: ${track.title}`);
+            await get().updateQueueStatus();
         } catch (error) {
             console.error('Error adding to queue next:', error);
         }
@@ -107,21 +162,184 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     addToQueueEnd: async (track) => {
         try {
             const tpTrack = await mapToTPTrack(track);
-            await TrackPlayer.add([tpTrack]);
-            console.log(`🎵 Añadido al final de la cola: ${track.title}`);
+            const currentIndex = await TrackPlayer.getActiveTrackIndex();
+            const { userQueueSize } = get();
+
+            if (currentIndex !== undefined && currentIndex !== null) {
+                // Insertar después de todos los tracks de la user queue
+                // pero antes de la cola de contexto (resto del álbum/artista)
+                const insertAt = currentIndex + 1 + userQueueSize;
+                await TrackPlayer.add([tpTrack], insertAt);
+            } else {
+                await TrackPlayer.add([tpTrack]);
+            }
+            // Incrementar el tamaño de la cola manual
+            set(state => ({ userQueueSize: state.userQueueSize + 1 }));
+            console.log(`🎵 Añadido al final de la cola manual: ${track.title}`);
+            await get().updateQueueStatus();
         } catch (error) {
             console.error('Error adding to queue end:', error);
         }
     },
 
-    clearPlayer: async () => {
+    addMultipleToQueueNext: async (tracks) => {
+        try {
+            if (tracks.length === 0) return;
+            const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+            const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
+            if (currentIndex !== undefined && currentIndex !== null) {
+                // Insertar justo después de la canción actual
+                await TrackPlayer.add(tpTracks, currentIndex + 1);
+            } else {
+                await TrackPlayer.add(tpTracks);
+            }
+            // Incrementar el tamaño de la cola manual
+            set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
+            console.log(`🎵 Añadidos a continuación ${tracks.length} tracks`);
+            await get().updateQueueStatus();
+        } catch (error) {
+            console.error('Error adding multiple to queue next:', error);
+        }
+    },
+
+    addMultipleToQueueEnd: async (tracks) => {
+        try {
+            if (tracks.length === 0) return;
+            const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+            const currentIndex = await TrackPlayer.getActiveTrackIndex();
+            const { userQueueSize } = get();
+
+            if (currentIndex !== undefined && currentIndex !== null) {
+                // Insertar después de todos los tracks de la user queue
+                const insertAt = currentIndex + 1 + userQueueSize;
+                await TrackPlayer.add(tpTracks, insertAt);
+            } else {
+                await TrackPlayer.add(tpTracks);
+            }
+            // Incrementar el tamaño de la cola manual
+            set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
+            console.log(`🎵 Añadidos al final de la cola manual ${tracks.length} tracks`);
+            await get().updateQueueStatus();
+        } catch (error) {
+            console.error('Error adding multiple to queue end:', error);
+        }
+    },
+
+    clearPlayer: async () => {
         try {
             await TrackPlayer.reset();
-            set({ activeTrack: null, playbackContext: null, isPlaying: false, hasNext: false, hasPrevious: false });
-
+            await AsyncStorage.removeItem(PERSISTENCE_KEY);
+            set({
+                activeTrack: null,
+                playbackContext: null,
+                isPlaying: false,
+                hasNext: false,
+                hasPrevious: false,
+                isShuffleEnabled: false,
+                shuffleOriginalQueue: [],
+                userQueueSize: 0,
+            });
         } catch (error) {
             console.error('Error in clearPlayer:', error);
+        }
+    },
+
+    setShuffleState: (enabled, queue) => set({
+        isShuffleEnabled: enabled,
+        shuffleOriginalQueue: queue,
+    }),
+
+    // Llamado por TrackPlayerSync cuando el track avanza hacia adelante
+    // y hay tracks de la user queue pendientes
+    decrementUserQueue: () => {
+        set(state => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
+    },
+
+    // ── Persistencia en disco ──
+    savePlaybackState: async () => {
+        try {
+            const queue = await TrackPlayer.getQueue();
+            const index = await TrackPlayer.getActiveTrackIndex();
+            const { playbackContext, isShuffleEnabled, shuffleOriginalQueue, userQueueSize } = get();
+
+            if (queue.length === 0) {
+                await AsyncStorage.removeItem(PERSISTENCE_KEY);
+                return;
+            }
+
+            const payload = JSON.stringify({
+                queue,
+                index,
+                playbackContext,
+                isShuffleEnabled,
+                shuffleOriginalQueue,
+                userQueueSize,
+            });
+            await AsyncStorage.setItem(PERSISTENCE_KEY, payload);
+            console.log('💾 [Store] Estado guardado en disco.');
+        } catch (error) {
+            console.error('Error guardando estado de reproducción:', error);
+        }
+    },
+
+    restorePlaybackState: async () => {
+        try {
+            const savedData = await AsyncStorage.getItem(PERSISTENCE_KEY);
+            if (!savedData) {
+                console.log('🔄 [Store] No hay estado previo guardado.');
+                return;
+            }
+
+            const {
+                queue,
+                index,
+                playbackContext,
+                isShuffleEnabled,
+                shuffleOriginalQueue,
+                userQueueSize,
+            } = JSON.parse(savedData);
+
+            if (!queue || queue.length === 0) return;
+
+            console.log(`🔄 [Store] Restaurando ${queue.length} canciones...`);
+
+            // 1. Rehidratar el motor nativo de TrackPlayer
+            await TrackPlayer.reset();
+            await TrackPlayer.add(queue);
+
+            const safeIndex = (index !== undefined && index !== null && index < queue.length) ? index : 0;
+            await TrackPlayer.skip(safeIndex);
+
+            // Iniciamos pausado para no sorprender al usuario al abrir la app
+            await TrackPlayer.pause();
+
+            // 2. Rehidratar el modelo WatermelonDB por ID
+            const activeTPTrack = queue[safeIndex];
+            let trackModel: Track | null = null;
+            if (activeTPTrack?.id) {
+                try {
+                    trackModel = await database.get<Track>('tracks').find(activeTPTrack.id);
+                } catch (dbError) {
+                    console.warn('[Store] No se encontró el modelo en WatermelonDB:', dbError);
+                }
+            }
+
+            // 3. Rehidratar Zustand
+            set({
+                activeTrack: trackModel,
+                playbackContext: playbackContext ?? null,
+                isShuffleEnabled: isShuffleEnabled ?? false,
+                shuffleOriginalQueue: shuffleOriginalQueue ?? [],
+                userQueueSize: userQueueSize ?? 0,
+                isPlaying: false,
+            });
+
+            // 4. Actualizar hasPrevious / hasNext
+            await get().updateQueueStatus(safeIndex);
+            console.log('✅ [Store] Cola restaurada correctamente.');
+        } catch (error) {
+            console.error('Error restaurando estado de reproducción:', error);
         }
     },
 

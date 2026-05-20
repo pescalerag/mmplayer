@@ -8,14 +8,4 @@ export const PlaybackService = async function () {
     TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.reset());
     TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
 
-    TrackPlayer.addEventListener(Event.RemoteDuck, async (event) => {
-        console.log('PlaybackService: RemoteDuck', event);
-        if (event.permanent) {
-            await TrackPlayer.stop();
-        } else if (event.paused) {
-            await TrackPlayer.pause();
-        } else {
-            await TrackPlayer.play();
-        }
-    });
 };
