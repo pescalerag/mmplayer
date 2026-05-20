@@ -1,30 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
+import withObservables from '@nozbe/with-observables';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTagFormStore } from '../store/useTagFormStore';
 import Tag from '../database/models/Tag';
 import { TagService } from '../services/tagService';
+import { database } from '../database';
 import { Layout } from '../theme/theme';
 
-export default function TagManagementScreen() {
-    const insets = useSafeAreaInsets();
-    const [tags, setTags] = useState<Tag[]>([]);
+interface TagManagementContentProps {
+    tags: Tag[];
+}
 
+function TagManagementContent({ tags }: TagManagementContentProps) {
+    const insets = useSafeAreaInsets();
     const { openForCreate, openForEdit } = useTagFormStore();
 
     // Altura dinámica del header para el smoke y padding del contenido
     const [headerHeight, setHeaderHeight] = useState(100);
-
-    const loadTags = async () => {
-        const loadedTags = await TagService.getAllTags();
-        setTags(loadedTags);
-    };
-
-    useEffect(() => {
-        loadTags();
-    }, []);
 
     const handleDelete = (tag: Tag) => {
         Alert.alert(
@@ -37,7 +33,6 @@ export default function TagManagementScreen() {
                     style: "destructive",
                     onPress: async () => {
                         await TagService.deleteTag(tag.id);
-                        loadTags();
                     }
                 }
             ]
@@ -52,7 +47,7 @@ export default function TagManagementScreen() {
 
                 <TouchableOpacity
                     onPress={() => {
-                        openForEdit(item, loadTags);
+                        openForEdit(item);
                     }}
                     style={styles.iconButton}
                 >
@@ -98,7 +93,7 @@ export default function TagManagementScreen() {
                         <TouchableOpacity
                             style={styles.createTagButton}
                             onPress={() => {
-                                openForCreate(loadTags);
+                                openForCreate();
                             }}
                         >
                             <Ionicons name="add" size={22} color="#FFF" />
@@ -136,6 +131,14 @@ export default function TagManagementScreen() {
 
         </View>
     );
+}
+
+const EnhancedTagManagement = withObservables([], () => ({
+    tags: database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observe(),
+}))(TagManagementContent);
+
+export default function TagManagementScreen() {
+    return <EnhancedTagManagement />;
 }
 
 const styles = StyleSheet.create({
