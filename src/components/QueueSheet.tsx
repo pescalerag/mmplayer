@@ -351,6 +351,11 @@ export default function QueueSheet() {
                         initialNumToRender={10}
                         maxToRenderPerBatch={10}
                         windowSize={5}
+                        getItemLayout={(_data, index) => ({
+                            length: 72,
+                            offset: 72 * index,
+                            index,
+                        })}
                     />
                 ) : (
                     <FlatList
@@ -368,6 +373,11 @@ export default function QueueSheet() {
                         initialNumToRender={10}
                         maxToRenderPerBatch={10}
                         windowSize={5}
+                        getItemLayout={(_data, index) => ({
+                            length: 72,
+                            offset: 72 * index,
+                            index,
+                        })}
                     />
                 )}
             </Animated.View>

@@ -567,6 +567,14 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === "android"}
         keyboardDismissMode="on-drag"
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        getItemLayout={(_data, index) => ({
+            length: 64,
+            offset: 64 * index,
+            index,
+        })}
       />
     </View>
   );

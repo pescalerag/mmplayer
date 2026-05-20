@@ -209,6 +209,11 @@ function TagDetailScreen({
                 initialNumToRender={15}
                 maxToRenderPerBatch={10}
                 windowSize={10}
+                getItemLayout={(_data, index) => ({
+                    length: 64,
+                    offset: 64 * index,
+                    index,
+                })}
                 contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
                 showsVerticalScrollIndicator={false}
             />
