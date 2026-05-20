@@ -1,5 +1,5 @@
 import { Q } from '@nozbe/watermelondb';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -12,7 +12,7 @@ export type SearchResults = {
     artists: Artist[];
 };
 
-export type TopMatch = 
+export type TopMatch =
     | { type: 'artist', item: Artist }
     | { type: 'album', item: Album }
     | { type: 'track', item: Track }
@@ -32,15 +32,12 @@ export function useMusicSearch(query: string) {
     const [topMatch, setTopMatch] = useState<TopMatch>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    // --- NUEVOS ESTADOS PARA PAGINACIÓN ---
     const [page, setPage] = useState(0);
     const [hasMoreTracks, setHasMoreTracks] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-    
-    // Referencia para guardar las condiciones de búsqueda y reutilizarlas al paginar
+
     const trackConditionsRef = useRef<any[]>([]);
 
-    // Initial suggestions (Recent or random)
     useEffect(() => {
         const loadSuggestions = async () => {
             try {
@@ -65,29 +62,30 @@ export function useMusicSearch(query: string) {
         if (!normalizedQuery) {
             setResults({ tracks: [], albums: [], artists: [] });
             setTopMatch(null);
-            // RESETEAR PAGINACIÓN
             setPage(0);
             setHasMoreTracks(true);
             return;
         }
 
         setIsLoading(true);
-        // RESETEAR PAGINACIÓN AL BUSCAR ALGO NUEVO
         setPage(0);
         setHasMoreTracks(true);
-        
-        // 1. CREAMOS LA BANDERA: Al iniciar este efecto, esta búsqueda es la "activa"
+
         let isActive = true;
 
         const timeout = setTimeout(async () => {
             try {
                 const searchPattern = `%${Q.sanitizeLikeString(normalizedQuery)}%`;
 
-                // PASO 1: Buscar las coincidencias exactas en Artistas y Tags
-                const [artists, tags] = await Promise.all([
+                const [artists, albums, tags] = await Promise.all([
                     database.collections.get<Artist>('artists').query(
                         Q.where('normalized_name', Q.like(searchPattern)),
                         Q.sortBy('name', Q.asc),
+                        Q.take(20)
+                    ).fetch(),
+                    database.collections.get<Album>('albums').query(
+                        Q.where('normalized_title', Q.like(searchPattern)),
+                        Q.sortBy('title', Q.asc),
                         Q.take(20)
                     ).fetch(),
                     database.collections.get<Tag>('tags').query(
@@ -96,80 +94,65 @@ export function useMusicSearch(query: string) {
                     ).fetch()
                 ]);
 
-                // Extraemos los IDs
                 const artistIds = artists.map(a => a.id);
+                const albumIds = albums.map(a => a.id);
                 const tagIds = tags.map(t => t.id);
 
-                // PASO 2: Construir condiciones dinámicas para Canciones
+                let trackIdsFromTags: string[] = [];
+                if (tagIds.length > 0) {
+                    const trackTags = await database.collections.get<any>('track_tags')
+                        .query(Q.where('tag_id', Q.oneOf(tagIds))).fetch();
+                    trackIdsFromTags = trackTags.map(tt => tt._raw.track_id as string);
+                }
+
+                let trackIdsFromCollabs: string[] = [];
+                if (artistIds.length > 0) {
+                    const collabs = await database.collections.get<any>('track_collaborators')
+                        .query(Q.where('artist_id', Q.oneOf(artistIds))).fetch();
+                    trackIdsFromCollabs = collabs.map(c => c._raw.track_id as string);
+                }
+
                 const trackConditions: any[] = [
                     Q.where('normalized_title', Q.like(searchPattern))
                 ];
 
-                if (artistIds.length > 0) {
-                    trackConditions.push(
-                        Q.where('artist_id', Q.oneOf(artistIds)), 
-                        Q.on('albums', 'artist_id', Q.oneOf(artistIds)), 
-                        Q.on('track_collaborators', 'artist_id', Q.oneOf(artistIds)) 
-                    );
-                }
+                if (artistIds.length > 0) trackConditions.push(Q.where('artist_id', Q.oneOf(artistIds)));
+                if (albumIds.length > 0) trackConditions.push(Q.where('album_id', Q.oneOf(albumIds)));
+                if (trackIdsFromTags.length > 0) trackConditions.push(Q.where('id', Q.oneOf(trackIdsFromTags)));
+                if (trackIdsFromCollabs.length > 0) trackConditions.push(Q.where('id', Q.oneOf(trackIdsFromCollabs)));
 
-                if (tagIds.length > 0) {
-                    trackConditions.push(Q.on('track_tags', 'tag_id', Q.oneOf(tagIds)));
-                }
-
-                // GUARDAMOS LAS CONDICIONES PARA LA PAGINACIÓN
                 trackConditionsRef.current = trackConditions;
 
-                // PASO 3: Construir condiciones dinámicas para Álbumes
-                const albumConditions: any[] = [
-                    Q.where('normalized_title', Q.like(searchPattern))
-                ];
+                const tracks = await database.collections.get<Track>('tracks').query(
+                    Q.or(...trackConditions),
+                    Q.sortBy('title', Q.asc),
+                    Q.skip(0),
+                    Q.take(TRACKS_PER_PAGE)
+                ).fetch();
 
-                if (artistIds.length > 0) {
-                    albumConditions.push(Q.where('artist_id', Q.oneOf(artistIds)));
-                }
-
-                if (tagIds.length > 0) {
-                    albumConditions.push(Q.on('album_tags', 'tag_id', Q.oneOf(tagIds)));
-                }
-
-                // PASO 4: Ejecutar las consultas limpias
-                const [tracks, albums] = await Promise.all([
-                    database.collections.get<Track>('tracks').query(
-                        Q.experimentalJoinTables(['albums', 'track_collaborators', 'track_tags']),
-                        Q.or(...trackConditions),
-                        Q.sortBy('title', Q.asc),
-                        Q.skip(0),
-                        Q.take(TRACKS_PER_PAGE)
-                    ).fetch(),
-                    database.collections.get<Album>('albums').query(
-                        Q.experimentalJoinTables(['album_tags']),
-                        Q.or(...albumConditions),
-                        Q.sortBy('title', Q.asc),
-                        Q.take(20)
-                    ).fetch()
-                ]);
-
-                // 2. EVALUAMOS LA BANDERA: 
-                // Solo actualizamos el estado si el usuario no ha escrito nada nuevo
                 if (isActive) {
-                    // --- CALCULAR EL MEJOR RESULTADO ---
                     let currentTopMatch: TopMatch = null;
-                    
-                    // Buscamos coincidencia exacta primero
+
+                    const startsWith = (text: string) => normalizeText(text).startsWith(normalizedQuery);
+
                     const exactArtist = artists.find(a => normalizeText(a.name) === normalizedQuery);
                     const exactTrack = tracks.find(t => normalizeText(t.title) === normalizedQuery);
                     const exactAlbum = albums.find(a => normalizeText(a.title) === normalizedQuery);
 
+                    const startArtist = artists.find(a => startsWith(a.name));
+                    const startTrack = tracks.find(t => startsWith(t.title));
+                    const startAlbum = albums.find(a => startsWith(a.title));
+
                     if (exactArtist) currentTopMatch = { type: 'artist', item: exactArtist };
                     else if (exactTrack) currentTopMatch = { type: 'track', item: exactTrack };
                     else if (exactAlbum) currentTopMatch = { type: 'album', item: exactAlbum };
-                    // Si no hay exacta, damos prioridad al primer artista, luego canción, luego álbum
+                    else if (startArtist) currentTopMatch = { type: 'artist', item: startArtist };
+                    else if (startTrack) currentTopMatch = { type: 'track', item: startTrack };
+                    else if (startAlbum) currentTopMatch = { type: 'album', item: startAlbum };
                     else if (artists.length > 0) currentTopMatch = { type: 'artist', item: artists[0] };
                     else if (tracks.length > 0) currentTopMatch = { type: 'track', item: tracks[0] };
                     else if (albums.length > 0) currentTopMatch = { type: 'album', item: albums[0] };
 
-                    // --- ENRIQUECIMIENTO DE BÚSQUEDA CRUZADA (Estilo Spotify) ---
                     if (currentTopMatch && currentTopMatch.type === 'track') {
                         const track = currentTopMatch.item;
                         const [relatedArtist, relatedAlbum] = await Promise.all([
@@ -185,7 +168,6 @@ export function useMusicSearch(query: string) {
                         }
                     }
 
-                    // Actualizamos si hay más páginas
                     setHasMoreTracks(tracks.length === TRACKS_PER_PAGE);
                     setResults({ tracks, albums, artists });
                     setTopMatch(currentTopMatch);
@@ -193,23 +175,17 @@ export function useMusicSearch(query: string) {
             } catch (error) {
                 console.error('Search error:', error);
             } finally {
-                // 3. APAGAMOS EL LOADER: Solo si esta sigue siendo la búsqueda activa
-                if (isActive) {
-                    setIsLoading(false);
-                }
+                if (isActive) setIsLoading(false);
             }
         }, 400);
 
-        // 4. FUNCIÓN DE LIMPIEZA:
         return () => {
             isActive = false;
             clearTimeout(timeout);
         };
     }, [query]);
 
-    // --- FUNCIÓN DE PAGINACIÓN ---
     const loadMoreTracks = useCallback(async () => {
-        // Evitar dobles llamadas o buscar si ya no hay más
         if (isLoadingMore || !hasMoreTracks || !query.trim()) return;
 
         setIsLoadingMore(true);
@@ -218,7 +194,6 @@ export function useMusicSearch(query: string) {
             const nextOffset = nextPage * TRACKS_PER_PAGE;
 
             const newTracks = await database.collections.get<Track>('tracks').query(
-                Q.experimentalJoinTables(['albums', 'track_collaborators', 'track_tags']),
                 Q.or(...trackConditionsRef.current),
                 Q.sortBy('title', Q.asc),
                 Q.skip(nextOffset),
@@ -227,9 +202,9 @@ export function useMusicSearch(query: string) {
 
             setResults(prev => ({
                 ...prev,
-                tracks: [...prev.tracks, ...newTracks] // Añadimos a la lista existente
+                tracks: [...prev.tracks, ...newTracks]
             }));
-            
+
             setPage(nextPage);
             setHasMoreTracks(newTracks.length === TRACKS_PER_PAGE);
         } catch (error) {
