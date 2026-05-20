@@ -8,7 +8,6 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    BackHandler,
     Dimensions,
     FlatList,
     InteractionManager,
@@ -97,12 +96,7 @@ const ArtistHeader = memo(function ArtistHeader({
     setShowAllTracks
 }: any) {
     const handleBack = () => {
-        if (fromPlayer) {
-            navigation.setParams({ fromPlayer: false });
-            navigation.navigate('Player');
-        } else {
-            navigation.goBack();
-        }
+        navigation.goBack();
     };
 
     const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
@@ -213,7 +207,7 @@ interface Props {
     isLoadingContent: boolean;
 }
 
-function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fromPlayer }: Props & { fromPlayer?: boolean }) {
+function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: Props) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const [showAllAlbums, setShowAllAlbums] = useState(false);
@@ -224,23 +218,9 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fro
         setImageError(false);
     }, [artist.imageUrl]);
 
-    // CONTROL DEL BOTÓN ATRÁS FÍSICO (ANDROID)
-    useFocusEffect(
-        React.useCallback(() => {
-            const onBackPress = () => {
-                if (fromPlayer) {
-                    // Limpiamos el flag para evitar bucles si vuelven a esta pantalla
-                    navigation.setParams({ fromPlayer: false });
-                    navigation.navigate('Player');
-                    return true;
-                }
-                return false;
-            };
-
-            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-            return () => subscription.remove();
-        }, [fromPlayer, navigation])
-    );
+    useEffect(() => {
+        setImageError(false);
+    }, [artist.imageUrl]);
 
     const visibleTracks = useMemo(() => {
         if (isLoadingContent) return [];
@@ -319,9 +299,8 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent, fro
             navigation={navigation}
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
-            fromPlayer={fromPlayer}
         />
-    ), [artist, albums, tracks.length, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, fromPlayer]);
+    ), [artist, albums, tracks.length, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
 
     return (
         <View style={styles.container}>
@@ -410,7 +389,6 @@ export default function ArtistDetailScreen() {
             albums={albums}
             tracks={tracks}
             isLoadingContent={!areAlbumsReady}
-            fromPlayer={route.params.fromPlayer}
         />
     );
 }

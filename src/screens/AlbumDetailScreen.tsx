@@ -6,7 +6,6 @@ import React, { useEffect, useState } from 'react';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 import {
     ActivityIndicator,
-    BackHandler,
     Dimensions,
     FlatList,
     InteractionManager,
@@ -47,12 +46,13 @@ interface Props {
     fromPlayer?: boolean;
 }
 
-function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks, fromPlayer }: Props & { isLoadingTracks: boolean }) {
+function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks }: Props & { isLoadingTracks: boolean }) {
     const navigation = useNavigation<any>();
     const showTagColors = useSettingsStore(state => state.showTagColors);
 
     // ─── ESTADOS DEL REPRODUCTOR ───
-    const isPlaying = usePlayerStore(state => state.isPlaying);
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
     const playbackContext = usePlayerStore(state => state.playbackContext);
 
     // Determinar si este álbum es el contexto actual
@@ -63,12 +63,7 @@ function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks, from
     const totalDuration = tracks.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0);
 
     const handleBack = () => {
-        if (fromPlayer) {
-            navigation.setParams({ fromPlayer: false });
-            navigation.navigate('Player');
-        } else {
-            navigation.goBack();
-        }
+        navigation.goBack();
     };
 
     const navigateToArtist = () => {
@@ -83,23 +78,7 @@ function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks, from
         }
     };
 
-    // CONTROL DEL BOTÓN ATRÁS FÍSICO (ANDROID)
-    useFocusEffect(
-        React.useCallback(() => {
-            const onBackPress = () => {
-                if (fromPlayer) {
-                    // Limpiamos el flag para evitar bucles si vuelven a esta pantalla
-                    navigation.setParams({ fromPlayer: false });
-                    navigation.navigate('Player');
-                    return true;
-                }
-                return false;
-            };
 
-            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-            return () => subscription.remove();
-        }, [fromPlayer, navigation])
-    );
 
     const handleTrackPress = React.useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
@@ -332,7 +311,6 @@ export default function AlbumDetailScreen() {
             artist={artist!}
             tracks={tracks}
             isLoadingTracks={!areTracksReady}
-            fromPlayer={route.params.fromPlayer}
         />
     );
 }

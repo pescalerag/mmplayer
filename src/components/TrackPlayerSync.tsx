@@ -22,7 +22,6 @@ export const TrackPlayerSync = () => {
             const estado = event.state;
             const isPlaying = estado === State.Playing || estado === State.Buffering;
             console.log(`▶️ [TrackPlayerSync] Estado crudo: ${estado} -> ¿isPlaying?: ${isPlaying}`);
-            usePlayerStore.getState().setIsPlaying(isPlaying);
         }
 
         if (event.type === Event.PlaybackActiveTrackChanged) {
@@ -54,8 +53,7 @@ export const TrackPlayerSync = () => {
         }
 
         if (event.type === Event.PlaybackQueueEnded) {
-            console.log('🏁 [TrackPlayerSync] Cola terminada. Reseteando Play en Zustand.');
-            usePlayerStore.getState().setIsPlaying(false);
+            console.log('🏁 [TrackPlayerSync] Cola terminada.');
         }
         
         if (event.type === Event.PlaybackError) {

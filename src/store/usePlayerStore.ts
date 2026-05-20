@@ -26,7 +26,6 @@ async function mapToTPTrack(track: Track): Promise<TPTrack> {
 interface PlayerState {
     activeTrack: Track | null;
     playbackContext: string | null;
-    isPlaying: boolean;
     hasNext: boolean;
     hasPrevious: boolean;
     isShuffleEnabled: boolean;
@@ -38,7 +37,6 @@ interface PlayerState {
     startShuffled: (tracks: Track[], context?: string) => Promise<void>;
     playSingleTrack: (track: Track, context?: string) => Promise<void>;
     setActiveTrackById: (trackId: string) => Promise<void>;
-    setIsPlaying: (playing: boolean) => void;
     addToQueueNext: (track: Track) => Promise<void>;
     addToQueueEnd: (track: Track) => Promise<void>;
     addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
@@ -54,7 +52,6 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set, get) => ({
     activeTrack: null,
     playbackContext: null,
-    isPlaying: false,
     hasNext: false,
     hasPrevious: false,
     isShuffleEnabled: false,
@@ -132,11 +129,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             console.error('Error setting active track by ID:', error);
 
         }
-    },
-
-    setIsPlaying: (playing) => {
-
-        set({ isPlaying: playing });
     },
 
     addToQueueNext: async (track) => {
@@ -233,7 +225,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set({
                 activeTrack: null,
                 playbackContext: null,
-                isPlaying: false,
                 hasNext: false,
                 hasPrevious: false,
                 isShuffleEnabled: false,
@@ -332,7 +323,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                 isShuffleEnabled: isShuffleEnabled ?? false,
                 shuffleOriginalQueue: shuffleOriginalQueue ?? [],
                 userQueueSize: userQueueSize ?? 0,
-                isPlaying: false,
             });
 
             // 4. Actualizar hasPrevious / hasNext
