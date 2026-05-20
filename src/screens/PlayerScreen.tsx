@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import Slider from '@react-native-community/slider';
 import {
     Dimensions,
     StyleSheet,
@@ -12,10 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
-    useProgress,
-    useTrackPlayerEvents,
-    Event,
     RepeatMode,
+    useProgress
 } from 'react-native-track-player';
 import BlurredBackground from '../components/BlurredBackground';
 
@@ -25,11 +23,11 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
 
 import withObservables from '@nozbe/with-observables';
+import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
-import { formatTrackTime } from '../utils/time';
-import MarqueeText from '../components/MarqueeText';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { formatTrackTime } from '../utils/time';
 
 
 const { width } = Dimensions.get('window');
@@ -121,8 +119,8 @@ const PlayerScreenUI = ({
             {/* Background Image with Blur */}
             <BlurredBackground
                 imageUrl={album.coverUrl}
-                blurIntensity={80}
-                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000000']}
+                blurIntensity={10}
+                gradientColors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.7)', '#000000']}
             />
 
             <View style={styles.safeArea}>
@@ -395,7 +393,7 @@ const styles = StyleSheet.create({
     artwork: {
         width: width - 64,
         height: width - 64,
-        borderRadius: 20,
+        borderRadius: 10,
         backgroundColor: '#282828',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 20 },
@@ -424,8 +422,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat',
     },
     progressSection: {
-        paddingHorizontal: 16,
-        marginBottom: 20,
+        paddingHorizontal: 5,
+        marginBottom: 5,
     },
     slider: {
         width: '100%',
@@ -435,7 +433,7 @@ const styles = StyleSheet.create({
     timeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 4,
+        paddingHorizontal: 15,
         marginTop: 4,
     },
     timeText: {
@@ -447,19 +445,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
-        paddingHorizontal: 32,
-        marginBottom: 16,
+        paddingHorizontal: 4,
+        marginBottom: 10,
     },
     controlButton: {
         padding: 10,
     },
     mainControlButton: {
-        padding: 0,
+        padding: 10,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        paddingHorizontal: 32,
+        paddingHorizontal: 10,
     },
     footerButton: {
         padding: 8,
