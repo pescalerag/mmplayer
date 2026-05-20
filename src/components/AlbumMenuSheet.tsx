@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
@@ -15,25 +14,26 @@ import {
 } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Album from '../database/models/Album';
+import { Q } from '@nozbe/watermelondb';
 import Artist from '../database/models/Artist';
+import Track from '../database/models/Track';
+import { database } from '../database';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { navigationRef } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function TrackMenuSheet() {
+export default function AlbumMenuSheet() {
     const insets = useSafeAreaInsets();
-    const { isVisible, selectedTrack, closeMenu, navCallbacks } = useTrackMenuStore();
-    const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
-    const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
+    const { isVisible, selectedAlbum, closeMenu, navCallbacks } = useAlbumMenuStore();
+    const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
+    const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
     
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [artistName, setArtistName] = useState('Desconocido');
-    const [albumId, setAlbumId] = useState<string | null>(null);
     const [artistId, setArtistId] = useState<string | null>(null);
+    const [tracks, setTracks] = useState<Track[]>([]);
 
     // Valores animados
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -42,7 +42,6 @@ export default function TrackMenuSheet() {
     // Controlar la animación cuando cambia isVisible
     useEffect(() => {
         if (isVisible) {
-            // Asegurar que la barra de navegación sea oscura en Android
             if (Platform.OS === 'android') {
                 NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
             }
@@ -81,32 +80,37 @@ export default function TrackMenuSheet() {
 
         const onBackPress = () => {
             closeMenu();
-            return true; // Interceptamos el evento para no salir de la app
+            return true;
         };
 
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
     }, [isVisible, closeMenu]);
 
-    // Cargar metadatos básicos para la cabecera del menú
+    // Cargar metadatos y tracks
     useEffect(() => {
-        if (!selectedTrack) return;
+        if (!selectedAlbum) return;
         
-        const loadMetadata = async () => {
-            const [album, artists] = await Promise.all([
-                selectedTrack.album.fetch() as Promise<Album | null>,
-                selectedTrack.queryCollaborators.fetch() as Promise<Artist[]>
-            ]);
-            setImageUrl(album?.coverUrl || null);
-            setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : 'Desconocido');
-            setAlbumId(album?.id || null);
-            setArtistId(artists[0]?.id || null);
+        const loadTracksAndMetadata = async () => {
+            try {
+                const [artistDoc, tracksList] = await Promise.all([
+                    selectedAlbum.artist.fetch() as Promise<Artist | null>,
+                    database.collections.get<Track>('tracks').query(
+                        Q.where('album_id', selectedAlbum.id),
+                        Q.sortBy('disc_number', Q.asc),
+                        Q.sortBy('track_number', Q.asc)
+                    ).fetch() as Promise<Track[]>
+                ]);
+                setArtistName(artistDoc?.name || 'Desconocido');
+                setArtistId(artistDoc?.id || null);
+                setTracks(tracksList);
+            } catch (error) {
+                console.error('Error al cargar tracks de AlbumMenuSheet:', error);
+            }
         };
-        loadMetadata();
-    }, [selectedTrack]);
+        loadTracksAndMetadata();
+    }, [selectedAlbum]);
 
-    // Ocultar completamente el componente cuando no está visible para no interceptar toques
-    // Pero dejamos que termine la animación
     const [shouldRender, setShouldRender] = useState(isVisible);
 
     useEffect(() => {
@@ -120,18 +124,15 @@ export default function TrackMenuSheet() {
 
     if (!shouldRender && !isVisible) return null;
 
-
     return (
         <View 
             style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} 
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
-            {/* Fondo oscuro animado con Fade */}
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
 
-            {/* Contenedor del Menú animado con Slide */}
             <Animated.View 
                 style={[
                     styles.sheetContainer, 
@@ -143,32 +144,31 @@ export default function TrackMenuSheet() {
             >
                 <View style={styles.dragIndicator} />
                 
-                {/* Cabecera del Menú */}
                 <View style={styles.header}>
-                    {imageUrl ? (
+                    {selectedAlbum?.coverUrl ? (
                         <Image 
-                            source={{ uri: imageUrl }} 
+                            source={{ uri: selectedAlbum.coverUrl }} 
                             style={styles.thumbnail}
                             contentFit="cover"
                             transition={200}
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="musical-notes" size={24} color="#666" />
+                            <Ionicons name="albums" size={24} color="#666" />
                         </View>
                     )}
                     <View style={styles.headerText}>
-                        <Text style={styles.title} numberOfLines={1}>{selectedTrack?.title}</Text>
+                        <Text style={styles.title} numberOfLines={1}>{selectedAlbum?.title}</Text>
                         <Text style={styles.subtitle} numberOfLines={1}>{artistName}</Text>
                     </View>
                 </View>
 
-                {/* OPCIÓN: Añadir a continuación */}
+                {/* OPCIÓN: Añadir todo a continuación */}
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {
-                        if (selectedTrack) {
-                            addToQueueNext(selectedTrack);
+                        if (tracks.length > 0) {
+                            addMultipleToQueueNext(tracks);
                             closeMenu();
                         }
                     }}
@@ -179,12 +179,12 @@ export default function TrackMenuSheet() {
                     <Text style={styles.optionText}>Añadir a continuación</Text>
                 </TouchableOpacity>
 
-                {/* OPCIÓN: Añadir al final */}
+                {/* OPCIÓN: Añadir todo al final */}
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {
-                        if (selectedTrack) {
-                            addToQueueEnd(selectedTrack);
+                        if (tracks.length > 0) {
+                            addMultipleToQueueEnd(tracks);
                             closeMenu();
                         }
                     }}
@@ -199,9 +199,9 @@ export default function TrackMenuSheet() {
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {
-                        if (selectedTrack) {
+                        if (selectedAlbum) {
                             closeMenu();
-                            useTagManagerStore.getState().openForTrack(selectedTrack);
+                            useTagManagerStore.getState().openForAlbum(selectedAlbum);
                         }
                     }}
                 >
@@ -214,31 +214,6 @@ export default function TrackMenuSheet() {
                 {/* ── Separador ── */}
                 <View style={styles.separator} />
 
-                {/* OPCIÓN: Ir al álbum */}
-                {albumId && (
-                    <TouchableOpacity
-                        style={styles.optionRow}
-                        onPress={() => {
-                            closeMenu();
-                            if (navCallbacks.album) {
-                                // Abierto desde el Player: goBack() + navigate con fromPlayer
-                                navCallbacks.album(albumId);
-                            } else if (navigationRef.isReady()) {
-                                // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
-                                navigationRef.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: { screen: 'AlbumDetail', params: { albumId } }
-                                });
-                            }
-                        }}
-                    >
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="disc-outline" size={24} color="#FFFFFF" />
-                        </View>
-                        <Text style={styles.optionText}>Ir al álbum</Text>
-                    </TouchableOpacity>
-                )}
-
                 {/* OPCIÓN: Ver artista */}
                 {artistId && (
                     <TouchableOpacity
@@ -246,10 +221,8 @@ export default function TrackMenuSheet() {
                         onPress={() => {
                             closeMenu();
                             if (navCallbacks.artist) {
-                                // Abierto desde el Player: goBack() + navigate con fromPlayer
                                 navCallbacks.artist(artistId);
                             } else if (navigationRef.isReady()) {
-                                // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
                                 navigationRef.navigate('Main', {
                                     screen: 'Biblioteca',
                                     params: { screen: 'ArtistDetail', params: { artistId } }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     ScrollView,
@@ -12,11 +12,8 @@ import {
 interface MarqueeTextProps {
     text: string;
     style?: StyleProp<TextStyle>;
-    /** Milisegundos de pausa al inicio y al final antes de reiniciar (default 1500) */
     pauseDuration?: number;
-    /** Velocidad en px/segundo (default 40) */
     speed?: number;
-    /** Espacio extra entre el final del texto y el reinicio (default 60) */
     spacing?: number;
 }
 
@@ -27,109 +24,89 @@ export default function MarqueeText({
     speed = 40,
     spacing = 60,
 }: MarqueeTextProps) {
-    const containerWidth = useRef(0);
-    const textWidth = useRef(0);
-    const [overflows, setOverflows] = useState(false);
-    const [measuredTextWidth, setMeasuredTextWidth] = useState(0);
+    const [containerWidth, setContainerWidth] = useState(0);
+    const [textWidth, setTextWidth] = useState(0);
+
     const translateX = useRef(new Animated.Value(0)).current;
     const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
-    // Pequeño margen para evitar falsos positivos por decimales
-    const THRESHOLD = 2;
+    // ¡CLAVE 1! Ya NO reseteamos textWidth a 0 al cambiar de texto.
+    // Si el texto nuevo mide lo mismo, mantenemos la medida anterior.
+    useEffect(() => {
+        animRef.current?.stop();
+        translateX.setValue(0);
+    }, [text]);
 
-    const evaluate = useCallback(() => {
-        if (containerWidth.current <= 0 || textWidth.current <= 0) return;
-        setOverflows(textWidth.current > containerWidth.current + THRESHOLD);
-    }, []);
+    const overflows = containerWidth > 0 && textWidth > containerWidth + 2;
 
-    const startLoop = useCallback(() => {
-        const distance = textWidth.current - containerWidth.current + spacing;
+    useEffect(() => {
+        animRef.current?.stop();
+        translateX.setValue(0);
+
+        if (!overflows) return;
+
+        const distance = textWidth - containerWidth + spacing;
         if (distance <= 0) return;
 
         const slideDuration = (distance / speed) * 1000;
 
-        animRef.current = Animated.sequence([
-            Animated.delay(pauseDuration),
-            Animated.timing(translateX, {
-                toValue: -distance,
-                duration: slideDuration,
-                useNativeDriver: true,
-            }),
-            Animated.delay(pauseDuration),
-        ]);
+        const runAnimation = () => {
+            translateX.setValue(0);
 
-        animRef.current.start(({ finished }) => {
-            if (finished) {
-                translateX.setValue(0);
-                startLoop();
-            }
-        });
-    }, [pauseDuration, speed, spacing, translateX]);
+            animRef.current = Animated.sequence([
+                Animated.delay(pauseDuration),
+                Animated.timing(translateX, {
+                    toValue: -distance,
+                    duration: slideDuration,
+                    useNativeDriver: true,
+                }),
+                Animated.delay(pauseDuration),
+            ]);
 
-    // Arranca/para el bucle cuando cambia el estado de desbordamiento
-    useEffect(() => {
-        animRef.current?.stop();
-        translateX.setValue(0);
-        if (overflows) startLoop();
-        return () => { animRef.current?.stop(); };
-    }, [overflows, startLoop]);
+            animRef.current.start(({ finished }) => {
+                if (finished) {
+                    runAnimation();
+                }
+            });
+        };
 
-    // Resetea completamente cuando cambia el texto
-    useEffect(() => {
-        animRef.current?.stop();
-        translateX.setValue(0);
-        textWidth.current = 0;
-        setOverflows(false);
-    }, [text]);
+        runAnimation();
+
+        return () => {
+            animRef.current?.stop();
+        };
+    }, [overflows, textWidth, containerWidth, pauseDuration, speed, spacing, translateX]);
 
     return (
         <View
             style={styles.container}
-            onLayout={(e) => {
-                containerWidth.current = e.nativeEvent.layout.width;
-                evaluate();
-            }}
+            onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
         >
-            {/*
-             * Medidor invisible dentro de un ScrollView horizontal.
-             * Un ScrollView horizontal NO limita el ancho de sus hijos,
-             * por lo que el Text reporta su ancho real de contenido
-             * via onLayout — independientemente del ancho del contenedor.
-             */}
+            {/* Medidor invisible: Sin numberOfLines para que calcule el ancho 100% real */}
             <ScrollView
                 horizontal
                 scrollEnabled={false}
                 pointerEvents="none"
                 style={StyleSheet.absoluteFill}
-                contentContainerStyle={styles.measurer}
+                contentContainerStyle={{ opacity: 0 }}
             >
                 <Text
                     style={style}
-                    numberOfLines={1}
-                    onLayout={(e) => {
-                        const w = e.nativeEvent.layout.width;
-                        textWidth.current = w;
-                        setMeasuredTextWidth(w);
-                        evaluate();
-                    }}
+                    onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
                 >
                     {text}
                 </Text>
             </ScrollView>
 
-            {/* Texto visible — se anima solo si desborda */}
+            {/* Texto Visible */}
             <Animated.Text
+                numberOfLines={1}
                 style={[
                     style,
-                    // Anchura explícita = ancho real del texto:
-                    // el Text cabe en su propia anchura → numberOfLines={1}
-                    // no trunca con "..." porque no desborda su propio width.
-                    // El contenedor overflow:hidden hace el clip visual.
-                    overflows && measuredTextWidth > 0
-                        ? { width: measuredTextWidth, transform: [{ translateX }] }
-                        : undefined,
+                    // ¡CLAVE 2! Si desborda, le damos 20px extra para que nunca salgan los "..."
+                    // Al quitar el isMeasuring, ya nunca se quedará invisible.
+                    overflows ? { width: textWidth + 20, transform: [{ translateX }] } : undefined,
                 ]}
-                numberOfLines={1}
             >
                 {text}
             </Animated.Text>
@@ -141,8 +118,5 @@ const styles = StyleSheet.create({
     container: {
         overflow: 'hidden',
         width: '100%',
-    },
-    measurer: {
-        opacity: 0,
-    },
+    }
 });

@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -19,8 +20,11 @@ import BlurredBackground from '../components/BlurredBackground';
 
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
+import Tag from '../database/models/Tag';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
+import { useTagManagerStore } from '../store/useTagManagerStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 import withObservables from '@nozbe/with-observables';
 import MarqueeText from '../components/MarqueeText';
@@ -38,6 +42,7 @@ interface PlayerScreenUIProps {
     track: Track;
     album: Album;
     artist: Artist;
+    tags: Tag[];
     navigation: any;
     formatTimestamp: (s: number) => string;
     hasNext: boolean;
@@ -45,11 +50,12 @@ interface PlayerScreenUIProps {
 }
 
 const PlayerScreenUI = ({
-    track, album, artist, navigation, formatTimestamp, hasNext, hasPrevious
+    track, album, artist, tags, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const { position, duration } = useProgress();
+    const showTagColors = useSettingsStore(state => state.showTagColors);
 
     // Shuffle — estado global (sobrevive a la navegación)
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
@@ -194,6 +200,35 @@ const PlayerScreenUI = ({
 
                 {/* Info */}
                 <View style={styles.infoContainer}>
+                    {/* Tags row */}
+                    <View style={styles.tagsRow}>
+                        {tags && tags.length > 0 ? (
+                            <ScrollView 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.tagsScroll}
+                            >
+                                {tags.map(t => (
+                                    <TouchableOpacity 
+                                        key={t.id} 
+                                        style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
+                                        onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                                    >
+                                        <Text style={styles.tagText}>{t.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : (
+                            <TouchableOpacity 
+                                style={styles.addTagButton}
+                                onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                            >
+                                <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
+                                <Text style={styles.addTagText}>Añadir Tag</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
                     <MarqueeText
                         text={track.title}
                         style={styles.title}
@@ -326,6 +361,7 @@ const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }
     track: trackModel.observe(),
     album: trackModel.album.observe(),
     artist: trackModel.artist.observe(),
+    tags: trackModel.queryTags.observe(),
 }))(PlayerScreenUI);
 
 const PlayerScreen = () => {
@@ -408,6 +444,40 @@ const styles = StyleSheet.create({
     infoContainer: {
         paddingHorizontal: 20,
         marginBottom: 8,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+        minHeight: 24,
+    },
+    tagsScroll: {
+        gap: 6,
+    },
+    tagBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tagText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+    },
+    addTagButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 3,
+    },
+    addTagText: {
+        color: '#B3B3B3',
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
     },
     title: {
         color: '#FFFFFF',

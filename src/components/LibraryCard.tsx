@@ -10,6 +10,7 @@ interface LibraryCardProps {
     readonly imageUrl?: string | null;
     readonly placeholderIcon: keyof typeof Ionicons.glyphMap;
     readonly onPress?: () => void;
+    readonly onLongPress?: () => void;
 }
 
 const { width } = Dimensions.get('window');
@@ -17,7 +18,7 @@ const { width } = Dimensions.get('window');
 // Dividido entre 3 queda aprox 30-32% del ancho.
 const cardWidth = (width - 70) / 3;
 
-export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress }: Readonly<LibraryCardProps>) {
+export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress }: Readonly<LibraryCardProps>) {
     const [imageError, setImageError] = useState(false);
 
     // Reiniciar error cuando cambie la URL de la imagen
@@ -28,7 +29,7 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
     const showImage = !!imageUrl && !imageError;
 
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.card} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
             <View style={styles.imageContainer}>
                 {showImage ? (
                     <ExpoImage

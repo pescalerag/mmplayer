@@ -10,6 +10,7 @@ import MiniPlayer from '../components/MiniPlayer';
 import HomeScreen from '../screens/HomeScreen';
 import PlayerScreen from '../screens/PlayerScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import TagManagementScreen from '../screens/TagManagementScreen';
 import LibraryNavigator from './LibraryNavigator';
 import SearchNavigator from './SearchNavigator';
 import { RootStackParamList } from './types';
@@ -22,7 +23,9 @@ type TabBarIconProps = {
     focused: boolean;
     color: string;
 };
-
+const TagsIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <Ionicons name={focused ? 'pricetags' : 'pricetags-outline'} size={32} color={color} />
+);
 const TabBarIcon = ({ routeName, focused, color }: TabBarIconProps) => {
     let iconName: React.ComponentProps<typeof Ionicons>['name'];
 
@@ -97,25 +100,10 @@ function MainTabs() {
     return (
         <View style={{ flex: 1 }}>
             <Tab.Navigator screenOptions={screenOptions}>
-                <Tab.Screen 
-                    name="Inicio" 
-                    component={HomeScreen} 
-                    options={{ tabBarIcon: HomeIcon }}
-                />
                 <Tab.Screen
-                    name="Buscar"
-                    component={SearchNavigator}
-                    options={{ tabBarIcon: SearchIcon }}
-                    listeners={({ navigation }) => ({
-                        tabPress: (e) => {
-                            const state = navigation.getState();
-                            const currentRoute = state.routes[state.index];
-                            if (currentRoute?.name !== 'Buscar') {
-                                e.preventDefault();
-                                navigation.navigate('Buscar', { screen: 'Search' });
-                            }
-                        },
-                    })}
+                    name="Inicio"
+                    component={HomeScreen}
+                    options={{ tabBarIcon: HomeIcon }}
                 />
                 <Tab.Screen
                     name="Biblioteca"
@@ -134,9 +122,29 @@ function MainTabs() {
                         },
                     })}
                 />
-                <Tab.Screen 
-                    name="Configuración" 
-                    component={SettingsScreen} 
+                <Tab.Screen
+                    name="Buscar"
+                    component={SearchNavigator}
+                    options={{ tabBarIcon: SearchIcon }}
+                    listeners={({ navigation }) => ({
+                        tabPress: (e) => {
+                            const state = navigation.getState();
+                            const currentRoute = state.routes[state.index];
+                            if (currentRoute?.name !== 'Buscar') {
+                                e.preventDefault();
+                                navigation.navigate('Buscar', { screen: 'Search' });
+                            }
+                        },
+                    })}
+                />
+                <Tab.Screen
+                    name="Etiquetas"
+                    component={TagManagementScreen}
+                    options={{ tabBarIcon: TagsIcon }}
+                />
+                <Tab.Screen
+                    name="Configuración"
+                    component={SettingsScreen}
                     options={{ tabBarIcon: SettingsIcon }}
                 />
             </Tab.Navigator>

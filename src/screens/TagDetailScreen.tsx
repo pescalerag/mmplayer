@@ -1,0 +1,325 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
+import withObservables from '@nozbe/with-observables';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { memo, useCallback, useMemo, useState } from 'react';
+import { 
+    ActivityIndicator, 
+    Dimensions, 
+    FlatList, 
+    ScrollView, 
+    StyleSheet, 
+    Text, 
+    TouchableOpacity, 
+    View 
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import LibraryCard from '../components/LibraryCard';
+import SectionHeader from '../components/SectionHeader';
+import TrackRow from '../components/TrackRow';
+import { database } from '../database';
+import Album from '../database/models/Album';
+import Artist from '../database/models/Artist';
+import Tag from '../database/models/Tag';
+import Track from '../database/models/Track';
+import { SearchNavigationProp } from '../navigation/types';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { Layout } from '../theme/theme';
+
+const { width } = Dimensions.get('window');
+const HEADER_HEIGHT = 320;
+
+// ----- ALBUM CARD COMPONENT -----
+const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { album: Album; onPress: () => void }) {
+    return (
+        <View style={styles.albumCardWrapper}>
+            <LibraryCard
+                title={album.title}
+                imageUrl={album.coverUrl}
+                placeholderIcon="albums"
+                onPress={onPress}
+                onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
+            />
+        </View>
+    );
+});
+
+// ----- TRACK ROW COMPONENT -----
+const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
+    track: track.observe(),
+    album: track.album.observe(),
+    artist: track.artist.observe(),
+}))(function TagTrackRow({
+    track,
+    album,
+    artist,
+    tagId,
+    index,
+    onPress,
+}: {
+    track: Track;
+    album: Album;
+    artist: Artist;
+    tagId: string;
+    index: number;
+    onPress: (trackId: string) => void;
+}) {
+    return (
+        <TrackRow
+            track={track}
+            contextId={`tag-${tagId}`}
+            index={index}
+            coverUrl={album?.coverUrl}
+            artistName={artist?.name}
+            onPress={onPress}
+        />
+    );
+});
+
+// ----- MAIN DETAIL COMPONENT -----
+function TagDetailScreen({
+    tag,
+    albums,
+    tracks,
+}: {
+    tag: Tag;
+    albums: Album[];
+    tracks: Track[];
+}) {
+    const insets = useSafeAreaInsets();
+    const navigation = useNavigation<SearchNavigationProp>();
+    const route = useRoute();
+
+    const tagColor = tag.color || '#8B5CF6';
+
+    const handleBack = () => {
+        navigation.goBack();
+    };
+
+    const handleTrackPress = useCallback((trackId: string) => {
+        const trackIndex = tracks.findIndex(t => t.id === trackId);
+        if (trackIndex !== -1) {
+            usePlayerStore.getState().loadQueue(tracks, trackIndex, `tag-${tag.id}`);
+        }
+    }, [tracks, tag]);
+
+    const renderItem = useCallback((info: { item: Track; index: number }) => {
+        const { item, index } = info;
+        return (
+            <TagTrackRow
+                track={item}
+                tagId={tag.id}
+                index={index + 1}
+                onPress={handleTrackPress}
+            />
+        );
+    }, [handleTrackPress, tag.id]);
+
+    const listHeader = useMemo(() => {
+        return (
+            <View style={{ marginBottom: 16 }}>
+                {/* Custom Gradient Header */}
+                <View style={styles.headerContainer}>
+                    <LinearGradient
+                        colors={[tagColor, 'rgba(0,0,0,0.8)', '#121212']}
+                        locations={[0, 0.6, 1]}
+                        style={styles.headerGradient}
+                    />
+
+                    {/* Botón Atrás */}
+                    <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                        <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+                    </TouchableOpacity>
+
+                    {/* Botón Home */}
+                    <TouchableOpacity
+                        style={[styles.backButton, { left: undefined, right: 16 }]}
+                        onPress={() => navigation.navigate('Biblioteca' as never)}
+                    >
+                        <Ionicons name="home" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+
+                    {/* Contenido Info */}
+                    <View style={styles.headerInfo}>
+                        <View style={styles.tagBadge}>
+                            <Ionicons name="pricetag" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                            <Text style={styles.tagBadgeText}>ETIQUETA</Text>
+                        </View>
+                        
+                        <Text style={styles.title} numberOfLines={2}>
+                            {tag.name}
+                        </Text>
+                        
+                        <Text style={styles.metaInfo}>
+                            {albums.length} {albums.length === 1 ? 'álbum' : 'álbumes'} · {tracks.length} {tracks.length === 1 ? 'canción' : 'canciones'}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Sección Álbumes */}
+                {albums.length > 0 && (
+                    <View style={{ marginBottom: 24, marginTop: 16 }}>
+                        <SectionHeader title="Álbumes con esta etiqueta" />
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.albumsScroll}
+                        >
+                            {albums.map((album) => (
+                                <AlbumCardWithNav
+                                    key={album.id}
+                                    album={album}
+                                    onPress={() => {
+                                        navigation.navigate('AlbumDetail', { albumId: album.id });
+                                    }}
+                                />
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {/* Cabecera Canciones */}
+                {tracks.length > 0 && (
+                    <View style={{ marginBottom: 8 }}>
+                        <SectionHeader title="Canciones con esta etiqueta" />
+                        <View style={styles.tracksDivider} />
+                    </View>
+                )}
+            </View>
+        );
+    }, [tag, albums, tracks.length, navigation, tagColor]);
+
+    return (
+        <View style={styles.container}>
+            <FlatList
+                data={tracks}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                ListHeaderComponent={listHeader}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="pricetags-outline" size={48} color="#555" />
+                        <Text style={styles.emptyText}>No hay elementos con esta etiqueta todavía.</Text>
+                    </View>
+                }
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
+                showsVerticalScrollIndicator={false}
+            />
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#121212',
+    },
+    headerContainer: {
+        width,
+        height: HEADER_HEIGHT,
+        position: 'relative',
+        justifyContent: 'flex-end',
+    },
+    headerGradient: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    backButton: {
+        position: 'absolute',
+        top: 50,
+        left: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    headerInfo: {
+        padding: 24,
+        paddingBottom: 8,
+    },
+    tagBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+        marginBottom: 8,
+    },
+    tagBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontFamily: 'Montserrat',
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+    title: {
+        color: '#FFFFFF',
+        fontSize: 32,
+        fontFamily: 'Montserrat',
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    metaInfo: {
+        color: '#B3B3B3',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '600',
+    },
+    albumsScroll: {
+        paddingHorizontal: 20,
+        gap: 15,
+    },
+    albumCardWrapper: {
+        width: (width - 70) / 3,
+    },
+    tracksDivider: {
+        height: 1,
+        backgroundColor: '#282828',
+        marginHorizontal: 20,
+        marginTop: 8,
+        marginBottom: 4,
+    },
+    emptyContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 60,
+        paddingHorizontal: 40,
+    },
+    emptyText: {
+        color: '#888',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 12,
+    },
+});
+
+export default withObservables(['route'], ({ route }: { route: any }) => {
+    const { tagId } = route.params;
+    return {
+        tag: database.collections.get<Tag>('tags').findAndObserve(tagId),
+        albums: database.collections.get<Album>('albums').query(
+            Q.experimentalJoinTables(['album_tags']),
+            Q.on('album_tags', 'tag_id', tagId),
+            Q.sortBy('title', Q.asc)
+        ).observe(),
+        tracks: database.collections.get<Track>('tracks').query(
+            Q.experimentalJoinTables(['track_tags']),
+            Q.on('track_tags', 'tag_id', tagId),
+            Q.sortBy('title', Q.asc)
+        ).observe(),
+    };
+})(TagDetailScreen);

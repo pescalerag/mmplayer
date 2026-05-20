@@ -23,6 +23,7 @@ interface DetailHeaderLayoutProps {
     onBack: () => void;
     onHome: () => void;
     renderExtra?: () => React.ReactNode;
+    renderHeaderPrefix?: () => React.ReactNode;
 }
 
 const DetailHeaderLayout = ({
@@ -34,6 +35,7 @@ const DetailHeaderLayout = ({
     onBack,
     onHome,
     renderExtra,
+    renderHeaderPrefix,
 }: DetailHeaderLayoutProps) => {
     return (
         <View style={styles.headerContainer}>
@@ -72,6 +74,7 @@ const DetailHeaderLayout = ({
 
             {/* Info */}
             <View style={styles.headerInfo}>
+                {renderHeaderPrefix?.()}
                 <MarqueeText
                     text={title}
                     style={styles.title}

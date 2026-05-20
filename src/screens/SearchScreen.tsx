@@ -23,11 +23,14 @@ import TopMatchCard from "../components/TopMatchCard";
 import TrackRow from "../components/TrackRow";
 import Album from "../database/models/Album";
 import Artist from "../database/models/Artist";
+import Tag from "../database/models/Tag";
 import Track from "../database/models/Track";
+import { database } from "../database";
 import { useMusicSearch, TopMatch } from "../hooks/useMusicSearch";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { SearchStackParamList } from "../navigation/types";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { Layout } from "../theme/theme";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
@@ -127,6 +130,7 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
         imageUrl={album.coverUrl}
         placeholderIcon="albums"
         onPress={onPress}
+        onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
       />
     </View>
   );
@@ -162,7 +166,7 @@ const SearchArtistCard = memo(function SearchArtistCard({
 
 // --- MAIN SCREEN ---
 
-export default function SearchScreen() {
+function SearchScreen({ tags }: { tags: Tag[] }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<SearchNavigationProp>();
   const [query, setQuery] = useState("");
@@ -285,8 +289,36 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* Mostrar Sugerencias solo cuando NO estamos buscando */}
-      {!isSearching && <Text style={styles.resultsTitle}>Sugerencias</Text>}
+      {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
+      {!isSearching && (
+        <View style={styles.tagsSection}>
+          <Text style={styles.resultsTitle}>Explorar por etiquetas</Text>
+          {tags.length === 0 ? (
+            <Text style={styles.noTagsText}>
+              No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum.
+            </Text>
+          ) : (
+            <View style={styles.tagsContainer}>
+              {tags.map((tag) => (
+                <TouchableOpacity
+                  key={tag.id}
+                  style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
+                  onPress={() => {
+                    navigation.navigate("TagDetail", {
+                      tagId: tag.id,
+                      tagName: tag.name,
+                      tagColor: tag.color || '#8B5CF6'
+                    });
+                  }}
+                >
+                  <Ionicons name="pricetag" size={14} color="#FFFFFF" style={styles.tagCardIcon} />
+                  <Text style={styles.tagCardText} numberOfLines={1}>{tag.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Top Match Hero Card */}
       {isSearching && currentTopMatch && (
@@ -296,14 +328,14 @@ export default function SearchScreen() {
         </>
       )}
 
-      {/* Ocultamos el título de Resultados y las listas si solo hay un Top Match en esta vista */}
-      {!isOnlyTopMatch &&
+      {/* Ocultamos el título de Resultados y las listas si solo hay un Top Match en esta vista o si no estamos buscando */}
+      {isSearching && !isOnlyTopMatch &&
         (activeFilter === "all" ||
           (activeFilter === "artists" && results.artists.length > 1) ||
           (activeFilter === "albums" && results.albums.length > 1) ||
           (activeFilter === "tracks" && results.tracks.length > 1)) && (
           <>
-            {isSearching && <Text style={styles.resultsTitle}>Resultados</Text>}
+            <Text style={styles.resultsTitle}>Resultados</Text>
 
             {/* Artists Section */}
             {(activeFilter === "all" || activeFilter === "artists") &&
@@ -473,7 +505,7 @@ export default function SearchScreen() {
       <FlatList
         ref={flatListRef}
         data={
-          !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
+          isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
             ? results.tracks.filter(
                 (track) =>
                   currentTopMatch?.type !== "track" ||
@@ -692,4 +724,45 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: "#FFFFFF",
   },
+  tagsSection: {
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  tagCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 100,
+    justifyContent: "center",
+  },
+  tagCardIcon: {
+    marginRight: 6,
+  },
+  tagCardText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: "Montserrat",
+    fontWeight: "700",
+  },
+  noTagsText: {
+    color: "#666666",
+    fontSize: 14,
+    fontFamily: "Montserrat",
+    fontWeight: "600",
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
 });
+
+export default withObservables([], () => ({
+  tags: database.collections.get<Tag>("tags").query().observe(),
+}))(SearchScreen);

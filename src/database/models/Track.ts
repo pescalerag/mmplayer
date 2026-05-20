@@ -29,4 +29,8 @@ export default class Track extends Model {
     @lazy queryCollaborators = this.collections.get('artists').query(
         Q.on('track_collaborators', 'track_id', this.id)
     );
+
+    @lazy queryTags = this.collections.get('tags').query(
+        Q.on('track_tags', 'track_id', this.id)
+    );
 }

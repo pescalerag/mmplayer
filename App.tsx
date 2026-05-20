@@ -8,7 +8,10 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TrackPlayerSync } from './src/components/TrackPlayerSync';
 import TrackMenuSheet from './src/components/TrackMenuSheet';
+import AlbumMenuSheet from './src/components/AlbumMenuSheet';
 import QueueSheet from './src/components/QueueSheet';
+import TagManagerModal from './src/components/TagManagerModal';
+import TagFormModal from './src/components/TagFormModal';
 import MainNavigator from './src/navigation/MainNavigator';
 import { setupPlayer } from './src/services/trackPlayerSetup';
 import { usePlayerStore } from './src/store/usePlayerStore';
@@ -94,7 +97,10 @@ export default function App() {
                     {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
                     <TrackMenuSheet />
+                    <AlbumMenuSheet />
                     <QueueSheet />
+                    <TagManagerModal />
+                    <TagFormModal />
                 </NavigationContainer>
             </View>
         </SafeAreaProvider>

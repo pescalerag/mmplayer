@@ -41,6 +41,8 @@ interface PlayerState {
     setIsPlaying: (playing: boolean) => void;
     addToQueueNext: (track: Track) => Promise<void>;
     addToQueueEnd: (track: Track) => Promise<void>;
+    addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
+    addMultipleToQueueEnd: (tracks: Track[]) => Promise<void>;
     updateQueueStatus: (currentIndex?: number) => Promise<void>;
     clearPlayer: () => Promise<void>;
     setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
@@ -177,6 +179,50 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             await get().updateQueueStatus();
         } catch (error) {
             console.error('Error adding to queue end:', error);
+        }
+    },
+
+    addMultipleToQueueNext: async (tracks) => {
+        try {
+            if (tracks.length === 0) return;
+            const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+            const currentIndex = await TrackPlayer.getActiveTrackIndex();
+
+            if (currentIndex !== undefined && currentIndex !== null) {
+                // Insertar justo después de la canción actual
+                await TrackPlayer.add(tpTracks, currentIndex + 1);
+            } else {
+                await TrackPlayer.add(tpTracks);
+            }
+            // Incrementar el tamaño de la cola manual
+            set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
+            console.log(`🎵 Añadidos a continuación ${tracks.length} tracks`);
+            await get().updateQueueStatus();
+        } catch (error) {
+            console.error('Error adding multiple to queue next:', error);
+        }
+    },
+
+    addMultipleToQueueEnd: async (tracks) => {
+        try {
+            if (tracks.length === 0) return;
+            const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+            const currentIndex = await TrackPlayer.getActiveTrackIndex();
+            const { userQueueSize } = get();
+
+            if (currentIndex !== undefined && currentIndex !== null) {
+                // Insertar después de todos los tracks de la user queue
+                const insertAt = currentIndex + 1 + userQueueSize;
+                await TrackPlayer.add(tpTracks, insertAt);
+            } else {
+                await TrackPlayer.add(tpTracks);
+            }
+            // Incrementar el tamaño de la cola manual
+            set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
+            console.log(`🎵 Añadidos al final de la cola manual ${tracks.length} tracks`);
+            await get().updateQueueStatus();
+        } catch (error) {
+            console.error('Error adding multiple to queue end:', error);
         }
     },
 

@@ -1,12 +1,11 @@
-import { Model } from "@nozbe/watermelondb";
+import { Model, Q } from "@nozbe/watermelondb";
 import {
     children,
     field,
     relation,
     text,
+    lazy,
 } from "@nozbe/watermelondb/decorators";
-
-
 
 export default class Album extends Model {
   static readonly table = "albums";
@@ -14,6 +13,7 @@ export default class Album extends Model {
   static readonly associations = {
     artists: { type: "belongs_to" as const, key: "artist_id" },
     tracks: { type: "has_many" as const, foreignKey: "album_id" },
+    album_tags: { type: "has_many" as const, foreignKey: "album_id" },
   };
 
   @text("title") title: string;
@@ -23,4 +23,9 @@ export default class Album extends Model {
 
   @relation("artists", "artist_id") artist: any;
   @children("tracks") tracks: any;
+  @children("album_tags") albumTags: any;
+
+  @lazy queryTags = this.collections.get('tags').query(
+      Q.on('album_tags', 'album_id', this.id)
+  );
 }

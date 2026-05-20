@@ -31,6 +31,7 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
 
 const { width } = Dimensions.get('window');
@@ -73,6 +74,7 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { al
                 imageUrl={album.coverUrl}
                 placeholderIcon="albums"
                 onPress={onPress}
+                onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
             />
         </View>
     );
