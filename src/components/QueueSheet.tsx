@@ -173,9 +173,10 @@ export default function QueueSheet() {
     };
 
     // --- RENDER: FILA DE COLA (próximas) ---
-    const renderQueueItem = ({ item, index }: { item: TPTrack; index: number }) => {
+    const renderQueueItem = ({ item, index }: { item: any; index: number }) => {
         const globalIndex = activeIndex + 1 + index;
         const isUserQueued = index < userQueueSize;
+        const isManual = item.isManual === true || isUserQueued;
         return (
             <TouchableOpacity
                 style={styles.trackRow}
@@ -196,7 +197,7 @@ export default function QueueSheet() {
                 <View style={styles.trackInfo}>
                     <View style={styles.titleRow}>
                         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                        {isUserQueued && (
+                        {isManual && (
                             <View style={styles.userQueueBadge}>
                                 <Ionicons name="menu" size={12} color="#A78BFA" />
                             </View>

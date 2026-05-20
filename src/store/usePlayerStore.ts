@@ -133,6 +133,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     addToQueueNext: async (track) => {
         try {
             const tpTrack = await mapToTPTrack(track);
+            (tpTrack as any).isManual = true;
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
             if (currentIndex !== undefined && currentIndex !== null) {
@@ -145,6 +146,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set(state => ({ userQueueSize: state.userQueueSize + 1 }));
             console.log(`🎵 Añadido a continuación: ${track.title}`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding to queue next:', error);
         }
@@ -153,21 +155,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     addToQueueEnd: async (track) => {
         try {
             const tpTrack = await mapToTPTrack(track);
-            const currentIndex = await TrackPlayer.getActiveTrackIndex();
-            const { userQueueSize } = get();
-
-            if (currentIndex !== undefined && currentIndex !== null) {
-                // Insertar después de todos los tracks de la user queue
-                // pero antes de la cola de contexto (resto del álbum/artista)
-                const insertAt = currentIndex + 1 + userQueueSize;
-                await TrackPlayer.add([tpTrack], insertAt);
-            } else {
-                await TrackPlayer.add([tpTrack]);
-            }
-            // Incrementar el tamaño de la cola manual
-            set(state => ({ userQueueSize: state.userQueueSize + 1 }));
-            console.log(`🎵 Añadido al final de la cola manual: ${track.title}`);
+            (tpTrack as any).isManual = true;
+            await TrackPlayer.add([tpTrack]);
+            console.log(`🎵 Añadido al final de la cola: ${track.title}`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding to queue end:', error);
         }
@@ -177,6 +169,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             if (tracks.length === 0) return;
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+            tpTracks.forEach(t => (t as any).isManual = true);
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
             if (currentIndex !== undefined && currentIndex !== null) {
@@ -189,6 +182,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
             console.log(`🎵 Añadidos a continuación ${tracks.length} tracks`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding multiple to queue next:', error);
         }
@@ -198,20 +192,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             if (tracks.length === 0) return;
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
-            const currentIndex = await TrackPlayer.getActiveTrackIndex();
-            const { userQueueSize } = get();
-
-            if (currentIndex !== undefined && currentIndex !== null) {
-                // Insertar después de todos los tracks de la user queue
-                const insertAt = currentIndex + 1 + userQueueSize;
-                await TrackPlayer.add(tpTracks, insertAt);
-            } else {
-                await TrackPlayer.add(tpTracks);
-            }
-            // Incrementar el tamaño de la cola manual
-            set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
-            console.log(`🎵 Añadidos al final de la cola manual ${tracks.length} tracks`);
+            tpTracks.forEach(t => (t as any).isManual = true);
+            await TrackPlayer.add(tpTracks);
+            console.log(`🎵 Añadidos al final de la cola ${tracks.length} tracks`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding multiple to queue end:', error);
         }
