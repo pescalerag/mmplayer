@@ -78,28 +78,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
 
-            // 1. Elegir un track de inicio aleatorio
-            const startIndex = Math.floor(Math.random() * tracks.length);
+            // 1. Crear un arreglo de índices y barajarlo
+            const indices = Array.from({ length: tracks.length }, (_, i) => i);
+            const shuffledIndices = indices.sort(() => Math.random() - 0.5);
 
-            // 2. Cargar la cola completa en orden original
+            const shuffledTracks = shuffledIndices.map(i => tracks[i]);
+            const shuffledTpTracks = shuffledIndices.map(i => tpTracks[i]);
+
+            // 2. Cargar la cola barajada completa
             await TrackPlayer.reset();
-            await TrackPlayer.add(tpTracks);
-            await TrackPlayer.skip(startIndex);
+            await TrackPlayer.add(shuffledTpTracks);
             await TrackPlayer.play();
 
-            // 3. Barajar los tracks que vienen después
-            const upcoming = tpTracks.slice(startIndex + 1);
-            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-            await TrackPlayer.removeUpcomingTracks();
-            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
-
-            // 4. Guardar estado: shuffle activo, cola original guardada
+            // 3. Guardar estado: shuffle activo, cola original guardada
             set({
-                activeTrack: tracks[startIndex],
+                activeTrack: shuffledTracks[0],
                 playbackContext: context,
                 isShuffleEnabled: true,
                 shuffleOriginalQueue: tpTracks,
                 userQueueSize: 0,
+                hasPrevious: false,
+                hasNext: shuffledTracks.length > 1,
             });
         } catch (error) {
             console.error('Error starting shuffled queue:', error);

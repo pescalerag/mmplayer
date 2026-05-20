@@ -26,7 +26,7 @@ const BlurredBackground = ({
     const showPlaceholder = !imageUrl || hasError;
 
     return (
-        <View style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
             {showPlaceholder ? (
                 <LinearGradient colors={placeholderColors as any} style={StyleSheet.absoluteFill} />
             ) : (

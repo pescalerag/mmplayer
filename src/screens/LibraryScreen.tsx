@@ -145,7 +145,7 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Alb
 };
 
 const EnhancedAlbumList = withObservables([], () => ({
-    albums: database.collections.get<Album>('albums').query().observe(),
+    albums: database.collections.get<Album>('albums').query(Q.sortBy('title', Q.asc)).observe(),
 }))(AlbumList);
 
 
@@ -189,7 +189,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: 
 };
 
 const EnhancedArtistList = withObservables([], () => ({
-    artists: database.collections.get<Artist>('artists').query().observe(),
+    artists: database.collections.get<Artist>('artists').query(Q.sortBy('name', Q.asc)).observe(),
 }))(ArtistList);
 
 
