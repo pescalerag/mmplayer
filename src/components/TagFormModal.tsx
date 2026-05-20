@@ -5,7 +5,6 @@ import {
     BackHandler,
     Dimensions,
     Keyboard,
-    KeyboardAvoidingView,
     Platform,
     StyleSheet,
     Text,
@@ -47,6 +46,7 @@ export default function TagFormModal() {
     // Animaciones
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    const keyboardHeight = useRef(new Animated.Value(0)).current;
 
     // Bridge from UI thread (worklet) → JS thread for setState
     const setHexOnJS = (hex: string) => setCustomHexCode(hex);
@@ -112,6 +112,32 @@ export default function TagFormModal() {
         return () => subscription.remove();
     }, [isVisible, closeForm]);
 
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSubscription = Keyboard.addListener(showEvent, (e) => {
+            Animated.timing(keyboardHeight, {
+                toValue: e.endCoordinates.height,
+                duration: 250,
+                useNativeDriver: false,
+            }).start();
+        });
+
+        const hideSubscription = Keyboard.addListener(hideEvent, () => {
+            Animated.timing(keyboardHeight, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: false,
+            }).start();
+        });
+
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
+
     const handleSave = async () => {
         if (!tagName.trim()) return;
         try {
@@ -147,14 +173,16 @@ export default function TagFormModal() {
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
             {/* Fondo oscuro animado */}
-            <TouchableWithoutFeedback onPress={closeForm}>
+            <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); closeForm(); }}>
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
 
             {/* Contenedor del bottom sheet */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                style={styles.keyboardAvoid}
+            <Animated.View 
+                style={[
+                    styles.keyboardAvoid, 
+                    { paddingBottom: keyboardHeight }
+                ]}
             >
                 <Animated.View
                     style={[
@@ -271,7 +299,7 @@ export default function TagFormModal() {
                     </TouchableOpacity>
 
                 </Animated.View>
-            </KeyboardAvoidingView>
+            </Animated.View>
         </View>
     );
 }
