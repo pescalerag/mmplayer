@@ -53,6 +53,13 @@ const MiniProgressBar = () => {
 };
 
 const MiniPlayerUI = ({ track, album, artist, onPress }: MiniPlayerUIProps) => {
+    const [imageError, setImageError] = React.useState(false);
+
+    React.useEffect(() => {
+        setImageError(false);
+    }, [track.id]);
+
+    const hasCover = Boolean(album?.coverUrl && album.coverUrl !== 'null' && album.coverUrl.trim() !== '') && !imageError;
 
     return (
         <TouchableOpacity
@@ -65,11 +72,13 @@ const MiniPlayerUI = ({ track, album, artist, onPress }: MiniPlayerUIProps) => {
             <View style={styles.content}>
                 <View style={styles.leftSection}>
                     <View style={styles.artworkContainer}>
-                        {album.coverUrl ? (
+                        {hasCover ? (
                             <Image
-                                source={{ uri: album.coverUrl }}
+                                key={track.id}
+                                source={{ uri: album.coverUrl as string }}
                                 style={styles.artwork}
                                 contentFit="cover"
+                                onError={() => setImageError(true)}
                             />
                         ) : (
                             <View style={styles.artworkPlaceholder}>

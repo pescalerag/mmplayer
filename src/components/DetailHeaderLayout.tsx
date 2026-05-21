@@ -24,6 +24,7 @@ interface DetailHeaderLayoutProps {
     onHome: () => void;
     onDelete?: () => void;
     onEdit?: () => void;
+    onPickPhoto?: () => void;
     renderExtra?: () => React.ReactNode;
     renderHeaderPrefix?: () => React.ReactNode;
     isFavorites?: boolean;
@@ -40,6 +41,7 @@ const DetailHeaderLayout = ({
     onHome,
     onDelete,
     onEdit,
+    onPickPhoto,
     renderExtra,
     renderHeaderPrefix,
     isFavorites = false,
@@ -82,6 +84,16 @@ const DetailHeaderLayout = ({
             <TouchableOpacity style={styles.backButton} onPress={onBack}>
                 <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
+
+            {/* Botón Cambiar Foto si aplica */}
+            {onPickPhoto && (
+                <TouchableOpacity
+                    style={[styles.backButton, { left: undefined, right: 166 }]}
+                    onPress={onPickPhoto}
+                >
+                    <Ionicons name="camera" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+            )}
 
             {/* Botón Editar si aplica */}
             {onEdit && (

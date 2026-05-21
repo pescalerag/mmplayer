@@ -143,11 +143,20 @@ const PlayerScreenUI = ({
 
 
 
+    const [imageError, setImageError] = React.useState(false);
+
+    React.useEffect(() => {
+        setImageError(false);
+    }, [track.id]);
+
+    const hasCover = Boolean(album?.coverUrl && album.coverUrl !== 'null' && album.coverUrl.trim() !== '') && !imageError;
+
     return (
         <View style={styles.container}>
             {/* Background Image with Blur */}
             <BlurredBackground
-                imageUrl={album.coverUrl}
+                key={`blur-${track.id}`}
+                imageUrl={hasCover ? album.coverUrl : null}
                 blurIntensity={10}
                 gradientColors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.7)', '#000000']}
             />
@@ -206,13 +215,15 @@ const PlayerScreenUI = ({
 
                 {/* Artwork */}
                 <View style={styles.artworkContainer}>
-                    {album.coverUrl ? (
+                    {hasCover ? (
                         <Image
-                            source={{ uri: album.coverUrl }}
+                            key={track.id}
+                            source={{ uri: album.coverUrl as string }}
                             style={styles.artwork}
                             contentFit="cover"
                             transition={300}
                             cachePolicy="memory-disk"
+                            onError={() => setImageError(true)}
                         />
                     ) : (
                         <View style={[styles.artwork, styles.artworkPlaceholder]}>

@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
@@ -204,6 +206,59 @@ function PlaylistDetailContent({ playlist, playlistTracks }: PlaylistDetailConte
         }
     };
 
+    const handlePickPhoto = useCallback(async () => {
+        let result;
+        try {
+            result = await DocumentPicker.getDocumentAsync({
+                type: 'image/*',
+                copyToCacheDirectory: true,
+            });
+        } catch (error) {
+            console.error('PickPhoto: Error al lanzar explorador:', error);
+            Alert.alert('Error', 'Hubo un problema al abrir el explorador.');
+            return;
+        }
+
+        const asset = result.assets?.[0];
+        if (!asset) return;
+
+        try {
+            const baseDir = FileSystem.documentDirectory;
+            if (!baseDir) throw new Error('No se pudo acceder al directorio local');
+
+            const sanitized = playlist.name
+                .toLowerCase()
+                .normalize("NFD")
+                .replaceAll(/[\u0300-\u036f]/g, "")
+                .replaceAll(/[^a-z0-9]/g, "_")
+                .replaceAll(/_+/g, "_")
+                .trim();
+            const fileName = `playlist_${playlist.id}_${sanitized}_${Date.now()}.jpg`;
+            const newPath = baseDir.endsWith('/') ? `${baseDir}${fileName}` : `${baseDir}/${fileName}`;
+
+            const oldPath = playlist.coverCustomUrl;
+            if (oldPath && oldPath !== newPath && oldPath.startsWith('file://')) {
+                try {
+                    await FileSystem.deleteAsync(oldPath, { idempotent: true });
+                } catch (e) {
+                    console.warn('Error deleting old image:', e);
+                }
+            }
+
+            await FileSystem.copyAsync({ from: asset.uri, to: newPath });
+
+            await database.write(async () => {
+                await playlist.update(p => {
+                    p.coverCustomUrl = newPath;
+                });
+            });
+
+        } catch (error) {
+            console.error('Error guardando imagen:', error);
+            Alert.alert('Error', 'No se pudo guardar la imagen de la playlist.');
+        }
+    }, [playlist]);
+
     const renderHeader = () => (
         <>
             <DetailHeaderLayout
@@ -224,6 +279,7 @@ function PlaylistDetailContent({ playlist, playlistTracks }: PlaylistDetailConte
                 onHome={() => navigation.navigate('Biblioteca' as never)}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
+                onPickPhoto={handlePickPhoto}
                 renderExtra={() => (
                     tracks.length > 0 && (
                         <>

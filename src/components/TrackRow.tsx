@@ -39,6 +39,14 @@ function TrackRow({
   const isCurrentTrack = activeTrack?.id === track.id && 
                         (playbackContext === contextId || contextId === 'queue');
 
+  const [imageError, setImageError] = React.useState(false);
+
+  React.useEffect(() => {
+      setImageError(false);
+  }, [track.id]);
+
+  const hasCover = Boolean(coverUrl && coverUrl !== 'null' && coverUrl.trim() !== '') && !imageError;
+
   return (
     <TouchableOpacity
       style={[styles.row, isCurrentTrack && styles.rowActive]}
@@ -49,20 +57,22 @@ function TrackRow({
     >
       {/* Imagen o número de pista */}
       <View style={styles.leftCol}>
-        {coverUrl ? (
+        {hasCover ? (
           <Image
-            source={{ uri: coverUrl }}
+            key={track.id}
+            source={{ uri: coverUrl as string }}
             style={styles.cover}
             contentFit="cover"
             transition={200}
             cachePolicy="memory-disk"
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={styles.coverPlaceholder}>
             {index ? (
               <Text style={styles.indexText}>{index}</Text>
             ) : (
-              <Ionicons name="musical-notes" size={16} color="#B3B3B3" />
+              <Ionicons name="musical-note" size={16} color="#B3B3B3" />
             )}
           </View>
         )}
