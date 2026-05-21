@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
@@ -22,9 +23,10 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Tag from '../database/models/Tag';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useTagManagerStore } from '../store/useTagManagerStore';
 
 import withObservables from '@nozbe/with-observables';
 import MarqueeText from '../components/MarqueeText';
@@ -71,8 +73,29 @@ const PlayerScreenUI = ({
     // ── Repeat mode ──
     const [repeatMode, setRepeatModeState] = useState<RepeatMode>(RepeatMode.Off);
 
+    // ── Like Heart Animation ──
+    const heartScale = useSharedValue(1);
+
+    const heartAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ scale: heartScale.value }]
+        };
+    });
+
+    const handleLikePress = async () => {
+        heartScale.value = withSequence(
+            withSpring(1.2, { damping: 15, stiffness: 300 }),
+            withSpring(1.0, { damping: 15, stiffness: 300 })
+        );
+        try {
+            await track.toggleLike();
+        } catch (e) {
+            console.error('Error al dar me gusta:', e);
+        }
+    };
+
     useEffect(() => {
-        TrackPlayer.getRepeatMode().then(setRepeatModeState).catch(() => {});
+        TrackPlayer.getRepeatMode().then(setRepeatModeState).catch(() => { });
     }, []);
 
     const toggleShuffle = async () => {
@@ -108,9 +131,9 @@ const PlayerScreenUI = ({
     const cycleRepeatMode = async () => {
         try {
             const next =
-                repeatMode === RepeatMode.Off   ? RepeatMode.Queue :
-                repeatMode === RepeatMode.Queue  ? RepeatMode.Track :
-                                                   RepeatMode.Off;
+                repeatMode === RepeatMode.Off ? RepeatMode.Queue :
+                    repeatMode === RepeatMode.Queue ? RepeatMode.Track :
+                        RepeatMode.Off;
             await TrackPlayer.setRepeatMode(next);
             setRepeatModeState(next);
         } catch (e) {
@@ -200,60 +223,87 @@ const PlayerScreenUI = ({
 
                 {/* Info */}
                 <View style={styles.infoContainer}>
-                    {/* Tags row */}
-                    <View style={styles.tagsRow}>
-                        {tags && tags.length > 0 ? (
-                            <ScrollView 
-                                horizontal 
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.tagsScroll}
-                            >
-                                {tags.map(t => (
-                                    <TouchableOpacity 
-                                        key={t.id} 
-                                        style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
-                                        onPress={() => useTagManagerStore.getState().openForTrack(track)}
-                                    >
-                                        <Text style={styles.tagText}>{t.name}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        ) : (
-                            <TouchableOpacity 
-                                style={styles.addTagButton}
-                                onPress={() => useTagManagerStore.getState().openForTrack(track)}
-                            >
-                                <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
-                                <Text style={styles.addTagText}>Añadir Tag</Text>
-                            </TouchableOpacity>
-                        )}
+                    <View style={styles.infoTextContainer}>
+                        {/* Tags row */}
+                        <View style={styles.tagsRow}>
+                            {tags && tags.length > 0 ? (
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.tagsScroll}
+                                >
+                                    {tags.map(t => (
+                                        <TouchableOpacity
+                                            key={t.id}
+                                            style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
+                                            onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                                        >
+                                            <Text style={styles.tagText}>{t.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <TouchableOpacity
+                                    style={styles.addTagButton}
+                                    onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                                >
+                                    <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
+                                    <Text style={styles.addTagText}>Añadir Tag</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <MarqueeText
+                            text={track.title}
+                            style={styles.title}
+                            speed={45}
+                            pauseDuration={1800}
+                        />
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.goBack();
+                                navigation.navigate('Main', {
+                                    screen: 'Biblioteca',
+                                    params: {
+                                        screen: 'ArtistDetail',
+                                        params: { artistId: artist.id }
+                                    }
+                                });
+                            }}
+                        >
+                            <MarqueeText
+                                text={artist.name}
+                                style={styles.artist}
+                                speed={35}
+                                pauseDuration={2000}
+                            />
+                        </TouchableOpacity>
                     </View>
 
-                    <MarqueeText
-                        text={track.title}
-                        style={styles.title}
-                        speed={45}
-                        pauseDuration={1800}
-                    />
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.goBack();
-                            navigation.navigate('Main', {
-                                screen: 'Biblioteca',
-                                params: {
-                                    screen: 'ArtistDetail',
-                                    params: { artistId: artist.id }
-                                }
-                            });
-                        }}
-                    >
-                        <MarqueeText
-                            text={artist.name}
-                            style={styles.artist}
-                            speed={35}
-                            pauseDuration={2000}
-                        />
-                    </TouchableOpacity>
+                    {/* Actions Column (Heart + Plus) */}
+                    <View style={styles.infoActionsContainer}>
+                        <Animated.View style={heartAnimatedStyle}>
+                            <TouchableOpacity
+                                onPress={handleLikePress}
+                                style={styles.actionButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name={track.isFavorite ? "heart" : "heart-outline"}
+                                    size={28}
+                                    color={track.isFavorite ? "#EF4444" : "#FFFFFF"}
+                                />
+                            </TouchableOpacity>
+                        </Animated.View>
+
+                        <TouchableOpacity
+                            onPress={() => usePlaylistSelectorStore.getState().openSelector(track)}
+                            style={styles.actionButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons name="add" size={28} color="#FFFFFF" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Progress Slider */}
@@ -275,7 +325,7 @@ const PlayerScreenUI = ({
                         }}
                         onSlidingComplete={(value) => {
                             setIsSeeking(false);
-                            TrackPlayer.seekTo(value).catch(() => {});
+                            TrackPlayer.seekTo(value).catch(() => { });
                         }}
                     />
                     <View style={styles.timeContainer}>
@@ -302,7 +352,7 @@ const PlayerScreenUI = ({
 
                     {/* ── ANTERIOR ── */}
                     <TouchableOpacity
-                        onPress={() => TrackPlayer.skipToPrevious().catch(() => {})}
+                        onPress={() => TrackPlayer.skipToPrevious().catch(() => { })}
                         style={styles.controlButton}
                         disabled={!hasPrevious}
                     >
@@ -313,7 +363,7 @@ const PlayerScreenUI = ({
 
                     {/* ── SIGUIENTE ── */}
                     <TouchableOpacity
-                        onPress={() => TrackPlayer.skipToNext().catch(() => {})}
+                        onPress={() => TrackPlayer.skipToNext().catch(() => { })}
                         style={styles.controlButton}
                         disabled={!hasNext}
                     >
@@ -344,8 +394,8 @@ const PlayerScreenUI = ({
 
                 {/* Footer / Secondary Actions */}
                 <View style={[styles.footer, { marginBottom: insets.bottom + 10 }]}>
-                    <TouchableOpacity 
-                        onPress={openQueue} 
+                    <TouchableOpacity
+                        onPress={openQueue}
                         style={styles.footerButton}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
@@ -442,8 +492,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     infoContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
         paddingHorizontal: 20,
         marginBottom: 8,
+    },
+    infoTextContainer: {
+        flex: 1,
+        marginRight: 16,
+    },
+    infoActionsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingBottom: 0,
+    },
+    actionButton: {
+        padding: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     tagsRow: {
         flexDirection: 'row',

@@ -33,4 +33,12 @@ export default class Track extends Model {
     @lazy queryTags = this.collections.get('tags').query(
         Q.on('track_tags', 'track_id', this.id)
     );
+
+    async toggleLike(): Promise<void> {
+        await this.database.write(async () => {
+            await this.update(t => {
+                t.isFavorite = !t.isFavorite;
+            });
+        });
+    }
 }

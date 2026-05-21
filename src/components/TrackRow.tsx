@@ -15,6 +15,7 @@ interface TrackRowProps {
   readonly index?: number;
   readonly coverUrl?: string | null;
   readonly artistName?: string;
+  readonly playlistId?: string;
   readonly onPress?: (trackId: string) => void;
 }
 
@@ -24,6 +25,7 @@ function TrackRow({
   index,
   coverUrl,
   artistName,
+  playlistId,
   onPress,
 }: Readonly<TrackRowProps>) {
   const openMenu = useTrackMenuStore((state) => state.openMenu);
@@ -41,7 +43,7 @@ function TrackRow({
     <TouchableOpacity
       style={[styles.row, isCurrentTrack && styles.rowActive]}
       onPress={() => onPress?.(track.id)}
-      onLongPress={() => openMenu(track)}
+      onLongPress={() => openMenu(track, {}, playlistId)}
       delayLongPress={300}
       activeOpacity={0.6}
     >
@@ -89,7 +91,7 @@ function TrackRow({
         <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => openMenu(track)}
+          onPress={() => openMenu(track, {}, playlistId)}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
           <Ionicons name="ellipsis-vertical" size={20} color="#B3B3B3" />
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    height: 64,
     paddingHorizontal: 20,
   },
   rowActive: {

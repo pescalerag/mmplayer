@@ -144,7 +144,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             }
             // Incrementar el tamaño de la cola manual
             set(state => ({ userQueueSize: state.userQueueSize + 1 }));
-            console.log(`🎵 Añadido a continuación: ${track.title}`);
             await get().updateQueueStatus();
             await get().savePlaybackState();
         } catch (error) {
@@ -157,7 +156,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             const tpTrack = await mapToTPTrack(track);
             (tpTrack as any).isManual = true;
             await TrackPlayer.add([tpTrack]);
-            console.log(`🎵 Añadido al final de la cola: ${track.title}`);
             await get().updateQueueStatus();
             await get().savePlaybackState();
         } catch (error) {
@@ -180,7 +178,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             }
             // Incrementar el tamaño de la cola manual
             set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
-            console.log(`🎵 Añadidos a continuación ${tracks.length} tracks`);
             await get().updateQueueStatus();
             await get().savePlaybackState();
         } catch (error) {
@@ -194,7 +191,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
             tpTracks.forEach(t => (t as any).isManual = true);
             await TrackPlayer.add(tpTracks);
-            console.log(`🎵 Añadidos al final de la cola ${tracks.length} tracks`);
             await get().updateQueueStatus();
             await get().savePlaybackState();
         } catch (error) {
@@ -252,7 +248,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                 userQueueSize,
             });
             await AsyncStorage.setItem(PERSISTENCE_KEY, payload);
-            console.log('💾 [Store] Estado guardado en disco.');
         } catch (error) {
             console.error('Error guardando estado de reproducción:', error);
         }
@@ -262,7 +257,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             const savedData = await AsyncStorage.getItem(PERSISTENCE_KEY);
             if (!savedData) {
-                console.log('🔄 [Store] No hay estado previo guardado.');
                 return;
             }
 
@@ -276,8 +270,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             } = JSON.parse(savedData);
 
             if (!queue || queue.length === 0) return;
-
-            console.log(`🔄 [Store] Restaurando ${queue.length} canciones...`);
 
             // 1. Rehidratar el motor nativo de TrackPlayer
             await TrackPlayer.reset();
@@ -311,7 +303,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
             // 4. Actualizar hasPrevious / hasNext
             await get().updateQueueStatus(safeIndex);
-            console.log('✅ [Store] Cola restaurada correctamente.');
         } catch (error) {
             console.error('Error restaurando estado de reproducción:', error);
         }
@@ -319,21 +310,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     updateQueueStatus: async (currentIndex?: number) => {
         try {
-            console.log("📊 [Store] Evaluando estado de la cola...");
             const queue = await TrackPlayer.getQueue();
             const index = currentIndex !== undefined ? currentIndex : await TrackPlayer.getActiveTrackIndex();
-
-            console.log(`📊 [Store] Datos de Cola -> Longitud: ${queue.length}, Index Activo: ${index}`);
 
             if (index !== undefined && index !== null) {
                 set({
                     hasPrevious: index > 0,
                     hasNext: index < queue.length - 1
                 });
-                console.log(`📊 [Store] Resultado Cola -> hasPrevious: ${index > 0}, hasNext: ${index < queue.length - 1}`);
             } else {
                 set({ hasPrevious: false, hasNext: false });
-                console.log(`📊 [Store] Resultado Cola -> Nada reproduciéndose (index missing)`);
             }
         } catch (error) {
             console.error('❌ [Store] Error actualizando status de la cola:', error);

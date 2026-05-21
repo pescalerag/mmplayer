@@ -13,10 +13,9 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import ColorPicker, { HueSlider, Panel1, Swatches } from 'reanimated-color-picker';
 import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Tag from '../database/models/Tag';
+import ColorPicker, { HueSlider, Panel1, Swatches } from 'reanimated-color-picker';
 import { TagService } from '../services/tagService';
 
 import { useTagFormStore } from '../store/useTagFormStore';
@@ -178,9 +177,9 @@ export default function TagFormModal() {
             </TouchableWithoutFeedback>
 
             {/* Contenedor del bottom sheet */}
-            <Animated.View 
+            <Animated.View
                 style={[
-                    styles.keyboardAvoid, 
+                    styles.keyboardAvoid,
                     { paddingBottom: keyboardHeight }
                 ]}
             >
@@ -370,7 +369,7 @@ const styles = StyleSheet.create({
     },
     colorPickerOverlay: {
         position: 'absolute',
-        bottom: 120, // sit just above the primary button
+        bottom: 70,
         left: 24,
         right: 24,
         zIndex: 999,
@@ -379,7 +378,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
+        shadowOffset: { width: 0, height: -10 },
         shadowOpacity: 0.6,
         shadowRadius: 12,
         elevation: 20,

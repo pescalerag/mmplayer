@@ -38,7 +38,6 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
                         contentFit="cover"
                         cachePolicy="memory-disk"
                         onError={() => {
-                            console.log('LibraryCard: Error cargando imagen:', imageUrl);
                             setImageError(true);
                         }}
                     />

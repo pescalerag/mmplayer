@@ -1,0 +1,384 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
+import withObservables from '@nozbe/with-observables';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
+import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DetailHeaderLayout from '../components/DetailHeaderLayout';
+import PlaylistCover from '../components/PlaylistCover';
+import SectionHeader from '../components/SectionHeader';
+import TrackRow from '../components/TrackRow';
+import { database } from '../database';
+import Album from '../database/models/Album';
+import Artist from '../database/models/Artist';
+import Playlist from '../database/models/Playlist';
+import PlaylistTrack from '../database/models/PlaylistTrack';
+import Track from '../database/models/Track';
+import { PlaylistService } from '../services/PlaylistService';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { Layout } from '../theme/theme';
+import { formatAlbumDuration } from '../utils/time';
+
+const { width } = Dimensions.get('window');
+
+// ─── PLAYLIST TRACK ROW WITH METADATA ───
+const PlaylistTrackRowWithMetadata = withObservables(['track'], ({ track }: { track: Track }) => ({
+    track: track.observe(),
+    album: track.album.observe(),
+    artist: track.artist.observe(),
+}))(function PlaylistTrackRowWithMetadata({
+    track,
+    album,
+    artist,
+    playlistId,
+    index,
+    onPress,
+}: {
+    track: Track;
+    album: Album;
+    artist: Artist;
+    playlistId: string;
+    index: number;
+    onPress: (trackId: string) => void;
+}) {
+    return (
+        <TrackRow
+            track={track}
+            contextId={`playlist-${playlistId}`}
+            index={index}
+            coverUrl={album?.coverUrl}
+            artistName={artist?.name}
+            playlistId={playlistId}
+            onPress={onPress}
+        />
+    );
+});
+
+// ─── PLAYLIST TRACK ROW WRAPPER ───
+const PlaylistTrackRow = withObservables(['playlistTrack'], ({ playlistTrack }: { playlistTrack: PlaylistTrack }) => ({
+    playlistTrack: playlistTrack.observe(),
+    track: playlistTrack.track.observe(),
+}))(function PlaylistTrackRow({
+    playlistTrack,
+    track,
+    playlistId,
+    index,
+    onPress,
+}: {
+    playlistTrack: PlaylistTrack;
+    track: Track;
+    playlistId: string;
+    index: number;
+    onPress: (trackId: string) => void;
+}) {
+    if (!track) return null;
+    return (
+        <PlaylistTrackRowWithMetadata
+            track={track}
+            playlistId={playlistId}
+            index={index}
+            onPress={onPress}
+        />
+    );
+});
+
+// ─── MAIN PLAYLIST SCREEN CONTENT ───
+interface PlaylistDetailContentProps {
+    playlist: Playlist;
+    playlistTracks: PlaylistTrack[];
+}
+
+function PlaylistDetailContent({ playlist, playlistTracks }: PlaylistDetailContentProps) {
+    const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
+
+    const [tracks, setTracks] = useState<Track[]>([]);
+    const [loadingTracks, setLoadingTracks] = useState(true);
+
+    // Resolve Track records from PlaylistTrack relation
+    useEffect(() => {
+        let isMounted = true;
+        const loadTracks = async () => {
+            setLoadingTracks(true);
+            try {
+                // Obtenemos todas las promesas a la vez y las resolvemos en paralelo
+                const resolvedTracks = await Promise.all(
+                    playlistTracks.map(pt => pt.track.fetch())
+                );
+                
+                // Filtramos por si alguna canción fue borrada del dispositivo
+                const validTracks = resolvedTracks.filter((t): t is Track => t !== null);
+                
+                if (isMounted) {
+                    setTracks(validTracks);
+                    setLoadingTracks(false);
+                }
+            } catch (err) {
+                console.error("Error loading playlist tracks:", err);
+                if (isMounted) setLoadingTracks(false);
+            }
+        };
+        loadTracks();
+        return () => {
+            isMounted = false;
+        };
+    }, [playlistTracks]);
+
+    // Player States
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const playbackContext = usePlayerStore(state => state.playbackContext);
+
+    const playlistContextId = `playlist-${playlist.id}`;
+    const isCurrentPlaylist = playbackContext === playlistContextId;
+    const isCurrentPlaylistPlaying = isCurrentPlaylist && isPlaying;
+
+    const totalDuration = tracks.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0);
+
+    const handleBack = () => {
+        navigation.goBack();
+    };
+
+    const handleDelete = () => {
+        Alert.alert(
+            "Eliminar Playlist",
+            `¿Estás seguro de que quieres eliminar la lista "${playlist.name}"? Esta acción no se puede deshacer.`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Eliminar",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            navigation.goBack();
+                            await PlaylistService.deletePlaylist(playlist.id);
+                        } catch (err) {
+                            console.error("Error al eliminar la playlist:", err);
+                            Alert.alert("Error", "No se pudo eliminar la lista de reproducción.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleEdit = () => {
+        usePlaylistSelectorStore.getState().openEdit(playlist);
+    };
+
+    const handleTrackPress = useCallback((trackId: string) => {
+        const trackIndex = tracks.findIndex(t => t.id === trackId);
+        if (trackIndex !== -1) {
+            usePlayerStore.getState().loadQueue(tracks, trackIndex, playlistContextId);
+        }
+    }, [tracks, playlistContextId]);
+
+    const handleFabPress = async () => {
+        if (isCurrentPlaylist) {
+            if (isPlaying) {
+                await TrackPlayer.pause();
+            } else {
+                await TrackPlayer.play();
+            }
+        } else if (tracks.length > 0) {
+            usePlayerStore.getState().loadQueue(tracks, 0, playlistContextId);
+        }
+    };
+
+    const handleShuffleFabPress = () => {
+        if (tracks.length > 0) {
+            usePlayerStore.getState().startShuffled(tracks, playlistContextId);
+        }
+    };
+
+    const renderHeader = () => (
+        <>
+            <DetailHeaderLayout
+                title={playlist.name}
+                placeholderIcon="musical-notes"
+                renderCover={() => (
+                    <PlaylistCover
+                        playlistId={playlist.id}
+                        customCoverUrl={playlist.coverCustomUrl}
+                        width={width}
+                        height={380}
+                        borderRadius={0}
+                    />
+                )}
+                subtitle={playlist.description || "Lista de reproducción personalizada"}
+                metaInfo={`${playlistTracks.length} ${playlistTracks.length === 1 ? 'canción' : 'canciones'} · ${formatAlbumDuration(totalDuration)}`}
+                onBack={handleBack}
+                onHome={() => navigation.navigate('Biblioteca' as never)}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+                renderExtra={() => (
+                    tracks.length > 0 && (
+                        <>
+                            {/* Shuffle Button */}
+                            <TouchableOpacity
+                                style={styles.shuffleFab}
+                                onPress={handleShuffleFabPress}
+                            >
+                                <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                            </TouchableOpacity>
+
+                            {/* Play/Pause Button */}
+                            <TouchableOpacity
+                                style={styles.playFab}
+                                onPress={handleFabPress}
+                            >
+                                <Ionicons 
+                                    name={isCurrentPlaylistPlaying ? "pause" : "play"} 
+                                    size={28} 
+                                    color="#FFFFFF"
+                                    style={!isCurrentPlaylistPlaying ? { marginLeft: 4 } : {}}
+                                />
+                            </TouchableOpacity>
+                        </>
+                    )
+                )}
+            />
+
+            <View style={{ marginTop: 0, marginBottom: 4 }}>
+                <SectionHeader title="Canciones en la lista" />
+                <View style={styles.divider} />
+            </View>
+        </>
+    );
+
+    const renderItem = useCallback((info: { item: PlaylistTrack; index: number }) => {
+        const { item, index } = info;
+        return (
+            <PlaylistTrackRow
+                playlistTrack={item}
+                playlistId={playlist.id}
+                index={index + 1}
+                onPress={handleTrackPress}
+            />
+        );
+    }, [handleTrackPress, playlist.id]);
+
+    return (
+        <View style={styles.container}>
+            <FlatList
+                data={playlistTracks}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={
+                    loadingTracks ? (
+                        <ActivityIndicator color="#8B5CF6" size="large" style={{ marginTop: 40 }} />
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <Ionicons name="musical-notes-outline" size={60} color="#555" />
+                            <Text style={styles.emptyText}>Esta lista está vacía.</Text>
+                            <Text style={styles.emptySubtitle}>Añade canciones desde la biblioteca pulsando los tres puntos al lado de cualquier tema.</Text>
+                        </View>
+                    )
+                }
+                getItemLayout={(data, index) => ({
+                    length: 64,
+                    offset: 64 * index,
+                    index,
+                })}
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
+                showsVerticalScrollIndicator={false}
+            />
+        </View>
+    );
+}
+
+// ─── ENHANCED COMPONENT WITH WATERMELONDB OBSERVABLE ───
+const ObservablePlaylistDetail = withObservables(['playlistId'], ({ playlistId }: { playlistId: string }) => ({
+    playlist: database.collections.get<Playlist>('playlists').findAndObserve(playlistId),
+    playlistTracks: database.collections.get<PlaylistTrack>('playlist_tracks').query(
+        Q.where('playlist_id', playlistId),
+        Q.sortBy('order', Q.asc)
+    ).observe()
+}))(PlaylistDetailContent);
+
+export default function PlaylistDetailScreen() {
+    const route = useRoute<any>();
+    const { playlistId } = route.params;
+
+    return <ObservablePlaylistDetail playlistId={playlistId} />;
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#121212',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#282828',
+        marginHorizontal: 20,
+        marginBottom: 4,
+    },
+    playFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#8B5CF6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+    },
+    shuffleFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 86,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 60,
+        paddingHorizontal: 40,
+    },
+    emptyText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        textAlign: 'center',
+        marginTop: 16,
+    },
+    emptySubtitle: {
+        color: '#888',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '500',
+        textAlign: 'center',
+        marginTop: 8,
+    },
+});

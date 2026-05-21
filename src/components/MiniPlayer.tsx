@@ -38,11 +38,21 @@ interface MiniPlayerUIProps {
     track: Track;
     album: Album;
     artist: Artist;
-    progress: number;
     onPress: () => void;
 }
 
-const MiniPlayerUI = ({ track, album, artist, progress, onPress }: MiniPlayerUIProps) => {
+const MiniProgressBar = () => {
+    const { position, duration } = useProgress();
+    const progress = duration > 0 ? (position / duration) * 100 : 0;
+    
+    return (
+        <View style={styles.progressContainer}>
+            <View style={[styles.progressIndicator, { width: `${progress}%` }]} />
+        </View>
+    );
+};
+
+const MiniPlayerUI = ({ track, album, artist, onPress }: MiniPlayerUIProps) => {
 
     return (
         <TouchableOpacity
@@ -80,9 +90,7 @@ const MiniPlayerUI = ({ track, album, artist, progress, onPress }: MiniPlayerUIP
                 </View>
             </View>
 
-            <View style={styles.progressContainer}>
-                <View style={[styles.progressIndicator, { width: `${progress}%` }]} />
-            </View>
+            <MiniProgressBar />
         </TouchableOpacity>
     );
 };
@@ -95,19 +103,15 @@ const ObservableMiniPlayerUI = withObservables(['trackModel'], ({ trackModel }) 
 
 const MiniPlayer = () => {
     const activeTrackModel = usePlayerStore(state => state.activeTrack);
-    const { position, duration } = useProgress();
     const navigation = useNavigation<MainNavigationProp>();
 
 
 
     if (!activeTrackModel) return null;
 
-    const progress = duration > 0 ? (position / duration) * 100 : 0;
-
     return (
         <ObservableMiniPlayerUI
             trackModel={activeTrackModel}
-            progress={progress}
             onPress={() => navigation.navigate('Player')}
         />
     );

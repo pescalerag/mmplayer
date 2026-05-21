@@ -233,7 +233,6 @@ function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks }: Pr
                     offset: 64 * index,
                     index,
                 })}
-                removeClippedSubviews={Platform.OS === 'android'}
                 initialNumToRender={12}
                 maxToRenderPerBatch={10}
                 windowSize={5}

@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
-import { Layout } from '../theme/theme';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { Layout } from '../theme/theme';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -106,8 +106,8 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE APP INFO --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v1.0.0</Text>
-                    <Text style={styles.infoTextSub}>Potenciado por WatermelonDB & Expo</Text>
+                    <Text style={styles.infoText}>MMPlayer v0.2.0-beta</Text>
+                    <Text style={styles.infoTextSub}>Desarrollado por pescalerag. Betatesteado por Killerdroid</Text>
                 </View>
             </ScrollView>
         </View>

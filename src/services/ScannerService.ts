@@ -32,14 +32,25 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
     const allTracks = await tracksCollection.query().fetch();
     const tracksToDelete: Track[] = [];
 
-    for (const track of allTracks) {
-        if (!track.fileUrl) {
-            tracksToDelete.push(track);
-            continue;
-        }
-        const fileInfo = await FileSystem.getInfoAsync(track.fileUrl);
-        if (!fileInfo.exists) {
-            tracksToDelete.push(track);
+    const CHUNK_SIZE = 50;
+    for (let i = 0; i < allTracks.length; i += CHUNK_SIZE) {
+        const chunk = allTracks.slice(i, i + CHUNK_SIZE);
+        const results = await Promise.all(
+            chunk.map(async (track: Track) => {
+                if (!track.fileUrl) return { track, missing: true };
+                try {
+                    const fileInfo = await FileSystem.getInfoAsync(track.fileUrl);
+                    return { track, missing: !fileInfo.exists };
+                } catch (e) {
+                    return { track, missing: true };
+                }
+            })
+        );
+        
+        for (const res of results) {
+            if (res.missing) {
+                tracksToDelete.push(res.track);
+            }
         }
     }
 
@@ -52,26 +63,33 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
     }
 };
 
-// 2. Generic helper function to delete parent entities (Albums or Artists) that have 0 tracks
 const removeEmptyEntities = async (
     collection: any,
     tracksCollection: any,
-    foreignKey: string,
+    foreignKey: string, // 'album_id' o 'artist_id'
     progressMsg: string,
     onProgress?: (phase: string) => void
 ) => {
     onProgress?.(progressMsg);
-    const allEntities = await collection.query().fetch();
-    const entitiesToDelete: any[] = [];
+    
+    // 1. Traemos todo a memoria (1 Sola consulta)
+    const [allEntities, allTracks] = await Promise.all([
+        collection.query().fetch(),
+        tracksCollection.query().fetch()
+    ]);
 
-    for (const entity of allEntities) {
-        const tracksCount = await tracksCollection.query(Q.where(foreignKey, entity.id)).fetchCount();
-        if (tracksCount === 0) entitiesToDelete.push(entity);
-    }
+    // 2. Extraemos los IDs que sí tienen canciones usando un Set (Búsqueda ultrarrápida)
+    const activeEntityIds = new Set();
+    // NOTA: Para WatermelonDB, el foreignKey se lee desde el _raw
+    allTracks.forEach((track: any) => activeEntityIds.add(track._raw[foreignKey]));
 
+    // 3. Filtramos los que no están en el Set
+    const entitiesToDelete = allEntities.filter((entity: any) => !activeEntityIds.has(entity.id));
+
+    // 4. Borramos en bloque (1 Sola consulta)
     if (entitiesToDelete.length > 0) {
         await database.write(async () => {
-            const batchOps = entitiesToDelete.map(e => e.prepareDestroyPermanently());
+            const batchOps = entitiesToDelete.map((e: any) => e.prepareDestroyPermanently());
             await database.batch(batchOps);
         });
     }

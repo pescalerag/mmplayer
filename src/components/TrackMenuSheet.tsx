@@ -20,7 +20,9 @@ import Artist from '../database/models/Artist';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef } from '../navigation/navigationRef';
+import { PlaylistService } from '../services/PlaylistService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -210,6 +212,41 @@ export default function TrackMenuSheet() {
                     </View>
                     <Text style={styles.optionText}>Gestionar etiquetas</Text>
                 </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir a Playlist */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (selectedTrack) {
+                            closeMenu();
+                            usePlaylistSelectorStore.getState().openSelector(selectedTrack);
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>Añadir a Playlist</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Eliminar de Playlist (Solo aparece si estamos dentro de una) */}
+                {useTrackMenuStore.getState().playlistId && (
+                    <TouchableOpacity 
+                        style={styles.optionRow} 
+                        onPress={async () => {
+                            if (selectedTrack) {
+                                const pId = useTrackMenuStore.getState().playlistId!;
+                                closeMenu();
+                                await PlaylistService.removeTrackFromPlaylist(pId, selectedTrack.id);
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="trash-outline" size={24} color="#EF4444" />
+                        </View>
+                        <Text style={[styles.optionText, { color: '#EF4444' }]}>Eliminar de esta lista</Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* ── Separador ── */}
                 <View style={styles.separator} />

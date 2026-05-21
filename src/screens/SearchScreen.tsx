@@ -164,6 +164,21 @@ const SearchArtistCard = memo(function SearchArtistCard({
   );
 });
 
+const SearchTagCardBase = ({ tag, onPress }: { tag: Tag; onPress: () => void }) => (
+  <TouchableOpacity
+    style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
+    onPress={onPress}
+  >
+    <Ionicons name="pricetag" size={14} color="#FFFFFF" style={styles.tagCardIcon} />
+    <Text style={styles.tagCardText} numberOfLines={1}>{tag.name}</Text>
+  </TouchableOpacity>
+);
+
+const SearchTagCard = withObservables(['tag'], ({ tag }: { tag: Tag }) => ({
+  tag: tag.observe()
+}))(SearchTagCardBase);
+SearchTagCard.displayName = "SearchTagCard";
+
 // --- MAIN SCREEN ---
 
 function SearchScreen({ tags }: { tags: Tag[] }) {
@@ -300,9 +315,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           ) : (
             <View style={styles.tagsContainer}>
               {tags.map((tag) => (
-                <TouchableOpacity
+                <SearchTagCard
                   key={tag.id}
-                  style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
+                  tag={tag}
                   onPress={() => {
                     navigation.navigate("TagDetail", {
                       tagId: tag.id,
@@ -310,10 +325,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                       tagColor: tag.color || '#8B5CF6'
                     });
                   }}
-                >
-                  <Ionicons name="pricetag" size={14} color="#FFFFFF" style={styles.tagCardIcon} />
-                  <Text style={styles.tagCardText} numberOfLines={1}>{tag.name}</Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
           )}
@@ -565,7 +577,6 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         })()}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        removeClippedSubviews={Platform.OS === "android"}
         keyboardDismissMode="on-drag"
         initialNumToRender={15}
         maxToRenderPerBatch={10}

@@ -22,8 +22,12 @@ interface DetailHeaderLayoutProps {
     metaInfo?: string;
     onBack: () => void;
     onHome: () => void;
+    onDelete?: () => void;
+    onEdit?: () => void;
     renderExtra?: () => React.ReactNode;
     renderHeaderPrefix?: () => React.ReactNode;
+    isFavorites?: boolean;
+    renderCover?: () => React.ReactNode;
 }
 
 const DetailHeaderLayout = ({
@@ -34,12 +38,27 @@ const DetailHeaderLayout = ({
     metaInfo,
     onBack,
     onHome,
+    onDelete,
+    onEdit,
     renderExtra,
     renderHeaderPrefix,
+    isFavorites = false,
+    renderCover,
 }: DetailHeaderLayoutProps) => {
     return (
         <View style={styles.headerContainer}>
-            {imageUrl ? (
+            {renderCover ? (
+                renderCover()
+            ) : isFavorites ? (
+                <LinearGradient
+                    colors={['#7C3AED', '#4C1D95']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.headerImage, styles.headerPlaceholder]}
+                >
+                    <Ionicons name="heart" size={100} color="#FFFFFF" />
+                </LinearGradient>
+            ) : imageUrl ? (
                 <Image
                     source={{ uri: imageUrl }}
                     style={styles.headerImage}
@@ -64,6 +83,26 @@ const DetailHeaderLayout = ({
                 <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
 
+            {/* Botón Editar si aplica */}
+            {onEdit && (
+                <TouchableOpacity
+                    style={[styles.backButton, { left: undefined, right: 116 }]}
+                    onPress={onEdit}
+                >
+                    <Ionicons name="pencil-outline" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+            )}
+
+            {/* Botón Eliminar si aplica */}
+            {onDelete && (
+                <TouchableOpacity
+                    style={[styles.backButton, { left: undefined, right: 66 }]}
+                    onPress={onDelete}
+                >
+                    <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+            )}
+
             {/* Botón Volver a la Biblioteca / Home */}
             <TouchableOpacity
                 style={[styles.backButton, { left: undefined, right: 16 }]}
@@ -75,18 +114,26 @@ const DetailHeaderLayout = ({
             {/* Info */}
             <View style={styles.headerInfo}>
                 {renderHeaderPrefix?.()}
-                <MarqueeText
-                    text={title}
-                    style={styles.title}
-                    speed={30}
-                    pauseDuration={2000}
-                    spacing={80}
-                />
+                <View style={renderExtra ? { marginRight: 60 } : null}>
+                    <MarqueeText
+                        text={title}
+                        style={styles.title}
+                        speed={30}
+                        pauseDuration={2000}
+                        spacing={80}
+                    />
+                </View>
                 
                 {subtitle && (
-                    <View style={styles.subtitleContainer}>
+                    <View style={[styles.subtitleContainer, renderExtra ? { marginRight: 120 } : null]}>
                         {typeof subtitle === 'string' ? (
-                            <Text style={styles.subtitleText}>{subtitle}</Text>
+                            <MarqueeText
+                                text={subtitle}
+                                style={styles.subtitleText}
+                                speed={30}
+                                pauseDuration={2000}
+                                spacing={80}
+                            />
                         ) : (
                             subtitle
                         )}
@@ -94,7 +141,7 @@ const DetailHeaderLayout = ({
                 )}
                 
                 {metaInfo && (
-                    <Text style={styles.metaInfo}>{metaInfo}</Text>
+                    <Text style={[styles.metaInfo, renderExtra ? { marginRight: 120 } : null]}>{metaInfo}</Text>
                 )}
             </View>
 
@@ -157,7 +204,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     subtitleText: {
-        color: '#8B5CF6',
+        color: '#CCCCCC',
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',

@@ -12,6 +12,7 @@ import AlbumMenuSheet from './src/components/AlbumMenuSheet';
 import QueueSheet from './src/components/QueueSheet';
 import TagManagerModal from './src/components/TagManagerModal';
 import TagFormModal from './src/components/TagFormModal';
+import PlaylistSelectorModal from './src/components/PlaylistSelectorModal';
 import MainNavigator from './src/navigation/MainNavigator';
 import { setupPlayer } from './src/services/trackPlayerSetup';
 import { usePlayerStore } from './src/store/usePlayerStore';
@@ -101,6 +102,7 @@ export default function App() {
                     <QueueSheet />
                     <TagManagerModal />
                     <TagFormModal />
+                    <PlaylistSelectorModal />
                 </NavigationContainer>
             </View>
         </SafeAreaProvider>

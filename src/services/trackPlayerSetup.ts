@@ -11,7 +11,6 @@ export async function setupPlayer() {
         isSetup = true;
     } catch {
         await TrackPlayer.setupPlayer({
-            waitForBuffer: true,
             autoHandleInterruptions: true,
         });
     }
@@ -29,12 +28,6 @@ export async function setupPlayer() {
             Capability.SkipToPrevious,
             Capability.SeekTo,
             Capability.Stop,
-        ],
-        compactCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
         ],
         notificationCapabilities: [
             Capability.Play,
