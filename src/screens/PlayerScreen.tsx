@@ -34,6 +34,7 @@ import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { formatTrackTime } from '../utils/time';
+import { getDynamicTagTextColor } from '../utils/color';
 
 
 const { width } = Dimensions.get('window');
@@ -249,7 +250,7 @@ const PlayerScreenUI = ({
                                             style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
                                             onPress={() => useTagManagerStore.getState().openForTrack(track)}
                                         >
-                                            <Text style={styles.tagText}>{t.name}</Text>
+                                            <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : '#FFFFFF' }]}>{t.name}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </ScrollView>

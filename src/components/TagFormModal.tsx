@@ -19,6 +19,7 @@ import ColorPicker, { HueSlider, Panel1, Swatches } from 'reanimated-color-picke
 import { TagService } from '../services/tagService';
 
 import { useTagFormStore } from '../store/useTagFormStore';
+import { getDynamicTagTextColor } from '../utils/color';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -230,7 +231,7 @@ export default function TagFormModal() {
                                         setCustomColorMode(false);
                                     }}
                                 >
-                                    {isSelected && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                                    {isSelected && <Ionicons name="checkmark" size={16} color={getDynamicTagTextColor(color)} />}
                                 </TouchableOpacity>
                             );
                         })}
@@ -276,8 +277,8 @@ export default function TagFormModal() {
                                     setCustomColorMode(false);
                                 }}
                             >
-                                <Ionicons name="checkmark-circle" size={18} color="#FFF" />
-                                <Text style={styles.confirmColorText}>Confirmar color</Text>
+                                <Ionicons name="checkmark-circle" size={18} color={getDynamicTagTextColor(customHexCode || '#8B5CF6')} />
+                                <Text style={[styles.confirmColorText, { color: getDynamicTagTextColor(customHexCode || '#8B5CF6') }]}>Confirmar color</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -292,7 +293,7 @@ export default function TagFormModal() {
                         onPress={handleSave}
                         disabled={!tagName.trim()}
                     >
-                        <Text style={styles.primaryButtonText}>
+                        <Text style={[styles.primaryButtonText, { color: getDynamicTagTextColor(selectedColor) }]}>
                             {tag ? 'Guardar Cambios' : 'Crear Etiqueta'}
                         </Text>
                     </TouchableOpacity>

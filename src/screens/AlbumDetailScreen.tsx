@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DetailHeaderLayout from '../components/DetailHeaderLayout';
 import { formatAlbumDuration } from '../utils/time';
+import { getDynamicTagTextColor } from '../utils/color';
 
 import SectionHeader from '../components/SectionHeader';
 import TrackRow from '../components/TrackRow';
@@ -124,7 +125,7 @@ function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks }: Pr
                                         style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
                                         onPress={() => useTagManagerStore.getState().openForAlbum(album)}
                                     >
-                                        <Text style={styles.tagText}>{t.name}</Text>
+                                        <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : '#FFFFFF' }]}>{t.name}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
