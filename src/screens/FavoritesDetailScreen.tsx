@@ -6,7 +6,6 @@ import React, { useCallback } from 'react';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 import {
     FlatList,
-    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -29,27 +28,30 @@ import { formatAlbumDuration } from '../utils/time';
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe(),
-    artist: track.artist.observe(),
+    artists: track.queryCollaborators.observe() as any,
 }))(function FavoriteTrackRow({
     track,
     album,
-    artist,
+    artists,
     index,
     onPress,
 }: {
     track: Track;
     album: Album;
-    artist: Artist;
+    artists: Artist[];
     index: number;
     onPress: (trackId: string) => void;
 }) {
+    const artistNames = artists.length > 0
+        ? artists.map(a => a.name).join(', ')
+        : 'Artista Desconocido';
     return (
         <TrackRow
             track={track}
             contextId="favorites"
             index={index}
             coverUrl={album?.coverUrl}
-            artistName={artist?.name}
+            artistName={artistNames}
             onPress={onPress}
         />
     );

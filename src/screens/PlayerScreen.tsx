@@ -45,6 +45,7 @@ interface PlayerScreenUIProps {
     track: Track;
     album: Album;
     artist: Artist;
+    artists: Artist[];
     tags: Tag[];
     navigation: any;
     formatTimestamp: (s: number) => string;
@@ -53,7 +54,7 @@ interface PlayerScreenUIProps {
 }
 
 const PlayerScreenUI = ({
-    track, album, artist, tags, navigation, formatTimestamp, hasNext, hasPrevious
+    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
@@ -273,18 +274,20 @@ const PlayerScreenUI = ({
                         />
                         <TouchableOpacity
                             onPress={() => {
+                                const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
+                                if (!targetArtistId) return;
                                 navigation.goBack();
                                 navigation.navigate('Main', {
                                     screen: 'Biblioteca',
                                     params: {
                                         screen: 'ArtistDetail',
-                                        params: { artistId: artist.id }
+                                        params: { artistId: targetArtistId }
                                     }
                                 });
                             }}
                         >
                             <MarqueeText
-                                text={artist.name}
+                                text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
                                 style={styles.artist}
                                 speed={35}
                                 pauseDuration={2000}
@@ -423,6 +426,7 @@ const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }
     track: trackModel.observe(),
     album: trackModel.album.observe(),
     artist: trackModel.artist.observe(),
+    artists: trackModel.queryCollaborators.observe() as any,
     tags: trackModel.queryTags.observe(),
 }))(PlayerScreenUI);
 

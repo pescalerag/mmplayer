@@ -11,7 +11,6 @@ import {
     Alert,
     Dimensions,
     FlatList,
-    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -40,29 +39,32 @@ const { width } = Dimensions.get('window');
 const PlaylistTrackRowWithMetadata = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe(),
-    artist: track.artist.observe(),
+    artists: track.queryCollaborators.observe() as any,
 }))(function PlaylistTrackRowWithMetadata({
     track,
     album,
-    artist,
+    artists,
     playlistId,
     index,
     onPress,
 }: {
     track: Track;
     album: Album;
-    artist: Artist;
+    artists: Artist[];
     playlistId: string;
     index: number;
     onPress: (trackId: string) => void;
 }) {
+    const artistNames = artists.length > 0
+        ? artists.map(a => a.name).join(', ')
+        : 'Artista Desconocido';
     return (
         <TrackRow
             track={track}
             contextId={`playlist-${playlistId}`}
             index={index}
             coverUrl={album?.coverUrl}
-            artistName={artist?.name}
+            artistName={artistNames}
             playlistId={playlistId}
             onPress={onPress}
         />

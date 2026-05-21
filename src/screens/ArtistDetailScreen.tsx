@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
@@ -51,15 +52,20 @@ const TRACKS_PREVIEW = 10;
 // ----- COMPONENTES AUXILIARES MEMOIZADOS -----
 
 const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
-    track,
+    track: track.observe(),
     album: track.album.observe(),
-}))(function ArtistTrackRow({ track, album, index, contextId, onPress }: { track: Track; album: Album; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
+    artists: track.queryCollaborators.observe() as any,
+}))(function ArtistTrackRow({ track, album, artists, index, contextId, onPress }: { track: Track; album: Album; artists: Artist[]; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
+    const artistNames = artists.length > 0
+        ? artists.map(a => a.name).join(', ')
+        : 'Artista Desconocido';
     return (
         <TrackRow
             track={track}
             contextId={contextId}
             index={index}
             coverUrl={album?.coverUrl}
+            artistName={artistNames}
             onPress={onPress}
         />
     );

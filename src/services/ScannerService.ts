@@ -1,5 +1,4 @@
 // src/services/ScannerService.ts
-import { Q } from '@nozbe/watermelondb';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Platform } from 'react-native';
@@ -41,7 +40,7 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
                 try {
                     const fileInfo = await FileSystem.getInfoAsync(track.fileUrl);
                     return { track, missing: !fileInfo.exists };
-                } catch (e) {
+                } catch {
                     return { track, missing: true };
                 }
             })
@@ -126,7 +125,7 @@ const getLocalArtistImage = async (name: string): Promise<string | null> => {
 
 // --- 3. Helper to resolve and optionally create artists ---
 const resolveArtists = async (artistString: string, artistCache: Map<string, Artist>, artistsCollection: any) => {
-    const names = artistString.split('~').map(s => s.trim()).filter(s => s.length > 0);
+    const names = artistString.split(/[~/;]/).map(s => s.trim()).filter(s => s.length > 0);
     if (names.length === 0) names.push('Artista Desconocido');
 
     const trackArtists: Artist[] = [];

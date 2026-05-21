@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 import {
@@ -9,7 +9,6 @@ import {
     Dimensions,
     FlatList,
     InteractionManager,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -23,6 +22,7 @@ import { getDynamicTagTextColor } from '../utils/color';
 
 import SectionHeader from '../components/SectionHeader';
 import TrackRow from '../components/TrackRow';
+
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -33,6 +33,37 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Layout } from '../theme/theme';
+
+const AlbumTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
+    track: track.observe(),
+    artists: track.queryCollaborators.observe() as any,
+}))(function AlbumTrackRow({
+    track,
+    artists,
+    contextId,
+    index,
+    onPress,
+}: {
+    track: Track;
+    artists: Artist[];
+    contextId: string;
+    index?: number;
+    onPress?: (trackId: string) => void;
+}) {
+    const artistNames = artists.length > 0
+        ? artists.map(a => a.name).join(', ')
+        : 'Artista Desconocido';
+    return (
+        <TrackRow
+            track={track}
+            contextId={contextId}
+            index={index}
+            artistName={artistNames}
+            onPress={onPress}
+        />
+    );
+});
+
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -202,16 +233,15 @@ function AlbumDetailContent({ album, artist, tracks, tags, isLoadingTracks }: Pr
                         <Text style={styles.discText}>Disco {item.discNumber}</Text>
                     </View>
                 )}
-                <TrackRow
+                <AlbumTrackRow
                     track={item}
                     contextId={`album-${album.id}`}
                     index={item.trackNumber || (index + 1)}
-                    artistName={artist?.name}
                     onPress={handleTrackPress}
                 />
             </View>
         );
-    }, [tracks, artist, handleTrackPress]);
+    }, [tracks, album.id, handleTrackPress]);
 
     const insets = useSafeAreaInsets();
 

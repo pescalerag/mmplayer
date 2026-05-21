@@ -1,13 +1,18 @@
 // src/components/MiniPlayer.tsx
+import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import BlurredBackground from './BlurredBackground';
-
+import { useProgress } from 'react-native-track-player';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
+import { MainNavigationProp } from '../navigation/types';
+import { usePlayerStore } from '../store/usePlayerStore';
+import BlurredBackground from './BlurredBackground';
+import PlayPauseButton from './PlayPauseButton';
 
 // --- FONDO DIFUMINADO ---
 
@@ -23,21 +28,12 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
 ));
 
 
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import {
-    useProgress
-} from 'react-native-track-player';
-
-import { MainNavigationProp } from '../navigation/types';
-import { usePlayerStore } from '../store/usePlayerStore';
-import PlayPauseButton from './PlayPauseButton';
-
 
 interface MiniPlayerUIProps {
     track: Track;
     album: Album;
     artist: Artist;
+    artists: Artist[];
     onPress: () => void;
 }
 
@@ -52,7 +48,7 @@ const MiniProgressBar = () => {
     );
 };
 
-const MiniPlayerUI = ({ track, album, artist, onPress }: MiniPlayerUIProps) => {
+const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIProps) => {
     const [imageError, setImageError] = React.useState(false);
 
     React.useEffect(() => {
@@ -89,7 +85,9 @@ const MiniPlayerUI = ({ track, album, artist, onPress }: MiniPlayerUIProps) => {
 
                     <View style={styles.info}>
                         <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
-                        <Text style={styles.artist} numberOfLines={1}>{artist.name}</Text>
+                        <Text style={styles.artist} numberOfLines={1}>
+                            {artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
+                        </Text>
                     </View>
                 </View>
 
@@ -108,6 +106,7 @@ const ObservableMiniPlayerUI = withObservables(['trackModel'], ({ trackModel }) 
     track: trackModel.observe(),
     album: trackModel.album.observe(),
     artist: trackModel.artist.observe(),
+    artists: trackModel.queryCollaborators.observe() as any,
 }))(MiniPlayerUI);
 
 const MiniPlayer = () => {
