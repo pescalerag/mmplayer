@@ -5,6 +5,8 @@ import AlbumDetailScreen from '../screens/AlbumDetailScreen';
 import ArtistDetailScreen from '../screens/ArtistDetailScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import TagDetailScreen from '../screens/TagDetailScreen';
+import FavoritesDetailScreen from '../screens/FavoritesDetailScreen';
+import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
 import { LibraryStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<LibraryStackParamList>();
@@ -15,12 +17,14 @@ export default function LibraryNavigator() {
             headerShown: false,
             animation: 'slide_from_right',
             contentStyle: { backgroundColor: '#121212' },
-            freezeOnBlur: true
+            freezeOnBlur: false
         }}>
             <Stack.Screen name="Library" component={LibraryScreen} />
             <Stack.Screen name="ArtistDetail" component={ArtistDetailScreen} getId={({ params }) => params.artistId} />
             <Stack.Screen name="AlbumDetail" component={AlbumDetailScreen} getId={({ params }) => params.albumId} />
             <Stack.Screen name="TagDetail" component={TagDetailScreen} getId={({ params }) => params.tagId} />
+            <Stack.Screen name="FavoritesDetail" component={FavoritesDetailScreen} />
+            <Stack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} getId={({ params }) => params.playlistId} />
         </Stack.Navigator>
     );
 }

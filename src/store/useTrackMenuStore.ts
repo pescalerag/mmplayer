@@ -10,7 +10,8 @@ interface TrackMenuState {
     isVisible: boolean;
     selectedTrack: Track | null;
     navCallbacks: NavCallbacks;
-    openMenu: (track: Track, callbacks?: NavCallbacks) => void;
+    playlistId?: string;
+    openMenu: (track: Track, callbacks?: NavCallbacks, playlistId?: string) => void;
     closeMenu: () => void;
 }
 
@@ -18,14 +19,17 @@ export const useTrackMenuStore = create<TrackMenuState>((set) => ({
     isVisible: false,
     selectedTrack: null,
     navCallbacks: {},
-    openMenu: (track, callbacks = {}) => set({
+    playlistId: undefined,
+    openMenu: (track, callbacks = {}, playlistId) => set({
         isVisible: true,
         selectedTrack: track,
         navCallbacks: callbacks,
+        playlistId: playlistId,
     }),
     closeMenu: () => set({
         isVisible: false,
         selectedTrack: null,
         navCallbacks: {},
+        playlistId: undefined,
     }),
 }));

@@ -16,19 +16,15 @@ export const TrackPlayerSync = () => {
         Event.PlaybackActiveTrackChanged,
         Event.PlaybackState,
     ], async (event) => {
-        console.log(`📢 [TrackPlayerSync] Evento RNTP puro recibido: ${event.type}`, event);
 
         if (event.type === Event.PlaybackState) {
-            const estado = event.state;
-            const isPlaying = estado === State.Playing || estado === State.Buffering;
-            console.log(`▶️ [TrackPlayerSync] Estado crudo: ${estado} -> ¿isPlaying?: ${isPlaying}`);
+            // Se puede mantener vacío o remover la lógica si no hace nada más, pero como declara variables sin uso, podemos removerlo o dejar la lógica de asignación si es necesaria. Sin embargo, no hace nada más en este bloque, por lo que podemos eliminarlo por completo.
         }
 
         if (event.type === Event.PlaybackActiveTrackChanged) {
             const { index, lastIndex, track } = event;
             
             if (track?.id) {
-                console.log('🔄 [TrackPlayerSync] Track cambió:', track.id);
                 await usePlayerStore.getState().setActiveTrackById(track.id);
             }
             
@@ -53,7 +49,7 @@ export const TrackPlayerSync = () => {
         }
 
         if (event.type === Event.PlaybackQueueEnded) {
-            console.log('🏁 [TrackPlayerSync] Cola terminada.');
+            // Se puede remover o dejar vacío
         }
         
         if (event.type === Event.PlaybackError) {
@@ -61,7 +57,6 @@ export const TrackPlayerSync = () => {
         }
 
         if (event.type === Event.RemoteNext || event.type === Event.RemotePrevious) {
-             console.log(`[TrackPlayerSync] Control remoto detectado: ${event.type}. Forzando actualización de la cola.`);
              usePlayerStore.getState().updateQueueStatus();
         }
     });

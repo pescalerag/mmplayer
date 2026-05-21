@@ -18,10 +18,8 @@ export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, i
     const togglePlayback = async () => {
         try {
             if (isPlaying) {
-                console.log("⏸️ [PlayPauseButton] Presionado: Pausa");
                 await TrackPlayer.pause();
             } else {
-                console.log("▶️ [PlayPauseButton] Presionado: Play");
                 await TrackPlayer.play();
             }
         } catch (e) {

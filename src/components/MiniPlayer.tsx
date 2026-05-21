@@ -1,13 +1,18 @@
 // src/components/MiniPlayer.tsx
+import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import BlurredBackground from './BlurredBackground';
-
+import { useProgress } from 'react-native-track-player';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
+import { MainNavigationProp } from '../navigation/types';
+import { usePlayerStore } from '../store/usePlayerStore';
+import BlurredBackground from './BlurredBackground';
+import PlayPauseButton from './PlayPauseButton';
 
 // --- FONDO DIFUMINADO ---
 
@@ -23,26 +28,34 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
 ));
 
 
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import {
-    useProgress
-} from 'react-native-track-player';
-
-import { MainNavigationProp } from '../navigation/types';
-import { usePlayerStore } from '../store/usePlayerStore';
-import PlayPauseButton from './PlayPauseButton';
-
 
 interface MiniPlayerUIProps {
     track: Track;
     album: Album;
     artist: Artist;
-    progress: number;
+    artists: Artist[];
     onPress: () => void;
 }
 
-const MiniPlayerUI = ({ track, album, artist, progress, onPress }: MiniPlayerUIProps) => {
+const MiniProgressBar = () => {
+    const { position, duration } = useProgress();
+    const progress = duration > 0 ? (position / duration) * 100 : 0;
+    
+    return (
+        <View style={styles.progressContainer}>
+            <View style={[styles.progressIndicator, { width: `${progress}%` }]} />
+        </View>
+    );
+};
+
+const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIProps) => {
+    const [imageError, setImageError] = React.useState(false);
+
+    React.useEffect(() => {
+        setImageError(false);
+    }, [track.id]);
+
+    const hasCover = Boolean(album?.coverUrl && album.coverUrl !== 'null' && album.coverUrl.trim() !== '') && !imageError;
 
     return (
         <TouchableOpacity
@@ -55,11 +68,13 @@ const MiniPlayerUI = ({ track, album, artist, progress, onPress }: MiniPlayerUIP
             <View style={styles.content}>
                 <View style={styles.leftSection}>
                     <View style={styles.artworkContainer}>
-                        {album.coverUrl ? (
+                        {hasCover ? (
                             <Image
-                                source={{ uri: album.coverUrl }}
+                                key={track.id}
+                                source={{ uri: album.coverUrl as string }}
                                 style={styles.artwork}
                                 contentFit="cover"
+                                onError={() => setImageError(true)}
                             />
                         ) : (
                             <View style={styles.artworkPlaceholder}>
@@ -70,7 +85,9 @@ const MiniPlayerUI = ({ track, album, artist, progress, onPress }: MiniPlayerUIP
 
                     <View style={styles.info}>
                         <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
-                        <Text style={styles.artist} numberOfLines={1}>{artist.name}</Text>
+                        <Text style={styles.artist} numberOfLines={1}>
+                            {artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
+                        </Text>
                     </View>
                 </View>
 
@@ -80,9 +97,7 @@ const MiniPlayerUI = ({ track, album, artist, progress, onPress }: MiniPlayerUIP
                 </View>
             </View>
 
-            <View style={styles.progressContainer}>
-                <View style={[styles.progressIndicator, { width: `${progress}%` }]} />
-            </View>
+            <MiniProgressBar />
         </TouchableOpacity>
     );
 };
@@ -91,23 +106,20 @@ const ObservableMiniPlayerUI = withObservables(['trackModel'], ({ trackModel }) 
     track: trackModel.observe(),
     album: trackModel.album.observe(),
     artist: trackModel.artist.observe(),
+    artists: trackModel.queryCollaborators.observe() as any,
 }))(MiniPlayerUI);
 
 const MiniPlayer = () => {
     const activeTrackModel = usePlayerStore(state => state.activeTrack);
-    const { position, duration } = useProgress();
     const navigation = useNavigation<MainNavigationProp>();
 
 
 
     if (!activeTrackModel) return null;
 
-    const progress = duration > 0 ? (position / duration) * 100 : 0;
-
     return (
         <ObservableMiniPlayerUI
             trackModel={activeTrackModel}
-            progress={progress}
             onPress={() => navigation.navigate('Player')}
         />
     );

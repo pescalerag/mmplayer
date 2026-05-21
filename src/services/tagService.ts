@@ -5,6 +5,12 @@ import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import TrackTag from '../database/models/TrackTag';
 
+const normalizeText = (text: string) =>
+    text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
 export const TagService = {
     /**
      * Get all tags sorted by name alphabetically.
@@ -22,19 +28,19 @@ export const TagService = {
         const trimmedName = name.trim();
         if (!trimmedName) throw new Error('El nombre de la etiqueta no puede estar vacío');
 
-        // Check case-insensitive duplicate
+        const normalizedInput = normalizeText(trimmedName);
+
+        // Búsqueda insensible a mayúsculas/acentos usando la columna normalizada
         const existing = await database.collections.get<Tag>('tags')
-            .query(Q.where('name', Q.like(trimmedName)))
+            .query(Q.where('normalized_name', normalizedInput))
             .fetch();
 
-        const exactMatch = existing.find(t => t.name.toLowerCase() === trimmedName.toLowerCase());
-        if (exactMatch) {
-            return exactMatch;
-        }
+        if (existing.length > 0) return existing[0];
 
         return database.write(async () => {
             return database.collections.get<Tag>('tags').create(tag => {
-                tag.name = trimmedName;
+                tag.name = trimmedName;        // Guardamos el original bonito
+                tag.normalizedName = normalizedInput; // Guardamos el limpio para búsquedas
                 tag.color = color;
                 tag.isAuto = false;
             });
@@ -148,10 +154,13 @@ export const TagService = {
         const trimmedName = name.trim();
         if (!trimmedName) throw new Error('El nombre de la etiqueta no puede estar vacío');
 
+        const normalizedInput = normalizeText(trimmedName);
+
         await database.write(async () => {
             const tag = await database.collections.get<Tag>('tags').find(tagId);
             await tag.update(t => {
-                t.name = trimmedName;
+                t.name = trimmedName;        // Actualizamos el original bonito
+                t.normalizedName = normalizedInput; // Actualizamos el limpio
                 t.color = color;
             });
         });

@@ -15,6 +15,7 @@ interface TrackRowProps {
   readonly index?: number;
   readonly coverUrl?: string | null;
   readonly artistName?: string;
+  readonly playlistId?: string;
   readonly onPress?: (trackId: string) => void;
 }
 
@@ -24,6 +25,7 @@ function TrackRow({
   index,
   coverUrl,
   artistName,
+  playlistId,
   onPress,
 }: Readonly<TrackRowProps>) {
   const openMenu = useTrackMenuStore((state) => state.openMenu);
@@ -37,30 +39,40 @@ function TrackRow({
   const isCurrentTrack = activeTrack?.id === track.id && 
                         (playbackContext === contextId || contextId === 'queue');
 
+  const [imageError, setImageError] = React.useState(false);
+
+  React.useEffect(() => {
+      setImageError(false);
+  }, [track.id]);
+
+  const hasCover = Boolean(coverUrl && coverUrl !== 'null' && coverUrl.trim() !== '') && !imageError;
+
   return (
     <TouchableOpacity
       style={[styles.row, isCurrentTrack && styles.rowActive]}
       onPress={() => onPress?.(track.id)}
-      onLongPress={() => openMenu(track)}
+      onLongPress={() => openMenu(track, {}, playlistId)}
       delayLongPress={300}
       activeOpacity={0.6}
     >
       {/* Imagen o número de pista */}
       <View style={styles.leftCol}>
-        {coverUrl ? (
+        {hasCover ? (
           <Image
-            source={{ uri: coverUrl }}
+            key={track.id}
+            source={{ uri: coverUrl as string }}
             style={styles.cover}
             contentFit="cover"
             transition={200}
             cachePolicy="memory-disk"
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={styles.coverPlaceholder}>
             {index ? (
               <Text style={styles.indexText}>{index}</Text>
             ) : (
-              <Ionicons name="musical-notes" size={16} color="#B3B3B3" />
+              <Ionicons name="musical-note" size={16} color="#B3B3B3" />
             )}
           </View>
         )}
@@ -89,7 +101,7 @@ function TrackRow({
         <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => openMenu(track)}
+          onPress={() => openMenu(track, {}, playlistId)}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
           <Ionicons name="ellipsis-vertical" size={20} color="#B3B3B3" />
@@ -105,7 +117,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    height: 64,
     paddingHorizontal: 20,
   },
   rowActive: {

@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { 
-    ActivityIndicator, 
     Dimensions, 
     FlatList, 
     ScrollView, 
@@ -26,7 +25,6 @@ import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import { SearchNavigationProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
 
@@ -52,29 +50,32 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { al
 const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe(),
-    artist: track.artist.observe(),
+    artists: track.queryCollaborators.observe() as any,
 }))(function TagTrackRow({
     track,
     album,
-    artist,
+    artists,
     tagId,
     index,
     onPress,
 }: {
     track: Track;
     album: Album;
-    artist: Artist;
+    artists: Artist[];
     tagId: string;
     index: number;
     onPress: (trackId: string) => void;
 }) {
+    const artistNames = artists.length > 0
+        ? artists.map(a => a.name).join(', ')
+        : 'Artista Desconocido';
     return (
         <TrackRow
             track={track}
             contextId={`tag-${tagId}`}
             index={index}
             coverUrl={album?.coverUrl}
-            artistName={artist?.name}
+            artistName={artistNames}
             onPress={onPress}
         />
     );
@@ -92,7 +93,6 @@ function TagDetailScreen({
 }) {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
-    const route = useRoute();
 
     const tagColor = tag.color || '#8B5CF6';
 

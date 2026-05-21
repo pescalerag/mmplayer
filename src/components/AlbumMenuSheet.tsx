@@ -21,6 +21,7 @@ import { database } from '../database';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -209,6 +210,22 @@ export default function AlbumMenuSheet() {
                         <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
                     </View>
                     <Text style={styles.optionText}>Gestionar etiquetas</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir a Playlist */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (tracks.length > 0) {
+                            closeMenu();
+                            usePlaylistSelectorStore.getState().openSelector(tracks);
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>Añadir a Playlist</Text>
                 </TouchableOpacity>
 
                 {/* ── Separador ── */}

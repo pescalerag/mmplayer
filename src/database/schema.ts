@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 6,
+    version: 7,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -55,9 +55,10 @@ export const mySchema = appSchema({
         tableSchema({
             name: 'tags',
             columns: [
-                { name: 'name', type: 'string' }, // Ej: "FLAC", "Vinyl-Rip"
-                { name: 'color', type: 'string' }, // Ej: "#FF5733"
-                { name: 'is_auto', type: 'boolean' }, // true si lo detectó el escáner, false si lo creó el usuario
+                { name: 'name', type: 'string' },           // Original con acentos/mayúsculas (UI)
+                { name: 'normalized_name', type: 'string' }, // Limpio para búsquedas
+                { name: 'color', type: 'string' },
+                { name: 'is_auto', type: 'boolean' },
             ],
         }),
         // Tablas pivote para las relaciones Muchos a Muchos

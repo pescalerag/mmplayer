@@ -6,6 +6,8 @@ export type LibraryStackParamList = {
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     TagDetail: { tagId: string; tagName: string; tagColor: string };
+    FavoritesDetail: undefined;
+    PlaylistDetail: { playlistId: string };
 };
 
 export type SearchStackParamList = {

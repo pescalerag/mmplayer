@@ -13,13 +13,13 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import ColorPicker, { HueSlider, Panel1, Swatches } from 'reanimated-color-picker';
 import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Tag from '../database/models/Tag';
+import ColorPicker, { HueSlider, Panel1, Swatches } from 'reanimated-color-picker';
 import { TagService } from '../services/tagService';
 
 import { useTagFormStore } from '../store/useTagFormStore';
+import { getDynamicTagTextColor } from '../utils/color';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -178,9 +178,9 @@ export default function TagFormModal() {
             </TouchableWithoutFeedback>
 
             {/* Contenedor del bottom sheet */}
-            <Animated.View 
+            <Animated.View
                 style={[
-                    styles.keyboardAvoid, 
+                    styles.keyboardAvoid,
                     { paddingBottom: keyboardHeight }
                 ]}
             >
@@ -231,7 +231,7 @@ export default function TagFormModal() {
                                         setCustomColorMode(false);
                                     }}
                                 >
-                                    {isSelected && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                                    {isSelected && <Ionicons name="checkmark" size={16} color={getDynamicTagTextColor(color)} />}
                                 </TouchableOpacity>
                             );
                         })}
@@ -277,8 +277,8 @@ export default function TagFormModal() {
                                     setCustomColorMode(false);
                                 }}
                             >
-                                <Ionicons name="checkmark-circle" size={18} color="#FFF" />
-                                <Text style={styles.confirmColorText}>Confirmar color</Text>
+                                <Ionicons name="checkmark-circle" size={18} color={getDynamicTagTextColor(customHexCode || '#8B5CF6')} />
+                                <Text style={[styles.confirmColorText, { color: getDynamicTagTextColor(customHexCode || '#8B5CF6') }]}>Confirmar color</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -293,7 +293,7 @@ export default function TagFormModal() {
                         onPress={handleSave}
                         disabled={!tagName.trim()}
                     >
-                        <Text style={styles.primaryButtonText}>
+                        <Text style={[styles.primaryButtonText, { color: getDynamicTagTextColor(selectedColor) }]}>
                             {tag ? 'Guardar Cambios' : 'Crear Etiqueta'}
                         </Text>
                     </TouchableOpacity>
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     },
     colorPickerOverlay: {
         position: 'absolute',
-        bottom: 120, // sit just above the primary button
+        bottom: 70,
         left: 24,
         right: 24,
         zIndex: 999,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
+        shadowOffset: { width: 0, height: -10 },
         shadowOpacity: 0.6,
         shadowRadius: 12,
         elevation: 20,

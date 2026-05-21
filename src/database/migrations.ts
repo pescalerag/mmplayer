@@ -74,5 +74,16 @@ export const myMigrations = schemaMigrations({
                 }),
             ],
         },
+        {
+            toVersion: 7,
+            steps: [
+                addColumns({
+                    table: 'tags',
+                    columns: [
+                        { name: 'normalized_name', type: 'string' },
+                    ],
+                }),
+            ],
+        },
     ],
 });

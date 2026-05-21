@@ -109,33 +109,11 @@ function MainTabs() {
                     name="Biblioteca"
                     component={LibraryNavigator}
                     options={{ tabBarIcon: LibraryIcon }}
-                    listeners={({ navigation }) => ({
-                        tabPress: (e) => {
-                            const state = navigation.getState();
-                            const currentRoute = state.routes[state.index];
-                            if (currentRoute?.name !== 'Biblioteca') {
-                                e.preventDefault();
-                                navigation.navigate('Biblioteca', { screen: 'Library' });
-                            } else {
-                                navigation.navigate('Biblioteca', { screen: 'Library' });
-                            }
-                        },
-                    })}
                 />
                 <Tab.Screen
                     name="Buscar"
                     component={SearchNavigator}
                     options={{ tabBarIcon: SearchIcon }}
-                    listeners={({ navigation }) => ({
-                        tabPress: (e) => {
-                            const state = navigation.getState();
-                            const currentRoute = state.routes[state.index];
-                            if (currentRoute?.name !== 'Buscar') {
-                                e.preventDefault();
-                                navigation.navigate('Buscar', { screen: 'Search' });
-                            }
-                        },
-                    })}
                 />
                 <Tab.Screen
                     name="Etiquetas"

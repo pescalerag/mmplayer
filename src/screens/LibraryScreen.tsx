@@ -4,20 +4,26 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
+import PlaylistCover from '../components/PlaylistCover';
 import TrackRow from '../components/TrackRow';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
+import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
 import { ScannerService } from '../services/ScannerService';
-import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { Layout } from '../theme/theme';
 
+
+// ----- CONSTANTES COMPARTIDAS -----
+const cardWidth = (Dimensions.get('window').width - 70) / 3;
 
 // ----- TRACK ITEMS -----
 const TrackCard = ({ track, album, artists }: { track: Track, album: Album, artists: any }) => {
@@ -75,7 +81,6 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
             initialNumToRender={20}
             maxToRenderPerBatch={10}
             windowSize={5}
-            removeClippedSubviews={Platform.OS === 'android'}
         />
     );
 };
@@ -89,33 +94,23 @@ const EnhancedTrackList = withObservables([], () => ({
 }))(TrackList);
 
 // ----- ALBUM ITEMS -----
-const AlbumCard = memo(function AlbumCard({ album, onPress }: { album: Album, onPress?: () => void }) {
-    const [artistName, setArtistName] = useState('Cargando...');
-
-    useEffect(() => {
-        const fetchArtist = async () => {
-            try {
-                const artist = await album.artist.fetch();
-                setArtistName(artist?.name || 'Artista desconocido');
-            } catch (error) {
-                console.error('Error fetching artist for album:', error);
-                setArtistName('Artista desconocido');
-            }
-        };
-        fetchArtist();
-    }, [album]);
-
+const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, onPress?: () => void }) => {
     return (
         <LibraryCard
             title={album.title}
-            subtitle={artistName}
+            subtitle={artist?.name || 'Artista desconocido'}
             imageUrl={album.coverUrl}
             placeholderIcon="albums"
             onPress={onPress}
             onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
         />
     );
-});
+};
+
+const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album }) => ({
+    album: album.observe(),
+    artist: album.artist.observe(),
+}))(AlbumCard);
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
@@ -125,7 +120,7 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Alb
             data={albums}
             keyExtractor={a => a.id}
             renderItem={({ item }) => (
-                <AlbumCard
+                <EnhancedAlbumCard
                     album={item}
                     onPress={() => navigation.navigate('AlbumDetail', { albumId: item.id })}
                 />
@@ -136,10 +131,17 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Alb
             ListEmptyComponent={
                 <Text style={styles.emptyText}>No hay álbumes en la biblioteca.</Text>
             }
+            getItemLayout={(data, index) => {
+                const rowHeight = cardWidth + 45;
+                return {
+                    length: rowHeight,
+                    offset: rowHeight * Math.floor(index / 3),
+                    index,
+                };
+            }}
             initialNumToRender={15}
             maxToRenderPerBatch={10}
             windowSize={10}
-            removeClippedSubviews={Platform.OS === 'android'}
         />
     );
 };
@@ -150,7 +152,7 @@ const EnhancedAlbumList = withObservables([], () => ({
 
 
 // ----- ARTIST ITEMS -----
-const ArtistCard = memo(function ArtistCard({ artist, onPress }: { artist: Artist, onPress?: () => void }) {
+const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void }) => {
     return (
         <LibraryCard
             title={artist.name}
@@ -159,7 +161,11 @@ const ArtistCard = memo(function ArtistCard({ artist, onPress }: { artist: Artis
             onPress={onPress}
         />
     );
-});
+};
+
+const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
+    artist: artist.observe(),
+}))(ArtistCard);
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
@@ -169,7 +175,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: 
             data={artists}
             keyExtractor={a => a.id}
             renderItem={({ item }) => (
-                <ArtistCard
+                <EnhancedArtistCard
                     artist={item}
                     onPress={() => navigation.navigate('ArtistDetail', { artistId: item.id })}
                 />
@@ -180,10 +186,17 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: 
             ListEmptyComponent={
                 <Text style={styles.emptyText}>No hay artistas en la biblioteca.</Text>
             }
+            getItemLayout={(data, index) => {
+                const rowHeight = cardWidth + 45;
+                return {
+                    length: rowHeight,
+                    offset: rowHeight * Math.floor(index / 3),
+                    index,
+                };
+            }}
             initialNumToRender={15}
             maxToRenderPerBatch={10}
             windowSize={10}
-            removeClippedSubviews={Platform.OS === 'android'}
         />
     );
 };
@@ -193,7 +206,135 @@ const EnhancedArtistList = withObservables([], () => ({
 }))(ArtistList);
 
 
-type TabType = 'albums' | 'artists' | 'tracks';
+// ----- PLAYLIST ITEMS -----
+interface PlaylistCardProps {
+    playlistId: string;
+    isFavorites?: boolean;
+    title: string;
+    subtitle?: string;
+    customCoverUrl?: string | null;
+    onPress?: () => void;
+}
+
+const PlaylistCard = memo(function PlaylistCard({
+    playlistId,
+    isFavorites = false,
+    title,
+    subtitle,
+    customCoverUrl,
+    onPress
+}: PlaylistCardProps) {
+    return (
+        <TouchableOpacity style={styles.playlistCard} onPress={onPress} activeOpacity={0.7}>
+            <View style={styles.playlistImageContainer}>
+                <PlaylistCover
+                    playlistId={playlistId}
+                    isFavorites={isFavorites}
+                    customCoverUrl={customCoverUrl}
+                    size={cardWidth}
+                />
+            </View>
+            <Text style={styles.playlistTitle} numberOfLines={1}>{title}</Text>
+            {subtitle && (
+                <Text style={styles.playlistSubtitle} numberOfLines={1}>{subtitle}</Text>
+            )}
+        </TouchableOpacity>
+    );
+});
+
+const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
+    playlist: playlist.observe(),
+}))(({ playlist, onPress }: { playlist: Playlist, onPress?: () => void }) => {
+    return (
+        <PlaylistCard
+            playlistId={playlist.id}
+            title={playlist.name}
+            subtitle={playlist.description || 'Playlist'}
+            customCoverUrl={playlist.coverCustomUrl}
+            onPress={onPress}
+        />
+    );
+});
+
+const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const navigation = useNavigation<LibraryNavigationProp>();
+
+    const data = React.useMemo(() => {
+        return [
+            { id: 'create_new', isCreateNew: true, name: 'Crear Playlist' },
+            { id: 'favorites', name: 'Tus Favoritos', isFavorites: true, coverCustomUrl: null, description: 'Lista de favoritas' },
+            ...playlists
+        ];
+    }, [playlists]);
+
+    return (
+        <FlatList
+            ref={scrollRef}
+            data={data}
+            keyExtractor={p => p.id}
+            renderItem={({ item }) => {
+                if ('isCreateNew' in item) {
+                    return (
+                        <TouchableOpacity
+                            style={styles.playlistCard}
+                            onPress={() => usePlaylistSelectorStore.getState().openCreate()}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.playlistImageContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+                                <Ionicons name="add" size={48} color="#7d7d7dff" />
+                            </View>
+                            <Text style={styles.playlistTitle} numberOfLines={1}>{item.name}</Text>
+                        </TouchableOpacity>
+                    );
+                }
+
+                const isFav = 'isFavorites' in item && !!(item as any).isFavorites;
+                if (isFav) {
+                    return (
+                        <PlaylistCard
+                            playlistId="favorites"
+                            isFavorites={true}
+                            title={item.name}
+                            subtitle="Especial"
+                            onPress={() => navigation.navigate('FavoritesDetail')}
+                        />
+                    );
+                } else {
+                    return (
+                        <EnhancedPlaylistCard
+                            playlist={item as Playlist}
+                            onPress={() => navigation.navigate('PlaylistDetail', { playlistId: item.id })}
+                        />
+                    );
+                }
+            }}
+            numColumns={3}
+            contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+            columnWrapperStyle={styles.columnWrapper}
+            ListEmptyComponent={
+                <Text style={styles.emptyText}>No hay listas de reproducción.</Text>
+            }
+            getItemLayout={(data, index) => {
+                const rowHeight = cardWidth + 45;
+                return {
+                    length: rowHeight,
+                    offset: rowHeight * Math.floor(index / 3),
+                    index,
+                };
+            }}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+        />
+    );
+};
+
+const EnhancedPlaylistsList = withObservables([], () => ({
+    playlists: database.collections.get<Playlist>('playlists').query(Q.sortBy('created_at', Q.desc)).observe(),
+}))(PlaylistsList);
+
+
+type TabType = 'albums' | 'artists' | 'tracks' | 'playlists';
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
@@ -261,6 +402,7 @@ export default function LibraryScreen() {
                 {activeTab === 'albums' && <EnhancedAlbumList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
                 {activeTab === 'artists' && <EnhancedArtistList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
                 {activeTab === 'tracks' && <EnhancedTrackList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'playlists' && <EnhancedPlaylistsList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
             </View>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
@@ -304,12 +446,22 @@ export default function LibraryScreen() {
                 </View>
 
 
-                <View style={styles.tabsContainer}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tabsContainer}
+                >
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'albums' && styles.activeTab]}
                         onPress={() => setActiveTab('albums')}
                     >
                         <Text style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]}>Álbumes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'playlists' && styles.activeTab]}
+                        onPress={() => setActiveTab('playlists')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>Playlists</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'artists' && styles.activeTab]}
@@ -323,7 +475,7 @@ export default function LibraryScreen() {
                     >
                         <Text style={[styles.tabText, activeTab === 'tracks' && styles.activeTabText]}>Canciones</Text>
                     </TouchableOpacity>
-                </View>
+                </ScrollView>
             </View>
         </LinearGradient>
     );
@@ -394,5 +546,32 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 40,
         width: '100%',
+    },
+    playlistCard: {
+        width: cardWidth,
+        marginBottom: 20,
+    },
+    playlistImageContainer: {
+        width: cardWidth,
+        height: cardWidth,
+        borderRadius: 8,
+        overflow: 'hidden',
+        backgroundColor: '#282828',
+        marginBottom: 8,
+    },
+    playlistTitle: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    playlistSubtitle: {
+        color: '#CCCCCC',
+        fontSize: 11,
+        fontFamily: 'Montserrat',
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 2,
     },
 });
