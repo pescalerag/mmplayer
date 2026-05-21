@@ -1,7 +1,7 @@
 {
   "name": "mmplayer",
   "main": "index.js",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -26,7 +26,6 @@
     "events": "^3.3.0",
     "expo": "~54.0.33",
     "expo-audio": "^55.0.9",
-    "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
     "expo-document-picker": "~14.0.8",

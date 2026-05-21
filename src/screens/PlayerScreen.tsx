@@ -144,7 +144,7 @@ const PlayerScreenUI = ({
                                 screen: 'Biblioteca',
                                 params: {
                                     screen: 'AlbumDetail',
-                                    params: { albumId: album.id, fromPlayer: true }
+                                    params: { albumId: album.id }
                                 }
                             });
                         }}
@@ -164,14 +164,14 @@ const PlayerScreenUI = ({
                                 navigation.goBack();
                                 navigation.navigate('Main', {
                                     screen: 'Biblioteca',
-                                    params: { screen: 'AlbumDetail', params: { albumId, fromPlayer: true } }
+                                    params: { screen: 'AlbumDetail', params: { albumId } }
                                 });
                             },
                             artist: (artistId) => {
                                 navigation.goBack();
                                 navigation.navigate('Main', {
                                     screen: 'Biblioteca',
-                                    params: { screen: 'ArtistDetail', params: { artistId, fromPlayer: true } }
+                                    params: { screen: 'ArtistDetail', params: { artistId } }
                                 });
                             },
                         })}
@@ -242,7 +242,7 @@ const PlayerScreenUI = ({
                                 screen: 'Biblioteca',
                                 params: {
                                     screen: 'ArtistDetail',
-                                    params: { artistId: artist.id, fromPlayer: true }
+                                    params: { artistId: artist.id }
                                 }
                             });
                         }}

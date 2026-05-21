@@ -31,7 +31,8 @@ function TrackRow({
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const playbackContext = usePlayerStore((state) => state.playbackContext);
   
-  const isActuallyPlaying = usePlayerStore((state) => state.isPlaying);
+  const playbackStateRN = usePlaybackState();
+  const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
 
   const isCurrentTrack = activeTrack?.id === track.id && 
                         (playbackContext === contextId || contextId === 'queue');

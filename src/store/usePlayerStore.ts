@@ -26,7 +26,6 @@ async function mapToTPTrack(track: Track): Promise<TPTrack> {
 interface PlayerState {
     activeTrack: Track | null;
     playbackContext: string | null;
-    isPlaying: boolean;
     hasNext: boolean;
     hasPrevious: boolean;
     isShuffleEnabled: boolean;
@@ -38,7 +37,6 @@ interface PlayerState {
     startShuffled: (tracks: Track[], context?: string) => Promise<void>;
     playSingleTrack: (track: Track, context?: string) => Promise<void>;
     setActiveTrackById: (trackId: string) => Promise<void>;
-    setIsPlaying: (playing: boolean) => void;
     addToQueueNext: (track: Track) => Promise<void>;
     addToQueueEnd: (track: Track) => Promise<void>;
     addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
@@ -54,7 +52,6 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set, get) => ({
     activeTrack: null,
     playbackContext: null,
-    isPlaying: false,
     hasNext: false,
     hasPrevious: false,
     isShuffleEnabled: false,
@@ -81,28 +78,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
 
-            // 1. Elegir un track de inicio aleatorio
-            const startIndex = Math.floor(Math.random() * tracks.length);
+            // 1. Crear un arreglo de índices y barajarlo
+            const indices = Array.from({ length: tracks.length }, (_, i) => i);
+            const shuffledIndices = indices.sort(() => Math.random() - 0.5);
 
-            // 2. Cargar la cola completa en orden original
+            const shuffledTracks = shuffledIndices.map(i => tracks[i]);
+            const shuffledTpTracks = shuffledIndices.map(i => tpTracks[i]);
+
+            // 2. Cargar la cola barajada completa
             await TrackPlayer.reset();
-            await TrackPlayer.add(tpTracks);
-            await TrackPlayer.skip(startIndex);
+            await TrackPlayer.add(shuffledTpTracks);
             await TrackPlayer.play();
 
-            // 3. Barajar los tracks que vienen después
-            const upcoming = tpTracks.slice(startIndex + 1);
-            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-            await TrackPlayer.removeUpcomingTracks();
-            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
-
-            // 4. Guardar estado: shuffle activo, cola original guardada
+            // 3. Guardar estado: shuffle activo, cola original guardada
             set({
-                activeTrack: tracks[startIndex],
+                activeTrack: shuffledTracks[0],
                 playbackContext: context,
                 isShuffleEnabled: true,
                 shuffleOriginalQueue: tpTracks,
                 userQueueSize: 0,
+                hasPrevious: false,
+                hasNext: shuffledTracks.length > 1,
             });
         } catch (error) {
             console.error('Error starting shuffled queue:', error);
@@ -134,14 +130,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
     },
 
-    setIsPlaying: (playing) => {
-
-        set({ isPlaying: playing });
-    },
-
     addToQueueNext: async (track) => {
         try {
             const tpTrack = await mapToTPTrack(track);
+            (tpTrack as any).isManual = true;
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
             if (currentIndex !== undefined && currentIndex !== null) {
@@ -154,6 +146,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set(state => ({ userQueueSize: state.userQueueSize + 1 }));
             console.log(`🎵 Añadido a continuación: ${track.title}`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding to queue next:', error);
         }
@@ -162,21 +155,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     addToQueueEnd: async (track) => {
         try {
             const tpTrack = await mapToTPTrack(track);
-            const currentIndex = await TrackPlayer.getActiveTrackIndex();
-            const { userQueueSize } = get();
-
-            if (currentIndex !== undefined && currentIndex !== null) {
-                // Insertar después de todos los tracks de la user queue
-                // pero antes de la cola de contexto (resto del álbum/artista)
-                const insertAt = currentIndex + 1 + userQueueSize;
-                await TrackPlayer.add([tpTrack], insertAt);
-            } else {
-                await TrackPlayer.add([tpTrack]);
-            }
-            // Incrementar el tamaño de la cola manual
-            set(state => ({ userQueueSize: state.userQueueSize + 1 }));
-            console.log(`🎵 Añadido al final de la cola manual: ${track.title}`);
+            (tpTrack as any).isManual = true;
+            await TrackPlayer.add([tpTrack]);
+            console.log(`🎵 Añadido al final de la cola: ${track.title}`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding to queue end:', error);
         }
@@ -186,6 +169,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             if (tracks.length === 0) return;
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+            tpTracks.forEach(t => (t as any).isManual = true);
             const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
             if (currentIndex !== undefined && currentIndex !== null) {
@@ -198,6 +182,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
             console.log(`🎵 Añadidos a continuación ${tracks.length} tracks`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding multiple to queue next:', error);
         }
@@ -207,20 +192,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         try {
             if (tracks.length === 0) return;
             const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
-            const currentIndex = await TrackPlayer.getActiveTrackIndex();
-            const { userQueueSize } = get();
-
-            if (currentIndex !== undefined && currentIndex !== null) {
-                // Insertar después de todos los tracks de la user queue
-                const insertAt = currentIndex + 1 + userQueueSize;
-                await TrackPlayer.add(tpTracks, insertAt);
-            } else {
-                await TrackPlayer.add(tpTracks);
-            }
-            // Incrementar el tamaño de la cola manual
-            set(state => ({ userQueueSize: state.userQueueSize + tracks.length }));
-            console.log(`🎵 Añadidos al final de la cola manual ${tracks.length} tracks`);
+            tpTracks.forEach(t => (t as any).isManual = true);
+            await TrackPlayer.add(tpTracks);
+            console.log(`🎵 Añadidos al final de la cola ${tracks.length} tracks`);
             await get().updateQueueStatus();
+            await get().savePlaybackState();
         } catch (error) {
             console.error('Error adding multiple to queue end:', error);
         }
@@ -233,7 +209,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             set({
                 activeTrack: null,
                 playbackContext: null,
-                isPlaying: false,
                 hasNext: false,
                 hasPrevious: false,
                 isShuffleEnabled: false,
@@ -332,7 +307,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                 isShuffleEnabled: isShuffleEnabled ?? false,
                 shuffleOriginalQueue: shuffleOriginalQueue ?? [],
                 userQueueSize: userQueueSize ?? 0,
-                isPlaying: false,
             });
 
             // 4. Actualizar hasPrevious / hasNext

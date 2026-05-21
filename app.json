@@ -2,11 +2,17 @@
   "expo": {
     "name": "mmplayer",
     "slug": "mmplayer",
-    "version": "1.0.0",
+    "icon": "./src/assets/images/icon.png",
+    "version": "0.1.1",
     "orientation": "portrait",
     "scheme": "mmplayer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./src/assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -15,8 +21,14 @@
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/images/android-icon-foreground.png",
+        "backgroundImage": "./src/assets/images/android-icon-background.png"
+      },
       "package": "com.anonymous.mmplayer",
       "newArchEnabled": true,
       "navigationBar": {

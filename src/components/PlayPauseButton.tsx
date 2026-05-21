@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 import { usePlayerStore } from '../store/usePlayerStore';
 
 interface Props {
@@ -12,7 +12,8 @@ interface Props {
 }
 
 export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, iconType = 'normal' }: Readonly<Props>) {
-    const isPlaying = usePlayerStore(state => state.isPlaying);
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
     const togglePlayback = async () => {
         try {
