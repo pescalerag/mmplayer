@@ -89,7 +89,7 @@ export function useMusicSearch(query: string) {
                         Q.take(20)
                     ).fetch(),
                     database.collections.get<Tag>('tags').query(
-                        Q.where('name', Q.like(searchPattern)),
+                        Q.where('normalized_name', Q.like(searchPattern)),
                         Q.take(20)
                     ).fetch()
                 ]);

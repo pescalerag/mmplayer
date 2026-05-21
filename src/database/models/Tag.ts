@@ -10,6 +10,7 @@ export default class Tag extends Model {
     };
 
     @text('name') name: string;
+    @text('normalized_name') normalizedName: string; // Limpio para búsquedas
     @text('color') color: string;
     @field('is_auto') isAuto: boolean; // true para "MP3 320kbps", false para "Vinyl-Rip"
 
