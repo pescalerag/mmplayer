@@ -26,7 +26,7 @@ export default function PlaylistCover({
     height: propHeight,
     borderRadius = 12,
 }: PlaylistCoverProps) {
-    const [covers, setCovers] = useState<string[]>([]);
+    const [firstCover, setFirstCover] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     const w = propWidth ?? size;
@@ -38,30 +38,31 @@ export default function PlaylistCover({
             return;
         }
 
-        const loadCovers = async () => {
+        const loadCover = async () => {
             try {
                 const pts = await database.collections.get<PlaylistTrack>('playlist_tracks')
                     .query(Q.where('playlist_id', playlistId), Q.sortBy('order', Q.asc))
                     .fetch();
 
-                const uniqueCovers = new Set<string>();
                 for (const pt of pts) {
                     const track = await pt.track.fetch();
                     if (track) {
                         const album = await track.album.fetch();
-                        if (album?.coverUrl) uniqueCovers.add(album.coverUrl);
+                        const url = album?.coverUrl;
+                        if (url && url !== 'null' && url.trim() !== '') {
+                            setFirstCover(url);
+                            break; // Paramos con la primera cover real
+                        }
                     }
-                    if (uniqueCovers.size === 4) break; // Paramos cuando tengamos 4 distintas
                 }
-                setCovers(Array.from(uniqueCovers));
             } catch (e) {
-                console.error('Error al cargar carátulas para PlaylistCover:', e);
+                console.error('Error al cargar carátula para PlaylistCover:', e);
             } finally {
                 setLoading(false);
             }
         };
 
-        loadCovers();
+        loadCover();
     }, [playlistId, isFavorites, customCoverUrl]);
 
     if (isFavorites) {
@@ -91,30 +92,15 @@ export default function PlaylistCover({
     if (loading) {
         return (
             <View style={[styles.placeholder, { width: w, height: h, borderRadius }]}>
-                <Ionicons name="musical-notes" size={Math.min(w, h) * 0.35} color="#444" />
+                <Ionicons name="musical-note" size={Math.min(w, h) * 0.35} color="#444" />
             </View>
         );
     }
 
-    if (covers.length >= 4) {
-        return (
-            <View style={[styles.gridContainer, { width: w, height: h, borderRadius }]}>
-                <View style={styles.gridRow}>
-                    <Image source={{ uri: covers[0] }} style={styles.gridCell} contentFit="cover" />
-                    <Image source={{ uri: covers[1] }} style={styles.gridCell} contentFit="cover" />
-                </View>
-                <View style={styles.gridRow}>
-                    <Image source={{ uri: covers[2] }} style={styles.gridCell} contentFit="cover" />
-                    <Image source={{ uri: covers[3] }} style={styles.gridCell} contentFit="cover" />
-                </View>
-            </View>
-        );
-    }
-
-    if (covers.length > 0 && covers[0]) {
+    if (firstCover) {
         return (
             <Image
-                source={{ uri: covers[0] }}
+                source={{ uri: firstCover }}
                 style={[styles.container, { width: w, height: h, borderRadius }]}
                 contentFit="cover"
                 transition={200}
@@ -122,7 +108,7 @@ export default function PlaylistCover({
         );
     }
 
-    // Por defecto (vacío)
+    // Sin canciones con portada → placeholder
     return (
         <LinearGradient
             colors={['#1A1A1A', '#0D0D0D']}
@@ -148,17 +134,5 @@ const styles = StyleSheet.create({
         backgroundColor: '#1E1E1E',
         borderWidth: 1,
         borderColor: '#2A2A2A',
-    },
-    gridContainer: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        backgroundColor: '#111',
-    },
-    gridRow: {
-        flex: 1,
-        flexDirection: 'row',
-    },
-    gridCell: {
-        flex: 1,
     },
 });
