@@ -106,6 +106,10 @@ function AlbumDetailContent({
   const isCurrentAlbum = playbackContext === albumContextId;
   const isCurrentAlbumPlaying = isCurrentAlbum && isPlaying;
 
+  const handleOpenTagManager = React.useCallback(() => {
+    useTagManagerStore.getState().openForAlbum(album);
+  }, [album]);
+
   const totalDuration = tracks.reduce(
     (sum: number, t: Track) => sum + (t.duration || 0),
     0,
@@ -190,9 +194,7 @@ function AlbumDetailContent({
                           : "rgba(255, 255, 255, 0.08)",
                       },
                     ]}
-                    onPress={() =>
-                      useTagManagerStore.getState().openForAlbum(album)
-                    }
+                    onPress={handleOpenTagManager}
                   >
                     <Text
                       style={[
@@ -212,9 +214,7 @@ function AlbumDetailContent({
             ) : (
               <TouchableOpacity
                 style={styles.addTagButton}
-                onPress={() =>
-                  useTagManagerStore.getState().openForAlbum(album)
-                }
+                onPress={handleOpenTagManager}
               >
                 <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
                 <Text style={styles.addTagText}>Añadir Tag</Text>

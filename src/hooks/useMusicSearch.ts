@@ -26,6 +26,81 @@ const normalizeText = (text: string) =>
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
+const buildTrackConditions = async (
+    searchPattern: string,
+    artistIds: string[],
+    albumIds: string[],
+    tagIds: string[]
+): Promise<any[]> => {
+    let trackIdsFromTags: string[] = [];
+    if (tagIds.length > 0) {
+        const trackTags = await database.collections.get<any>('track_tags')
+            .query(Q.where('tag_id', Q.oneOf(tagIds))).fetch();
+        trackIdsFromTags = trackTags.map(tt => tt._raw.track_id as string);
+    }
+
+    let trackIdsFromCollabs: string[] = [];
+    if (artistIds.length > 0) {
+        const collabs = await database.collections.get<any>('track_collaborators')
+            .query(Q.where('artist_id', Q.oneOf(artistIds))).fetch();
+        trackIdsFromCollabs = collabs.map(c => c._raw.track_id as string);
+    }
+
+    const trackConditions: any[] = [
+        Q.where('normalized_title', Q.like(searchPattern))
+    ];
+
+    if (artistIds.length > 0) trackConditions.push(Q.where('artist_id', Q.oneOf(artistIds)));
+    if (albumIds.length > 0) trackConditions.push(Q.where('album_id', Q.oneOf(albumIds)));
+    if (trackIdsFromTags.length > 0) trackConditions.push(Q.where('id', Q.oneOf(trackIdsFromTags)));
+    if (trackIdsFromCollabs.length > 0) trackConditions.push(Q.where('id', Q.oneOf(trackIdsFromCollabs)));
+
+    return trackConditions;
+};
+
+const determineTopMatch = (
+    normalizedQuery: string,
+    artists: Artist[],
+    albums: Album[],
+    tracks: Track[]
+): TopMatch => {
+    const startsWith = (text: string) => normalizeText(text).startsWith(normalizedQuery);
+
+    const exactArtist = artists.find(a => normalizeText(a.name) === normalizedQuery);
+    const exactTrack = tracks.find(t => normalizeText(t.title) === normalizedQuery);
+    const exactAlbum = albums.find(a => normalizeText(a.title) === normalizedQuery);
+
+    const startArtist = artists.find(a => startsWith(a.name));
+    const startTrack = tracks.find(t => startsWith(t.title));
+    const startAlbum = albums.find(a => startsWith(a.title));
+
+    if (exactArtist) return { type: 'artist', item: exactArtist };
+    if (exactTrack) return { type: 'track', item: exactTrack };
+    if (exactAlbum) return { type: 'album', item: exactAlbum };
+    if (startArtist) return { type: 'artist', item: startArtist };
+    if (startTrack) return { type: 'track', item: startTrack };
+    if (startAlbum) return { type: 'album', item: startAlbum };
+    if (artists.length > 0) return { type: 'artist', item: artists[0] };
+    if (tracks.length > 0) return { type: 'track', item: tracks[0] };
+    if (albums.length > 0) return { type: 'album', item: albums[0] };
+
+    return null;
+};
+
+const fetchRelatedForTopTrack = async (track: Track, artists: Artist[], albums: Album[]) => {
+    const [relatedArtist, relatedAlbum] = await Promise.all([
+        track.artist.fetch(),
+        track.album.fetch()
+    ]);
+
+    if (relatedArtist && !artists.some(a => a.id === relatedArtist.id)) {
+        artists.unshift(relatedArtist);
+    }
+    if (relatedAlbum && !albums.some(a => a.id === relatedAlbum.id)) {
+        albums.unshift(relatedAlbum);
+    }
+};
+
 export function useMusicSearch(query: string) {
     const [results, setResults] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
     const [suggestions, setSuggestions] = useState<SearchResults>({ tracks: [], albums: [], artists: [] });
@@ -98,29 +173,7 @@ export function useMusicSearch(query: string) {
                 const albumIds = albums.map(a => a.id);
                 const tagIds = tags.map(t => t.id);
 
-                let trackIdsFromTags: string[] = [];
-                if (tagIds.length > 0) {
-                    const trackTags = await database.collections.get<any>('track_tags')
-                        .query(Q.where('tag_id', Q.oneOf(tagIds))).fetch();
-                    trackIdsFromTags = trackTags.map(tt => tt._raw.track_id as string);
-                }
-
-                let trackIdsFromCollabs: string[] = [];
-                if (artistIds.length > 0) {
-                    const collabs = await database.collections.get<any>('track_collaborators')
-                        .query(Q.where('artist_id', Q.oneOf(artistIds))).fetch();
-                    trackIdsFromCollabs = collabs.map(c => c._raw.track_id as string);
-                }
-
-                const trackConditions: any[] = [
-                    Q.where('normalized_title', Q.like(searchPattern))
-                ];
-
-                if (artistIds.length > 0) trackConditions.push(Q.where('artist_id', Q.oneOf(artistIds)));
-                if (albumIds.length > 0) trackConditions.push(Q.where('album_id', Q.oneOf(albumIds)));
-                if (trackIdsFromTags.length > 0) trackConditions.push(Q.where('id', Q.oneOf(trackIdsFromTags)));
-                if (trackIdsFromCollabs.length > 0) trackConditions.push(Q.where('id', Q.oneOf(trackIdsFromCollabs)));
-
+                const trackConditions = await buildTrackConditions(searchPattern, artistIds, albumIds, tagIds);
                 trackConditionsRef.current = trackConditions;
 
                 const tracks = await database.collections.get<Track>('tracks').query(
@@ -131,41 +184,10 @@ export function useMusicSearch(query: string) {
                 ).fetch();
 
                 if (isActive) {
-                    let currentTopMatch: TopMatch = null;
-
-                    const startsWith = (text: string) => normalizeText(text).startsWith(normalizedQuery);
-
-                    const exactArtist = artists.find(a => normalizeText(a.name) === normalizedQuery);
-                    const exactTrack = tracks.find(t => normalizeText(t.title) === normalizedQuery);
-                    const exactAlbum = albums.find(a => normalizeText(a.title) === normalizedQuery);
-
-                    const startArtist = artists.find(a => startsWith(a.name));
-                    const startTrack = tracks.find(t => startsWith(t.title));
-                    const startAlbum = albums.find(a => startsWith(a.title));
-
-                    if (exactArtist) currentTopMatch = { type: 'artist', item: exactArtist };
-                    else if (exactTrack) currentTopMatch = { type: 'track', item: exactTrack };
-                    else if (exactAlbum) currentTopMatch = { type: 'album', item: exactAlbum };
-                    else if (startArtist) currentTopMatch = { type: 'artist', item: startArtist };
-                    else if (startTrack) currentTopMatch = { type: 'track', item: startTrack };
-                    else if (startAlbum) currentTopMatch = { type: 'album', item: startAlbum };
-                    else if (artists.length > 0) currentTopMatch = { type: 'artist', item: artists[0] };
-                    else if (tracks.length > 0) currentTopMatch = { type: 'track', item: tracks[0] };
-                    else if (albums.length > 0) currentTopMatch = { type: 'album', item: albums[0] };
+                    const currentTopMatch = determineTopMatch(normalizedQuery, artists, albums, tracks);
 
                     if (currentTopMatch && currentTopMatch.type === 'track') {
-                        const track = currentTopMatch.item;
-                        const [relatedArtist, relatedAlbum] = await Promise.all([
-                            track.artist.fetch(),
-                            track.album.fetch()
-                        ]);
-
-                        if (relatedArtist && !artists.some(a => a.id === relatedArtist.id)) {
-                            artists.unshift(relatedArtist);
-                        }
-                        if (relatedAlbum && !albums.some(a => a.id === relatedAlbum.id)) {
-                            albums.unshift(relatedAlbum);
-                        }
+                        await fetchRelatedForTopTrack(currentTopMatch.item, artists, albums);
                     }
 
                     setHasMoreTracks(tracks.length === TRACKS_PER_PAGE);
