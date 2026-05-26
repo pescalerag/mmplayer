@@ -385,11 +385,6 @@ export default function LibraryScreen() {
             scanningRef.current = false;
         }
     }, []);
-
-    useEffect(() => {
-        syncLibrary();
-    }, [syncLibrary]);
-
     return (
         <LinearGradient
             colors={['#000000', '#22222221', '#000000']}

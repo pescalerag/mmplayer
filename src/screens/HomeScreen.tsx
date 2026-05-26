@@ -1,64 +1,211 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
+import React, { useEffect } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { State, usePlaybackState } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PlayingIndicator } from '../components/PlayingIndicator';
+import RecentPlaylistCard from '../components/RecentPlaylistCard';
+import { database } from '../database';
+import Track from '../database/models/Track';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { HistoryService } from '../services/HistoryService';
+
+const { width } = Dimensions.get('window');
+const gridItemWidth = (width - 48) / 2;
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<any>();
+
+    const recentMedia = usePlayerStore(state => state.recentMedia) || [];
+    const recentPlaylists = usePlayerStore(state => state.recentPlaylists) || [];
+    const activeTrack = usePlayerStore(state => state.activeTrack);
+
+    useEffect(() => {
+        HistoryService.initializeDefaultsIfNeeded();
+    }, []);
+
+    const playbackStateRN = usePlaybackState();
+    const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
+
+    const handleMediaPress = async (item: any) => {
+        if (item.type === 'album') {
+            navigation.navigate('AlbumDetail', { albumId: item.id });
+        } else if (item.type === 'track') {
+            try {
+                const track = await database.get<Track>('tracks').find(item.id);
+                usePlayerStore.getState().playSingleTrack(track, 'home-recents');
+            } catch (error) {
+                console.error('Error al reproducir track reciente:', error);
+            }
+        }
+    };
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120 }}
+            showsVerticalScrollIndicator={false}
+        >
+            {/* Saludo Principal */}
+            <Text style={styles.welcomeText}>Buenas tardes</Text>
 
-            {/* Capa de Humo (Igual que en Biblioteca) */}
-            <LinearGradient
-                colors={['#000000', 'rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'transparent']}
-                locations={[0, 0.4, 0.7, 1]}
-                style={styles.smokeEffect}
-                pointerEvents="none"
-            />
+            {/* SECCIÓN 1: Grid 2x3 de Recientes (Canciones y Álbumes) */}
+            {recentMedia.length > 0 ? (
+                <View style={styles.gridContainer}>
+                    {recentMedia.map((item) => {
+                        const isCurrentTrack = item.type === 'track' && activeTrack?.id === item.id;
+                        const isActive = isCurrentTrack;
+                        return (
+                            <TouchableOpacity
+                                key={`${item.id}-${item.type}`}
+                                style={[styles.gridCard, isActive && styles.gridCardActive]}
+                                onPress={() => handleMediaPress(item)}
+                                activeOpacity={0.7}
+                            >
+                                {item.imageUrl && item.imageUrl !== 'null' ? (
+                                    <Image
+                                        key={`img-${item.id}`}
+                                        source={{ uri: item.imageUrl }}
+                                        style={styles.gridImage}
+                                        contentFit="cover"
+                                    />
+                                ) : (
+                                    <View style={[styles.gridImage, styles.placeholderGrid]}>
+                                        <Ionicons name={item.type === 'album' ? 'albums' : 'musical-note'} size={20} color="#535353" />
+                                    </View>
+                                )}
+                                <View style={styles.gridInfo}>
+                                    <Text key={`title-${item.id}`} style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
+                                        {item.title}
+                                    </Text>
+                                    {isCurrentTrack && (
+                                        <PlayingIndicator isPaused={!isActuallyPlaying} color="#A78BFA" />
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            ) : (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>Aquí aparecerá la música que reproduzcas.</Text>
+                </View>
+            )}
 
-            {/* 3. CAPA DE LA INTERFAZ (FRENTE) */}
-            <View style={[styles.content, { paddingTop: insets.top + 10 }]}>
-                <Text style={styles.title}>Inicio</Text>
-                <Text style={styles.subtext}>Tu música recomendada aparecerá aquí pronto.</Text>
-            </View>
-        </View>
+            {/* SECCIÓN 2: Playlists Recientes */}
+            <Text style={styles.sectionTitle}>Tus Playlists</Text>
+
+            {recentPlaylists.length > 0 ? (
+                <View style={styles.playlistsContainer}>
+                    {recentPlaylists.map((playlist, idx) => (
+                        <RecentPlaylistCard
+                            key={`${playlist.id}-${idx}`}
+                            id={playlist.id}
+                            name={playlist.name}
+                            description={playlist.description}
+                            onPress={() => {
+                                if (playlist.id === 'favorites') {
+                                    navigation.navigate('FavoritesDetail');
+                                } else {
+                                    navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
+                                }
+                            }}
+                        />
+                    ))}
+                </View>
+            ) : (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>Aún no has escuchado ninguna playlist.</Text>
+                </View>
+            )}
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#000000', // Fondo negro puro
     },
-    content: {
-        paddingHorizontal: 20,
-        zIndex: 2,
-    },
-    title: {
+    welcomeText: {
         color: '#FFFFFF',
-        fontSize: 32,
+        fontSize: 26,
         fontFamily: 'Montserrat',
-        fontWeight: '900',
+        fontWeight: '800',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        letterSpacing: -0.5,
     },
-    subtext: {
-        color: '#9A9A9A',
-        fontSize: 16,
+    sectionTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
         fontFamily: 'Montserrat',
-        marginTop: 8,
+        fontWeight: '800',
+        paddingHorizontal: 20,
+        marginTop: 32,
+        marginBottom: 16,
+    },
+    gridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        paddingHorizontal: 16,
+        gap: 12,
+        justifyContent: 'space-between'
+    },
+    gridCard: {
+        width: gridItemWidth,
+        height: 56,
+        backgroundColor: '#282828',
+        borderRadius: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    gridCardActive: {
+        backgroundColor: 'rgba(139, 92, 246, 0.18)',
+        borderWidth: 1,
+        borderColor: 'rgba(167, 139, 250, 0.35)',
+    },
+    gridImage: {
+        width: 56,
+        height: 56,
+        backgroundColor: '#1E1E1E'
+    },
+    placeholderGrid: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    gridInfo: {
+        flex: 1,
+        paddingHorizontal: 10,
+        justifyContent: 'center',
+    },
+    gridTitle: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        lineHeight: 16,
+    },
+    gridTitleActive: {
+        color: '#A78BFA',
+    },
+    playlistsContainer: {
+        paddingBottom: 20,
+    },
+    emptyState: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+    },
+    emptyText: {
+        color: '#A0A0A0',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
         fontWeight: '500',
     },
-    smokeEffect: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 160,
-        zIndex: 1,
-    }
 });

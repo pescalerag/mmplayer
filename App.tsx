@@ -1,5 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import * as Font from 'expo-font';
+import * as MediaLibrary from 'expo-media-library';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +30,7 @@ export default function App() {
                 if (Platform.OS === 'android') {
                     await NavigationBar.setBackgroundColorAsync('black');
                     await NavigationBar.setButtonStyleAsync('light');
+                    await MediaLibrary.requestPermissionsAsync();
                 }
 
                 await Font.loadAsync({
@@ -39,6 +41,8 @@ export default function App() {
                 await setupPlayer();
                 // Restaurar cola persistida del último cierre de la app
                 await usePlayerStore.getState().restorePlaybackState();
+                // Restaurar recientes del último cierre de la app
+                await usePlayerStore.getState().restoreRecentsState();
             } catch (e: any) {
                 console.warn('Error en la inicialización:', e);
             } finally {

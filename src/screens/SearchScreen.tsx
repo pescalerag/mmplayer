@@ -33,6 +33,7 @@ import { SearchStackParamList } from "../navigation/types";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { Layout } from "../theme/theme";
+import { HistoryService } from "../services/HistoryService";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -247,7 +248,29 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         albumId: (currentTopMatch.item as Album).id,
       });
     } else if (currentTopMatch.type === "track") {
-      usePlayerStore.getState().playSingleTrack(currentTopMatch.item as Track, "search");
+      const track = currentTopMatch.item as Track;
+      (async () => {
+        try {
+          const album = await track.album.fetch();
+          const collaborators = await track.queryCollaborators.fetch() as Artist[];
+          const artistNames = collaborators.length > 0
+            ? collaborators.map(a => a.name).join(', ')
+            : 'Artista desconocido';
+          
+          HistoryService.updateUIRecents({
+            id: track.id,
+            type: "track",
+            context: "manual",
+            title: track.title,
+            subtitle: artistNames,
+            imageUrl: album?.coverUrl || null,
+          });
+        } catch (error) {
+          console.error("Error al actualizar recientes para top match:", error);
+        }
+      })();
+
+      usePlayerStore.getState().playSingleTrack(track, "search");
     }
   }, [currentTopMatch, query, handleResultClick, navigation]);
 
