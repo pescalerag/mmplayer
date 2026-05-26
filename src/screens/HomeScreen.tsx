@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
@@ -44,11 +45,16 @@ export default function HomeScreen() {
     };
 
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.container}>
+            <LinearGradient
+                colors={["#8B5CF633", "transparent"]}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+            />
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120 }}
+                showsVerticalScrollIndicator={false}
+            >
             {/* Saludo Principal */}
             <Text style={styles.welcomeText}>Buenas tardes</Text>
 
@@ -122,6 +128,7 @@ export default function HomeScreen() {
                 </View>
             )}
         </ScrollView>
+        </View>
     );
 }
 

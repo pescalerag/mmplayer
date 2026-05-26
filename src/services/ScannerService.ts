@@ -7,6 +7,7 @@ import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
+import { HistoryService } from './HistoryService';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -348,6 +349,10 @@ export const ScannerService = {
                 await database.batch(batchOps);
             }
         });
+
+        if (added > 0) {
+            await HistoryService.initializeDefaultsIfNeeded();
+        }
 
         onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
         return { total: audioFiles.length, added, skipped };

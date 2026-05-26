@@ -121,6 +121,13 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
                 pointerEvents="none"
             />
 
+            {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
+            <LinearGradient
+                colors={["#8B5CF633", "transparent"]}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
+                pointerEvents="none"
+            />
+
             {/* 3. HEADER DE LA INTERFAZ */}
             <View
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
