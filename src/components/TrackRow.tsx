@@ -8,6 +8,7 @@ import { formatTrackTime } from "../utils/time";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { PlayingIndicator } from "./PlayingIndicator";
 import { usePlaybackState, State } from "react-native-track-player";
+import { HistoryService } from "../services/HistoryService";
 
 interface TrackRowProps {
   readonly track: Track;
@@ -50,7 +51,17 @@ function TrackRow({
   return (
     <TouchableOpacity
       style={[styles.row, isCurrentTrack && styles.rowActive]}
-      onPress={() => onPress?.(track.id)}
+      onPress={() => {
+        HistoryService.updateUIRecents({
+          id: track.id,
+          type: "track",
+          context: "manual",
+          title: track.title,
+          subtitle: artistName || "Artista desconocido",
+          imageUrl: coverUrl || null,
+        });
+        onPress?.(track.id);
+      }}
       onLongPress={() => openMenu(track, {}, playlistId)}
       delayLongPress={300}
       activeOpacity={0.6}

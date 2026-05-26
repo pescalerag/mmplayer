@@ -1,0 +1,21 @@
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React from 'react';
+import AlbumDetailScreen from '../screens/AlbumDetailScreen';
+import ArtistDetailScreen from '../screens/ArtistDetailScreen';
+import FavoritesDetailScreen from '../screens/FavoritesDetailScreen';
+import HomeScreen from '../screens/HomeScreen';
+import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
+
+const Stack = createNativeStackNavigator();
+
+export default function HomeNavigator() {
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="AlbumDetail" component={AlbumDetailScreen} />
+            <Stack.Screen name="ArtistDetail" component={ArtistDetailScreen} />
+            <Stack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} />
+            <Stack.Screen name="FavoritesDetail" component={FavoritesDetailScreen} />
+        </Stack.Navigator>
+    );
+}

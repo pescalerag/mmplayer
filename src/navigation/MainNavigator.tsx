@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { ScannerService } from '../services/ScannerService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import MiniPlayer from '../components/MiniPlayer';
-import HomeScreen from '../screens/HomeScreen';
+import HomeNavigator from './HomeNavigator';
 import PlayerScreen from '../screens/PlayerScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TagManagementScreen from '../screens/TagManagementScreen';
@@ -102,7 +103,7 @@ function MainTabs() {
             <Tab.Navigator screenOptions={screenOptions}>
                 <Tab.Screen
                     name="Inicio"
-                    component={HomeScreen}
+                    component={HomeNavigator}
                     options={{ tabBarIcon: HomeIcon }}
                 />
                 <Tab.Screen
@@ -144,6 +145,18 @@ function MainTabs() {
 }
 
 export default function MainNavigator() {
+    useEffect(() => {
+        const initScan = async () => {
+            try {
+                await ScannerService.cleanDeletedFiles();
+                await ScannerService.autoScanAndroid();
+            } catch (error) {
+                console.error("Error sincronizando al inicio:", error);
+            }
+        };
+        initScan();
+    }, []);
+
     return (
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
             <RootStack.Screen name="Main" component={MainTabs} />

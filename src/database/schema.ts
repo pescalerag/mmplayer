@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 7,
+    version: 8,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -91,5 +91,15 @@ export const mySchema = appSchema({
                 { name: 'artist_id', type: 'string', isIndexed: true },
             ],
         }),
+        tableSchema({
+            name: 'playback_history',
+            columns: [
+                { name: 'item_id', type: 'string', isIndexed: true },
+                { name: 'item_type', type: 'string', isIndexed: true },
+                { name: 'play_context', type: 'string' }, 
+                { name: 'duration_played', type: 'number', isOptional: true },
+                { name: 'played_at', type: 'number', isIndexed: true },
+            ],
+        })
     ],
 });

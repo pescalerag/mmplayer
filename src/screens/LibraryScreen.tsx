@@ -385,11 +385,6 @@ export default function LibraryScreen() {
             scanningRef.current = false;
         }
     }, []);
-
-    useEffect(() => {
-        syncLibrary();
-    }, [syncLibrary]);
-
     return (
         <LinearGradient
             colors={['#000000', '#22222221', '#000000']}
@@ -397,6 +392,7 @@ export default function LibraryScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.container} // Quitamos el padding de aquí para que el humo empiece exacto en top: 0
         >
+
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
                 {activeTab === 'albums' && <EnhancedAlbumList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
@@ -422,6 +418,13 @@ export default function LibraryScreen() {
                     // Altura dinámica: Envuelve los selectores y baja 30px extra para crear el humo
                     height: headerHeight + 30,
                 }}
+                pointerEvents="none"
+            />
+
+            {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
+            <LinearGradient
+                colors={["#8B5CF633", "transparent"]}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
 

@@ -42,6 +42,13 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                 pointerEvents="none"
             />
 
+            {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
+            <LinearGradient
+                colors={["#8B5CF633", "transparent"]}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
+                pointerEvents="none"
+            />
+
             {/* 3. CAPA DE LA INTERFAZ (FRENTE) */}
             <View
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
@@ -106,7 +113,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE APP INFO --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v0.2.0-beta</Text>
+                    <Text style={styles.infoText}>MMPlayer v0.3.0-beta</Text>
                     <Text style={styles.infoTextSub}>Desarrollado por pescalerag. Betatesteado por Killerdroid</Text>
                 </View>
             </ScrollView>
@@ -178,13 +185,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     infoText: {
-        color: '#535353',
+        color: '#888888',
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '600',
     },
     infoTextSub: {
-        color: '#3a3a3a',
+        color: '#666666',
         fontSize: 12,
         fontFamily: 'Montserrat',
         marginTop: 4,
