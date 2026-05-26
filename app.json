@@ -3,7 +3,7 @@
     "name": "mmplayer",
     "slug": "mmplayer",
     "icon": "./src/assets/images/icon.png",
-    "version": "0.1.1",
+    "version": "0.3.0",
     "orientation": "portrait",
     "scheme": "mmplayer",
     "userInterfaceStyle": "automatic",

@@ -19,6 +19,7 @@ import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
+import { HistoryService } from '../services/HistoryService';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 import { formatAlbumDuration } from '../utils/time';
@@ -83,6 +84,14 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
     const handleTrackPress = useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
         if (trackIndex !== -1) {
+            HistoryService.updateUIRecents({
+                id: 'favorites',
+                type: 'playlist',
+                context: 'manual',
+                title: 'Tus Favoritos',
+                subtitle: 'Lista de reproducción especial',
+                imageUrl: null,
+            });
             usePlayerStore.getState().loadQueue(tracks, trackIndex, 'favorites');
         }
     }, [tracks]);
@@ -95,12 +104,28 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 await TrackPlayer.play();
             }
         } else if (tracks.length > 0) {
+            HistoryService.updateUIRecents({
+                id: 'favorites',
+                type: 'playlist',
+                context: 'manual',
+                title: 'Tus Favoritos',
+                subtitle: 'Lista de reproducción especial',
+                imageUrl: null,
+            });
             usePlayerStore.getState().loadQueue(tracks, 0, 'favorites');
         }
     };
 
     const handleShuffleFabPress = () => {
         if (tracks.length > 0) {
+            HistoryService.updateUIRecents({
+                id: 'favorites',
+                type: 'playlist',
+                context: 'manual',
+                title: 'Tus Favoritos',
+                subtitle: 'Lista de reproducción especial',
+                imageUrl: null,
+            });
             usePlayerStore.getState().startShuffled(tracks, 'favorites');
         }
     };

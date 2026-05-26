@@ -113,7 +113,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE APP INFO --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v0.2.0-beta</Text>
+                    <Text style={styles.infoText}>MMPlayer v0.3.0-beta</Text>
                     <Text style={styles.infoTextSub}>Desarrollado por pescalerag. Betatesteado por Killerdroid</Text>
                 </View>
             </ScrollView>
@@ -185,13 +185,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     infoText: {
-        color: '#535353',
+        color: '#888888',
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '600',
     },
     infoTextSub: {
-        color: '#3a3a3a',
+        color: '#666666',
         fontSize: 12,
         fontFamily: 'Montserrat',
         marginTop: 4,
