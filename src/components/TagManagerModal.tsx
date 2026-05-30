@@ -173,6 +173,7 @@ export default function TagManagerModal() {
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={styles.keyboardAvoid}
+                pointerEvents="box-none"
             >
                 <Animated.View
                     style={[
