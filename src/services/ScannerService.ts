@@ -78,7 +78,7 @@ const removeEmptyEntities = async (
 ) => {
     onProgress?.(progressMsg);
     
-    // 1. Traemos todo a memoria como datos planos ligeros
+    // 1. Traemos all a memoria como datos planos ligeros
     const [allEntitiesRaw, allTracksRaw] = await Promise.all([
         collection.query().unsafeFetchRaw(),
         tracksCollection.query().unsafeFetchRaw()

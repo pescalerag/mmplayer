@@ -164,7 +164,7 @@ export default function AlbumMenuSheet() {
                     </View>
                 </View>
 
-                {/* OPCIÓN: Añadir todo a continuación */}
+                {/* OPCIÓN: Añadir all a continuación */}
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {
@@ -180,7 +180,7 @@ export default function AlbumMenuSheet() {
                     <Text style={styles.optionText}>Añadir a continuación</Text>
                 </TouchableOpacity>
 
-                {/* OPCIÓN: Añadir todo al final */}
+                {/* OPCIÓN: Añadir all al final */}
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {

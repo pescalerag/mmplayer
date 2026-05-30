@@ -6,7 +6,7 @@ import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 import { myMigrations } from './migrations';
 import { mySchema } from './schema';
 
-// Importamos TODOS los modelos que has creado
+// Importamos all los modelos que has creado
 import Album from './models/Album';
 import Artist from './models/Artist';
 import Playlist from './models/Playlist';

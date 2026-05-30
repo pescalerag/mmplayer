@@ -176,7 +176,7 @@ export const TagService = {
 
             const recordsToDelete = [...trackTags, ...albumTags, tag];
 
-            // Eliminamos todo en un solo batch
+            // Eliminamos all en un solo batch
             const deleteOperations = recordsToDelete.map(record => record.prepareDestroyPermanently());
             await database.batch(...deleteOperations);
         });

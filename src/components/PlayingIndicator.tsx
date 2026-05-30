@@ -10,10 +10,16 @@ const BAR_HEIGHT = 10;
 
 const makeBarSequence = (anim: Animated.Value): Animated.CompositeAnimation =>
     Animated.sequence([
-        Animated.timing(anim, { toValue: 0.6 + Math.random() * 0.4, duration: 500 + Math.random() * 300, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.3 + Math.random() * 0.2, duration: 450 + Math.random() * 250, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.8 + Math.random() * 0.2, duration: 550 + Math.random() * 350, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.3, duration: 400 + Math.random() * 200, useNativeDriver: true }),
+        Animated.timing(anim, {
+            toValue: 0.6 + Math.random() * 0.4, // Altura máxima sutil
+            duration: 500 + Math.random() * 300, // Velocidad más lenta
+            useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+            toValue: 0.3,
+            duration: 400 + Math.random() * 200,
+            useNativeDriver: true,
+        }),
     ]);
 
 const loopBar = (anim: Animated.Value, pausedRef: React.MutableRefObject<boolean>) => {
