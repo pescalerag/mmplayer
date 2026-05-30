@@ -88,6 +88,7 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { al
 // Componente para la cabecera separado para evitar re-renders de toda la FlatList
 const ArtistHeader = memo(function ArtistHeader({
     artist,
+    imageUrl,
     albums,
     tracksCount,
     isLoadingContent,
@@ -196,7 +197,7 @@ const saveImageToLocalFile = async (assetUri: string, artistName: string, oldPat
     if (!baseDir) throw new Error('No se pudo acceder al directorio');
 
     const sanitized = sanitizeArtistName(artistName);
-    const fileName = `artist_${sanitized}.jpg`;
+    const fileName = `artist_${sanitized}_${Date.now()}.jpg`;
     const newPath = baseDir.endsWith('/') ? `${baseDir}${fileName}` : `${baseDir}/${fileName}`;
 
     await cleanupOldImage(oldPath, newPath);
@@ -293,6 +294,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
     const listHeader = useMemo(() => (
         <ArtistHeader
             artist={artist}
+            imageUrl={artist.imageUrl}
             albums={albums}
             tracksCount={tracks.length}
             isLoadingContent={isLoadingContent}
@@ -305,7 +307,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
         />
-    ), [artist, albums, tracks.length, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
+    ), [artist, artist.imageUrl, albums, tracks.length, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
 
     return (
         <View style={styles.container}>
