@@ -21,7 +21,7 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { navigationRef } from '../navigation/navigationRef';
+import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -262,10 +262,22 @@ export default function TrackMenuSheet() {
                                 navCallbacks.album(albumId);
                             } else if (navigationRef.isReady()) {
                                 // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
-                                navigationRef.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: { screen: 'AlbumDetail', params: { albumId } }
-                                });
+                                const rootState = navigationRef.getRootState();
+                                const activeRoute = rootState.routes[rootState.index];
+                                const isPlayerActive = activeRoute?.name === 'Player';
+
+                                if (isPlayerActive) {
+                                    navigationRef.navigate('AlbumDetail', { albumId });
+                                } else {
+                                    let tabName = getActiveTabName();
+                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                        tabName = 'Biblioteca';
+                                    }
+                                    navigationRef.navigate('Main', {
+                                        screen: tabName,
+                                        params: { screen: 'AlbumDetail', params: { albumId } }
+                                    });
+                                }
                             }
                         }}
                     >
@@ -287,10 +299,22 @@ export default function TrackMenuSheet() {
                                 navCallbacks.artist(artistId);
                             } else if (navigationRef.isReady()) {
                                 // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
-                                navigationRef.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: { screen: 'ArtistDetail', params: { artistId } }
-                                });
+                                const rootState = navigationRef.getRootState();
+                                const activeRoute = rootState.routes[rootState.index];
+                                const isPlayerActive = activeRoute?.name === 'Player';
+
+                                if (isPlayerActive) {
+                                    navigationRef.navigate('ArtistDetail', { artistId });
+                                } else {
+                                    let tabName = getActiveTabName();
+                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                        tabName = 'Biblioteca';
+                                    }
+                                    navigationRef.navigate('Main', {
+                                        screen: tabName,
+                                        params: { screen: 'ArtistDetail', params: { artistId } }
+                                    });
+                                }
                             }
                         }}
                     >

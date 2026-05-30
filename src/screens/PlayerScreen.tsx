@@ -150,31 +150,16 @@ const PlayerScreenUI = ({
     };
 
     const handleAlbumPress = () => {
-        navigation.goBack();
-        navigation.navigate('Main', {
-            screen: 'Biblioteca',
-            params: {
-                screen: 'AlbumDetail',
-                params: { albumId: album.id }
-            }
-        });
+        navigation.navigate('AlbumDetail', { albumId: album.id });
     };
 
     const handleMorePress = () => {
         useTrackMenuStore.getState().openMenu(track, {
             album: (albumId) => {
-                navigation.goBack();
-                navigation.navigate('Main', {
-                    screen: 'Biblioteca',
-                    params: { screen: 'AlbumDetail', params: { albumId } }
-                });
+                navigation.navigate('AlbumDetail', { albumId });
             },
             artist: (artistId) => {
-                navigation.goBack();
-                navigation.navigate('Main', {
-                    screen: 'Biblioteca',
-                    params: { screen: 'ArtistDetail', params: { artistId } }
-                });
+                navigation.navigate('ArtistDetail', { artistId });
             },
         });
     };
@@ -182,14 +167,7 @@ const PlayerScreenUI = ({
     const handleArtistPress = () => {
         const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
         if (!targetArtistId) return;
-        navigation.goBack();
-        navigation.navigate('Main', {
-            screen: 'Biblioteca',
-            params: {
-                screen: 'ArtistDetail',
-                params: { artistId: targetArtistId }
-            }
-        });
+        navigation.navigate('ArtistDetail', { artistId: targetArtistId });
     };
 
     const handleOpenTagManager = React.useCallback(() => {

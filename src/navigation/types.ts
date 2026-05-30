@@ -1,5 +1,5 @@
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, NavigatorScreenParams } from '@react-navigation/native';
 
 export type LibraryStackParamList = {
     Library: undefined;
@@ -17,9 +17,15 @@ export type SearchStackParamList = {
     TagDetail: { tagId: string; tagName: string; tagColor: string };
 };
 
+export type PlayerStackParamList = {
+    PlayerHome: undefined;
+    ArtistDetail: { artistId: string; fromPlayer?: boolean };
+    AlbumDetail: { albumId: string; fromPlayer?: boolean };
+};
+
 export type RootStackParamList = {
     Main: undefined;
-    Player: undefined;
+    Player: undefined | NavigatorScreenParams<PlayerStackParamList>;
     DebugHistory: undefined;
 };
 

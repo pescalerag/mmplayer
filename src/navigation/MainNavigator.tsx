@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import MiniPlayer from '../components/MiniPlayer';
 import HomeNavigator from './HomeNavigator';
-import PlayerScreen from '../screens/PlayerScreen';
+import PlayerNavigator from './PlayerNavigator';
 import SettingsScreen from '../screens/SettingsScreen';
 import TagManagementScreen from '../screens/TagManagementScreen';
 import DebugHistoryScreen from '../screens/DebugHistoryScreen';
@@ -106,16 +106,34 @@ function MainTabs() {
                     name="Inicio"
                     component={HomeNavigator}
                     options={{ tabBarIcon: HomeIcon }}
+                    listeners={({ navigation }) => ({
+                        tabPress: (e) => {
+                            e.preventDefault();
+                            navigation.navigate('Inicio', { screen: 'Home' });
+                        },
+                    })}
                 />
                 <Tab.Screen
                     name="Biblioteca"
                     component={LibraryNavigator}
                     options={{ tabBarIcon: LibraryIcon }}
+                    listeners={({ navigation }) => ({
+                        tabPress: (e) => {
+                            e.preventDefault();
+                            navigation.navigate('Biblioteca', { screen: 'Library' });
+                        },
+                    })}
                 />
                 <Tab.Screen
                     name="Buscar"
                     component={SearchNavigator}
                     options={{ tabBarIcon: SearchIcon }}
+                    listeners={({ navigation }) => ({
+                        tabPress: (e) => {
+                            e.preventDefault();
+                            navigation.navigate('Buscar', { screen: 'Search' });
+                        },
+                    })}
                 />
                 <Tab.Screen
                     name="Etiquetas"
@@ -163,7 +181,7 @@ export default function MainNavigator() {
             <RootStack.Screen name="Main" component={MainTabs} />
             <RootStack.Screen
                 name="Player"
-                component={PlayerScreen}
+                component={PlayerNavigator}
                 options={{
                     presentation: 'modal',
                     animation: 'slide_from_bottom'

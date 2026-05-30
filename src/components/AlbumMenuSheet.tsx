@@ -22,7 +22,7 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { navigationRef } from '../navigation/navigationRef';
+import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -240,10 +240,22 @@ export default function AlbumMenuSheet() {
                             if (navCallbacks.artist) {
                                 navCallbacks.artist(artistId);
                             } else if (navigationRef.isReady()) {
-                                navigationRef.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: { screen: 'ArtistDetail', params: { artistId } }
-                                });
+                                const rootState = navigationRef.getRootState();
+                                const activeRoute = rootState.routes[rootState.index];
+                                const isPlayerActive = activeRoute?.name === 'Player';
+
+                                if (isPlayerActive) {
+                                    navigationRef.navigate('ArtistDetail', { artistId });
+                                } else {
+                                    let tabName = getActiveTabName();
+                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                        tabName = 'Biblioteca';
+                                    }
+                                    navigationRef.navigate('Main', {
+                                        screen: tabName,
+                                        params: { screen: 'ArtistDetail', params: { artistId } }
+                                    });
+                                }
                             }
                         }}
                     >

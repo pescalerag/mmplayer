@@ -239,7 +239,6 @@ function AlbumDetailContent({
           .filter(Boolean)
           .join(" · ")}
         onBack={handleBack}
-        onHome={() => navigation.navigate("Biblioteca" as never)}
         renderExtra={() =>
           tracks.length > 0 && (
             <>

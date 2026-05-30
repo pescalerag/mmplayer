@@ -119,7 +119,6 @@ const ArtistHeader = memo(function ArtistHeader({
                 placeholderIcon="person"
                 metaInfo={metaInfo}
                 onBack={handleBack}
-                onHome={() => navigation.navigate('Biblioteca' as never)}
                 renderExtra={() => (
                     <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
                         <Ionicons name="camera" size={20} color="#FFFFFF" />
@@ -444,7 +443,7 @@ const styles = StyleSheet.create({
     photoButton: {
         position: 'absolute',
         top: 50,
-        right: 66,
+        right: 16,
         width: 40,
         height: 40,
         borderRadius: 20,
