@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { 
+    Alert,
     Animated, 
     BackHandler, 
     Dimensions, 
@@ -15,25 +15,19 @@ import {
 import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Q } from '@nozbe/watermelondb';
-import Artist from '../database/models/Artist';
-import Track from '../database/models/Track';
+import { useFolderMenuStore } from '../store/useFolderMenuStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { ScannerService } from '../services/ScannerService';
 import { database } from '../database';
+import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function AlbumMenuSheet() {
+export default function FolderMenuSheet() {
     const insets = useSafeAreaInsets();
-    const { isVisible, selectedAlbum, closeMenu, navCallbacks } = useAlbumMenuStore();
-    const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
-    const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
-    
-    const [artistName, setArtistName] = useState('Desconocido');
-    const [artistId, setArtistId] = useState<string | null>(null);
+    const { isVisible, selectedFolderPath, selectedFolderName, closeMenu } = useFolderMenuStore();
+    const excludeFolder = useSettingsStore(state => state.excludeFolder);
     const [tracks, setTracks] = useState<Track[]>([]);
 
     // Valores animados
@@ -88,29 +82,26 @@ export default function AlbumMenuSheet() {
         return () => subscription.remove();
     }, [isVisible, closeMenu]);
 
-    // Cargar metadatos y tracks
+    // Cargar todas las canciones de la carpeta seleccionada
     useEffect(() => {
-        if (!selectedAlbum) return;
-        
-        const loadTracksAndMetadata = async () => {
+        if (!isVisible || !selectedFolderPath) {
+            setTracks([]);
+            return;
+        }
+
+        const loadTracks = async () => {
             try {
-                const [artistDoc, tracksList] = await Promise.all([
-                    selectedAlbum.artist.fetch() as Promise<Artist | null>,
-                    database.collections.get<Track>('tracks').query(
-                        Q.where('album_id', selectedAlbum.id),
-                        Q.sortBy('disc_number', Q.asc),
-                        Q.sortBy('track_number', Q.asc)
-                    ).fetch() as Promise<Track[]>
-                ]);
-                setArtistName(artistDoc?.name || 'Desconocido');
-                setArtistId(artistDoc?.id || null);
+                const tracksList = await database.collections.get<Track>('tracks').query(
+                    Q.where('file_url', Q.like(`${selectedFolderPath}%`))
+                ).fetch();
                 setTracks(tracksList);
             } catch (error) {
-                console.error('Error al cargar tracks de AlbumMenuSheet:', error);
+                console.error("Error loading folder tracks in menu sheet:", error);
             }
         };
-        loadTracksAndMetadata();
-    }, [selectedAlbum]);
+
+        loadTracks();
+    }, [isVisible, selectedFolderPath]);
 
     const [shouldRender, setShouldRender] = useState(isVisible);
 
@@ -122,6 +113,29 @@ export default function AlbumMenuSheet() {
             return () => clearTimeout(timer);
         }
     }, [isVisible]);
+
+    const handleExclude = () => {
+        if (!selectedFolderPath) return;
+
+        Alert.alert(
+            "Excluir carpeta",
+            "¿Estás seguro de que deseas excluir esta carpeta del escaneo? Se borrarán todas sus canciones de la biblioteca.",
+            [
+                { text: "Cancelar", style: "cancel" },
+                { 
+                    text: "Excluir", 
+                    style: "destructive",
+                    onPress: async () => {
+                        closeMenu();
+                        // 1. Excluir carpeta en settings (persistente)
+                        excludeFolder(selectedFolderPath);
+                        // 2. Borrar contenido de la carpeta en la db y limpiar huérfanos
+                        await ScannerService.deleteFolderContents(selectedFolderPath);
+                    }
+                }
+            ]
+        );
+    };
 
     if (!shouldRender && !isVisible) return null;
 
@@ -146,50 +160,21 @@ export default function AlbumMenuSheet() {
                 <View style={styles.dragIndicator} />
                 
                 <View style={styles.header}>
-                    {selectedAlbum?.coverUrl ? (
-                        <Image 
-                            source={{ uri: selectedAlbum.coverUrl }} 
-                            style={styles.thumbnail}
-                            contentFit="cover"
-                            transition={200}
-                        />
-                    ) : (
-                        <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="albums" size={24} color="#666" />
-                        </View>
-                    )}
+                    <View style={[styles.thumbnail, styles.placeholder]}>
+                        <Ionicons name="folder" size={24} color="#8B5CF6" />
+                    </View>
                     <View style={styles.headerText}>
-                        <Text style={styles.title} numberOfLines={1}>{selectedAlbum?.title}</Text>
-                        <Text style={styles.subtitle} numberOfLines={1}>{artistName}</Text>
+                        <Text style={styles.title} numberOfLines={1}>{selectedFolderName}</Text>
+                        <Text style={styles.subtitle} numberOfLines={1}>Carpeta</Text>
                     </View>
                 </View>
-
-                {/* OPCIÓN: Fijar/Desfijar */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={async () => {
-                        if (selectedAlbum) {
-                            await database.write(async () => {
-                                await selectedAlbum.update((a) => {
-                                    a.isPinned = !a.isPinned;
-                                });
-                            });
-                            closeMenu();
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name={selectedAlbum?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>{selectedAlbum?.isPinned ? "Desfijar" : "Fijar"}</Text>
-                </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a continuación */}
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {
                         if (tracks.length > 0) {
-                            addMultipleToQueueNext(tracks);
+                            usePlayerStore.getState().addMultipleToQueueNext(tracks);
                             closeMenu();
                         }
                     }}
@@ -200,12 +185,12 @@ export default function AlbumMenuSheet() {
                     <Text style={styles.optionText}>Añadir a continuación</Text>
                 </TouchableOpacity>
 
-                {/* OPCIÓN: Añadir all al final */}
+                {/* OPCIÓN: Añadir al final de la cola */}
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={() => {
                         if (tracks.length > 0) {
-                            addMultipleToQueueEnd(tracks);
+                            usePlayerStore.getState().addMultipleToQueueEnd(tracks);
                             closeMenu();
                         }
                     }}
@@ -216,75 +201,19 @@ export default function AlbumMenuSheet() {
                     <Text style={styles.optionText}>Añadir al final de la cola</Text>
                 </TouchableOpacity>
 
-                {/* OPCIÓN: Gestionar Etiquetas */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedAlbum) {
-                            closeMenu();
-                            useTagManagerStore.getState().openForAlbum(selectedAlbum);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Gestionar etiquetas</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir a Playlist */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (tracks.length > 0) {
-                            closeMenu();
-                            usePlaylistSelectorStore.getState().openSelector(tracks);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Añadir a Playlist</Text>
-                </TouchableOpacity>
-
-                {/* ── Separador ── */}
+                {/* Separador */}
                 <View style={styles.separator} />
 
-                {/* OPCIÓN: Ver artista */}
-                {artistId && (
-                    <TouchableOpacity
-                        style={styles.optionRow}
-                        onPress={() => {
-                            closeMenu();
-                            if (navCallbacks.artist) {
-                                navCallbacks.artist(artistId);
-                            } else if (navigationRef.isReady()) {
-                                const rootState = navigationRef.getRootState();
-                                const activeRoute = rootState.routes[rootState.index];
-                                const isPlayerActive = activeRoute?.name === 'Player';
-
-                                if (isPlayerActive) {
-                                    navigationRef.navigate('ArtistDetail', { artistId });
-                                } else {
-                                    let tabName = getActiveTabName();
-                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                        tabName = 'Biblioteca';
-                                    }
-                                    navigationRef.navigate('Main', {
-                                        screen: tabName,
-                                        params: { screen: 'ArtistDetail', params: { artistId } }
-                                    });
-                                }
-                            }
-                        }}
-                    >
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
-                        </View>
-                        <Text style={styles.optionText}>Ver artista</Text>
-                    </TouchableOpacity>
-                )}
+                {/* OPCIÓN: Excluir */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={handleExclude}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="eye-off-outline" size={24} color="#EF4444" />
+                    </View>
+                    <Text style={[styles.optionText, { color: '#EF4444' }]}>Excluir del escaneo</Text>
+                </TouchableOpacity>
             </Animated.View>
         </View>
     );
@@ -325,7 +254,7 @@ const styles = StyleSheet.create({
     thumbnail: {
         width: 56,
         height: 56,
-        borderRadius: 8,
+        borderRadius: 8, // Cuadrado para carpetas
         marginRight: 16,
     },
     placeholder: {

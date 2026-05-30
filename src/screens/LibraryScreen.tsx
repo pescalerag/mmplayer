@@ -3,8 +3,8 @@ import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, FlatList, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { memo, useEffect, useRef, useState } from 'react';
+import { Alert, Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -15,10 +15,13 @@ import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
-import { ScannerService } from '../services/ScannerService';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { useFolderMenuStore } from '../store/useFolderMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useLibraryStore, SortOption } from '../store/useLibraryStore';
+import { useSortModalStore } from '../store/useSortModalStore';
 import { Layout } from '../theme/theme';
 
 
@@ -85,13 +88,20 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
     );
 };
 
-const EnhancedTrackList = withObservables([], () => ({
-    // Añadimos sortBy para que la lista sea predecible y no salte al actualizarse
-    tracks: database.collections
-        .get<Track>('tracks')
-        .query(Q.sortBy('title', Q.asc))
-        .observe(),
-}))(TrackList);
+const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
+    let orderCol = 'title';
+    let orderDir = Q.asc;
+    if (sortOption === 'name_desc') orderDir = Q.desc;
+    else if (sortOption === 'duration_asc') { orderCol = 'duration'; orderDir = Q.asc; }
+    else if (sortOption === 'duration_desc') { orderCol = 'duration'; orderDir = Q.desc; }
+
+    return {
+        tracks: database.collections
+            .get<Track>('tracks')
+            .query(Q.sortBy(orderCol, orderDir))
+            .observe(),
+    };
+})(TrackList);
 
 // ----- ALBUM ITEMS -----
 const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, onPress?: () => void }) => {
@@ -101,6 +111,7 @@ const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, o
             subtitle={artist?.name || 'Artista desconocido'}
             imageUrl={album.coverUrl}
             placeholderIcon="albums"
+            isPinned={album.isPinned}
             onPress={onPress}
             onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
         />
@@ -112,7 +123,7 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
     artist: album.artist.observe(),
 }))(AlbumCard);
 
-const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
     return (
         <FlatList
@@ -146,9 +157,20 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef }: { albums: Alb
     );
 };
 
-const EnhancedAlbumList = withObservables([], () => ({
-    albums: database.collections.get<Album>('albums').query(Q.sortBy('title', Q.asc)).observe(),
-}))(AlbumList);
+const EnhancedAlbumList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
+    let orderCol = 'title';
+    let orderDir = Q.asc;
+    if (sortOption === 'name_desc') orderDir = Q.desc;
+    else if (sortOption === 'year_asc') { orderCol = 'year'; orderDir = Q.asc; }
+    else if (sortOption === 'year_desc') { orderCol = 'year'; orderDir = Q.desc; }
+
+    return {
+        albums: database.collections.get<Album>('albums').query(
+            Q.sortBy('is_pinned', Q.desc),
+            Q.sortBy(orderCol, orderDir)
+        ).observe(),
+    };
+})(AlbumList);
 
 
 // ----- ARTIST ITEMS -----
@@ -158,7 +180,11 @@ const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void 
             title={artist.name}
             imageUrl={artist.imageUrl}
             placeholderIcon="person"
+            isPinned={artist.isPinned}
             onPress={onPress}
+            onLongPress={() => {
+                useArtistMenuStore.getState().openMenu(artist);
+            }}
         />
     );
 };
@@ -167,7 +193,7 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
     artist: artist.observe(),
 }))(ArtistCard);
 
-const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
     return (
         <FlatList
@@ -201,9 +227,18 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef }: { artists: 
     );
 };
 
-const EnhancedArtistList = withObservables([], () => ({
-    artists: database.collections.get<Artist>('artists').query(Q.sortBy('name', Q.asc)).observe(),
-}))(ArtistList);
+const EnhancedArtistList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
+    let orderCol = 'name';
+    let orderDir = Q.asc;
+    if (sortOption === 'name_desc') orderDir = Q.desc;
+    
+    return {
+        artists: database.collections.get<Artist>('artists').query(
+            Q.sortBy('is_pinned', Q.desc),
+            Q.sortBy(orderCol, orderDir)
+        ).observe(),
+    };
+})(ArtistList);
 
 
 // ----- PLAYLIST ITEMS -----
@@ -213,7 +248,9 @@ interface PlaylistCardProps {
     title: string;
     subtitle?: string;
     customCoverUrl?: string | null;
+    isPinned?: boolean;
     onPress?: () => void;
+    onLongPress?: () => void;
 }
 
 const PlaylistCard = memo(function PlaylistCard({
@@ -222,10 +259,12 @@ const PlaylistCard = memo(function PlaylistCard({
     title,
     subtitle,
     customCoverUrl,
-    onPress
+    isPinned,
+    onPress,
+    onLongPress
 }: PlaylistCardProps) {
     return (
-        <TouchableOpacity style={styles.playlistCard} onPress={onPress} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.playlistCard} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
             <View style={styles.playlistImageContainer}>
                 <PlaylistCover
                     playlistId={playlistId}
@@ -234,7 +273,12 @@ const PlaylistCard = memo(function PlaylistCard({
                     size={cardWidth}
                 />
             </View>
-            <Text style={styles.playlistTitle} numberOfLines={1}>{title}</Text>
+            <View style={styles.titleContainer}>
+                {isPinned && (
+                    <Ionicons name="pin" size={13} color="#8B5CF6" style={styles.pinIconInline} />
+                )}
+                <Text style={styles.playlistTitle} numberOfLines={1}>{title}</Text>
+            </View>
             {subtitle && (
                 <Text style={styles.playlistSubtitle} numberOfLines={1}>{subtitle}</Text>
             )}
@@ -251,12 +295,30 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
             title={playlist.name}
             subtitle={playlist.description || 'Playlist'}
             customCoverUrl={playlist.coverCustomUrl}
+            isPinned={playlist.isPinned}
             onPress={onPress}
+            onLongPress={() => {
+                Alert.alert(
+                    "Opciones de Playlist",
+                    "¿Qué deseas hacer?",
+                    [
+                        {
+                            text: playlist.isPinned ? "Desfijar" : "Fijar",
+                            onPress: async () => {
+                                await database.write(async () => {
+                                    await playlist.update(a => { a.isPinned = !a.isPinned; });
+                                });
+                            }
+                        },
+                        { text: "Cancelar", style: "cancel" }
+                    ]
+                );
+            }}
         />
     );
 });
 
-const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
 
     const data = React.useMemo(() => {
@@ -329,24 +391,168 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef }: { play
     );
 };
 
-const EnhancedPlaylistsList = withObservables([], () => ({
-    playlists: database.collections.get<Playlist>('playlists').query(Q.sortBy('created_at', Q.desc)).observe(),
-}))(PlaylistsList);
+const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
+    let orderCol = 'created_at';
+    let orderDir = Q.desc;
+    if (sortOption === 'name_asc') { orderCol = 'name'; orderDir = Q.asc; }
+    else if (sortOption === 'name_desc') { orderCol = 'name'; orderDir = Q.desc; }
+    else if (sortOption === 'recent_asc') { orderCol = 'created_at'; orderDir = Q.asc; }
+
+    return {
+        playlists: database.collections.get<Playlist>('playlists').query(
+            Q.sortBy('is_pinned', Q.desc),
+            Q.sortBy(orderCol, orderDir)
+        ).observe(),
+    };
+})(PlaylistsList);
 
 
-type TabType = 'albums' | 'artists' | 'tracks' | 'playlists';
+// ----- FOLDER LIST -----
+const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
+
+    // Get unique leaf folders that directly contain tracks
+    const folders = React.useMemo(() => {
+        const map = new Map<string, { path: string; name: string; trackCount: number }>();
+        for (const track of tracks) {
+            const lastSlash = track.fileUrl.lastIndexOf('/');
+            if (lastSlash === -1) continue;
+            const dirPath = track.fileUrl.substring(0, lastSlash);
+            
+            const existing = map.get(dirPath);
+            if (existing) {
+                existing.trackCount++;
+            } else {
+                const name = dirPath.substring(dirPath.lastIndexOf('/') + 1);
+                map.set(dirPath, {
+                    path: dirPath,
+                    name: decodeURIComponent(name),
+                    trackCount: 1
+                });
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }, [tracks]);
+
+    // Automatically clear selection if the folder no longer exists or becomes empty
+    useEffect(() => {
+        if (activeFolderPath) {
+            const exists = tracks.some(t => {
+                const lastSlash = t.fileUrl.lastIndexOf('/');
+                return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
+            });
+            if (!exists) {
+                setActiveFolderPath(null);
+            }
+        }
+    }, [tracks, activeFolderPath]);
+
+    const activeFolderName = React.useMemo(() => {
+        if (!activeFolderPath) return '';
+        return decodeURIComponent(activeFolderPath.substring(activeFolderPath.lastIndexOf('/') + 1));
+    }, [activeFolderPath]);
+
+    const directTracks = React.useMemo(() => {
+        if (!activeFolderPath) return [];
+        return tracks.filter(t => {
+            const lastSlash = t.fileUrl.lastIndexOf('/');
+            return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
+        });
+    }, [tracks, activeFolderPath]);
+
+    const renderItemTrack = React.useCallback((info: { item: Track }) => {
+        return <EnhancedTrackCard track={info.item} />;
+    }, []);
+
+    if (activeFolderPath) {
+        return (
+            <FlatList
+                key="folder-tracks"
+                ref={scrollRef}
+                data={directTracks}
+                keyExtractor={t => t.id}
+                renderItem={renderItemTrack}
+                contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+                ListHeaderComponent={
+                    <View style={styles.folderHeaderContainer}>
+                        <View style={styles.folderTitleRow}>
+                            <TouchableOpacity onPress={() => setActiveFolderPath(null)} style={styles.folderBackBtn} activeOpacity={0.7}>
+                                <Ionicons name="chevron-back" size={20} color="#8B5CF6" />
+                                <Text style={styles.folderBackBtnText}>Atrás</Text>
+                            </TouchableOpacity>
+                            <Text style={[styles.currentFolderTitle, { marginLeft: 8 }]} numberOfLines={1}>
+                                📁 {activeFolderName}
+                            </Text>
+                        </View>
+                    </View>
+                }
+            />
+        );
+    }
+
+    return (
+        <FlatList
+            key="folders-grid"
+            ref={scrollRef}
+            data={folders}
+            keyExtractor={f => f.path}
+            renderItem={({ item }) => (
+                <LibraryCard
+                    title={item.name}
+                    subtitle={`${item.trackCount} ${item.trackCount === 1 ? 'canción' : 'canciones'}`}
+                    placeholderIcon="folder"
+                    onPress={() => setActiveFolderPath(item.path)}
+                    onLongPress={() => useFolderMenuStore.getState().openMenu(item.path, item.name)}
+                />
+            )}
+            numColumns={3}
+            contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+            columnWrapperStyle={styles.columnWrapper}
+            ListEmptyComponent={
+                <Text style={styles.emptyText}>No hay carpetas en la biblioteca.</Text>
+            }
+            getItemLayout={(data, index) => {
+                const rowHeight = cardWidth + 45;
+                return {
+                    length: rowHeight,
+                    offset: rowHeight * Math.floor(index / 3),
+                    index,
+                };
+            }}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+        />
+    );
+};
+
+const EnhancedFolderList = withObservables([], () => ({
+    tracks: database.collections.get<Track>('tracks').query().observe(),
+}))(FolderList);
+
+
+type TabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('albums');
-    const [scanning, setScanning] = useState(false);
-    const scanningRef = useRef(false);
 
     // Estado para guardar la altura dinámica del Título + Selectores
     const [headerHeight, setHeaderHeight] = useState(130);
 
+    const albumSort = useLibraryStore(state => state.albumSort);
+    const artistSort = useLibraryStore(state => state.artistSort);
+    const playlistSort = useLibraryStore(state => state.playlistSort);
+    const trackSort = useLibraryStore(state => state.trackSort);
+
+    const getActiveSortOption = (): SortOption => {
+        if (activeTab === 'albums') return albumSort;
+        if (activeTab === 'artists') return artistSort;
+        if (activeTab === 'tracks') return trackSort;
+        return playlistSort;
+    };
+
     // bottomOffset reajustado para subir la última fila sobre el mini reproductor y la tab bar
-    // TabBar + MiniPlayer + Margen
     const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
 
     const flatListRef = useRef<FlatList>(null);
@@ -370,21 +576,6 @@ export default function LibraryScreen() {
         return unsubscribe;
     }, [navigation]);
 
-    const syncLibrary = useCallback(async () => {
-        if (Platform.OS !== 'android' || scanningRef.current) return;
-
-        scanningRef.current = true;
-        setScanning(true);
-        try {
-            await ScannerService.cleanDeletedFiles();
-            await ScannerService.autoScanAndroid();
-        } catch (error) {
-            console.error('Scan error:', error);
-        } finally {
-            setScanning(false);
-            scanningRef.current = false;
-        }
-    }, []);
     return (
         <LinearGradient
             colors={['#000000', '#22222221', '#000000']}
@@ -395,10 +586,11 @@ export default function LibraryScreen() {
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
-                {activeTab === 'albums' && <EnhancedAlbumList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'artists' && <EnhancedArtistList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'tracks' && <EnhancedTrackList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'playlists' && <EnhancedPlaylistsList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'albums' && <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'artists' && <EnhancedArtistList sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'folders' && <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'tracks' && <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'playlists' && <EnhancedPlaylistsList sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
             </View>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
@@ -435,17 +627,14 @@ export default function LibraryScreen() {
             >
                 <View style={styles.header}>
                     <Text style={styles.title}>Tu Biblioteca</Text>
-                    <TouchableOpacity
-                        onPress={syncLibrary}
-                        disabled={scanning}
-                        style={[styles.refreshButton, scanning && { opacity: 0.5 }]}
-                    >
-                        <Ionicons
-                            name="refresh-outline"
-                            size={28}
-                            color="#8B5CF6"
-                        />
-                    </TouchableOpacity>
+                    {activeTab !== 'folders' && (
+                        <TouchableOpacity
+                            onPress={() => useSortModalStore.getState().openModal(activeTab, getActiveSortOption())}
+                            style={styles.filterButton}
+                        >
+                            <Ionicons name="filter" size={22} color="#8B5CF6" />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
 
@@ -473,6 +662,12 @@ export default function LibraryScreen() {
                         <Text style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]}>Artistas</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'folders' && styles.activeTab]}
+                        onPress={() => setActiveTab('folders')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'folders' && styles.activeTabText]}>Carpetas</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'tracks' && styles.activeTab]}
                         onPress={() => setActiveTab('tracks')}
                     >
@@ -495,7 +690,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginBottom: 10,
     },
-    refreshButton: {
+    filterButton: {
         width: 44,
         height: 44,
         justifyContent: 'center',
@@ -562,12 +757,23 @@ const styles = StyleSheet.create({
         backgroundColor: '#282828',
         marginBottom: 8,
     },
+    titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        paddingHorizontal: 4,
+    },
+    pinIconInline: {
+        marginRight: 2,
+    },
     playlistTitle: {
         color: '#FFFFFF',
         fontSize: 13,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         textAlign: 'center',
+        flexShrink: 1,
     },
     playlistSubtitle: {
         color: '#CCCCCC',
@@ -576,5 +782,46 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
         marginTop: 2,
+    },
+    folderHeaderContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 10,
+    },
+    folderTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    folderBackBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 15,
+    },
+    folderBackBtnText: {
+        color: '#8B5CF6',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    currentFolderTitle: {
+        fontSize: 18,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        color: '#FFFFFF',
+        flex: 1,
+    },
+    folderGrid: {
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        color: '#B3B3B3',
+        marginTop: 10,
+        marginBottom: 10,
     },
 });

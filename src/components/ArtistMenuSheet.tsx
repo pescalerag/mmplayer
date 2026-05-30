@@ -14,27 +14,15 @@ import {
 } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Q } from '@nozbe/watermelondb';
-import Artist from '../database/models/Artist';
-import Track from '../database/models/Track';
 import { database } from '../database';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function AlbumMenuSheet() {
+export default function ArtistMenuSheet() {
     const insets = useSafeAreaInsets();
-    const { isVisible, selectedAlbum, closeMenu, navCallbacks } = useAlbumMenuStore();
-    const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
-    const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
-    
-    const [artistName, setArtistName] = useState('Desconocido');
-    const [artistId, setArtistId] = useState<string | null>(null);
-    const [tracks, setTracks] = useState<Track[]>([]);
+    const { isVisible, selectedArtist, closeMenu, navCallbacks } = useArtistMenuStore();
 
     // Valores animados
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -88,30 +76,6 @@ export default function AlbumMenuSheet() {
         return () => subscription.remove();
     }, [isVisible, closeMenu]);
 
-    // Cargar metadatos y tracks
-    useEffect(() => {
-        if (!selectedAlbum) return;
-        
-        const loadTracksAndMetadata = async () => {
-            try {
-                const [artistDoc, tracksList] = await Promise.all([
-                    selectedAlbum.artist.fetch() as Promise<Artist | null>,
-                    database.collections.get<Track>('tracks').query(
-                        Q.where('album_id', selectedAlbum.id),
-                        Q.sortBy('disc_number', Q.asc),
-                        Q.sortBy('track_number', Q.asc)
-                    ).fetch() as Promise<Track[]>
-                ]);
-                setArtistName(artistDoc?.name || 'Desconocido');
-                setArtistId(artistDoc?.id || null);
-                setTracks(tracksList);
-            } catch (error) {
-                console.error('Error al cargar tracks de AlbumMenuSheet:', error);
-            }
-        };
-        loadTracksAndMetadata();
-    }, [selectedAlbum]);
-
     const [shouldRender, setShouldRender] = useState(isVisible);
 
     useEffect(() => {
@@ -146,21 +110,21 @@ export default function AlbumMenuSheet() {
                 <View style={styles.dragIndicator} />
                 
                 <View style={styles.header}>
-                    {selectedAlbum?.coverUrl ? (
+                    {selectedArtist?.imageUrl ? (
                         <Image 
-                            source={{ uri: selectedAlbum.coverUrl }} 
+                            source={{ uri: selectedArtist.imageUrl }} 
                             style={styles.thumbnail}
                             contentFit="cover"
                             transition={200}
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="albums" size={24} color="#666" />
+                            <Ionicons name="person" size={24} color="#666" />
                         </View>
                     )}
                     <View style={styles.headerText}>
-                        <Text style={styles.title} numberOfLines={1}>{selectedAlbum?.title}</Text>
-                        <Text style={styles.subtitle} numberOfLines={1}>{artistName}</Text>
+                        <Text style={styles.title} numberOfLines={1}>{selectedArtist?.name}</Text>
+                        <Text style={styles.subtitle} numberOfLines={1}>Artista</Text>
                     </View>
                 </View>
 
@@ -168,9 +132,9 @@ export default function AlbumMenuSheet() {
                 <TouchableOpacity 
                     style={styles.optionRow} 
                     onPress={async () => {
-                        if (selectedAlbum) {
+                        if (selectedArtist) {
                             await database.write(async () => {
-                                await selectedAlbum.update((a) => {
+                                await selectedArtist.update((a) => {
                                     a.isPinned = !a.isPinned;
                                 });
                             });
@@ -179,86 +143,20 @@ export default function AlbumMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name={selectedAlbum?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
+                        <Ionicons name={selectedArtist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>{selectedAlbum?.isPinned ? "Desfijar" : "Fijar"}</Text>
+                    <Text style={styles.optionText}>{selectedArtist?.isPinned ? "Desfijar de la biblioteca" : "Fijar en la biblioteca"}</Text>
                 </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir a continuación */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (tracks.length > 0) {
-                            addMultipleToQueueNext(tracks);
-                            closeMenu();
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Añadir a continuación</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir all al final */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (tracks.length > 0) {
-                            addMultipleToQueueEnd(tracks);
-                            closeMenu();
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Gestionar Etiquetas */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedAlbum) {
-                            closeMenu();
-                            useTagManagerStore.getState().openForAlbum(selectedAlbum);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Gestionar etiquetas</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir a Playlist */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (tracks.length > 0) {
-                            closeMenu();
-                            usePlaylistSelectorStore.getState().openSelector(tracks);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Añadir a Playlist</Text>
-                </TouchableOpacity>
-
-                {/* ── Separador ── */}
-                <View style={styles.separator} />
 
                 {/* OPCIÓN: Ver artista */}
-                {artistId && (
-                    <TouchableOpacity
-                        style={styles.optionRow}
-                        onPress={() => {
+                <TouchableOpacity
+                    style={styles.optionRow}
+                    onPress={() => {
+                        if (selectedArtist) {
                             closeMenu();
-                            if (navCallbacks.artist) {
-                                navCallbacks.artist(artistId);
+                            const artistId = selectedArtist.id;
+                            if (navCallbacks.detail) {
+                                navCallbacks.detail(artistId);
                             } else if (navigationRef.isReady()) {
                                 const rootState = navigationRef.getRootState();
                                 const activeRoute = rootState.routes[rootState.index];
@@ -277,14 +175,14 @@ export default function AlbumMenuSheet() {
                                     });
                                 }
                             }
-                        }}
-                    >
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
-                        </View>
-                        <Text style={styles.optionText}>Ver artista</Text>
-                    </TouchableOpacity>
-                )}
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>Ver artista</Text>
+                </TouchableOpacity>
             </Animated.View>
         </View>
     );
@@ -325,7 +223,7 @@ const styles = StyleSheet.create({
     thumbnail: {
         width: 56,
         height: 56,
-        borderRadius: 8,
+        borderRadius: 28, // Circular para artistas
         marginRight: 16,
     },
     placeholder: {
@@ -366,10 +264,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
-    },
-    separator: {
-        height: 1,
-        backgroundColor: '#282828',
-        marginVertical: 8,
     },
 });

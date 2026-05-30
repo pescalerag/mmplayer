@@ -33,7 +33,7 @@ const adapter = Platform.OS === 'web'
           schema: mySchema,
           migrations: myMigrations,
           dbName: 'mmplayer_db',
-          jsi: true, // JSI activado para mejorar sustancialmente el rendimiento de SQLite
+          jsi: false,
           onSetUpError: error => {
               console.error('Error al inicializar la base de datos SQLite:', error);
           }

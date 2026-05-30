@@ -96,5 +96,22 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 9,
+      steps: [
+        addColumns({
+          table: "albums",
+          columns: [{ name: "is_pinned", type: "boolean", isOptional: true }],
+        }),
+        addColumns({
+          table: "artists",
+          columns: [{ name: "is_pinned", type: "boolean", isOptional: true }],
+        }),
+        addColumns({
+          table: "playlists",
+          columns: [{ name: "is_pinned", type: "boolean", isOptional: true }],
+        }),
+      ],
+    },
   ],
 });
