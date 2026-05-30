@@ -20,6 +20,7 @@ export type SearchStackParamList = {
 export type RootStackParamList = {
     Main: undefined;
     Player: undefined;
+    DebugHistory: undefined;
 };
 
 export type LibraryNavigationProp = NativeStackNavigationProp<LibraryStackParamList>;

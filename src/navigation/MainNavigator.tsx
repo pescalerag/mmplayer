@@ -12,6 +12,7 @@ import HomeNavigator from './HomeNavigator';
 import PlayerScreen from '../screens/PlayerScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TagManagementScreen from '../screens/TagManagementScreen';
+import DebugHistoryScreen from '../screens/DebugHistoryScreen';
 import LibraryNavigator from './LibraryNavigator';
 import SearchNavigator from './SearchNavigator';
 import { RootStackParamList } from './types';
@@ -166,6 +167,13 @@ export default function MainNavigator() {
                 options={{
                     presentation: 'modal',
                     animation: 'slide_from_bottom'
+                }}
+            />
+            <RootStack.Screen
+                name="DebugHistory"
+                component={DebugHistoryScreen}
+                options={{
+                    animation: 'slide_from_right'
                 }}
             />
         </RootStack.Navigator>

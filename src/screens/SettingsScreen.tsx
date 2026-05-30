@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
@@ -6,6 +8,7 @@ import {
     StyleSheet,
     Switch,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +25,7 @@ interface SettingsProps {
 
 function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsProps) {
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
     const { showTagColors, setShowTagColors } = useSettingsStore();
 
@@ -108,6 +112,23 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             ios_backgroundColor="#282828"
                         />
                     </View>
+                </View>
+
+                {/* --- SECCIÓN DE DEBUG --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>Depuración</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => navigation.navigate('DebugHistory')}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>Debug Historial</Text>
+                            <Text style={styles.settingDescription}>
+                                Ver el historial completo de reproducción almacenado en la base de datos local.
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
                 </View>
 
 
@@ -222,6 +243,12 @@ const styles = StyleSheet.create({
         color: '#888',
         marginTop: 4,
         lineHeight: 16,
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
     }
 });
 

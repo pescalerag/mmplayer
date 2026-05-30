@@ -1,4 +1,4 @@
-// src/services/ScannerService.ts
+import { Q } from '@nozbe/watermelondb';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Platform } from 'react-native';
@@ -29,37 +29,43 @@ const normalizeText = (value: string) =>
 // 1. Helper function to find and delete tracks with missing files
 const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: string) => void) => {
     onProgress?.('Verificando archivos existentes...');
-    const allTracks = await tracksCollection.query().fetch();
-    const tracksToDelete: Track[] = [];
+    const allTracksRaw = await tracksCollection.query().unsafeFetchRaw();
+    const trackIdsToDelete: string[] = [];
 
     const CHUNK_SIZE = 50;
-    for (let i = 0; i < allTracks.length; i += CHUNK_SIZE) {
-        const chunk = allTracks.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < allTracksRaw.length; i += CHUNK_SIZE) {
+        const chunk = allTracksRaw.slice(i, i + CHUNK_SIZE);
         const results = await Promise.all(
-            chunk.map(async (track: Track) => {
-                if (!track.fileUrl) return { track, missing: true };
+            chunk.map(async (rawTrack: any) => {
+                const fileUrl = rawTrack.file_url;
+                if (!fileUrl) return { id: rawTrack.id, missing: true };
                 try {
-                    const fileInfo = await FileSystem.getInfoAsync(track.fileUrl);
-                    return { track, missing: !fileInfo.exists };
+                    const fileInfo = await FileSystem.getInfoAsync(fileUrl);
+                    return { id: rawTrack.id, missing: !fileInfo.exists };
                 } catch {
-                    return { track, missing: true };
+                    return { id: rawTrack.id, missing: true };
                 }
             })
         );
         
         for (const res of results) {
             if (res.missing) {
-                tracksToDelete.push(res.track);
+                trackIdsToDelete.push(res.id);
             }
         }
     }
 
-    if (tracksToDelete.length > 0) {
-        onProgress?.(`Eliminando ${tracksToDelete.length} canciones borradas...`);
-        await database.write(async () => {
-            const batchOps = tracksToDelete.map(t => t.prepareDestroyPermanently());
-            await database.batch(batchOps);
-        });
+    if (trackIdsToDelete.length > 0) {
+        onProgress?.(`Eliminando ${trackIdsToDelete.length} canciones borradas...`);
+        const BATCH_DELETE_SIZE = 100;
+        for (let i = 0; i < trackIdsToDelete.length; i += BATCH_DELETE_SIZE) {
+            const batchIds = trackIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
+            const tracksToDelete = await tracksCollection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
+            await database.write(async () => {
+                const batchOps = tracksToDelete.map((t: Track) => t.prepareDestroyPermanently());
+                await database.batch(batchOps);
+            });
+        }
     }
 };
 
@@ -72,26 +78,36 @@ const removeEmptyEntities = async (
 ) => {
     onProgress?.(progressMsg);
     
-    // 1. Traemos todo a memoria (1 Sola consulta)
-    const [allEntities, allTracks] = await Promise.all([
-        collection.query().fetch(),
-        tracksCollection.query().fetch()
+    // 1. Traemos todo a memoria como datos planos ligeros
+    const [allEntitiesRaw, allTracksRaw] = await Promise.all([
+        collection.query().unsafeFetchRaw(),
+        tracksCollection.query().unsafeFetchRaw()
     ]);
 
     // 2. Extraemos los IDs que sí tienen canciones usando un Set (Búsqueda ultrarrápida)
     const activeEntityIds = new Set();
-    // NOTA: Para WatermelonDB, el foreignKey se lee desde el _raw
-    allTracks.forEach((track: any) => activeEntityIds.add(track._raw[foreignKey]));
+    allTracksRaw.forEach((track: any) => {
+        if (track[foreignKey]) {
+            activeEntityIds.add(track[foreignKey]);
+        }
+    });
 
-    // 3. Filtramos los que no están en el Set
-    const entitiesToDelete = allEntities.filter((entity: any) => !activeEntityIds.has(entity.id));
+    // 3. Filtramos los IDs de las entidades que no están en el Set
+    const entityIdsToDelete = allEntitiesRaw
+        .filter((entity: any) => !activeEntityIds.has(entity.id))
+        .map((entity: any) => entity.id);
 
-    // 4. Borramos en bloque (1 Sola consulta)
-    if (entitiesToDelete.length > 0) {
-        await database.write(async () => {
-            const batchOps = entitiesToDelete.map((e: any) => e.prepareDestroyPermanently());
-            await database.batch(batchOps);
-        });
+    // 4. Borramos en bloque
+    if (entityIdsToDelete.length > 0) {
+        const BATCH_DELETE_SIZE = 100;
+        for (let i = 0; i < entityIdsToDelete.length; i += BATCH_DELETE_SIZE) {
+            const batchIds = entityIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
+            const entitiesToDelete = await collection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
+            await database.write(async () => {
+                const batchOps = entitiesToDelete.map((e: any) => e.prepareDestroyPermanently());
+                await database.batch(batchOps);
+            });
+        }
     }
 };
 
@@ -296,8 +312,8 @@ export const ScannerService = {
             const existingAlbums = await albumsCollection.query().fetch();
             for (const a of existingAlbums) albumCache.set(a.title, a);
 
-            const existingTracksList = await tracksCollection.query().fetch();
-            const existingLinks = new Set(existingTracksList.map(t => t.fileUrl));
+            const existingTracksRaw = await tracksCollection.query().unsafeFetchRaw();
+            const existingLinks = new Set(existingTracksRaw.map((t: any) => t.file_url));
 
             let batchOps: any[] = [];
             const BATCH_SIZE = 500;
