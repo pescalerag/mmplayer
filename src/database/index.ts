@@ -6,7 +6,7 @@ import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 import { myMigrations } from './migrations';
 import { mySchema } from './schema';
 
-// Importamos TODOS los modelos que has creado
+// Importamos all los modelos que has creado
 import Album from './models/Album';
 import Artist from './models/Artist';
 import Playlist from './models/Playlist';
@@ -33,7 +33,7 @@ const adapter = Platform.OS === 'web'
           schema: mySchema,
           migrations: myMigrations,
           dbName: 'mmplayer_db',
-          jsi: false, // JSI desactivado para prevenir cuelgues (pantalla en blanco) en la build
+          jsi: true, // JSI activado para mejorar sustancialmente el rendimiento de SQLite
           onSetUpError: error => {
               console.error('Error al inicializar la base de datos SQLite:', error);
           }

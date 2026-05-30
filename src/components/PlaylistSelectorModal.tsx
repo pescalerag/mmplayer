@@ -141,6 +141,35 @@ export default function PlaylistSelectorModal() {
         };
     }, [keyboardHeight]);
 
+    const handleDuplicateTracks = (playlistId: string, existingTrackIds: string[], duplicateTracks: typeof tracksToAssociate) => {
+        if (tracksToAssociate.length === 1) {
+            const singleTrack = tracksToAssociate[0];
+            Alert.alert(
+                "Canción duplicada",
+                `"${singleTrack.title}" ya está en esta lista de reproducción. ¿Quieres añadirla de todos modos?`,
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Añadir", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); closeSelector(); } }
+                ]
+            );
+            return;
+        }
+
+        const newTracks = tracksToAssociate.filter(t => !existingTrackIds.includes(t.id));
+        const buttons: AlertButton[] = [{ text: "Cancelar", style: "cancel" }];
+
+        if (newTracks.length > 0) {
+            buttons.push({ text: "Solo las nuevas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); closeSelector(); } });
+        }
+        buttons.push({ text: "Añadir todas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); closeSelector(); } });
+
+        const message = newTracks.length > 0
+            ? `${duplicateTracks.length} de las ${tracksToAssociate.length} canciones ya están en esta lista de reproducción. ¿Quieres añadir solo las nuevas o todas?`
+            : `Todas las canciones (${duplicateTracks.length}) ya están en esta lista de reproducción. ¿Quieres añadirlas de todos modos?`;
+
+        Alert.alert("Canciones duplicadas", message, buttons);
+    };
+
     const handleSelectPlaylist = async (playlistId: string) => {
         if (tracksToAssociate.length === 0) return;
         try {
@@ -148,61 +177,9 @@ export default function PlaylistSelectorModal() {
             const duplicateTracks = tracksToAssociate.filter(t => existingTrackIds.includes(t.id));
 
             if (duplicateTracks.length > 0) {
-                if (tracksToAssociate.length === 1) {
-                    const singleTrack = tracksToAssociate[0];
-                    Alert.alert(
-                        "Canción duplicada",
-                        `"${singleTrack.title}" ya está en esta lista de reproducción. ¿Quieres añadirla de todos modos?`,
-                        [
-                            { text: "Cancelar", style: "cancel" },
-                            {
-                                text: "Añadir",
-                                onPress: async () => {
-                                    await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]);
-                                    closeSelector();
-                                }
-                            }
-                        ]
-                    );
-                } else {
-                    const newTracks = tracksToAssociate.filter(t => !existingTrackIds.includes(t.id));
-                    const buttons: AlertButton[] = [
-                        { text: "Cancelar", style: "cancel" }
-                    ];
-
-                    if (newTracks.length > 0) {
-                        buttons.push({
-                            text: "Solo las nuevas",
-                            onPress: async () => {
-                                const newTrackIds = newTracks.map(t => t.id);
-                                await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTrackIds);
-                                closeSelector();
-                            }
-                        });
-                    }
-
-                    buttons.push({
-                        text: "Añadir todas",
-                        onPress: async () => {
-                            const trackIds = tracksToAssociate.map(t => t.id);
-                            await PlaylistService.addMultipleTracksToPlaylist(playlistId, trackIds);
-                            closeSelector();
-                        }
-                    });
-
-                    const message = newTracks.length > 0
-                        ? `${duplicateTracks.length} de las ${tracksToAssociate.length} canciones ya están en esta lista de reproducción. ¿Quieres añadir solo las nuevas o todas?`
-                        : `Todas las canciones (${duplicateTracks.length}) ya están en esta lista de reproducción. ¿Quieres añadirlas de todos modos?`;
-
-                    Alert.alert(
-                        "Canciones duplicadas",
-                        message,
-                        buttons
-                    );
-                }
+                handleDuplicateTracks(playlistId, existingTrackIds, duplicateTracks);
             } else {
-                const trackIds = tracksToAssociate.map(t => t.id);
-                await PlaylistService.addMultipleTracksToPlaylist(playlistId, trackIds);
+                await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id));
                 closeSelector();
             }
         } catch (e) {

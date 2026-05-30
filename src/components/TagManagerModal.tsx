@@ -98,71 +98,52 @@ export default function TagManagerModal() {
         return () => subscription.remove();
     }, [isVisible, closeManager]);
 
+    const updateTagSelection = (tagId: string, isAssociated: boolean) => {
+        if (isAssociated) {
+            setSelectedTagIds(prev => prev.filter(id => id !== tagId));
+        } else {
+            setSelectedTagIds(prev => [...prev, tagId]);
+        }
+    };
+
+    const toggleAlbum = async (targetId: string, tagId: string, shouldAssociate: boolean, isAssociated: boolean, propagate: boolean) => {
+        try {
+            await TagService.toggleAlbumTag(targetId, tagId, shouldAssociate, propagate);
+            updateTagSelection(tagId, isAssociated);
+        } catch (e) {
+            console.error('Error toggling album tag:', e);
+        }
+    };
+
+    const handleAlbumTagToggle = (targetId: string, tagId: string, isAssociated: boolean) => {
+        const shouldAssociate = !isAssociated;
+        const tagName = allTags.find(t => t.id === tagId)?.name ?? '';
+        const title = shouldAssociate ? 'Aplicar etiqueta' : 'Quitar etiqueta';
+        const message = shouldAssociate
+            ? `¿Quieres aplicar la etiqueta "${tagName}" también a todas las canciones de este álbum?`
+            : `¿Quieres quitar la etiqueta "${tagName}" también de todas las canciones de este álbum?`;
+
+        Alert.alert(title, message, [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: shouldAssociate ? 'Solo al Álbum' : 'Solo del Álbum', onPress: () => toggleAlbum(targetId, tagId, shouldAssociate, isAssociated, false) },
+            { text: 'Álbum y Canciones', style: shouldAssociate ? 'default' : 'destructive', onPress: () => toggleAlbum(targetId, tagId, shouldAssociate, isAssociated, true) },
+        ], { cancelable: true });
+    };
+
+
     const handleToggleTag = async (tagId: string) => {
         if (!targetId || !targetType) return;
         const isAssociated = selectedTagIds.includes(tagId);
-        const shouldAssociate = !isAssociated;
 
         if (targetType === 'track') {
             try {
-                await TagService.toggleTrackTag(targetId, tagId, shouldAssociate);
-                if (isAssociated) {
-                    setSelectedTagIds(prev => prev.filter(id => id !== tagId));
-                } else {
-                    setSelectedTagIds(prev => [...prev, tagId]);
-                }
+                await TagService.toggleTrackTag(targetId, tagId, !isAssociated);
+                updateTagSelection(tagId, isAssociated);
             } catch (e) {
                 console.error('Error toggling track tag:', e);
             }
         } else {
-            // Álbum: Mostrar Alert para elegir si propagar el cambio a todas las canciones
-            const tag = allTags.find(t => t.id === tagId);
-            const tagName = tag ? tag.name : '';
-
-            Alert.alert(
-                shouldAssociate ? "Aplicar etiqueta" : "Quitar etiqueta",
-                shouldAssociate
-                    ? `¿Quieres aplicar la etiqueta "${tagName}" también a todas las canciones de este álbum?`
-                    : `¿Quieres quitar la etiqueta "${tagName}" también de todas las canciones de este álbum?`,
-                [
-                    {
-                        text: "Cancelar",
-                        style: "cancel"
-                    },
-                    {
-                        text: shouldAssociate ? "Solo al Álbum" : "Solo del Álbum",
-                        onPress: async () => {
-                            try {
-                                await TagService.toggleAlbumTag(targetId, tagId, shouldAssociate, false);
-                                if (isAssociated) {
-                                    setSelectedTagIds(prev => prev.filter(id => id !== tagId));
-                                } else {
-                                    setSelectedTagIds(prev => [...prev, tagId]);
-                                }
-                            } catch (e) {
-                                console.error('Error toggling album tag:', e);
-                            }
-                        }
-                    },
-                    {
-                        text: shouldAssociate ? "Álbum y Canciones" : "Álbum y Canciones",
-                        onPress: async () => {
-                            try {
-                                await TagService.toggleAlbumTag(targetId, tagId, shouldAssociate, true);
-                                if (isAssociated) {
-                                    setSelectedTagIds(prev => prev.filter(id => id !== tagId));
-                                } else {
-                                    setSelectedTagIds(prev => [...prev, tagId]);
-                                }
-                            } catch (e) {
-                                console.error('Error toggling album and tracks tag:', e);
-                            }
-                        },
-                        style: shouldAssociate ? "default" : "destructive"
-                    }
-                ],
-                { cancelable: true }
-            );
+            handleAlbumTagToggle(targetId, tagId, isAssociated);
         }
     };
 
@@ -192,6 +173,7 @@ export default function TagManagerModal() {
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={styles.keyboardAvoid}
+                pointerEvents="box-none"
             >
                 <Animated.View
                     style={[

@@ -21,7 +21,7 @@ interface DetailHeaderLayoutProps {
     subtitle?: React.ReactNode;
     metaInfo?: string;
     onBack: () => void;
-    onHome: () => void;
+    onHome?: () => void;
     onDelete?: () => void;
     onEdit?: () => void;
     onPickPhoto?: () => void;
@@ -116,12 +116,14 @@ const DetailHeaderLayout = ({
             )}
 
             {/* Botón Volver a la Biblioteca / Home */}
-            <TouchableOpacity
-                style={[styles.backButton, { left: undefined, right: 16 }]}
-                onPress={onHome}
-            >
-                <Ionicons name="home" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
+            {onHome && (
+                <TouchableOpacity
+                    style={[styles.backButton, { left: undefined, right: 16 }]}
+                    onPress={onHome}
+                >
+                    <Ionicons name="home" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+            )}
 
             {/* Info */}
             <View style={styles.headerInfo}>

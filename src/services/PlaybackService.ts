@@ -1,23 +1,23 @@
 import TrackPlayer, { Event } from "react-native-track-player";
 import { HistoryService } from "./HistoryService";
+
 export const PlaybackService = async function () {
   TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
-  TrackPlayer.addEventListener(Event.RemoteNext, () =>
-    TrackPlayer.skipToNext(),
-  );
-  TrackPlayer.addEventListener(Event.RemotePrevious, () =>
-    TrackPlayer.skipToPrevious(),
-  );
+  TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
+  TrackPlayer.addEventListener(Event.RemotePrevious, () => TrackPlayer.skipToPrevious());
   TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.reset());
-  TrackPlayer.addEventListener(Event.RemoteSeek, (event) =>
-    TrackPlayer.seekTo(event.position),
-  );
+  TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
+  
   TrackPlayer.addEventListener(
     Event.PlaybackActiveTrackChanged,
     async (event) => {
       const durationPlayed = event.lastPosition;
-      const previousTrack = event.lastTrack || (event as any).track;
+      
+      // SOLUCIÓN: Usar estrictamente lastTrack. 
+      // Si no existe, no intentamos adivinar con la pista actual.
+      const previousTrack = event.lastTrack; 
+
       if (previousTrack && previousTrack.id && durationPlayed) {
         await HistoryService.logToDatabase(
           previousTrack.id.toString(),

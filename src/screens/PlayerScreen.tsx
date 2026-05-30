@@ -53,6 +53,40 @@ interface PlayerScreenUIProps {
     hasPrevious: boolean;
 }
 
+const performToggleShuffle = async (
+    isShuffleEnabled: boolean,
+    shuffleOriginalQueue: any[],
+    setShuffleState: (enabled: boolean, queue: any[]) => void
+) => {
+    try {
+        const currentQueue = await TrackPlayer.getQueue();
+        const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
+
+        if (!isShuffleEnabled) {
+            // Guardar la cola completa en el store global
+            setShuffleState(true, currentQueue);
+            const upcoming = currentQueue.slice(currentIndex + 1);
+            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
+            await TrackPlayer.removeUpcomingTracks();
+            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
+        } else {
+            // Buscar la canción actual en la cola original por ID
+            const currentTrack = currentQueue[currentIndex];
+            const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
+            const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
+            const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
+            await TrackPlayer.removeUpcomingTracks();
+            if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
+            // Limpiar el store global
+            setShuffleState(false, []);
+        }
+        // Guardar el nuevo orden de la cola en disco
+        await usePlayerStore.getState().savePlaybackState();
+    } catch (e) {
+        console.error('Error toggling shuffle:', e);
+    }
+};
+
 const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
@@ -100,35 +134,7 @@ const PlayerScreenUI = ({
         TrackPlayer.getRepeatMode().then(setRepeatModeState).catch(() => { });
     }, []);
 
-    const toggleShuffle = async () => {
-        try {
-            const currentQueue = await TrackPlayer.getQueue();
-            const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
-
-            if (!isShuffleEnabled) {
-                // Guardar la cola completa en el store global
-                setShuffleState(true, currentQueue);
-                const upcoming = currentQueue.slice(currentIndex + 1);
-                const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-                await TrackPlayer.removeUpcomingTracks();
-                if (shuffled.length > 0) await TrackPlayer.add(shuffled);
-            } else {
-                // Buscar la canción actual en la cola original por ID
-                const currentTrack = currentQueue[currentIndex];
-                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
-                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
-                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
-                await TrackPlayer.removeUpcomingTracks();
-                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
-                // Limpiar el store global
-                setShuffleState(false, []);
-            }
-            // Guardar el nuevo orden de la cola en disco
-            await usePlayerStore.getState().savePlaybackState();
-        } catch (e) {
-            console.error('Error toggling shuffle:', e);
-        }
-    };
+    const toggleShuffle = () => performToggleShuffle(isShuffleEnabled, shuffleOriginalQueue, setShuffleState);
 
     const cycleRepeatMode = async () => {
         try {
@@ -143,7 +149,34 @@ const PlayerScreenUI = ({
         }
     };
 
+    const handleAlbumPress = () => {
+        navigation.navigate('AlbumDetail', { albumId: album.id });
+    };
 
+    const handleMorePress = () => {
+        useTrackMenuStore.getState().openMenu(track, {
+            album: (albumId) => {
+                navigation.navigate('AlbumDetail', { albumId });
+            },
+            artist: (artistId) => {
+                navigation.navigate('ArtistDetail', { artistId });
+            },
+        });
+    };
+
+    const handleArtistPress = () => {
+        const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
+        if (!targetArtistId) return;
+        navigation.navigate('ArtistDetail', { artistId: targetArtistId });
+    };
+
+    const handleOpenTagManager = React.useCallback(() => {
+        useTagManagerStore.getState().openForTrack(track);
+    }, [track]);
+
+    const handleOpenPlaylistSelector = React.useCallback(() => {
+        usePlaylistSelectorStore.getState().openSelector(track);
+    }, [track]);
 
     const [imageError, setImageError] = React.useState(false);
 
@@ -172,16 +205,7 @@ const PlayerScreenUI = ({
 
                     <TouchableOpacity
                         style={styles.headerTextContainer}
-                        onPress={() => {
-                            navigation.goBack();
-                            navigation.navigate('Main', {
-                                screen: 'Biblioteca',
-                                params: {
-                                    screen: 'AlbumDetail',
-                                    params: { albumId: album.id }
-                                }
-                            });
-                        }}
+                        onPress={handleAlbumPress}
                     >
                         <MarqueeText
                             text={album.title}
@@ -193,22 +217,7 @@ const PlayerScreenUI = ({
 
                     <TouchableOpacity
                         style={styles.moreButton}
-                        onPress={() => useTrackMenuStore.getState().openMenu(track, {
-                            album: (albumId) => {
-                                navigation.goBack();
-                                navigation.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: { screen: 'AlbumDetail', params: { albumId } }
-                                });
-                            },
-                            artist: (artistId) => {
-                                navigation.goBack();
-                                navigation.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: { screen: 'ArtistDetail', params: { artistId } }
-                                });
-                            },
-                        })}
+                        onPress={handleMorePress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                         <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
@@ -249,7 +258,7 @@ const PlayerScreenUI = ({
                                         <TouchableOpacity
                                             key={t.id}
                                             style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
-                                            onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                                            onPress={handleOpenTagManager}
                                         >
                                             <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : '#FFFFFF' }]}>{t.name}</Text>
                                         </TouchableOpacity>
@@ -258,14 +267,14 @@ const PlayerScreenUI = ({
                             ) : (
                                 <TouchableOpacity
                                     style={styles.addTagButton}
-                                    onPress={() => useTagManagerStore.getState().openForTrack(track)}
+                                    onPress={handleOpenTagManager}
                                 >
                                     <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
                                     <Text style={styles.addTagText}>Añadir Tag</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
-
+ 
                         <MarqueeText
                             text={track.title}
                             style={styles.title}
@@ -273,18 +282,7 @@ const PlayerScreenUI = ({
                             pauseDuration={1800}
                         />
                         <TouchableOpacity
-                            onPress={() => {
-                                const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
-                                if (!targetArtistId) return;
-                                navigation.goBack();
-                                navigation.navigate('Main', {
-                                    screen: 'Biblioteca',
-                                    params: {
-                                        screen: 'ArtistDetail',
-                                        params: { artistId: targetArtistId }
-                                    }
-                                });
-                            }}
+                            onPress={handleArtistPress}
                         >
                             <MarqueeText
                                 text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
@@ -312,7 +310,7 @@ const PlayerScreenUI = ({
                         </Animated.View>
 
                         <TouchableOpacity
-                            onPress={() => usePlaylistSelectorStore.getState().openSelector(track)}
+                            onPress={handleOpenPlaylistSelector}
                             style={styles.actionButton}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >

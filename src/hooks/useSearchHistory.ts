@@ -51,7 +51,7 @@ export function useSearchHistory() {
     };
 
     /**
-     * Elimina todo el historial.
+     * Elimina all el historial.
      */
     const clearHistory = async () => {
         try {

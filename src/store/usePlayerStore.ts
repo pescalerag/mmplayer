@@ -1,10 +1,11 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createMMKV } from "react-native-mmkv";
 import TrackPlayer, { Track as TPTrack } from "react-native-track-player";
 import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
 import Track from "../database/models/Track";
 
+const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
 
@@ -232,7 +233,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   clearPlayer: async () => {
     try {
       await TrackPlayer.reset();
-      await AsyncStorage.removeItem(PERSISTENCE_KEY);
+      storage.remove(PERSISTENCE_KEY);
       set({
         activeTrack: null,
         playbackContext: null,
@@ -272,7 +273,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       } = get();
 
       if (queue.length === 0) {
-        await AsyncStorage.removeItem(PERSISTENCE_KEY);
+        storage.remove(PERSISTENCE_KEY);
         return;
       }
 
@@ -284,7 +285,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue,
         userQueueSize,
       });
-      await AsyncStorage.setItem(PERSISTENCE_KEY, payload);
+      storage.set(PERSISTENCE_KEY, payload);
     } catch (error) {
       console.error("Error guardando estado de reproducción:", error);
     }
@@ -292,7 +293,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   restorePlaybackState: async () => {
     try {
-      const savedData = await AsyncStorage.getItem(PERSISTENCE_KEY);
+      const savedData = storage.getString(PERSISTENCE_KEY);
       if (!savedData) {
         return;
       }
@@ -377,7 +378,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       const { recentMedia, recentPlaylists } = get();
       const payload = JSON.stringify({ recentMedia, recentPlaylists });
-      await AsyncStorage.setItem(RECENTS_KEY, payload);
+      storage.set(RECENTS_KEY, payload);
     } catch (error) {
       console.error("Error guardando recientes:", error);
     }
@@ -385,7 +386,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   restoreRecentsState: async () => {
     try {
-      const savedData = await AsyncStorage.getItem(RECENTS_KEY);
+      const savedData = storage.getString(RECENTS_KEY);
       if (!savedData) return;
 
       const { recentMedia, recentPlaylists } = JSON.parse(savedData);
