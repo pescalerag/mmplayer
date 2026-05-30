@@ -4,8 +4,8 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback } from 'react';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
+import { FlashList } from '@shopify/flash-list';
 import {
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -178,17 +178,19 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
     const renderItem = useCallback((info: { item: Track; index: number }) => {
         const { item, index } = info;
         return (
-            <FavoriteTrackRow
-                track={item}
-                index={index + 1}
-                onPress={handleTrackPress}
-            />
+            <View style={{ minHeight: 64, width: '100%' }}>
+                <FavoriteTrackRow
+                    track={item}
+                    index={index + 1}
+                    onPress={handleTrackPress}
+                />
+            </View>
         );
     }, [handleTrackPress]);
 
     return (
         <View style={styles.container}>
-            <FlatList
+            <FlashList
                 data={tracks}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
@@ -200,14 +202,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                         <Text style={styles.emptySubtitle}>Pulsa el icono del corazón en el reproductor para añadir canciones aquí.</Text>
                     </View>
                 }
-                getItemLayout={(data, index) => ({
-                    length: 64,
-                    offset: 64 * index,
-                    index,
-                })}
-                initialNumToRender={15}
-                maxToRenderPerBatch={10}
-                windowSize={10}
+
                 contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
                 showsVerticalScrollIndicator={false}
             />

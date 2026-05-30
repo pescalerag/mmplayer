@@ -4,7 +4,8 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -60,14 +61,17 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
 
-    // 2. CORRECCIÓN: Usamos useCallback para que la función de renderizado sea estable en memoria.
     const renderItem = React.useCallback((info: { item: Track }) => {
         const { item } = info;
-        return <EnhancedTrackCard track={item} />;
+        return (
+            <View style={{ minHeight: 64, width: '100%' }}>
+                <EnhancedTrackCard track={item} />
+            </View>
+        );
     }, []);
 
     return (
-        <FlatList
+        <FlashList
             ref={scrollRef}
             data={tracks}
             keyExtractor={t => t.id}
@@ -76,14 +80,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
             ListEmptyComponent={
                 <Text style={styles.emptyText}>No hay canciones en la biblioteca.</Text>
             }
-            getItemLayout={(data, index) => ({
-                length: 64,
-                offset: 64 * index,
-                index,
-            })}
-            initialNumToRender={20}
-            maxToRenderPerBatch={10}
-            windowSize={5}
+
         />
     );
 };
@@ -105,6 +102,13 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
 
 // ----- ALBUM ITEMS -----
 const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, onPress?: () => void }) => {
+    const navigation = useNavigation<LibraryNavigationProp>();
+    
+    const handlePress = React.useCallback(() => {
+        if (onPress) onPress();
+        else navigation.navigate('AlbumDetail', { albumId: album.id });
+    }, [navigation, album.id, onPress]);
+
     return (
         <LibraryCard
             title={album.title}
@@ -112,7 +116,7 @@ const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, o
             imageUrl={album.coverUrl}
             placeholderIcon="albums"
             isPinned={album.isPinned}
-            onPress={onPress}
+            onPress={handlePress}
             onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
         />
     );
@@ -126,33 +130,20 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
     return (
-        <FlatList
+        <FlashList
             ref={scrollRef}
             data={albums}
             keyExtractor={a => a.id}
-            renderItem={({ item }) => (
-                <EnhancedAlbumCard
-                    album={item}
-                    onPress={() => navigation.navigate('AlbumDetail', { albumId: item.id })}
-                />
+            renderItem={({ item, index }) => (
+                <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
+                    <EnhancedAlbumCard
+                        album={item}
+                    />
+                </View>
             )}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-            columnWrapperStyle={styles.columnWrapper}
-            ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay álbumes en la biblioteca.</Text>
-            }
-            getItemLayout={(data, index) => {
-                const rowHeight = cardWidth + 45;
-                return {
-                    length: rowHeight,
-                    offset: rowHeight * Math.floor(index / 3),
-                    index,
-                };
-            }}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
+
         />
     );
 };
@@ -175,13 +166,20 @@ const EnhancedAlbumList = withObservables(['sortOption'], ({ sortOption }: { sor
 
 // ----- ARTIST ITEMS -----
 const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void }) => {
+    const navigation = useNavigation<LibraryNavigationProp>();
+    
+    const handlePress = React.useCallback(() => {
+        if (onPress) onPress();
+        else navigation.navigate('ArtistDetail', { artistId: artist.id });
+    }, [navigation, artist.id, onPress]);
+
     return (
         <LibraryCard
             title={artist.name}
             imageUrl={artist.imageUrl}
             placeholderIcon="person"
             isPinned={artist.isPinned}
-            onPress={onPress}
+            onPress={handlePress}
             onLongPress={() => {
                 useArtistMenuStore.getState().openMenu(artist);
             }}
@@ -196,33 +194,22 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
     return (
-        <FlatList
+        <FlashList
             ref={scrollRef}
             data={artists}
             keyExtractor={a => a.id}
-            renderItem={({ item }) => (
-                <EnhancedArtistCard
-                    artist={item}
-                    onPress={() => navigation.navigate('ArtistDetail', { artistId: item.id })}
-                />
+            renderItem={({ item, index }) => (
+                <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
+                    <EnhancedArtistCard
+                        artist={item}
+                    />
+                </View>
             )}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-            columnWrapperStyle={styles.columnWrapper}
             ListEmptyComponent={
                 <Text style={styles.emptyText}>No hay artistas en la biblioteca.</Text>
             }
-            getItemLayout={(data, index) => {
-                const rowHeight = cardWidth + 45;
-                return {
-                    length: rowHeight,
-                    offset: rowHeight * Math.floor(index / 3),
-                    index,
-                };
-            }}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
         />
     );
 };
@@ -289,6 +276,13 @@ const PlaylistCard = memo(function PlaylistCard({
 const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
     playlist: playlist.observe(),
 }))(({ playlist, onPress }: { playlist: Playlist, onPress?: () => void }) => {
+    const navigation = useNavigation<LibraryNavigationProp>();
+    
+    const handlePress = React.useCallback(() => {
+        if (onPress) onPress();
+        else navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
+    }, [navigation, playlist.id, onPress]);
+
     return (
         <PlaylistCard
             playlistId={playlist.id}
@@ -296,7 +290,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
             subtitle={playlist.description || 'Playlist'}
             customCoverUrl={playlist.coverCustomUrl}
             isPinned={playlist.isPinned}
-            onPress={onPress}
+            onPress={handlePress}
             onLongPress={() => {
                 Alert.alert(
                     "Opciones de Playlist",
@@ -321,6 +315,14 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
 const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
 
+    const handleCreatePlaylist = React.useCallback(() => {
+        usePlaylistSelectorStore.getState().openCreate();
+    }, []);
+
+    const handleNavFavorites = React.useCallback(() => {
+        navigation.navigate('FavoritesDetail');
+    }, [navigation]);
+
     const data = React.useMemo(() => {
         return [
             { id: 'create_new', isCreateNew: true, name: 'Crear Playlist' },
@@ -330,16 +332,17 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     }, [playlists]);
 
     return (
-        <FlatList
+        <FlashList
             ref={scrollRef}
             data={data}
             keyExtractor={p => p.id}
-            renderItem={({ item }) => {
+            renderItem={({ item, index }) => {
+                let content;
                 if ('isCreateNew' in item) {
-                    return (
+                    content = (
                         <TouchableOpacity
                             style={styles.playlistCard}
-                            onPress={() => usePlaylistSelectorStore.getState().openCreate()}
+                            onPress={handleCreatePlaylist}
                             activeOpacity={0.7}
                         >
                             <View style={[styles.playlistImageContainer, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -348,45 +351,38 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                             <Text style={styles.playlistTitle} numberOfLines={1}>{item.name}</Text>
                         </TouchableOpacity>
                     );
+                } else {
+                    const isFav = 'isFavorites' in item && !!(item as any).isFavorites;
+                    if (isFav) {
+                        content = (
+                            <PlaylistCard
+                                playlistId="favorites"
+                                isFavorites={true}
+                                title={item.name}
+                                subtitle="Especial"
+                                onPress={handleNavFavorites}
+                            />
+                        );
+                    } else {
+                        content = (
+                            <EnhancedPlaylistCard
+                                playlist={item as Playlist}
+                            />
+                        );
+                    }
                 }
 
-                const isFav = 'isFavorites' in item && !!(item as any).isFavorites;
-                if (isFav) {
-                    return (
-                        <PlaylistCard
-                            playlistId="favorites"
-                            isFavorites={true}
-                            title={item.name}
-                            subtitle="Especial"
-                            onPress={() => navigation.navigate('FavoritesDetail')}
-                        />
-                    );
-                } else {
-                    return (
-                        <EnhancedPlaylistCard
-                            playlist={item as Playlist}
-                            onPress={() => navigation.navigate('PlaylistDetail', { playlistId: item.id })}
-                        />
-                    );
-                }
+                return (
+                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
+                        {content}
+                    </View>
+                );
             }}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-            columnWrapperStyle={styles.columnWrapper}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay listas de reproducción.</Text>
+                <Text style={styles.emptyText}>No hay playlists creadas.</Text>
             }
-            getItemLayout={(data, index) => {
-                const rowHeight = cardWidth + 45;
-                return {
-                    length: rowHeight,
-                    offset: rowHeight * Math.floor(index / 3),
-                    index,
-                };
-            }}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
         />
     );
 };
@@ -461,12 +457,16 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
     }, [tracks, activeFolderPath]);
 
     const renderItemTrack = React.useCallback((info: { item: Track }) => {
-        return <EnhancedTrackCard track={info.item} />;
+        return (
+            <View style={{ minHeight: 64, width: '100%' }}>
+                <EnhancedTrackCard track={info.item} />
+            </View>
+        );
     }, []);
 
     if (activeFolderPath) {
         return (
-            <FlatList
+            <FlashList
                 key="folder-tracks"
                 ref={scrollRef}
                 data={directTracks}
@@ -490,38 +490,41 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
         );
     }
 
+const FolderCard = React.memo(({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) => {
+    const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
+    const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
+
     return (
-        <FlatList
+        <LibraryCard
+            title={folder.name}
+            subtitle={`${folder.trackCount} ${folder.trackCount === 1 ? 'canción' : 'canciones'}`}
+            placeholderIcon="folder"
+            onPress={handlePress}
+            onLongPress={handleLongPress}
+        />
+    );
+});
+
+    return (
+        <FlashList
             key="folders-grid"
             ref={scrollRef}
             data={folders}
             keyExtractor={f => f.path}
-            renderItem={({ item }) => (
-                <LibraryCard
-                    title={item.name}
-                    subtitle={`${item.trackCount} ${item.trackCount === 1 ? 'canción' : 'canciones'}`}
-                    placeholderIcon="folder"
-                    onPress={() => setActiveFolderPath(item.path)}
-                    onLongPress={() => useFolderMenuStore.getState().openMenu(item.path, item.name)}
-                />
+            renderItem={({ item, index }) => (
+                <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
+                    <FolderCard 
+                        folder={item} 
+                        onOpen={setActiveFolderPath} 
+                        onMenu={(path, name) => useFolderMenuStore.getState().openMenu(path, name)} 
+                    />
+                </View>
             )}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-            columnWrapperStyle={styles.columnWrapper}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay carpetas en la biblioteca.</Text>
+                <Text style={styles.emptyText}>No hay carpetas escaneadas.</Text>
             }
-            getItemLayout={(data, index) => {
-                const rowHeight = cardWidth + 45;
-                return {
-                    length: rowHeight,
-                    offset: rowHeight * Math.floor(index / 3),
-                    index,
-                };
-            }}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
         />
     );
 };
@@ -555,7 +558,7 @@ export default function LibraryScreen() {
     // bottomOffset reajustado para subir la última fila sobre el mini reproductor y la tab bar
     const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
 
-    const flatListRef = useRef<FlatList>(null);
+    const flatListRef = useRef<any>(null);
     useScrollToTop(flatListRef);
 
     const navigation = useNavigation<LibraryNavigationProp>();

@@ -4,9 +4,9 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
     Alert,
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -163,7 +163,7 @@ function DebugHistoryContent({ history }: DebugHistoryContentProps) {
             </View>
 
             {/* List */}
-            <FlatList
+            <FlashList
                 data={history}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => <HistoryRow historyItem={item} />}

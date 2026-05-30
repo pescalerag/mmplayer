@@ -4,9 +4,9 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import { 
     Dimensions, 
-    FlatList, 
     ScrollView, 
     StyleSheet, 
     Text, 
@@ -110,12 +110,14 @@ function TagDetailScreen({
     const renderItem = useCallback((info: { item: Track; index: number }) => {
         const { item, index } = info;
         return (
-            <TagTrackRow
-                track={item}
-                tagId={tag.id}
-                index={index + 1}
-                onPress={handleTrackPress}
-            />
+            <View style={{ minHeight: 64, width: '100%' }}>
+                <TagTrackRow
+                    track={item}
+                    tagId={tag.id}
+                    index={index + 1}
+                    onPress={handleTrackPress}
+                />
+            </View>
         );
     }, [handleTrackPress, tag.id]);
 
@@ -195,7 +197,7 @@ function TagDetailScreen({
 
     return (
         <View style={styles.container}>
-            <FlatList
+            <FlashList
                 data={tracks}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
@@ -206,14 +208,7 @@ function TagDetailScreen({
                         <Text style={styles.emptyText}>No hay elementos con esta etiqueta todavía.</Text>
                     </View>
                 }
-                initialNumToRender={15}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-                getItemLayout={(_data, index) => ({
-                    length: 64,
-                    offset: 64 * index,
-                    index,
-                })}
+
                 contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
                 showsVerticalScrollIndicator={false}
             />

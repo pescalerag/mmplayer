@@ -5,11 +5,11 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useState } from "react";
+import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -356,12 +356,14 @@ function PlaylistDetailContent({
     (info: { item: PlaylistTrack; index: number }) => {
       const { item, index } = info;
       return (
-        <PlaylistTrackRow
-          playlistTrack={item}
-          playlistId={playlist.id}
-          index={index + 1}
-          onPress={handleTrackPress}
-        />
+        <View style={{ minHeight: 64, width: '100%' }}>
+            <PlaylistTrackRow
+              playlistTrack={item}
+              playlistId={playlist.id}
+              index={index + 1}
+              onPress={handleTrackPress}
+            />
+        </View>
       );
     },
     [handleTrackPress, playlist.id],
@@ -369,7 +371,7 @@ function PlaylistDetailContent({
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={playlistTracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
@@ -392,14 +394,7 @@ function PlaylistDetailContent({
             </View>
           )
         }
-        getItemLayout={(data, index) => ({
-          length: 64,
-          offset: 64 * index,
-          index,
-        })}
-        initialNumToRender={15}
-        maxToRenderPerBatch={10}
-        windowSize={10}
+
         contentContainerStyle={{
           paddingBottom:
             Layout.MINI_PLAYER_HEIGHT +

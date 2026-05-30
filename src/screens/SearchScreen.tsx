@@ -5,9 +5,9 @@ import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
-    FlatList,
     Keyboard,
     Platform,
     ScrollView,
@@ -122,8 +122,11 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
 }: {
   album: Album;
   artist: Artist;
-  onPress: () => void;
+  onPress: (albumId: string) => void;
 }) {
+  const handlePress = useCallback(() => onPress(album.id), [onPress, album.id]);
+  const handleLongPress = useCallback(() => useAlbumMenuStore.getState().openMenu(album), [album]);
+
   return (
     <View style={styles.cardContainer}>
       <LibraryCard
@@ -131,8 +134,8 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
         subtitle={artist?.name || "Artista Desconocido"}
         imageUrl={album.coverUrl}
         placeholderIcon="albums"
-        onPress={onPress}
-        onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
       />
     </View>
   );
@@ -152,15 +155,19 @@ const SearchArtistCard = memo(function SearchArtistCard({
   onPress,
 }: {
   artist: Artist;
-  onPress: () => void;
+  onPress: (artistId: string) => void;
 }) {
+  const handlePress = useCallback(() => onPress(artist.id), [onPress, artist.id]);
+  const handleLongPress = useCallback(() => useArtistMenuStore.getState().openMenu(artist), [artist]);
+
   return (
     <View style={styles.cardContainer}>
       <LibraryCard
         title={artist.name}
         imageUrl={artist.imageUrl}
         placeholderIcon="person"
-        onPress={onPress}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
       />
     </View>
   );
@@ -221,11 +228,15 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   };
   const currentTopMatch = getLocalTopMatch();
 
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<any>(null);
   useScrollToTop(flatListRef);
 
+  const queryRef = useRef(query);
+  useEffect(() => { queryRef.current = query; }, [query]);
+
   const handleResultClick = useCallback(
-    (textToSave: string) => {
+    (text?: string) => {
+      const textToSave = text || queryRef.current;
       if (textToSave.trim()) {
         saveSearch(textToSave);
         Keyboard.dismiss();
@@ -234,10 +245,24 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     [saveSearch],
   );
 
+  const handleAlbumPress = useCallback((albumId: string) => {
+    handleResultClick();
+    navigation.navigate("AlbumDetail", { albumId });
+  }, [handleResultClick, navigation]);
+
+  const handleArtistPress = useCallback((artistId: string) => {
+    handleResultClick();
+    navigation.navigate("ArtistDetail", { artistId });
+  }, [handleResultClick, navigation]);
+
+  const handleTrackPress = useCallback(() => {
+    handleResultClick();
+  }, [handleResultClick]);
+
   const handleTopMatchPress = useCallback(() => {
     if (!currentTopMatch) return;
 
-    handleResultClick(query);
+    handleResultClick();
 
     if (currentTopMatch.type === "artist") {
       navigation.navigate("ArtistDetail", {
@@ -396,12 +421,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                         <SearchArtistCard
                           key={artist.id}
                           artist={artist}
-                          onPress={() => {
-                            handleResultClick(query);
-                            navigation.navigate("ArtistDetail", {
-                              artistId: artist.id,
-                            });
-                          }}
+                          onPress={handleArtistPress}
                         />
                       ))}
                   </ScrollView>
@@ -428,12 +448,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                         <SearchAlbumCard
                           key={album.id}
                           album={album}
-                          onPress={() => {
-                            handleResultClick(query);
-                            navigation.navigate("AlbumDetail", {
-                              albumId: album.id,
-                            });
-                          }}
+                          onPress={handleAlbumPress}
                         />
                       ))}
                   </ScrollView>
@@ -459,10 +474,12 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     (info: { item: Track }) => {
       const { item } = info;
       return (
-        <SearchTrackRow track={item} onPress={() => handleResultClick(query)} />
+        <View style={{ minHeight: 64, width: '100%' }}>
+            <SearchTrackRow track={item} onPress={handleTrackPress} />
+        </View>
       );
     },
-    [handleResultClick, query],
+    [handleTrackPress],
   );
 
   return (
@@ -541,7 +558,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         )}
       </LinearGradient>
 
-      <FlatList
+      <FlashList
         ref={flatListRef}
         data={
           isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
@@ -605,14 +622,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        initialNumToRender={15}
-        maxToRenderPerBatch={10}
-        windowSize={7}
-        getItemLayout={(_data, index) => ({
-            length: 64,
-            offset: 64 * index,
-            index,
-        })}
+
       />
     </View>
   );

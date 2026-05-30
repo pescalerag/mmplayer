@@ -3,7 +3,8 @@ import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTagFormStore } from '../store/useTagFormStore';
 import Tag from '../database/models/Tag';
@@ -78,7 +79,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
 
             {/* 1. CONTENIDO - LISTA */}
             <View style={StyleSheet.absoluteFill}>
-                <FlatList
+                <FlashList
                     data={tags}
                     keyExtractor={t => t.id}
                     renderItem={renderItem}
@@ -103,8 +104,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
                     ListEmptyComponent={
                         <Text style={styles.empty}>No hay etiquetas creadas.</Text>
                     }
-                    initialNumToRender={20}
-                    maxToRenderPerBatch={10}
+
                 />
             </View>
 

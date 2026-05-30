@@ -6,11 +6,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    FlatList,
     InteractionManager,
     Platform,
     ScrollView,
@@ -281,12 +281,14 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
     const renderItem = useCallback((info: { item: Track; index: number }) => {
         const { item, index } = info;
         return (
-            <ArtistTrackRow
-                track={item}
-                contextId={`artist-${artist.id}`}
-                index={index + 1}
-                onPress={handleTrackPress}
-            />
+            <View style={{ minHeight: 64, width: '100%' }}>
+                <ArtistTrackRow
+                    track={item}
+                    contextId={`artist-${artist.id}`}
+                    index={index + 1}
+                    onPress={handleTrackPress}
+                />
+            </View>
         );
     }, [handleTrackPress]);
 
@@ -311,7 +313,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
 
     return (
         <View style={styles.container}>
-            <FlatList
+            <FlashList
                 data={visibleTracks}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
@@ -323,20 +325,12 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
                         <Text style={styles.emptyText}>Este artista no tiene canciones escaneadas.</Text>
                     )
                 }
-                initialNumToRender={12}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-                getItemLayout={(_data, index) => ({
-                    length: 64,
-                    offset: 64 * index,
-                    index,
-                })}
+
                 contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
                 showsVerticalScrollIndicator={false}
                 // Importante para evitar saltos
                 maintainVisibleContentPosition={{
                     autoscrollToTopThreshold: 0,
-                    minIndexForVisible: 0,
                 }}
             />
         </View>

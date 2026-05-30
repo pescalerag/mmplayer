@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
     Animated,
     BackHandler,
     Dimensions,
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -335,7 +335,7 @@ export default function QueueSheet() {
 
                 {/* ── CONTENIDO DE TABS ── */}
                 {activeTab === 'queue' ? (
-                    <FlatList
+                    <FlashList
                         data={upcomingTracks}
                         keyExtractor={(item, index) => `q-${item.id}-${index}`}
                         renderItem={renderQueueItem}
@@ -348,17 +348,9 @@ export default function QueueSheet() {
                         }
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
-                        initialNumToRender={10}
-                        maxToRenderPerBatch={10}
-                        windowSize={5}
-                        getItemLayout={(_data, index) => ({
-                            length: 72,
-                            offset: 72 * index,
-                            index,
-                        })}
                     />
                 ) : (
-                    <FlatList
+                    <FlashList
                         data={recentTracks}
                         keyExtractor={(item, index) => `r-${item.id}-${index}`}
                         renderItem={renderRecentItem}
@@ -370,14 +362,6 @@ export default function QueueSheet() {
                         }
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
-                        initialNumToRender={10}
-                        maxToRenderPerBatch={10}
-                        windowSize={5}
-                        getItemLayout={(_data, index) => ({
-                            length: 72,
-                            offset: 72 * index,
-                            index,
-                        })}
                     />
                 )}
             </Animated.View>

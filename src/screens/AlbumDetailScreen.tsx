@@ -3,10 +3,10 @@ import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import React, { useEffect, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
     ActivityIndicator,
     Dimensions,
-    FlatList,
     InteractionManager,
     ScrollView,
     StyleSheet,
@@ -279,7 +279,7 @@ function AlbumDetailContent({
         index === 0 || tracks[index - 1].discNumber !== item.discNumber;
 
       return (
-        <View>
+        <View style={{ minHeight: 64, width: '100%' }}>
           {showDiscHeader && item.discNumber && item.discNumber > 1 && (
             <View style={styles.discHeader}>
               <Ionicons name="disc-outline" size={16} color="#8B5CF6" />
@@ -302,7 +302,7 @@ function AlbumDetailContent({
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={isLoadingTracks ? [] : tracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
@@ -320,14 +320,6 @@ function AlbumDetailContent({
             </Text>
           )
         }
-        getItemLayout={(data, index) => ({
-          length: 64,
-          offset: 64 * index,
-          index,
-        })}
-        initialNumToRender={12}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         contentContainerStyle={{
           paddingBottom:
             Layout.MINI_PLAYER_HEIGHT +
