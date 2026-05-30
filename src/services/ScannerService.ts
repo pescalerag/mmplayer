@@ -9,6 +9,7 @@ import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { HistoryService } from './HistoryService';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -304,6 +305,32 @@ export const ScannerService = {
         await normalizePinnedValues().catch(() => {});
     },
 
+    deleteFolderContents: async (folderPath: string, onProgress?: (phase: string) => void) => {
+        try {
+            onProgress?.('Buscando archivos a eliminar...');
+            const tracksCollection = database.collections.get<Track>('tracks');
+            
+            // Buscamos todas las canciones cuya URL empiece por la ruta de la carpeta
+            const tracksToDelete = await tracksCollection.query(
+                Q.where('file_url', Q.like(`${folderPath}%`))
+            ).fetch();
+
+            if (tracksToDelete.length > 0) {
+                onProgress?.(`Eliminando ${tracksToDelete.length} canciones...`);
+                await database.write(async () => {
+                    const batchOps = tracksToDelete.map(t => t.prepareDestroyPermanently());
+                    await database.batch(batchOps);
+                });
+
+                // Limpiamos los álbumes y artistas que se hayan quedado huérfanos
+                onProgress?.('Limpiando la biblioteca...');
+                await ScannerService.cleanDeletedFiles();
+            }
+        } catch (error) {
+            console.error("Error al borrar contenido de la carpeta:", error);
+        }
+    },
+
     autoScanAndroid: async (
         onProgress?: (current: number, total: number, phase: string) => void
     ): Promise<{ total: number; added: number; skipped: number }> => {
@@ -336,6 +363,8 @@ export const ScannerService = {
 
         onProgress?.(0, audioFiles.length, 'Sincronizando...');
 
+        const excludedFolders = useSettingsStore.getState().excludedFolders;
+
         await database.write(async () => {
             const artistCache = new Map<string, Artist>();
             const albumCache = new Map<string, Album>();
@@ -357,7 +386,8 @@ export const ScannerService = {
 
                 if (i % 100 === 0) onProgress?.(i, audioFiles.length, 'Añadiendo a tu biblioteca...');
 
-                if (existingLinks.has(file.uri)) {
+                const isExcluded = excludedFolders.some(folderPath => file.uri.startsWith(folderPath));
+                if (isExcluded || existingLinks.has(file.uri)) {
                     skipped++;
                     continue;
                 }

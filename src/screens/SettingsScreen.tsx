@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { ScannerService } from '../services/ScannerService';
 import { Layout } from '../theme/theme';
 
 // Tipos para los observables
@@ -27,7 +28,8 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors } = useSettingsStore();
+    const { showTagColors, setShowTagColors, excludedFolders, includeFolder } = useSettingsStore();
+    const [isScanning, setIsScanning] = useState(false);
 
 
     return (
@@ -112,6 +114,47 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             ios_backgroundColor="#282828"
                         />
                     </View>
+                </View>
+
+                {/* --- SECCIÓN DE CARPETAS EXCLUIDAS --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>Carpetas excluidas</Text>
+                    {excludedFolders.length === 0 ? (
+                        <Text style={styles.noExcludedText}>No hay carpetas excluidas.</Text>
+                    ) : (
+                        excludedFolders.map((folderPath) => {
+                            const folderName = decodeURIComponent(folderPath.substring(folderPath.lastIndexOf('/') + 1));
+                            return (
+                                <View key={folderPath} style={styles.excludedFolderRow}>
+                                    <View style={{ flex: 1, paddingRight: 10 }}>
+                                        <Text style={styles.folderNameText} numberOfLines={1}>{folderName}</Text>
+                                        <Text style={styles.folderPathText} numberOfLines={1}>{folderPath}</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.restoreButton}
+                                        disabled={isScanning}
+                                        onPress={async () => {
+                                            includeFolder(folderPath);
+                                            setIsScanning(true);
+                                            try {
+                                                await ScannerService.autoScanAndroid();
+                                            } catch (err) {
+                                                console.error("Error scanning after restore:", err);
+                                            } finally {
+                                                setIsScanning(false);
+                                            }
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="refresh-outline" size={16} color="#8B5CF6" />
+                                        <Text style={styles.restoreButtonText}>
+                                            {isScanning ? 'Sincronizando...' : 'Restaurar'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        })
+                    )}
                 </View>
 
                 {/* --- SECCIÓN DE DEBUG --- */}
@@ -249,7 +292,48 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: 8,
-    }
+    },
+    noExcludedText: {
+        color: '#888888',
+        fontStyle: 'italic',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+    },
+    excludedFolderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    folderNameText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    folderPathText: {
+        color: '#666666',
+        fontSize: 11,
+        fontFamily: 'Montserrat',
+        marginTop: 2,
+    },
+    restoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 15,
+        gap: 4,
+    },
+    restoreButtonText: {
+        color: '#8B5CF6',
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
 });
 
 const SettingsScreen = withObservables([], () => ({

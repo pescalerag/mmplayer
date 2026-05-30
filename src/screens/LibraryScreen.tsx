@@ -17,6 +17,7 @@ import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { useFolderMenuStore } from '../store/useFolderMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useLibraryStore, SortOption } from '../store/useLibraryStore';
@@ -406,7 +407,131 @@ const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: {
 })(PlaylistsList);
 
 
-type TabType = 'albums' | 'artists' | 'tracks' | 'playlists';
+// ----- FOLDER LIST -----
+const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
+
+    // Get unique leaf folders that directly contain tracks
+    const folders = React.useMemo(() => {
+        const map = new Map<string, { path: string; name: string; trackCount: number }>();
+        for (const track of tracks) {
+            const lastSlash = track.fileUrl.lastIndexOf('/');
+            if (lastSlash === -1) continue;
+            const dirPath = track.fileUrl.substring(0, lastSlash);
+            
+            const existing = map.get(dirPath);
+            if (existing) {
+                existing.trackCount++;
+            } else {
+                const name = dirPath.substring(dirPath.lastIndexOf('/') + 1);
+                map.set(dirPath, {
+                    path: dirPath,
+                    name: decodeURIComponent(name),
+                    trackCount: 1
+                });
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }, [tracks]);
+
+    // Automatically clear selection if the folder no longer exists or becomes empty
+    useEffect(() => {
+        if (activeFolderPath) {
+            const exists = tracks.some(t => {
+                const lastSlash = t.fileUrl.lastIndexOf('/');
+                return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
+            });
+            if (!exists) {
+                setActiveFolderPath(null);
+            }
+        }
+    }, [tracks, activeFolderPath]);
+
+    const activeFolderName = React.useMemo(() => {
+        if (!activeFolderPath) return '';
+        return decodeURIComponent(activeFolderPath.substring(activeFolderPath.lastIndexOf('/') + 1));
+    }, [activeFolderPath]);
+
+    const directTracks = React.useMemo(() => {
+        if (!activeFolderPath) return [];
+        return tracks.filter(t => {
+            const lastSlash = t.fileUrl.lastIndexOf('/');
+            return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
+        });
+    }, [tracks, activeFolderPath]);
+
+    const renderItemTrack = React.useCallback((info: { item: Track }) => {
+        return <EnhancedTrackCard track={info.item} />;
+    }, []);
+
+    if (activeFolderPath) {
+        return (
+            <FlatList
+                key="folder-tracks"
+                ref={scrollRef}
+                data={directTracks}
+                keyExtractor={t => t.id}
+                renderItem={renderItemTrack}
+                contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+                ListHeaderComponent={
+                    <View style={styles.folderHeaderContainer}>
+                        <View style={styles.folderTitleRow}>
+                            <TouchableOpacity onPress={() => setActiveFolderPath(null)} style={styles.folderBackBtn} activeOpacity={0.7}>
+                                <Ionicons name="chevron-back" size={20} color="#8B5CF6" />
+                                <Text style={styles.folderBackBtnText}>Atrás</Text>
+                            </TouchableOpacity>
+                            <Text style={[styles.currentFolderTitle, { marginLeft: 8 }]} numberOfLines={1}>
+                                📁 {activeFolderName}
+                            </Text>
+                        </View>
+                    </View>
+                }
+            />
+        );
+    }
+
+    return (
+        <FlatList
+            key="folders-grid"
+            ref={scrollRef}
+            data={folders}
+            keyExtractor={f => f.path}
+            renderItem={({ item }) => (
+                <LibraryCard
+                    title={item.name}
+                    subtitle={`${item.trackCount} ${item.trackCount === 1 ? 'canción' : 'canciones'}`}
+                    placeholderIcon="folder"
+                    onPress={() => setActiveFolderPath(item.path)}
+                    onLongPress={() => useFolderMenuStore.getState().openMenu(item.path, item.name)}
+                />
+            )}
+            numColumns={3}
+            contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+            columnWrapperStyle={styles.columnWrapper}
+            ListEmptyComponent={
+                <Text style={styles.emptyText}>No hay carpetas en la biblioteca.</Text>
+            }
+            getItemLayout={(data, index) => {
+                const rowHeight = cardWidth + 45;
+                return {
+                    length: rowHeight,
+                    offset: rowHeight * Math.floor(index / 3),
+                    index,
+                };
+            }}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+        />
+    );
+};
+
+const EnhancedFolderList = withObservables([], () => ({
+    tracks: database.collections.get<Track>('tracks').query().observe(),
+}))(FolderList);
+
+
+type TabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
@@ -463,6 +588,7 @@ export default function LibraryScreen() {
             <View style={StyleSheet.absoluteFill}>
                 {activeTab === 'albums' && <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
                 {activeTab === 'artists' && <EnhancedArtistList sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                {activeTab === 'folders' && <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
                 {activeTab === 'tracks' && <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
                 {activeTab === 'playlists' && <EnhancedPlaylistsList sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
             </View>
@@ -501,12 +627,14 @@ export default function LibraryScreen() {
             >
                 <View style={styles.header}>
                     <Text style={styles.title}>Tu Biblioteca</Text>
-                    <TouchableOpacity
-                        onPress={() => useSortModalStore.getState().openModal(activeTab, getActiveSortOption())}
-                        style={styles.filterButton}
-                    >
-                        <Ionicons name="filter" size={22} color="#8B5CF6" />
-                    </TouchableOpacity>
+                    {activeTab !== 'folders' && (
+                        <TouchableOpacity
+                            onPress={() => useSortModalStore.getState().openModal(activeTab, getActiveSortOption())}
+                            style={styles.filterButton}
+                        >
+                            <Ionicons name="filter" size={22} color="#8B5CF6" />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
 
@@ -532,6 +660,12 @@ export default function LibraryScreen() {
                         onPress={() => setActiveTab('artists')}
                     >
                         <Text style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]}>Artistas</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'folders' && styles.activeTab]}
+                        onPress={() => setActiveTab('folders')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'folders' && styles.activeTabText]}>Carpetas</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'tracks' && styles.activeTab]}
@@ -648,5 +782,46 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
         marginTop: 2,
+    },
+    folderHeaderContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 10,
+    },
+    folderTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    folderBackBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 15,
+    },
+    folderBackBtnText: {
+        color: '#8B5CF6',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    currentFolderTitle: {
+        fontSize: 18,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        color: '#FFFFFF',
+        flex: 1,
+    },
+    folderGrid: {
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        color: '#B3B3B3',
+        marginTop: 10,
+        marginBottom: 10,
     },
 });
