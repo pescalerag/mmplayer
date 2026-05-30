@@ -20,6 +20,7 @@ export default class Album extends Model {
   @text("normalized_title") normalizedTitle: string;
   @field("year") year: number | null; // isOptional en schema
   @text("cover_url") coverUrl: string | null; // isOptional en schema
+  @field("is_pinned") isPinned: boolean;
 
   @relation("artists", "artist_id") artist: any;
   @children("tracks") tracks: any;

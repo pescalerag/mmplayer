@@ -11,6 +11,7 @@ interface LibraryCardProps {
     readonly placeholderIcon: keyof typeof Ionicons.glyphMap;
     readonly onPress?: () => void;
     readonly onLongPress?: () => void;
+    readonly isPinned?: boolean;
 }
 
 const { width } = Dimensions.get('window');
@@ -18,7 +19,7 @@ const { width } = Dimensions.get('window');
 // Dividido entre 3 queda aprox 30-32% del ancho.
 const cardWidth = (width - 70) / 3;
 
-export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress }: Readonly<LibraryCardProps>) {
+export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned }: Readonly<LibraryCardProps>) {
     const [imageError, setImageError] = useState(false);
 
     // Reiniciar error cuando cambie la URL de la imagen
@@ -47,7 +48,12 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
                     </View>
                 )}
             </View>
-            <Text style={styles.title} numberOfLines={1}>{title}</Text>
+            <View style={styles.titleContainer}>
+                {isPinned && (
+                    <Ionicons name="pin" size={13} color="#8B5CF6" style={styles.pinIconInline} />
+                )}
+                <Text style={styles.title} numberOfLines={1}>{title}</Text>
+            </View>
             {subtitle && (
                 <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
             )}
@@ -81,12 +87,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        paddingHorizontal: 4,
+    },
+    pinIconInline: {
+        marginRight: 2,
+    },
     title: {
         color: '#FFFFFF',
         fontSize: 13,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         textAlign: 'center',
+        flexShrink: 1,
     },
     subtitle: {
         color: '#CCCCCC',

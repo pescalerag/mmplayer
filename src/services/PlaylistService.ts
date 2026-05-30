@@ -35,6 +35,7 @@ export const PlaylistService = {
                 playlist.name = trimmedName;
                 playlist.description = description || null;
                 playlist.createdAt = Date.now();
+                (playlist as any).isPinned = false;
             });
         });
     },

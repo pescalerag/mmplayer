@@ -10,6 +10,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TrackPlayerSync } from './src/components/TrackPlayerSync';
 import TrackMenuSheet from './src/components/TrackMenuSheet';
 import AlbumMenuSheet from './src/components/AlbumMenuSheet';
+import ArtistMenuSheet from './src/components/ArtistMenuSheet';
+import SortModalSheet from './src/components/SortModalSheet';
 import QueueSheet from './src/components/QueueSheet';
 import TagManagerModal from './src/components/TagManagerModal';
 import TagFormModal from './src/components/TagFormModal';
@@ -103,6 +105,8 @@ export default function App() {
                         para que useNavigation() funcione en ellos */}
                     <TrackMenuSheet />
                     <AlbumMenuSheet />
+                    <ArtistMenuSheet />
+                    <SortModalSheet />
                     <QueueSheet />
                     <TagManagerModal />
                     <TagFormModal />

@@ -6,6 +6,7 @@ import { getAudioFiles } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
+import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { HistoryService } from './HistoryService';
 
@@ -156,6 +157,7 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
                 a.name = name;
                 a.normalizedName = normalizeText(name);
                 a.imageUrl = imageUrl;
+                a.isPinned = false;
             });
 
             newArtistOps.push(newArtist);
@@ -188,6 +190,7 @@ const resolveAlbum = (
             a.artist.set(primaryArtist);
             a.coverUrl = coverUrl;
             a.year = year;
+            a.isPinned = false;
         });
 
         newAlbumOps.push(newAlbum);
@@ -235,6 +238,34 @@ const prepareTrackRecords = (
     return ops;
 };
 
+/**
+ * Ensures every album, artist, and playlist with a NULL is_pinned gets set to false.
+ * This fixes records created before the is_pinned column existed.
+ */
+const normalizePinnedValues = async () => {
+    await database.write(async () => {
+        const albumsCollection = database.collections.get<Album>('albums');
+        const artistsCollection = database.collections.get<Artist>('artists');
+        const playlistsCollection = database.collections.get<Playlist>('playlists');
+
+        const [albums, artists, playlists] = await Promise.all([
+            albumsCollection.query(Q.where('is_pinned', Q.eq(null as any))).fetch(),
+            artistsCollection.query(Q.where('is_pinned', Q.eq(null as any))).fetch(),
+            playlistsCollection.query(Q.where('is_pinned', Q.eq(null as any))).fetch(),
+        ]);
+
+        const ops = [
+            ...albums.map(a => a.prepareUpdate(r => { r.isPinned = false; })),
+            ...artists.map(a => a.prepareUpdate(r => { r.isPinned = false; })),
+            ...playlists.map(p => p.prepareUpdate(r => { r.isPinned = false; })),
+        ];
+
+        if (ops.length > 0) {
+            await database.batch(...ops);
+        }
+    });
+};
+
 export const ScannerService = {
     cleanDeletedFiles: async (onProgress?: (phase: string) => void) => {
         if (Platform.OS !== 'android') return;
@@ -268,6 +299,9 @@ export const ScannerService = {
         } catch (error) {
             console.error("Error limpiando archivos borrados:", error);
         }
+
+        // Normalize any NULL is_pinned values to false
+        await normalizePinnedValues().catch(() => {});
     },
 
     autoScanAndroid: async (
@@ -369,6 +403,9 @@ export const ScannerService = {
         if (added > 0) {
             await HistoryService.initializeDefaultsIfNeeded();
         }
+
+        // Normalize any NULL is_pinned values to false (covers pre-existing records)
+        await normalizePinnedValues().catch(() => {});
 
         onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
         return { total: audioFiles.length, added, skipped };

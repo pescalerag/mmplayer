@@ -1,5 +1,5 @@
 import { Model } from '@nozbe/watermelondb';
-import { children, text } from '@nozbe/watermelondb/decorators';
+import { children, text, field } from '@nozbe/watermelondb/decorators';
 
 
 
@@ -14,6 +14,7 @@ export default class Artist extends Model {
     @text('name') name: string;
     @text('normalized_name') normalizedName: string;
     @text('image_url') imageUrl: string | null; // isOptional en schema
+    @field('is_pinned') isPinned: boolean;
 
     @children('albums') albums: any;
     @children('track_collaborators') trackCollaborators: any;
