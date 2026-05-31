@@ -75,6 +75,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
       artistName={artistNames}
       playlistId={playlistId}
       onPress={onPress}
+      preventAutoHistory={true}
     />
   );
 });
@@ -209,6 +210,15 @@ function PlaylistDetailContent({
 
   const handleTrackPress = useCallback(
     (trackId: string) => {
+      HistoryService.updateUIRecents({
+        id: playlist.id,
+        type: "playlist",
+        context: "manual",
+        title: playlist.name,
+        subtitle: playlist.description || "Lista de reproducción personalizada",
+        imageUrl: playlist.coverCustomUrl || null,
+      });
+
       const trackIndex = tracks.findIndex((t) => t.id === trackId);
       if (trackIndex !== -1) {
         usePlayerStore
@@ -216,7 +226,7 @@ function PlaylistDetailContent({
           .loadQueue(tracks, trackIndex, playlistContextId);
       }
     },
-    [tracks, playlistContextId],
+    [tracks, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl],
   );
 
   const handleFabPress = async () => {

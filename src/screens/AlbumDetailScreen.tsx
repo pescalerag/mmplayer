@@ -68,6 +68,7 @@ const AlbumTrackRow = withObservables(
       index={index}
       artistName={artistNames}
       onPress={onPress}
+      preventAutoHistory={true}
     />
   );
 });
@@ -136,12 +137,21 @@ function AlbumDetailContent({
 
   const handleTrackPress = React.useCallback(
     (trackId: string) => {
+      HistoryService.updateUIRecents({
+        id: album.id,
+        type: "album",
+        context: "manual",
+        title: album.title,
+        subtitle: artist?.name,
+        imageUrl: album.coverUrl,
+      });
+
       const trackIndex = tracks.findIndex((t) => t.id === trackId);
       if (trackIndex !== -1) {
         usePlayerStore.getState().loadQueue(tracks, trackIndex, albumContextId);
       }
     },
-    [tracks, albumContextId],
+    [tracks, albumContextId, album.id, album.title, artist?.name, album.coverUrl],
   );
 
   // ─── LÓGICA DEL BOTÓN FLOTANTE (FAB) ───

@@ -10,11 +10,59 @@ import { PlayingIndicator } from '../components/PlayingIndicator';
 import RecentPlaylistCard from '../components/RecentPlaylistCard';
 import { database } from '../database';
 import Track from '../database/models/Track';
+import Album from '../database/models/Album';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { HistoryService } from '../services/HistoryService';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 
 const { width } = Dimensions.get('window');
 const gridItemWidth = (width - 48) / 2;
+
+const RecentMediaCard = ({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    const [imageError, setImageError] = React.useState(false);
+    
+    React.useEffect(() => {
+        setImageError(false);
+    }, [item.id, item.imageUrl]);
+
+    const isCurrentTrack = item.type === 'track' && activeTrack?.id === item.id;
+    const isActive = isCurrentTrack;
+    
+    const showImage = Boolean(item.imageUrl && item.imageUrl !== 'null' && item.imageUrl.trim() !== '') && !imageError;
+
+    return (
+        <TouchableOpacity
+            style={[styles.gridCard, isActive && styles.gridCardActive]}
+            onPress={() => onPress(item)}
+            onLongPress={() => onLongPress?.(item)}
+            delayLongPress={300}
+            activeOpacity={0.7}
+        >
+            {showImage ? (
+                <Image
+                    source={{ uri: item.imageUrl }}
+                    style={styles.gridImage}
+                    contentFit="cover"
+                    onError={() => setImageError(true)}
+                />
+            ) : (
+                <View style={[styles.gridImage, styles.placeholderGrid]}>
+                    <Ionicons name={item.type === 'album' ? 'albums' : 'musical-note'} size={24} color="#B3B3B3" />
+                </View>
+            )}
+            <View style={styles.gridInfo}>
+                <Text style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
+                    {item.title}
+                </Text>
+                {isCurrentTrack && (
+                    <PlayingIndicator isPaused={!isActuallyPlaying} color="#A78BFA" />
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
@@ -44,6 +92,26 @@ export default function HomeScreen() {
         }
     };
 
+    const handleMediaLongPress = async (item: any) => {
+        try {
+            if (item.type === 'album') {
+                const album = await database.get<Album>('albums').find(item.id);
+                useAlbumMenuStore.getState().openMenu(album);
+            } else if (item.type === 'track') {
+                const track = await database.get<Track>('tracks').find(item.id);
+                useTrackMenuStore.getState().openMenu(track, {
+                    onNavigateToAlbum: () => navigation.navigate('AlbumDetail', { albumId: track.album.id }),
+                    onNavigateToArtist: async () => {
+                        const artist = await track.artist.fetch();
+                        navigation.navigate('ArtistDetail', { artistId: artist.id });
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error al abrir menu contextual de reciente:', error);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <LinearGradient
@@ -61,39 +129,16 @@ export default function HomeScreen() {
             {/* SECCIÓN 1: Grid 2x3 de Recientes (Canciones y Álbumes) */}
             {recentMedia.length > 0 ? (
                 <View style={styles.gridContainer}>
-                    {recentMedia.map((item) => {
-                        const isCurrentTrack = item.type === 'track' && activeTrack?.id === item.id;
-                        const isActive = isCurrentTrack;
-                        return (
-                            <TouchableOpacity
-                                key={`${item.id}-${item.type}`}
-                                style={[styles.gridCard, isActive && styles.gridCardActive]}
-                                onPress={() => handleMediaPress(item)}
-                                activeOpacity={0.7}
-                            >
-                                {item.imageUrl && item.imageUrl !== 'null' ? (
-                                    <Image
-                                        key={`img-${item.id}`}
-                                        source={{ uri: item.imageUrl }}
-                                        style={styles.gridImage}
-                                        contentFit="cover"
-                                    />
-                                ) : (
-                                    <View style={[styles.gridImage, styles.placeholderGrid]}>
-                                        <Ionicons name={item.type === 'album' ? 'albums' : 'musical-note'} size={20} color="#535353" />
-                                    </View>
-                                )}
-                                <View style={styles.gridInfo}>
-                                    <Text key={`title-${item.id}`} style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
-                                        {item.title}
-                                    </Text>
-                                    {isCurrentTrack && (
-                                        <PlayingIndicator isPaused={!isActuallyPlaying} color="#A78BFA" />
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-                        );
-                    })}
+                    {recentMedia.map((item) => (
+                        <RecentMediaCard 
+                            key={`${item.id}-${item.type}`} 
+                            item={item} 
+                            isActuallyPlaying={isActuallyPlaying} 
+                            activeTrack={activeTrack} 
+                            onPress={handleMediaPress} 
+                            onLongPress={handleMediaLongPress}
+                        />
+                    ))}
                 </View>
             ) : (
                 <View style={styles.emptyState}>
@@ -119,6 +164,9 @@ export default function HomeScreen() {
                                 } else {
                                     navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
                                 }
+                            }}
+                            onLongPress={() => {
+                                usePlaylistMenuStore.getState().openMenu(playlist as any);
                             }}
                         />
                     ))}

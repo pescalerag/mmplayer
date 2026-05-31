@@ -348,6 +348,9 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                                 title={item.name}
                                 subtitle="Especial"
                                 onPress={handleNavFavorites}
+                                onLongPress={() => {
+                                    usePlaylistMenuStore.getState().openMenu(item as any);
+                                }}
                             />
                         );
                     } else {

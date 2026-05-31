@@ -112,7 +112,7 @@ export default function PlaylistMenuSheet() {
                 <View style={styles.header}>
                     {selectedPlaylist && (
                         <View style={{ marginRight: 16 }}>
-                            <PlaylistCover playlistId={selectedPlaylist.id} customCoverUrl={selectedPlaylist.coverCustomUrl} size={56} borderRadius={8} />
+                            <PlaylistCover playlistId={selectedPlaylist.id} isFavorites={selectedPlaylist.id === 'favorites'} customCoverUrl={selectedPlaylist.coverCustomUrl} size={56} borderRadius={8} />
                         </View>
                     )}
                     <View style={styles.headerText}>

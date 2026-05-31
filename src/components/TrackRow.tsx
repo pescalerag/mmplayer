@@ -18,6 +18,7 @@ interface TrackRowProps {
   readonly artistName?: string;
   readonly playlistId?: string;
   readonly onPress?: (trackId: string) => void;
+  readonly preventAutoHistory?: boolean;
 }
 
 function TrackRow({
@@ -28,6 +29,7 @@ function TrackRow({
   artistName,
   playlistId,
   onPress,
+  preventAutoHistory,
 }: Readonly<TrackRowProps>) {
   const openMenu = useTrackMenuStore((state) => state.openMenu);
   
@@ -52,14 +54,16 @@ function TrackRow({
     <TouchableOpacity
       style={[styles.row, isCurrentTrack && styles.rowActive]}
       onPress={() => {
-        HistoryService.updateUIRecents({
-          id: track.id,
-          type: "track",
-          context: "manual",
-          title: track.title,
-          subtitle: artistName || "Artista desconocido",
-          imageUrl: coverUrl || null,
-        });
+        if (!preventAutoHistory) {
+          HistoryService.updateUIRecents({
+            id: track.id,
+            type: "track",
+            context: "manual",
+            title: track.title,
+            subtitle: artistName || "Artista desconocido",
+            imageUrl: coverUrl || null,
+          });
+        }
         onPress?.(track.id);
       }}
       onLongPress={() => openMenu(track, {}, playlistId)}

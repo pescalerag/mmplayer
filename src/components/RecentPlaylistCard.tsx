@@ -11,13 +11,14 @@ interface RecentPlaylistCardProps {
     description: string | null;
     customCoverUrl?: string | null;
     onPress: () => void;
+    onLongPress?: () => void;
 }
 
 const { width } = Dimensions.get('window');
 
-export default function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress }: RecentPlaylistCardProps) {
+export default function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress, onLongPress }: RecentPlaylistCardProps) {
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.card} onPress={onPress} onLongPress={onLongPress} delayLongPress={300} activeOpacity={0.8}>
             {/* Fondo con degradado oscuro de izquierda a derecha */}
             <LinearGradient
                 colors={['#181818', 'rgba(24, 24, 24, 0.85)', 'rgba(24, 24, 24, 0.3)']}

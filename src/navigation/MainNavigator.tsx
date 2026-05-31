@@ -109,7 +109,11 @@ function MainTabs() {
                     listeners={({ navigation }) => ({
                         tabPress: (e) => {
                             e.preventDefault();
-                            navigation.navigate('Inicio', { screen: 'Home' });
+                            navigation.navigate('Inicio', {
+                                state: {
+                                    routes: [{ name: 'Home' }],
+                                },
+                            });
                         },
                     })}
                 />
@@ -120,7 +124,11 @@ function MainTabs() {
                     listeners={({ navigation }) => ({
                         tabPress: (e) => {
                             e.preventDefault();
-                            navigation.navigate('Biblioteca', { screen: 'Library' });
+                            navigation.navigate('Biblioteca', {
+                                state: {
+                                    routes: [{ name: 'Library' }],
+                                },
+                            });
                         },
                     })}
                 />
@@ -131,7 +139,11 @@ function MainTabs() {
                     listeners={({ navigation }) => ({
                         tabPress: (e) => {
                             e.preventDefault();
-                            navigation.navigate('Buscar', { screen: 'Search' });
+                            navigation.navigate('Buscar', {
+                                state: {
+                                    routes: [{ name: 'Search' }],
+                                },
+                            });
                         },
                     })}
                 />
