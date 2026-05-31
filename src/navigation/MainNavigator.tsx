@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MiniPlayer from '../components/MiniPlayer';
 import HomeNavigator from './HomeNavigator';
 import PlayerNavigator from './PlayerNavigator';
-import SettingsScreen from '../screens/SettingsScreen';
+import SettingsNavigator from './SettingsNavigator';
 import TagManagementScreen from '../screens/TagManagementScreen';
 import DebugHistoryScreen from '../screens/DebugHistoryScreen';
 import LibraryNavigator from './LibraryNavigator';
@@ -154,8 +154,18 @@ function MainTabs() {
                 />
                 <Tab.Screen
                     name="Configuración"
-                    component={SettingsScreen}
+                    component={SettingsNavigator}
                     options={{ tabBarIcon: SettingsIcon }}
+                    listeners={({ navigation }) => ({
+                        tabPress: (e) => {
+                            e.preventDefault();
+                            navigation.navigate('Configuración', {
+                                state: {
+                                    routes: [{ name: 'Settings' }],
+                                },
+                            });
+                        },
+                    })}
                 />
             </Tab.Navigator>
 

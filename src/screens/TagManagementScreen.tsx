@@ -86,7 +86,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
                     contentContainerStyle={[
                         styles.listContent,
                         {
-                            paddingTop: headerHeight + 20,
+                            paddingTop: headerHeight + 30,
                             paddingBottom: bottomOffset,
                         }
                     ]}

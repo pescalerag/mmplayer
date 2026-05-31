@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,8 @@ import { HistoryService } from '../services/HistoryService';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
+import Constants from 'expo-constants';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 const { width } = Dimensions.get('window');
 const gridItemWidth = (width - 48) / 2;
@@ -72,6 +74,7 @@ export default function HomeScreen() {
     const recentPlaylists = usePlayerStore(state => state.recentPlaylists) || [];
     const activeTrack = usePlayerStore(state => state.activeTrack);
 
+    // Modal logic moved to App.tsx
     useEffect(() => {
         HistoryService.initializeDefaultsIfNeeded();
     }, []);

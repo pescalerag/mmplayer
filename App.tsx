@@ -23,6 +23,7 @@ import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
+import UpdatedAppModal from "./src/components/UpdatedAppModal";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -123,6 +124,7 @@ export default function App() {
           <PlaylistSelectorModal />
           <PlaylistMenuSheet />
           <FolderMenuSheet />
+          <UpdatedAppModal />
         </NavigationContainer>
       </View>
     </SafeAreaProvider>

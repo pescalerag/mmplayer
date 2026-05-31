@@ -16,6 +16,7 @@ import { database } from '../database';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
 import { Layout } from '../theme/theme';
+import Constants from 'expo-constants';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -175,9 +176,26 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                 </View>
 
 
-                {/* --- SECCIÓN DE APP INFO --- */}
+                {/* --- SECCIÓN DE INFORMACIÓN --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>Información</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => navigation.navigate('ChangelogScreen')}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>Acerca de esta versión</Text>
+                            <Text style={styles.settingDescription}>
+                                Novedades, correcciones y notas de lanzamiento.
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                </View>
+
+                {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v0.3.0-beta</Text>
+                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '1.0.0-beta'}</Text>
                     <Text style={styles.infoTextSub}>Desarrollado por pescalerag. Betatesteado por Killerdroid</Text>
                 </View>
             </ScrollView>
