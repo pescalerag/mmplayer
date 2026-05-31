@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         color: '#9A9A9A',
         marginTop: 4,
     },
@@ -252,12 +252,12 @@ const styles = StyleSheet.create({
         color: '#888888',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     infoTextSub: {
         color: '#666666',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
         marginTop: 4,
     },
     smokeEffect: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     },
     settingDescription: {
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
         color: '#888',
         marginTop: 4,
         lineHeight: 16,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
         color: '#888888',
         fontStyle: 'italic',
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
     },
     excludedFolderRow: {
         flexDirection: 'row',
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     folderPathText: {
         color: '#666666',
         fontSize: 11,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         marginTop: 2,
     },
     restoreButton: {

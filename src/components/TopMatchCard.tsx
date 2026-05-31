@@ -178,6 +178,6 @@ const styles = StyleSheet.create({
         color: '#B3B3B3',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
 });

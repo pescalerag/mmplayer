@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     artworkPlaceholder: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#282828', justifyContent: 'center', alignItems: 'center' },
     info: { flex: 1, marginLeft: 12 },
     title: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Montserrat', fontWeight: '700' },
-    artist: { color: '#B3B3B3', fontSize: 12, fontFamily: 'Montserrat', marginTop: 2 },
+    artist: { color: '#B3B3B3', fontSize: 12, fontFamily: 'Montserrat', fontWeight: '700', marginTop: 2 },
     controls: { flexDirection: 'row', alignItems: 'center' },
     controlIcon: { padding: 8 },
     playPauseButton: { padding: 4 },

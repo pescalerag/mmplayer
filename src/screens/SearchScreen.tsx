@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#FFFFFF",
     fontSize: 16,
-    fontFamily: "Montserrat",
+    fontFamily: "Montserrat", fontWeight: '600',
     height: "100%",
   },
   clearButton: {
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "#666",
     fontSize: 16,
-    fontFamily: "Montserrat",
+    fontFamily: "Montserrat", fontWeight: '600',
     textAlign: "center",
     marginTop: 20,
   },
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
     color: "#8B5CF6",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   historyList: {
     paddingHorizontal: 20,
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
   historyText: {
     color: "#E0E0E0",
     fontSize: 16,
-    fontFamily: "Montserrat",
+    fontFamily: "Montserrat", fontWeight: '600',
   },
   historyDelete: {
     padding: 5,
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     color: "#666666",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
     paddingHorizontal: 20,
     marginTop: 8,
   },

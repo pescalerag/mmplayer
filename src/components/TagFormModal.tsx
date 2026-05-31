@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     color: "#FFFFFF",
-    fontFamily: "Montserrat",
+    fontFamily: "Montserrat", fontWeight: '600',
     paddingHorizontal: 16,
     fontSize: 14,
     borderWidth: 1,

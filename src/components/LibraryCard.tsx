@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
         color: '#CCCCCC',
         fontSize: 11,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
         textAlign: 'center',
         marginTop: 2,
     },

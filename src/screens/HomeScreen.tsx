@@ -214,6 +214,6 @@ const styles = StyleSheet.create({
         color: '#A0A0A0',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '500',
+        fontWeight: '700',
     },
 });

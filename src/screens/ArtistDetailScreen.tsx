@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
         color: '#CCCCCC',
         fontSize: 15,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     albumsScroll: {
         paddingLeft: 20,

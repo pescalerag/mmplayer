@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '500',
+        fontWeight: '700',
         textAlign: 'center',
         marginTop: 8,
     },

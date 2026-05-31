@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     artist: {
         color: '#B3B3B3',
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
     },
     progressSection: {
         paddingHorizontal: 5,
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     timeText: {
         color: '#B3B3B3',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
     },
     controlsContainer: {
         flexDirection: 'row',

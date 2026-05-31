@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
         color: '#B3B3B3',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     albumsScroll: {
         paddingHorizontal: 20,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
         textAlign: 'center',
         marginTop: 12,
     },

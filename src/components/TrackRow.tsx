@@ -163,14 +163,14 @@ const styles = StyleSheet.create({
     color: "#CCCCCC",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
     marginTop: 2,
   },
   duration: {
     color: "#CCCCCC",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   indexText: {
     color: "#B3B3B3",

@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 16,
         fontFamily: 'Montserrat',
-        fontWeight: '400',
+        fontWeight: '700',
         textAlign: 'center',
         marginTop: 50,
     },

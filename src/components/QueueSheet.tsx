@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         fontSize: 13,
         fontFamily: 'Montserrat',
-        fontWeight: '500',
+        fontWeight: '700',
         marginTop: 3,
     },
     subtitleDimmed: {
@@ -553,6 +553,6 @@ const styles = StyleSheet.create({
         color: '#333',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
 });
