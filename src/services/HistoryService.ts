@@ -49,6 +49,7 @@ export const HistoryService = {
         id: item.id,
         name: finalTitle || "Lista de reproducción sin título",
         description: finalSubtitle || null,
+        imageUrl: finalImageUrl || null,
       });
     } else {
       usePlayerStore.getState().addMediaToRecents({

@@ -137,13 +137,7 @@ function TagDetailScreen({
                         <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
                     </TouchableOpacity>
 
-                    {/* Botón Home */}
-                    <TouchableOpacity
-                        style={[styles.backButton, { left: undefined, right: 16 }]}
-                        onPress={() => navigation.navigate('Biblioteca' as never)}
-                    >
-                        <Ionicons name="home" size={22} color="#FFFFFF" />
-                    </TouchableOpacity>
+
 
                     {/* Contenido Info */}
                     <View style={styles.headerInfo}>

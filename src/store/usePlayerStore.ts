@@ -60,6 +60,7 @@ interface PlayerState {
   recentPlaylists: RecentPlaylist[];
   addMediaToRecents: (item: Omit<RecentItem, "timestamp">) => void;
   addPlaylistToRecents: (item: Omit<RecentPlaylist, "timestamp">) => void;
+  updatePlaylistCoverInRecents: (playlistId: string, imageUrl: string | null) => void;
 }
 
 export type RecentItem = {
@@ -421,5 +422,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     );
     set({ recentPlaylists: updated });
     get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+  },
+
+  updatePlaylistCoverInRecents: (playlistId, imageUrl) => {
+    const current = get().recentPlaylists;
+    let modified = false;
+    const updated = current.map((p) => {
+      if (p.id === playlistId && (p as any).imageUrl !== imageUrl) {
+        modified = true;
+        return { ...p, imageUrl };
+      }
+      return p;
+    });
+    if (modified) {
+      set({ recentPlaylists: updated });
+      get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
   }
 }));

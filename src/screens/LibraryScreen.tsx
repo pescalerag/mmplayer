@@ -18,6 +18,7 @@ import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { useFolderMenuStore } from '../store/useFolderMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
@@ -292,21 +293,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
             isPinned={playlist.isPinned}
             onPress={handlePress}
             onLongPress={() => {
-                Alert.alert(
-                    "Opciones de Playlist",
-                    "¿Qué deseas hacer?",
-                    [
-                        {
-                            text: playlist.isPinned ? "Desfijar" : "Fijar",
-                            onPress: async () => {
-                                await database.write(async () => {
-                                    await playlist.update(a => { a.isPinned = !a.isPinned; });
-                                });
-                            }
-                        },
-                        { text: "Cancelar", style: "cancel" }
-                    ]
-                );
+                usePlaylistMenuStore.getState().openMenu(playlist);
             }}
         />
     );

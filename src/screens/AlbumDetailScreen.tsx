@@ -166,6 +166,14 @@ function AlbumDetailContent({
   };
 
   const handleShuffleFabPress = () => {
+    HistoryService.updateUIRecents({
+      id: album.id,
+      type: "album",
+      context: "manual",
+      title: album.title,
+      subtitle: artist?.name,
+      imageUrl: album.coverUrl,
+    });
     usePlayerStore.getState().startShuffled(tracks, albumContextId);
   };
 

@@ -234,6 +234,7 @@ export default function PlaylistSelectorModal() {
 
             {/* Contenedor del bottom sheet */}
             <Animated.View 
+                pointerEvents="box-none"
                 style={[
                     styles.keyboardAvoid, 
                     { paddingBottom: keyboardHeight }

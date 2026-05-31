@@ -139,7 +139,6 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 subtitle="Lista de reproducción especial"
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? 'canción' : 'canciones'} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
-                onHome={() => navigation.navigate('Biblioteca' as never)}
                 renderExtra={() => (
                     tracks.length > 0 && (
                         <>

@@ -6,6 +6,7 @@ import { Q } from '@nozbe/watermelondb';
 import { LinearGradient } from 'expo-linear-gradient';
 import { database } from '../database';
 import PlaylistTrack from '../database/models/PlaylistTrack';
+import Playlist from '../database/models/Playlist';
 
 interface PlaylistCoverProps {
     playlistId: string;
@@ -40,6 +41,17 @@ export default function PlaylistCover({
 
         const loadCover = async () => {
             try {
+                try {
+                    const playlist = await database.get<Playlist>('playlists').find(playlistId);
+                    if (playlist && playlist.coverCustomUrl && playlist.coverCustomUrl !== 'null') {
+                        setFirstCover(playlist.coverCustomUrl);
+                        setLoading(false);
+                        return;
+                    }
+                } catch (error) {
+                    // Ignoramos si no se encuentra (ej: id 'favorites')
+                }
+
                 const pts = await database.collections.get<PlaylistTrack>('playlist_tracks')
                     .query(Q.where('playlist_id', playlistId), Q.sortBy('order', Q.asc))
                     .fetch();

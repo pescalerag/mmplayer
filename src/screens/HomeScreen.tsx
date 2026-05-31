@@ -112,6 +112,7 @@ export default function HomeScreen() {
                             id={playlist.id}
                             name={playlist.name}
                             description={playlist.description}
+                            customCoverUrl={(playlist as any).imageUrl}
                             onPress={() => {
                                 if (playlist.id === 'favorites') {
                                     navigation.navigate('FavoritesDetail');

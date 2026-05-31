@@ -9,12 +9,13 @@ interface RecentPlaylistCardProps {
     id: string;
     name: string;
     description: string | null;
+    customCoverUrl?: string | null;
     onPress: () => void;
 }
 
 const { width } = Dimensions.get('window');
 
-export default function RecentPlaylistCard({ id, name, description, onPress }: RecentPlaylistCardProps) {
+export default function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress }: RecentPlaylistCardProps) {
     return (
         <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
             {/* Fondo con degradado oscuro de izquierda a derecha */}
@@ -33,7 +34,7 @@ export default function RecentPlaylistCard({ id, name, description, onPress }: R
             </LinearGradient>
 
             <View style={styles.imageSection}>
-                <PlaylistCover playlistId={id} isFavorites={id === 'favorites'} width={90} height={90} borderRadius={0} />
+                <PlaylistCover playlistId={id} isFavorites={id === 'favorites'} width={90} height={90} borderRadius={0} customCoverUrl={customCoverUrl} />
             </View>
         </TouchableOpacity>
     );

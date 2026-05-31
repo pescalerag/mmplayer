@@ -241,6 +241,14 @@ function PlaylistDetailContent({
 
   const handleShuffleFabPress = () => {
     if (tracks.length > 0) {
+      HistoryService.updateUIRecents({
+        id: playlist.id,
+        type: "playlist",
+        context: "manual",
+        title: playlist.name,
+        subtitle: playlist.description || "Lista de reproducción personalizada",
+        imageUrl: playlist.coverCustomUrl || null,
+      });
       usePlayerStore.getState().startShuffled(tracks, playlistContextId);
     }
   };
@@ -293,6 +301,7 @@ function PlaylistDetailContent({
           p.coverCustomUrl = newPath;
         });
       });
+      usePlayerStore.getState().updatePlaylistCoverInRecents(playlist.id, newPath);
     } catch (error) {
       console.error("Error guardando imagen:", error);
       Alert.alert("Error", "No se pudo guardar la imagen de la playlist.");
@@ -316,7 +325,6 @@ function PlaylistDetailContent({
         subtitle={playlist.description || "Lista de reproducción personalizada"}
         metaInfo={`${playlistTracks.length} ${playlistTracks.length === 1 ? "canción" : "canciones"} · ${formatAlbumDuration(totalDuration)}`}
         onBack={handleBack}
-        onHome={() => navigation.navigate("Biblioteca" as never)}
         onDelete={handleDelete}
         onEdit={handleEdit}
         onPickPhoto={handlePickPhoto}
