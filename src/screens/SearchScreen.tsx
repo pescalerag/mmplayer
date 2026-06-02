@@ -32,6 +32,7 @@ import { useSearchHistory } from "../hooks/useSearchHistory";
 import { SearchStackParamList } from "../navigation/types";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
+import { useArtistMenuStore } from "../store/useArtistMenuStore";
 import { Layout } from "../theme/theme";
 import { HistoryService } from "../services/HistoryService";
 
@@ -125,7 +126,10 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
   onPress: (albumId: string) => void;
 }) {
   const handlePress = useCallback(() => onPress(album.id), [onPress, album.id]);
-  const handleLongPress = useCallback(() => useAlbumMenuStore.getState().openMenu(album), [album]);
+  const handleLongPress = useCallback(() => {
+    Keyboard.dismiss();
+    useAlbumMenuStore.getState().openMenu(album);
+  }, [album]);
 
   return (
     <View style={styles.cardContainer}>
@@ -158,7 +162,10 @@ const SearchArtistCard = memo(function SearchArtistCard({
   onPress: (artistId: string) => void;
 }) {
   const handlePress = useCallback(() => onPress(artist.id), [onPress, artist.id]);
-  const handleLongPress = useCallback(() => useArtistMenuStore.getState().openMenu(artist), [artist]);
+  const handleLongPress = useCallback(() => {
+    Keyboard.dismiss();
+    useArtistMenuStore.getState().openMenu(artist);
+  }, [artist]);
 
   return (
     <View style={styles.cardContainer}>

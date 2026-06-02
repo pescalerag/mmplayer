@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Keyboard } from 'react-native';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
@@ -82,7 +82,10 @@ const TopMatchArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
             imageUrl={artist.imageUrl}
             type="artist"
             onPress={onPress}
-            onLongPress={() => openMenu(artist)}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(artist);
+            }}
         />
     );
 });
@@ -99,7 +102,10 @@ const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album 
             imageUrl={album.coverUrl}
             type="album"
             onPress={onPress}
-            onLongPress={() => openMenu(album)}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(album);
+            }}
         />
     );
 });
@@ -122,7 +128,10 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
             imageUrl={album?.coverUrl || null}
             type="track"
             onPress={onPress}
-            onLongPress={() => openMenu(track)}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(track);
+            }}
         />
     );
 });

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { memo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, Keyboard } from "react-native";
 import Track from "../database/models/Track";
 import { useTrackMenuStore } from "../store/useTrackMenuStore";
 import { formatTrackTime } from "../utils/time";
@@ -66,7 +66,10 @@ function TrackRow({
         }
         onPress?.(track.id);
       }}
-      onLongPress={() => openMenu(track, {}, playlistId)}
+      onLongPress={() => {
+        Keyboard.dismiss();
+        openMenu(track, {}, playlistId);
+      }}
       delayLongPress={300}
       activeOpacity={0.6}
     >
@@ -116,7 +119,10 @@ function TrackRow({
         <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => openMenu(track, {}, playlistId)}
+          onPress={() => {
+            Keyboard.dismiss();
+            openMenu(track, {}, playlistId);
+          }}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
           <Ionicons name="ellipsis-vertical" size={20} color="#B3B3B3" />
