@@ -98,22 +98,10 @@ const TabBarBackground = () => (
 const createTabListener = (navigation: any, route: any) => ({
   tabPress: (e: any) => {
     e.preventDefault();
-    const state = navigation.getState();
-
-    const isFocused = state.routes[state.index].key === route.key;
-    if (isFocused) {
-      const routeState = state.routes.find(
-        (r: any) => r.key === route.key,
-      )?.state;
-      if (routeState && routeState.index > 0) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: route.name }],
-        });
-      }
-    } else {
-      navigation.navigate(route.name);
-    }
+    navigation.reset({
+      index: 0,
+      routes: [{ name: route.name }],
+    });
   },
 });
 
