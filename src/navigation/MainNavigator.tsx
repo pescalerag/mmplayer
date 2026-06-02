@@ -3,9 +3,11 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, AppState, AppStateStatus } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScannerService } from "../services/ScannerService";
+import { useSyncStore } from "../store/useSyncStore";
+import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
 
 import MiniPlayer from "../components/MiniPlayer";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
@@ -200,35 +202,40 @@ function MainTabs() {
 
 export default function MainNavigator() {
   useEffect(() => {
-    const initScan = async () => {
-      try {
-        await ScannerService.cleanDeletedFiles();
-        await ScannerService.autoScanAndroid();
-      } catch (error) {
-        console.error("Error sincronizando al inicio:", error);
+    ScannerService.syncLibrary();
+
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        ScannerService.syncLibrary();
       }
+    });
+
+    return () => {
+      subscription.remove();
     };
-    initScan();
   }, []);
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
-      <RootStack.Screen name="Main" component={MainTabs} />
-      <RootStack.Screen
-        name="Player"
-        component={PlayerNavigator}
-        options={{
-          presentation: "modal",
-          animation: "slide_from_bottom",
-        }}
-      />
-      <RootStack.Screen
-        name="DebugHistory"
-        component={DebugHistoryScreen}
-        options={{
-          animation: "slide_from_right",
-        }}
-      />
-    </RootStack.Navigator>
+    <View style={{ flex: 1 }}>
+      <GlobalSyncIndicator />
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Main" component={MainTabs} />
+        <RootStack.Screen
+          name="Player"
+          component={PlayerNavigator}
+          options={{
+            presentation: "modal",
+            animation: "slide_from_bottom",
+          }}
+        />
+        <RootStack.Screen
+          name="DebugHistory"
+          component={DebugHistoryScreen}
+          options={{
+            animation: "slide_from_right",
+          }}
+        />
+      </RootStack.Navigator>
+    </View>
   );
 }

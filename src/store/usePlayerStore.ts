@@ -61,6 +61,7 @@ interface PlayerState {
   addMediaToRecents: (item: Omit<RecentItem, "timestamp">) => void;
   addPlaylistToRecents: (item: Omit<RecentPlaylist, "timestamp">) => void;
   updatePlaylistCoverInRecents: (playlistId: string, imageUrl: string | null) => void;
+  handleDeletedEntities: (trackIds: string[], albumIds: string[], artistIds: string[]) => Promise<void>;
 }
 
 export type RecentItem = {
@@ -437,6 +438,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (modified) {
       set({ recentPlaylists: updated });
       get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
+  },
+
+  handleDeletedEntities: async (trackIds, albumIds, artistIds) => {
+    try {
+      const state = get();
+      let shouldUpdateRecents = false;
+      const newRecentMedia = state.recentMedia.filter(item => {
+        if (item.type === 'track' && trackIds.includes(item.id)) return false;
+        if (item.type === 'album' && albumIds.includes(item.id)) return false;
+        return true;
+      });
+
+      if (newRecentMedia.length !== state.recentMedia.length) {
+        set({ recentMedia: newRecentMedia });
+        shouldUpdateRecents = true;
+      }
+
+      if (shouldUpdateRecents) {
+        await get().saveRecentsState();
+      }
+
+      // Handle queue
+      const activeTrack = state.activeTrack;
+      if (activeTrack && trackIds.includes(activeTrack.id)) {
+        // Current track deleted -> clear queue and stop
+        await get().clearPlayer();
+      } else if (trackIds.length > 0) {
+        // Check if any deleted track is in the queue
+        const queue = await TrackPlayer.getQueue();
+        const indicesToRemove: number[] = [];
+        queue.forEach((track, index) => {
+          if (track.id && trackIds.includes(track.id as string)) {
+            indicesToRemove.push(index);
+          }
+        });
+
+        if (indicesToRemove.length > 0) {
+          await TrackPlayer.remove(indicesToRemove);
+          await get().updateQueueStatus();
+          await get().savePlaybackState();
+        }
+      }
+    } catch (error) {
+      console.error("Error handling deleted entities in player store:", error);
     }
   }
 }));

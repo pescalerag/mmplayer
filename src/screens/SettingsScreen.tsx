@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
+import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 import Constants from 'expo-constants';
 
@@ -30,7 +31,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
     const { showTagColors, setShowTagColors, excludedFolders, includeFolder } = useSettingsStore();
-    const [isScanning, setIsScanning] = useState(false);
+    const isScanning = useSyncStore(state => state.isScanning);
 
 
     return (
@@ -136,14 +137,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                         disabled={isScanning}
                                         onPress={async () => {
                                             includeFolder(folderPath);
-                                            setIsScanning(true);
-                                            try {
-                                                await ScannerService.autoScanAndroid();
-                                            } catch (err) {
-                                                console.error("Error scanning after restore:", err);
-                                            } finally {
-                                                setIsScanning(false);
-                                            }
+                                            await ScannerService.syncLibrary();
                                         }}
                                         activeOpacity={0.7}
                                     >

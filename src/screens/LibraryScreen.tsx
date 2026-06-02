@@ -5,7 +5,7 @@ import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -24,6 +24,8 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useLibraryStore, SortOption } from '../store/useLibraryStore';
 import { useSortModalStore } from '../store/useSortModalStore';
+import { ScannerService } from '../services/ScannerService';
+import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 
 
@@ -537,6 +539,8 @@ export default function LibraryScreen() {
     const artistSort = useLibraryStore(state => state.artistSort);
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
+    
+    const isScanning = useSyncStore(state => state.isScanning);
 
     const getActiveSortOption = (): SortOption => {
         if (activeTab === 'albums') return albumSort;
@@ -620,14 +624,22 @@ export default function LibraryScreen() {
             >
                 <View style={styles.header}>
                     <Text style={styles.title}>Tu Biblioteca</Text>
-                    {activeTab !== 'folders' && (
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
                         <TouchableOpacity
-                            onPress={() => useSortModalStore.getState().openModal(activeTab, getActiveSortOption())}
+                            onPress={() => ScannerService.syncLibrary()}
                             style={styles.filterButton}
                         >
-                            <Ionicons name="filter" size={22} color="#8B5CF6" />
+                            <Ionicons name="refresh" size={22} color="#8B5CF6" />
                         </TouchableOpacity>
-                    )}
+                        {activeTab !== 'folders' && (
+                            <TouchableOpacity
+                                onPress={() => useSortModalStore.getState().openModal(activeTab, getActiveSortOption())}
+                                style={styles.filterButton}
+                            >
+                                <Ionicons name="filter" size={22} color="#8B5CF6" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
 
