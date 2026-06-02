@@ -95,20 +95,42 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   loadQueue: async (tracks, index, context = "unknown") => {
     try {
-      const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+      const CHUNK_SIZE = 50;
+      // Reordenamos para que la canción seleccionada sea la primera
+      const tracksToPlay = [...tracks.slice(index), ...tracks.slice(0, index)];
+      
+      const initialChunk = tracksToPlay.slice(0, CHUNK_SIZE);
+      const remainingTracks = tracksToPlay.slice(CHUNK_SIZE);
+
+      const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
 
       await TrackPlayer.reset();
-      await TrackPlayer.add(tpTracks);
-      await TrackPlayer.skip(index);
+      await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
-      // Al cargar una nueva cola se resetea el shuffle y la cola manual
+      
       set({
-        activeTrack: tracks[index],
+        activeTrack: initialChunk[0],
         playbackContext: context,
         isShuffleEnabled: false,
         shuffleOriginalQueue: [],
         userQueueSize: 0,
       });
+
+      // Carga diferida en segundo plano
+      if (remainingTracks.length > 0) {
+        (async () => {
+          try {
+            for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
+              const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
+              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              await TrackPlayer.add(tpChunk);
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          } catch (bgError) {
+            console.error("Background queue loading error:", bgError);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Error loading queue:", error);
     }
@@ -116,30 +138,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   startShuffled: async (tracks, context = "unknown") => {
     try {
-      const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+      const CHUNK_SIZE = 50;
 
-      // 1. Crear un arreglo de índices y barajarlo
       const indices = Array.from({ length: tracks.length }, (_, i) => i);
       const shuffledIndices = indices.sort(() => Math.random() - 0.5);
-
       const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
-      const shuffledTpTracks = shuffledIndices.map((i) => tpTracks[i]);
 
-      // 2. Cargar la cola barajada completa
+      const initialChunk = shuffledTracks.slice(0, CHUNK_SIZE);
+      const remainingTracks = shuffledTracks.slice(CHUNK_SIZE);
+
+      const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
+
       await TrackPlayer.reset();
-      await TrackPlayer.add(shuffledTpTracks);
+      await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
 
-      // 3. Guardar estado: shuffle activo, cola original guardada
       set({
-        activeTrack: shuffledTracks[0],
+        activeTrack: initialChunk[0],
         playbackContext: context,
         isShuffleEnabled: true,
-        shuffleOriginalQueue: tpTracks,
+        shuffleOriginalQueue: initialTpTracks,
         userQueueSize: 0,
         hasPrevious: false,
         hasNext: shuffledTracks.length > 1,
       });
+
+      // Carga diferida en segundo plano
+      if (remainingTracks.length > 0) {
+        (async () => {
+          try {
+            for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
+              const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
+              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              await TrackPlayer.add(tpChunk);
+              
+              set(state => ({
+                  shuffleOriginalQueue: [...state.shuffleOriginalQueue, ...tpChunk]
+              }));
+              
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          } catch (bgError) {
+            console.error("Background shuffle loading error:", bgError);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Error starting shuffled queue:", error);
     }

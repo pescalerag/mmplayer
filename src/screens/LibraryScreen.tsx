@@ -27,6 +27,7 @@ import { useSortModalStore } from '../store/useSortModalStore';
 import { ScannerService } from '../services/ScannerService';
 import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
@@ -63,6 +64,47 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
 }))(TrackCard);
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const playbackContext = usePlayerStore(state => state.playbackContext);
+
+    const contextId = 'library-all-tracks';
+    const isCurrentContext = playbackContext === contextId;
+    const isCurrentContextPlaying = isCurrentContext && isPlaying;
+
+    const handlePlayPress = async () => {
+        if (tracks.length === 0) return;
+        if (isCurrentContext) {
+            if (isPlaying) {
+                await TrackPlayer.pause();
+            } else {
+                await TrackPlayer.play();
+            }
+        } else {
+            usePlayerStore.getState().loadQueue(tracks, 0, contextId);
+        }
+    };
+
+    const handleShufflePress = () => {
+        if (tracks.length === 0) return;
+        usePlayerStore.getState().startShuffled(tracks, contextId);
+    };
+
+    const renderHeader = () => {
+        if (tracks.length === 0) return null;
+        return (
+            <View style={styles.listHeaderButtons}>
+                <TouchableOpacity style={styles.shuffleBtn} onPress={handleShufflePress}>
+                    <Ionicons name="shuffle" size={20} color="#FFFFFF" />
+                    <Text style={styles.shuffleBtnText}>Aleatorio</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.playBtn} onPress={handlePlayPress}>
+                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}} />
+                    <Text style={styles.playBtnText}>{isCurrentContextPlaying ? "Pausar" : "Reproducir"}</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     const renderItem = React.useCallback((info: { item: Track }) => {
         const { item } = info;
@@ -80,10 +122,10 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
             keyExtractor={t => t.id}
             renderItem={renderItem}
             contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+            ListHeaderComponent={renderHeader}
             ListEmptyComponent={
                 <Text style={styles.emptyText}>No hay canciones en la biblioteca.</Text>
             }
-
         />
     );
 };
@@ -482,6 +524,8 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
         );
     }
 
+type Folder = { path: string; name: string; trackCount: number };
+
 const FolderCard = React.memo(({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) => {
     const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
     const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
@@ -742,13 +786,50 @@ const styles = StyleSheet.create({
         gap: 15,
     },
     emptyText: {
-        color: 'gray',
-        fontSize: 16,
+        color: '#666',
+        fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 40,
-        width: '100%',
+    },
+    listHeaderButtons: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        marginBottom: 16,
+        gap: 12,
+    },
+    shuffleBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingVertical: 12,
+        borderRadius: 24,
+        gap: 8,
+    },
+    playBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#8B5CF6',
+        paddingVertical: 12,
+        borderRadius: 24,
+        gap: 8,
+    },
+    shuffleBtnText: {
+        color: '#FFFFFF',
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        fontSize: 14,
+    },
+    playBtnText: {
+        color: '#FFFFFF',
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        fontSize: 14,
     },
     playlistCard: {
         width: cardWidth,
