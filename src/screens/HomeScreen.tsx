@@ -11,10 +11,12 @@ import RecentPlaylistCard from '../components/RecentPlaylistCard';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import Album from '../database/models/Album';
+import Artist from '../database/models/Artist';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { HistoryService } from '../services/HistoryService';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import Constants from 'expo-constants';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -85,6 +87,8 @@ export default function HomeScreen() {
     const handleMediaPress = async (item: any) => {
         if (item.type === 'album') {
             navigation.navigate('AlbumDetail', { albumId: item.id });
+        } else if (item.type === 'artist') {
+            navigation.navigate('ArtistDetail', { artistId: item.id });
         } else if (item.type === 'track') {
             try {
                 const track = await database.get<Track>('tracks').find(item.id);
@@ -100,6 +104,9 @@ export default function HomeScreen() {
             if (item.type === 'album') {
                 const album = await database.get<Album>('albums').find(item.id);
                 useAlbumMenuStore.getState().openMenu(album);
+            } else if (item.type === 'artist') {
+                const artist = await database.get<Artist>('artists').find(item.id);
+                useArtistMenuStore.getState().openMenu(artist);
             } else if (item.type === 'track') {
                 const track = await database.get<Track>('tracks').find(item.id);
                 useTrackMenuStore.getState().openMenu(track, {

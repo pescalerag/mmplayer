@@ -68,7 +68,7 @@ interface PlayerState {
 
 export type RecentItem = {
   id: string;
-  type: "track" | "album";
+  type: "track" | "album" | "artist";
   title: string;
   subtitle: string;
   imageUrl: string | null;
@@ -79,6 +79,7 @@ export type RecentPlaylist = {
   id: string;
   name: string;
   description: string | null;
+  imageUrl?: string | null;
   timestamp: number;
 };
 

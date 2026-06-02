@@ -33,6 +33,8 @@ import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
+import { HistoryService } from '../services/HistoryService';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -90,6 +92,7 @@ const ArtistHeader = memo(function ArtistHeader({
     artist,
     imageUrl,
     albums,
+    tracks,
     tracksCount,
     isLoadingContent,
     showAllAlbums,
@@ -104,6 +107,49 @@ const ArtistHeader = memo(function ArtistHeader({
 }: any) {
     const handleBack = () => {
         navigation.goBack();
+    };
+
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const playbackContext = usePlayerStore(state => state.playbackContext);
+
+    const contextId = `artist-${artist.id}`;
+    const isCurrentContext = playbackContext === contextId;
+    const isCurrentContextPlaying = isCurrentContext && isPlaying;
+
+    const handlePlayPress = async () => {
+        if (!tracks || tracks.length === 0) return;
+        HistoryService.updateUIRecents({
+            id: artist.id,
+            type: "artist",
+            context: "manual",
+            title: artist.name,
+            subtitle: "Artista",
+            imageUrl: artist.imageUrl,
+        });
+
+        if (isCurrentContext) {
+            if (isPlaying) {
+                await TrackPlayer.pause();
+            } else {
+                await TrackPlayer.play();
+            }
+        } else {
+            usePlayerStore.getState().loadQueue(tracks, 0, contextId);
+        }
+    };
+
+    const handleShufflePress = () => {
+        if (!tracks || tracks.length === 0) return;
+        HistoryService.updateUIRecents({
+            id: artist.id,
+            type: "artist",
+            context: "manual",
+            title: artist.name,
+            subtitle: "Artista",
+            imageUrl: artist.imageUrl,
+        });
+        usePlayerStore.getState().startShuffled(tracks, contextId);
     };
 
     const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
@@ -121,9 +167,28 @@ const ArtistHeader = memo(function ArtistHeader({
                 metaInfo={metaInfo}
                 onBack={handleBack}
                 renderExtra={() => (
-                    <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
-                        <Ionicons name="camera" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
+                    <>
+                        <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
+                            <Ionicons name="camera" size={20} color="#FFFFFF" />
+                        </TouchableOpacity>
+
+                        {tracks && tracks.length > 0 && (
+                            <>
+                                <TouchableOpacity style={styles.shuffleFab} onPress={handleShufflePress}>
+                                    <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.playFab} onPress={handlePlayPress}>
+                                    <Ionicons
+                                        name={isCurrentContextPlaying ? "pause" : "play"}
+                                        size={28}
+                                        color="#FFFFFF"
+                                        style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}}
+                                    />
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </>
                 )}
             />
 
@@ -298,6 +363,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             artist={artist}
             imageUrl={artist.imageUrl}
             albums={albums}
+            tracks={tracks}
             tracksCount={tracks.length}
             isLoadingContent={isLoadingContent}
             showAllAlbums={showAllAlbums}
@@ -309,7 +375,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
         />
-    ), [artist, artist.imageUrl, albums, tracks.length, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
+    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
 
     return (
         <View style={styles.container}>
@@ -440,6 +506,33 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 50,
         right: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    playFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#8B5CF6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+    },
+    shuffleFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 86,
         width: 40,
         height: 40,
         borderRadius: 20,
