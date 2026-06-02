@@ -87,6 +87,7 @@ export default function MarqueeText({
                 horizontal
                 scrollEnabled={false}
                 pointerEvents="none"
+                showsHorizontalScrollIndicator={false}
                 style={StyleSheet.absoluteFill}
                 contentContainerStyle={{ opacity: 0 }}
             >

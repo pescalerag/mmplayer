@@ -10,6 +10,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
@@ -167,6 +168,61 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            Alert.alert(
+                                "Reparar Biblioteca",
+                                "Esta opción re-escaneará los metadatos de tus archivos de audio para encontrar artistas o colaboradores ocultos/perdidos. Tus playlists y favoritos no se verán afectados.\n\n¿Deseas continuar?",
+                                [
+                                    { text: "Cancelar", style: "cancel" },
+                                    { 
+                                        text: "Continuar", 
+                                        style: "default", 
+                                        onPress: async () => {
+                                            await ScannerService.repairCollaborators();
+                                            Alert.alert("Éxito", "¡Biblioteca reparada con éxito!");
+                                        }
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>Reparar Biblioteca</Text>
+                            <Text style={styles.settingDescription}>
+                                Útil si faltan artistas secundarios en tus canciones.
+                            </Text>
+                        </View>
+                        <Ionicons name="build" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            Alert.alert(
+                                "Forzar Re-escaneo Profundo",
+                                "¿Estás seguro? Esto vaciará toda la base de datos local (historiales, artistas, listas) y la volverá a crear desde los archivos de tu móvil. No borrará los archivos reales.",
+                                [
+                                    { text: "Cancelar", style: "cancel" },
+                                    { 
+                                        text: "Confirmar", 
+                                        style: "destructive", 
+                                        onPress: () => ScannerService.forceDeepScan() 
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Forzar Re-escaneo Profundo</Text>
+                            <Text style={styles.settingDescription}>
+                                Vacía la base de datos local y escanea todo desde cero.
+                            </Text>
+                        </View>
+                        <Ionicons name="refresh-circle" size={24} color="#EF4444" />
+                    </TouchableOpacity>
                 </View>
 
 
@@ -303,7 +359,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 8,
+        paddingVertical: 12,
+    },
+    separator: {
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        marginVertical: 4,
     },
     noExcludedText: {
         color: '#888888',

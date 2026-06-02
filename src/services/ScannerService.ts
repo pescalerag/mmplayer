@@ -121,6 +121,16 @@ const removeEmptyEntities = async (
         }
     });
 
+    if (foreignKey === 'artist_id') {
+        const collaboratorsCollection = database.collections.get('track_collaborators');
+        const allCollaboratorsRaw = await collaboratorsCollection.query().unsafeFetchRaw();
+        allCollaboratorsRaw.forEach((collab: any) => {
+            if (collab.artist_id) {
+                activeEntityIds.add(collab.artist_id);
+            }
+        });
+    }
+
     // 3. Filtramos los IDs de las entidades que no están en el Set
     const entityIdsToDelete = allEntitiesRaw
         .filter((entity: any) => !activeEntityIds.has(entity.id))
@@ -307,7 +317,7 @@ const normalizePinnedValues = async () => {
         ];
 
         if (ops.length > 0) {
-            await database.batch(...ops);
+            await database.batch(ops);
         }
     });
 };
@@ -321,6 +331,91 @@ export const ScannerService = {
             await ScannerService.autoScanAndroid(onProgress);
         } catch (error) {
             console.error("Error en syncLibrary:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
+    forceDeepScan: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
+        try {
+            useSyncStore.getState().setIsScanning(true);
+            onProgress?.(0, 0, 'Reiniciando base de datos local...');
+            
+            await database.write(async () => {
+                await database.unsafeResetDatabase();
+            });
+
+            await usePlayerStore.getState().clearPlayer();
+
+            await ScannerService.autoScanAndroid(onProgress);
+        } catch (error) {
+            console.error("Error en forceDeepScan:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
+    repairCollaborators: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
+        try {
+            useSyncStore.getState().setIsScanning(true);
+            onProgress?.(0, 0, 'Analizando archivos locales...');
+            const audioFiles = await getAudioFiles();
+            
+            const tracksCollection = database.collections.get<Track>('tracks');
+            const artistsCollection = database.collections.get<Artist>('artists');
+            const collaboratorsCollection = database.collections.get('track_collaborators');
+
+            const existingTracks = await tracksCollection.query().fetch();
+            const trackMap = new Map<string, Track>();
+            existingTracks.forEach(t => trackMap.set(t.fileUrl, t));
+
+            await database.write(async () => {
+                const artistCache = new Map<string, Artist>();
+                const existingArtists = await artistsCollection.query().fetch();
+                for (const a of existingArtists) artistCache.set(a.name, a);
+
+                let batchOps: any[] = [];
+                const BATCH_SIZE = 400;
+
+                for (let i = 0; i < audioFiles.length; i++) {
+                    const file = audioFiles[i];
+                    const track = trackMap.get(file.uri);
+                    
+                    if (!track) continue;
+
+                    if (i % 50 === 0) onProgress?.(i, audioFiles.length, 'Reparando artistas perdidos...');
+
+                    const meta = extractFileMetadata(file);
+                    const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+                    batchOps.push(...newArtistOps);
+
+                    const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', track.id)).fetch();
+                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+
+                    for (const artist of trackArtists) {
+                        const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
+                            tc.track.set(track);
+                            tc.artist.set(artist);
+                        });
+                        batchOps.push(newCollab);
+                    }
+
+                    if (batchOps.length >= BATCH_SIZE) {
+                        await database.batch(batchOps);
+                        batchOps = [];
+                    }
+                }
+
+                if (batchOps.length > 0) {
+                    await database.batch(batchOps);
+                }
+            });
+
+            onProgress?.(audioFiles.length, audioFiles.length, '¡Biblioteca reparada con éxito!');
+        } catch (error) {
+            console.error("Error reparando colaboradores:", error);
         } finally {
             useSyncStore.getState().setIsScanning(false);
         }
