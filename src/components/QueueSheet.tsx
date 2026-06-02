@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
 import {
+    Alert,
     Animated,
     BackHandler,
     Dimensions,
@@ -26,7 +27,7 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { PlayingIndicator } from './PlayingIndicator';
 
 const { height, width } = Dimensions.get('window');
-const TAB_WIDTH = (width - 48) / 2; // dos tabs con padding de 24 a cada lado
+const TAB_WIDTH = (width - 48 - 44) / 2; // Subtracting 44 for the trash icon
 
 type ActiveTab = 'queue' | 'recent';
 
@@ -35,6 +36,8 @@ export default function QueueSheet() {
     const insets = useSafeAreaInsets();
     const userQueueSize = usePlayerStore(state => state.userQueueSize);
     const decrementUserQueue = usePlayerStore(state => state.decrementUserQueue);
+    const clearPlayer = usePlayerStore(state => state.clearPlayer);
+    const clearUserQueue = usePlayerStore(state => state.clearUserQueue);
 
     // ── Hooks reactivos de RNTP ──
     const currentTrackRNTP = useActiveTrack();
@@ -138,6 +141,36 @@ export default function QueueSheet() {
         } catch (error) {
             console.error('Error removing track:', error);
         }
+    };
+
+    const handleTrashPress = () => {
+        Alert.alert(
+            "Gestionar cola",
+            "¿Qué deseas hacer?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Borrar la cola añadida",
+                    onPress: async () => {
+                        await clearUserQueue();
+                        const [fullQueue, idx] = await Promise.all([
+                            TrackPlayer.getQueue(),
+                            TrackPlayer.getActiveTrackIndex(),
+                        ]);
+                        setQueue(fullQueue);
+                        if (idx !== undefined && idx !== null) setActiveIndex(idx);
+                    }
+                },
+                {
+                    text: "Parar reproducción",
+                    style: "destructive",
+                    onPress: async () => {
+                        await clearPlayer();
+                        closeQueue();
+                    }
+                }
+            ]
+        );
     };
 
     // --- RENDER: CANCIÓN ACTUAL (siempre visible en la tab Queue) ---
@@ -280,56 +313,65 @@ export default function QueueSheet() {
             ]}>
                 <View style={styles.dragIndicator} />
 
-                {/* ── TAB BAR ── */}
-                <View style={styles.tabBar}>
-                    {/* Indicador deslizante */}
-                    <Animated.View
-                        style={[
-                            styles.tabIndicator,
-                            { transform: [{ translateX: tabIndicatorAnim }], width: TAB_WIDTH }
-                        ]}
-                    />
-
-                    <TouchableOpacity
-                        style={[styles.tabButton, { width: TAB_WIDTH }]}
-                        onPress={() => switchTab('queue')}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons
-                            name="list"
-                            size={15}
-                            color={activeTab === 'queue' ? '#FFFFFF' : '#555'}
-                            style={{ marginRight: 6 }}
+                {/* ── TAB BAR & TRASH ── */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24, marginBottom: 16 }}>
+                    <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+                        {/* Indicador deslizante */}
+                        <Animated.View
+                            style={[
+                                styles.tabIndicator,
+                                { transform: [{ translateX: tabIndicatorAnim }], width: TAB_WIDTH }
+                            ]}
                         />
-                        <Text style={[styles.tabLabel, activeTab === 'queue' && styles.tabLabelActive]}>
-                            Cola
-                        </Text>
-                        {upcomingTracks.length > 0 && (
-                            <View style={[styles.badge, activeTab === 'queue' && styles.badgeActive]}>
-                                <Text style={styles.badgeText}>{upcomingTracks.length}</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
 
+                        <TouchableOpacity
+                            style={[styles.tabButton, { width: TAB_WIDTH }]}
+                            onPress={() => switchTab('queue')}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons
+                                name="list"
+                                size={15}
+                                color={activeTab === 'queue' ? '#FFFFFF' : '#555'}
+                                style={{ marginRight: 6 }}
+                            />
+                            <Text style={[styles.tabLabel, activeTab === 'queue' && styles.tabLabelActive]}>
+                                Cola
+                            </Text>
+                            {upcomingTracks.length > 0 && (
+                                <View style={[styles.badge, activeTab === 'queue' && styles.badgeActive]}>
+                                    <Text style={styles.badgeText}>{upcomingTracks.length}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.tabButton, { width: TAB_WIDTH }]}
+                            onPress={() => switchTab('recent')}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons
+                                name="time-outline"
+                                size={15}
+                                color={activeTab === 'recent' ? '#FFFFFF' : '#555'}
+                                style={{ marginRight: 6 }}
+                            />
+                            <Text style={[styles.tabLabel, activeTab === 'recent' && styles.tabLabelActive]}>
+                                Anterior
+                            </Text>
+                            {recentTracks.length > 0 && (
+                                <View style={[styles.badge, activeTab === 'recent' && styles.badgeActive]}>
+                                    <Text style={styles.badgeText}>{recentTracks.length}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </View>
                     <TouchableOpacity
-                        style={[styles.tabButton, { width: TAB_WIDTH }]}
-                        onPress={() => switchTab('recent')}
-                        activeOpacity={0.8}
+                        style={{ padding: 10, marginLeft: 4 }}
+                        onPress={handleTrashPress}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Ionicons
-                            name="time-outline"
-                            size={15}
-                            color={activeTab === 'recent' ? '#FFFFFF' : '#555'}
-                            style={{ marginRight: 6 }}
-                        />
-                        <Text style={[styles.tabLabel, activeTab === 'recent' && styles.tabLabelActive]}>
-                            Anterior
-                        </Text>
-                        {recentTracks.length > 0 && (
-                            <View style={[styles.badge, activeTab === 'recent' && styles.badgeActive]}>
-                                <Text style={styles.badgeText}>{recentTracks.length}</Text>
-                            </View>
-                        )}
+                        <Ionicons name="trash-outline" size={24} color="#EF4444" />
                     </TouchableOpacity>
                 </View>
 

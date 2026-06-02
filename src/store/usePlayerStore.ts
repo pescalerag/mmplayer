@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
 import Track from "../database/models/Track";
+import { navigationRef } from '../navigation/navigationRef';
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
@@ -52,6 +53,7 @@ interface PlayerState {
   clearPlayer: () => Promise<void>;
   setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
   decrementUserQueue: () => void;
+  clearUserQueue: () => Promise<void>;
   savePlaybackState: () => Promise<void>;
   restorePlaybackState: () => Promise<void>;
   saveRecentsState: () => Promise<void>;
@@ -245,6 +247,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue: [],
         userQueueSize: 0,
       });
+
+      // Cerrar el PlayerScreen si está abierto
+      if (navigationRef.isReady()) {
+        const currentRoute = navigationRef.getCurrentRoute();
+        const rootState = navigationRef.getRootState();
+        
+        if (
+          currentRoute?.name === 'PlayerHome' || 
+          (rootState && rootState.routes[rootState.index]?.name === 'Player')
+        ) { 
+          navigationRef.navigate('Main');
+        }
+      }
+
     } catch (error) {
       console.error("Error in clearPlayer:", error);
     }
@@ -260,6 +276,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   // y hay tracks de la user queue pendientes
   decrementUserQueue: () => {
     set((state) => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
+  },
+
+  clearUserQueue: async () => {
+    try {
+      const queue = await TrackPlayer.getQueue();
+      const activeIndex = await TrackPlayer.getActiveTrackIndex();
+      
+      if (activeIndex === undefined || activeIndex === null) return;
+
+      const indicesToRemove = queue
+        .map((track, index) => index > activeIndex && (track as any).isManual ? index : -1)
+        .filter(index => index !== -1);
+      
+      if (indicesToRemove.length > 0) {
+        await TrackPlayer.remove(indicesToRemove); 
+      }
+      
+      set({ userQueueSize: 0 });
+      await get().updateQueueStatus();
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error("Error clearing user queue:", e);
+    }
   },
 
   // ── Persistencia en disco ──
