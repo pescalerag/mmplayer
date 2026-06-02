@@ -23,6 +23,7 @@ import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
+import { useToastStore } from '../store/useToastStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -190,6 +191,7 @@ export default function AlbumMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueNext(tracks);
+                            useToastStore.getState().showToast('Álbum añadido a continuación', 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -206,6 +208,7 @@ export default function AlbumMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueEnd(tracks);
+                            useToastStore.getState().showToast('Álbum añadido a la cola', 'list');
                             closeMenu();
                         }
                     }}

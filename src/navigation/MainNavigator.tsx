@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScannerService } from "../services/ScannerService";
 import { useSyncStore } from "../store/useSyncStore";
 import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
+import GlobalToast from "../components/GlobalToast";
 
 import MiniPlayer from "../components/MiniPlayer";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
@@ -218,6 +219,7 @@ export default function MainNavigator() {
   return (
     <View style={{ flex: 1 }}>
       <GlobalSyncIndicator />
+      <GlobalToast />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen

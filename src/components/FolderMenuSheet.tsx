@@ -21,6 +21,8 @@ import { ScannerService } from '../services/ScannerService';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useToastStore } from '../store/useToastStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -175,6 +177,7 @@ export default function FolderMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueNext(tracks);
+                            useToastStore.getState().showToast('Carpeta añadida a continuación', 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -191,6 +194,7 @@ export default function FolderMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueEnd(tracks);
+                            useToastStore.getState().showToast('Carpeta añadida a la cola', 'list');
                             closeMenu();
                         }
                     }}
