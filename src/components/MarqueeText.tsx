@@ -37,7 +37,7 @@ export default function MarqueeText({
         translateX.setValue(0);
     }, [text]);
 
-    const overflows = containerWidth > 0 && textWidth > containerWidth + 2;
+    const overflows = containerWidth > 0 && textWidth >= containerWidth - 1;
 
     useEffect(() => {
         animRef.current?.stop();
