@@ -110,11 +110,8 @@ export default function HomeScreen() {
             } else if (item.type === 'track') {
                 const track = await database.get<Track>('tracks').find(item.id);
                 useTrackMenuStore.getState().openMenu(track, {
-                    onNavigateToAlbum: () => navigation.navigate('AlbumDetail', { albumId: track.album.id }),
-                    onNavigateToArtist: async () => {
-                        const artist = await track.artist.fetch();
-                        navigation.navigate('ArtistDetail', { artistId: artist.id });
-                    }
+                    album: (albumId) => navigation.navigate('AlbumDetail', { albumId }),
+                    artist: (artistId) => navigation.navigate('ArtistDetail', { artistId })
                 });
             }
         } catch (error) {

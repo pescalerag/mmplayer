@@ -14,8 +14,12 @@ import {
 } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Q } from '@nozbe/watermelondb';
+import Track from '../database/models/Track';
 import { database } from '../database';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { useToastStore } from '../store/useToastStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -23,6 +27,29 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function ArtistMenuSheet() {
     const insets = useSafeAreaInsets();
     const { isVisible, selectedArtist, closeMenu, navCallbacks } = useArtistMenuStore();
+    const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
+    const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
+    const [tracks, setTracks] = useState<Track[]>([]);
+
+    // Cargar tracks del artista
+    useEffect(() => {
+        if (!selectedArtist) {
+            setTracks([]);
+            return;
+        }
+        
+        const loadTracks = async () => {
+            try {
+                const tracksList = await database.collections.get<Track>('tracks')
+                    .query(Q.on('track_collaborators', 'artist_id', selectedArtist.id))
+                    .fetch() as Track[];
+                setTracks(tracksList);
+            } catch (error) {
+                console.error('Error al cargar tracks de ArtistMenuSheet:', error);
+            }
+        };
+        loadTracks();
+    }, [selectedArtist]);
 
     // Valores animados
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -146,6 +173,40 @@ export default function ArtistMenuSheet() {
                         <Ionicons name={selectedArtist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
                     </View>
                     <Text style={styles.optionText}>{selectedArtist?.isPinned ? "Desfijar de la biblioteca" : "Fijar en la biblioteca"}</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir a continuación */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (tracks.length > 0) {
+                            addMultipleToQueueNext(tracks);
+                            useToastStore.getState().showToast('Artista añadido a continuación', 'musical-notes');
+                            closeMenu();
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>Añadir a continuación</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir al final */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (tracks.length > 0) {
+                            addMultipleToQueueEnd(tracks);
+                            useToastStore.getState().showToast('Artista añadido a la cola', 'list');
+                            closeMenu();
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="list" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Ver artista */}

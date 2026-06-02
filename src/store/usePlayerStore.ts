@@ -334,7 +334,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         .filter(index => index !== -1);
       
       if (indicesToRemove.length > 0) {
-        await TrackPlayer.remove(indicesToRemove); 
+        // Ordenamos los índices de mayor a menor para que al borrar desde el final
+        // no afecte a los índices de las posiciones anteriores.
+        indicesToRemove.sort((a, b) => b - a);
+
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < indicesToRemove.length; i += CHUNK_SIZE) {
+          const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
+          await TrackPlayer.remove(chunk);
+          // Pausa corta para liberar el hilo de UI
+          await new Promise((resolve) => setTimeout(resolve, 16));
+        }
       }
       
       set({ userQueueSize: 0 });
