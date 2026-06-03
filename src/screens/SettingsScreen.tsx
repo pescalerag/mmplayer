@@ -202,26 +202,26 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         style={styles.buttonRow}
                         onPress={() => {
                             Alert.alert(
-                                "Forzar Re-escaneo Profundo",
-                                "¿Estás seguro? Esto vaciará toda la base de datos local (historiales, artistas, listas) y la volverá a crear desde los archivos de tu móvil. No borrará los archivos reales.",
+                                "Borrado de datos completo",
+                                "⚠️ Acción irreversible. Se borrarán TODOS los datos de la app: biblioteca, playlists, etiquetas, historial, recientes y configuración persistida. Los archivos de audio de tu móvil no se verán afectados.\n\n¿Estás seguro?",
                                 [
                                     { text: "Cancelar", style: "cancel" },
                                     { 
-                                        text: "Confirmar", 
+                                        text: "Borrar todo", 
                                         style: "destructive", 
-                                        onPress: () => ScannerService.forceDeepScan() 
+                                        onPress: () => ScannerService.fullDataWipe() 
                                     }
                                 ]
                             );
                         }}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Forzar Re-escaneo Profundo</Text>
+                            <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Borrado de datos completo</Text>
                             <Text style={styles.settingDescription}>
-                                Vacía la base de datos local y escanea todo desde cero.
+                                Borra toda la base de datos, playlists, etiquetas, historial y configuración. Luego re-escanea tu biblioteca desde cero.
                             </Text>
                         </View>
-                        <Ionicons name="refresh-circle" size={24} color="#EF4444" />
+                        <Ionicons name="trash" size={24} color="#EF4444" />
                     </TouchableOpacity>
                 </View>
 

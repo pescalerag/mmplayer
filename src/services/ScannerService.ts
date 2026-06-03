@@ -1,22 +1,19 @@
+import { usePlayerStore } from '@/store/usePlayerStore';
+import { useSyncStore } from '@/store/useSyncStore';
 import { Q } from '@nozbe/watermelondb';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Platform } from 'react-native';
+import { createMMKV } from 'react-native-mmkv';
 import { getAudioFiles } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
-import { HistoryService } from './HistoryService';
 import { useSettingsStore } from '../store/useSettingsStore';
-import TrackPlayer from 'react-native-track-player';
-import { usePlayerStore } from '@/store/usePlayerStore';
-import PlaybackHistory from '@/database/models/PlaybackHistory';
-import TrackCollaborator from '@/database/models/TrackCollaborator';
-import TrackTag from '@/database/models/TrackTag';
-import SearchHistory from '@/database/models/SearchHistory';
-import { useSyncStore } from '@/store/useSyncStore';
+import { HistoryService } from './HistoryService';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -56,7 +53,7 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
                 }
             })
         );
-        
+
         for (const res of results) {
             if (res.missing) {
                 trackIdsToDelete.push(res.id);
@@ -70,7 +67,7 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
         for (let i = 0; i < trackIdsToDelete.length; i += BATCH_DELETE_SIZE) {
             const batchIds = trackIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
             const tracksToDelete = await tracksCollection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
-            
+
             const playlistTracksCollection = database.collections.get('playlist_tracks');
             const trackTagsCollection = database.collections.get('track_tags');
             const trackCollaboratorsCollection = database.collections.get('track_collaborators');
@@ -106,7 +103,7 @@ const removeEmptyEntities = async (
     onProgress?: (phase: string) => void
 ) => {
     onProgress?.(progressMsg);
-    
+
     // 1. Traemos all a memoria como datos planos ligeros
     const [allEntitiesRaw, allTracksRaw] = await Promise.all([
         collection.query().unsafeFetchRaw(),
@@ -142,16 +139,16 @@ const removeEmptyEntities = async (
         for (let i = 0; i < entityIdsToDelete.length; i += BATCH_DELETE_SIZE) {
             const batchIds = entityIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
             const entitiesToDelete = await collection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
-            
+
             const itemType = foreignKey === 'album_id' ? 'album' : 'artist';
-            
+
             let extraOps: any[] = [];
             if (itemType === 'album') {
                 const albumTagsCollection = database.collections.get('album_tags');
                 const albumTags = await albumTagsCollection.query(Q.where('album_id', Q.oneOf(batchIds))).fetch();
                 extraOps.push(...albumTags.map((r: any) => r.prepareDestroyPermanently()));
             }
-            
+
             const playbackHistoryCollection = database.collections.get('playback_history');
             const playbackHistory = await playbackHistoryCollection.query(Q.where('item_type', itemType), Q.where('item_id', Q.oneOf(batchIds))).fetch();
             extraOps.push(...playbackHistory.map((r: any) => r.prepareDestroyPermanently()));
@@ -336,21 +333,38 @@ export const ScannerService = {
         }
     },
 
-    forceDeepScan: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+    fullDataWipe: async (onProgress?: (current: number, total: number, phase: string) => void) => {
         if (useSyncStore.getState().isScanning) return;
         try {
             useSyncStore.getState().setIsScanning(true);
+
+            onProgress?.(0, 0, 'Deteniendo reproductor...');
+            await usePlayerStore.getState().clearPlayer();
+
+            onProgress?.(0, 0, 'Borrando datos en memoria...');
+            const mmkv = createMMKV();
+            mmkv.remove('@player_persistence');
+            mmkv.remove('@player_recents');
+            usePlayerStore.setState({
+                recentMedia: [],
+                recentPlaylists: [],
+            });
+
+            onProgress?.(0, 0, 'Borrando configuración persistida...');
+            await AsyncStorage.removeItem('mmplayer-settings');
+            useSettingsStore.setState({
+                excludedFolders: [],
+                lastSeenVersion: null,
+            });
+
             onProgress?.(0, 0, 'Reiniciando base de datos local...');
-            
             await database.write(async () => {
                 await database.unsafeResetDatabase();
             });
 
-            await usePlayerStore.getState().clearPlayer();
-
             await ScannerService.autoScanAndroid(onProgress);
         } catch (error) {
-            console.error("Error en forceDeepScan:", error);
+            console.error('Error en fullDataWipe:', error);
         } finally {
             useSyncStore.getState().setIsScanning(false);
         }
@@ -362,7 +376,7 @@ export const ScannerService = {
             useSyncStore.getState().setIsScanning(true);
             onProgress?.(0, 0, 'Analizando archivos locales...');
             const audioFiles = await getAudioFiles();
-            
+
             const tracksCollection = database.collections.get<Track>('tracks');
             const artistsCollection = database.collections.get<Artist>('artists');
             const collaboratorsCollection = database.collections.get('track_collaborators');
@@ -382,7 +396,7 @@ export const ScannerService = {
                 for (let i = 0; i < audioFiles.length; i++) {
                     const file = audioFiles[i];
                     const track = trackMap.get(file.uri);
-                    
+
                     if (!track) continue;
 
                     if (i % 50 === 0) onProgress?.(i, audioFiles.length, 'Reparando artistas perdidos...');
@@ -457,13 +471,13 @@ export const ScannerService = {
         } catch (error) {
             console.error("Error limpiando archivos borrados:", error);
         }
-        
+
         if (deletedTracks.length > 0 || deletedAlbums.length > 0 || deletedArtists.length > 0) {
             await usePlayerStore.getState().handleDeletedEntities(deletedTracks, deletedAlbums, deletedArtists);
         }
 
         // Normalize any NULL is_pinned values to false
-        await normalizePinnedValues().catch(() => {});
+        await normalizePinnedValues().catch(() => { });
     },
 
     deleteFolderContents: async (folderPath: string, onProgress?: (phase: string) => void) => {
@@ -472,7 +486,7 @@ export const ScannerService = {
             useSyncStore.getState().setIsScanning(true);
             onProgress?.('Buscando archivos a eliminar...');
             const tracksCollection = database.collections.get<Track>('tracks');
-            
+
             // Buscamos todas las canciones cuya URL empiece por la ruta de la carpeta
             const tracksToDelete = await tracksCollection.query(
                 Q.where('file_url', Q.like(`${folderPath}%`))
@@ -481,24 +495,24 @@ export const ScannerService = {
             if (tracksToDelete.length > 0) {
                 onProgress?.(`Eliminando ${tracksToDelete.length} canciones...`);
                 const trackIdsToDelete = tracksToDelete.map(t => t.id);
-                
+
                 const BATCH_DELETE_SIZE = 100;
                 for (let i = 0; i < trackIdsToDelete.length; i += BATCH_DELETE_SIZE) {
                     const batchIds = trackIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
                     const tracksToDeleteBatch = await tracksCollection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
-                    
+
                     const playlistTracksCollection = database.collections.get('playlist_tracks');
                     const trackTagsCollection = database.collections.get('track_tags');
                     const trackCollaboratorsCollection = database.collections.get('track_collaborators');
                     const playbackHistoryCollection = database.collections.get('playback_history');
-        
+
                     const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
                         playlistTracksCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
                         trackTagsCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
                         trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
                         playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(batchIds))).fetch()
                     ]);
-        
+
                     await database.write(async () => {
                         const batchOps = [
                             ...tracksToDeleteBatch.map((t: Track) => t.prepareDestroyPermanently()),
@@ -510,7 +524,7 @@ export const ScannerService = {
                         await database.batch(batchOps);
                     });
                 }
-                
+
                 // Inform player store of immediate track deletions
                 await usePlayerStore.getState().handleDeletedEntities(trackIdsToDelete, [], []);
 
@@ -596,12 +610,12 @@ export const ScannerService = {
 
                 // 3. Resolve Album
                 const { album, newAlbumOps } = resolveAlbum(
-                    meta.albumId, 
-                    meta.albumTitle, 
-                    primaryArtist, 
-                    meta.coverUrl, 
+                    meta.albumId,
+                    meta.albumTitle,
+                    primaryArtist,
+                    meta.coverUrl,
                     meta.year,
-                    albumCache, 
+                    albumCache,
                     albumsCollection
                 );
                 batchOps.push(...newAlbumOps);
@@ -629,7 +643,7 @@ export const ScannerService = {
         }
 
         // Normalize any NULL is_pinned values to false (covers pre-existing records)
-        await normalizePinnedValues().catch(() => {});
+        await normalizePinnedValues().catch(() => { });
 
         onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
         return { total: audioFiles.length, added, skipped };
