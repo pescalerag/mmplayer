@@ -12,6 +12,7 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
+import { Image as RNImage } from 'react-native';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { HistoryService } from './HistoryService';
 
@@ -166,15 +167,22 @@ const removeEmptyEntities = async (
 };
 
 // --- 1. Helper to extract metadata ---
-const extractFileMetadata = (file: any) => ({
-    title: file.title?.trim() || file.filename.replace(/\.[^/.]+$/, ''),
-    artistString: file.artist?.trim() || 'Artista Desconocido',
-    albumTitle: file.album?.trim() || 'Álbum Desconocido',
-    albumId: file.albumId || file.album?.trim() || 'Álbum Desconocido',
-    coverUrl: file.coverUrl || null,
-    durationInSeconds: file.duration || 0,
-    year: file.year || null,
-});
+const extractFileMetadata = (file: any) => {
+    let coverUrl = file.coverUrl || null;
+    if (!coverUrl) {
+        coverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+    }
+    
+    return {
+        title: file.title?.trim() || file.filename.replace(/\.[^/.]+$/, ''),
+        artistString: file.artist?.trim() || 'Artista Desconocido',
+        albumTitle: file.album?.trim() || 'Álbum Desconocido',
+        albumId: file.albumId || file.album?.trim() || 'Álbum Desconocido',
+        coverUrl: coverUrl,
+        durationInSeconds: file.duration || 0,
+        year: file.year || null,
+    };
+};
 
 // --- 2. Helper to resolve the local artist image ---
 const getLocalArtistImage = async (name: string): Promise<string | null> => {

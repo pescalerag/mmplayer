@@ -14,6 +14,7 @@ class NativeAudioScannerModule : Module() {
       val context = appContext.reactContext ?: return@AsyncFunction emptyList<Map<String, Any?>>()
       
       val audioList = mutableListOf<Map<String, Any?>>()
+      val validAlbumArts = mutableMapOf<Long, String?>()
       
       val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
       val projection = arrayOf(
@@ -60,7 +61,18 @@ class NativeAudioScannerModule : Module() {
           val durationMs = cursor.getLong(durationColumn)
           val year = cursor.getInt(yearColumn)
           
-          val albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId).toString()
+          var finalCoverUrl = validAlbumArts[albumId]
+          if (!validAlbumArts.containsKey(albumId)) {
+              val albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId)
+              try {
+                  context.contentResolver.openFileDescriptor(albumArtUri, "r")?.use {
+                      finalCoverUrl = albumArtUri.toString()
+                  }
+              } catch (e: Exception) {
+                  finalCoverUrl = null
+              }
+              validAlbumArts[albumId] = finalCoverUrl
+          }
           
           // Only add files with valid paths
           if (data != null) {
@@ -72,7 +84,7 @@ class NativeAudioScannerModule : Module() {
               "artist" to artist,
               "album" to album,
               "albumId" to albumId.toString(),
-              "coverUrl" to albumArtUri,
+              "coverUrl" to finalCoverUrl,
               "duration" to (durationMs / 1000.0), // Convert to seconds
               "trackNumber" to (cursor.getInt(trackColumn) % 1000),
               "discNumber" to if (cursor.getInt(trackColumn) >= 1000) (cursor.getInt(trackColumn) / 1000) else 1,

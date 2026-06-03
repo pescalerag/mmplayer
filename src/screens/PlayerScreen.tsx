@@ -189,14 +189,12 @@ const PlayerScreenUI = ({
         setImageError(false);
     }, [track.id]);
 
-    const hasCover = Boolean(album?.coverUrl && album.coverUrl !== 'null' && album.coverUrl.trim() !== '') && !imageError;
-
     return (
         <View style={styles.container}>
             {/* Background Image with Blur */}
             <BlurredBackground
                 key={`blur-${track.id}`}
-                imageUrl={hasCover ? album.coverUrl : null}
+                imageUrl={album.coverUrl}
                 blurIntensity={10}
                 gradientColors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.7)', '#000000']}
             />
@@ -231,21 +229,15 @@ const PlayerScreenUI = ({
 
                 {/* Artwork */}
                 <View style={styles.artworkContainer}>
-                    {hasCover ? (
-                        <Image
-                            key={track.id}
-                            source={{ uri: album.coverUrl as string }}
-                            style={styles.artwork}
-                            contentFit="cover"
-                            transition={300}
-                            cachePolicy="memory-disk"
-                            onError={() => setImageError(true)}
-                        />
-                    ) : (
-                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                            <Ionicons name="musical-note" size={120} color="#535353" />
-                        </View>
-                    )}
+                    <Image
+                        key={track.id}
+                        source={{ uri: album.coverUrl as string }}
+                        style={styles.artwork}
+                        contentFit="cover"
+                        transition={300}
+                        cachePolicy="memory-disk"
+                        onError={() => setImageError(true)}
+                    />
                 </View>
 
                 {/* Info */}
@@ -505,10 +497,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.5,
         shadowRadius: 30,
         elevation: 10,
-    },
-    artworkPlaceholder: {
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     infoContainer: {
         flexDirection: 'row',
