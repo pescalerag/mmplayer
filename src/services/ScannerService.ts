@@ -199,7 +199,7 @@ const getLocalArtistImage = async (name: string): Promise<string | null> => {
 
 // --- 3. Helper to resolve and optionally create artists ---
 const resolveArtists = async (artistString: string, artistCache: Map<string, Artist>, artistsCollection: any) => {
-    const names = artistString.split(/[~/;]/).map(s => s.trim()).filter(s => s.length > 0);
+    const names = artistString.split(/[~;,]/).map(s => s.trim()).filter(s => s.length > 0);
     if (names.length === 0) names.push('Artista Desconocido');
 
     const trackArtists: Artist[] = [];
