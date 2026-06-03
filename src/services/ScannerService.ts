@@ -10,6 +10,13 @@ import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { HistoryService } from './HistoryService';
 import { useSettingsStore } from '../store/useSettingsStore';
+import TrackPlayer from 'react-native-track-player';
+import { usePlayerStore } from '@/store/usePlayerStore';
+import PlaybackHistory from '@/database/models/PlaybackHistory';
+import TrackCollaborator from '@/database/models/TrackCollaborator';
+import TrackTag from '@/database/models/TrackTag';
+import SearchHistory from '@/database/models/SearchHistory';
+import { useSyncStore } from '@/store/useSyncStore';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -63,12 +70,32 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
         for (let i = 0; i < trackIdsToDelete.length; i += BATCH_DELETE_SIZE) {
             const batchIds = trackIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
             const tracksToDelete = await tracksCollection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
+            
+            const playlistTracksCollection = database.collections.get('playlist_tracks');
+            const trackTagsCollection = database.collections.get('track_tags');
+            const trackCollaboratorsCollection = database.collections.get('track_collaborators');
+            const playbackHistoryCollection = database.collections.get('playback_history');
+
+            const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
+                playlistTracksCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
+                trackTagsCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
+                trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
+                playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(batchIds))).fetch()
+            ]);
+
             await database.write(async () => {
-                const batchOps = tracksToDelete.map((t: Track) => t.prepareDestroyPermanently());
+                const batchOps = [
+                    ...tracksToDelete.map((t: Track) => t.prepareDestroyPermanently()),
+                    ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
+                    ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
+                    ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
+                    ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                ];
                 await database.batch(batchOps);
             });
         }
     }
+    return trackIdsToDelete;
 };
 
 const removeEmptyEntities = async (
@@ -94,6 +121,16 @@ const removeEmptyEntities = async (
         }
     });
 
+    if (foreignKey === 'artist_id') {
+        const collaboratorsCollection = database.collections.get('track_collaborators');
+        const allCollaboratorsRaw = await collaboratorsCollection.query().unsafeFetchRaw();
+        allCollaboratorsRaw.forEach((collab: any) => {
+            if (collab.artist_id) {
+                activeEntityIds.add(collab.artist_id);
+            }
+        });
+    }
+
     // 3. Filtramos los IDs de las entidades que no están en el Set
     const entityIdsToDelete = allEntitiesRaw
         .filter((entity: any) => !activeEntityIds.has(entity.id))
@@ -105,12 +142,30 @@ const removeEmptyEntities = async (
         for (let i = 0; i < entityIdsToDelete.length; i += BATCH_DELETE_SIZE) {
             const batchIds = entityIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
             const entitiesToDelete = await collection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
+            
+            const itemType = foreignKey === 'album_id' ? 'album' : 'artist';
+            
+            let extraOps: any[] = [];
+            if (itemType === 'album') {
+                const albumTagsCollection = database.collections.get('album_tags');
+                const albumTags = await albumTagsCollection.query(Q.where('album_id', Q.oneOf(batchIds))).fetch();
+                extraOps.push(...albumTags.map((r: any) => r.prepareDestroyPermanently()));
+            }
+            
+            const playbackHistoryCollection = database.collections.get('playback_history');
+            const playbackHistory = await playbackHistoryCollection.query(Q.where('item_type', itemType), Q.where('item_id', Q.oneOf(batchIds))).fetch();
+            extraOps.push(...playbackHistory.map((r: any) => r.prepareDestroyPermanently()));
+
             await database.write(async () => {
-                const batchOps = entitiesToDelete.map((e: any) => e.prepareDestroyPermanently());
+                const batchOps = [
+                    ...entitiesToDelete.map((e: any) => e.prepareDestroyPermanently()),
+                    ...extraOps
+                ];
                 await database.batch(batchOps);
             });
         }
     }
+    return entityIdsToDelete;
 };
 
 // --- 1. Helper to extract metadata ---
@@ -262,14 +317,116 @@ const normalizePinnedValues = async () => {
         ];
 
         if (ops.length > 0) {
-            await database.batch(...ops);
+            await database.batch(ops);
         }
     });
 };
 
 export const ScannerService = {
+    syncLibrary: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
+        try {
+            useSyncStore.getState().setIsScanning(true);
+            await ScannerService.cleanDeletedFiles((phase) => onProgress?.(0, 0, phase));
+            await ScannerService.autoScanAndroid(onProgress);
+        } catch (error) {
+            console.error("Error en syncLibrary:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
+    forceDeepScan: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
+        try {
+            useSyncStore.getState().setIsScanning(true);
+            onProgress?.(0, 0, 'Reiniciando base de datos local...');
+            
+            await database.write(async () => {
+                await database.unsafeResetDatabase();
+            });
+
+            await usePlayerStore.getState().clearPlayer();
+
+            await ScannerService.autoScanAndroid(onProgress);
+        } catch (error) {
+            console.error("Error en forceDeepScan:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
+    repairCollaborators: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
+        try {
+            useSyncStore.getState().setIsScanning(true);
+            onProgress?.(0, 0, 'Analizando archivos locales...');
+            const audioFiles = await getAudioFiles();
+            
+            const tracksCollection = database.collections.get<Track>('tracks');
+            const artistsCollection = database.collections.get<Artist>('artists');
+            const collaboratorsCollection = database.collections.get('track_collaborators');
+
+            const existingTracks = await tracksCollection.query().fetch();
+            const trackMap = new Map<string, Track>();
+            existingTracks.forEach(t => trackMap.set(t.fileUrl, t));
+
+            await database.write(async () => {
+                const artistCache = new Map<string, Artist>();
+                const existingArtists = await artistsCollection.query().fetch();
+                for (const a of existingArtists) artistCache.set(a.name, a);
+
+                let batchOps: any[] = [];
+                const BATCH_SIZE = 400;
+
+                for (let i = 0; i < audioFiles.length; i++) {
+                    const file = audioFiles[i];
+                    const track = trackMap.get(file.uri);
+                    
+                    if (!track) continue;
+
+                    if (i % 50 === 0) onProgress?.(i, audioFiles.length, 'Reparando artistas perdidos...');
+
+                    const meta = extractFileMetadata(file);
+                    const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+                    batchOps.push(...newArtistOps);
+
+                    const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', track.id)).fetch();
+                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+
+                    for (const artist of trackArtists) {
+                        const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
+                            tc.track.set(track);
+                            tc.artist.set(artist);
+                        });
+                        batchOps.push(newCollab);
+                    }
+
+                    if (batchOps.length >= BATCH_SIZE) {
+                        await database.batch(batchOps);
+                        batchOps = [];
+                    }
+                }
+
+                if (batchOps.length > 0) {
+                    await database.batch(batchOps);
+                }
+            });
+
+            onProgress?.(audioFiles.length, audioFiles.length, '¡Biblioteca reparada con éxito!');
+        } catch (error) {
+            console.error("Error reparando colaboradores:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
     cleanDeletedFiles: async (onProgress?: (phase: string) => void) => {
         if (Platform.OS !== 'android') return;
+
+        let deletedTracks: string[] = [];
+        let deletedAlbums: string[] = [];
+        let deletedArtists: string[] = [];
 
         try {
             const tracksCollection = database.collections.get<Track>('tracks');
@@ -277,10 +434,10 @@ export const ScannerService = {
             const artistsCollection = database.collections.get<Artist>('artists');
 
             // Phase 1: Clean missing tracks
-            await removeMissingTracks(tracksCollection, onProgress);
+            deletedTracks = await removeMissingTracks(tracksCollection, onProgress);
 
             // Phase 2: Clean empty albums
-            await removeEmptyEntities(
+            deletedAlbums = await removeEmptyEntities(
                 albumsCollection,
                 tracksCollection,
                 'album_id',
@@ -289,7 +446,7 @@ export const ScannerService = {
             );
 
             // Phase 3: Clean empty artists
-            await removeEmptyEntities(
+            deletedArtists = await removeEmptyEntities(
                 artistsCollection,
                 tracksCollection,
                 'artist_id',
@@ -300,13 +457,19 @@ export const ScannerService = {
         } catch (error) {
             console.error("Error limpiando archivos borrados:", error);
         }
+        
+        if (deletedTracks.length > 0 || deletedAlbums.length > 0 || deletedArtists.length > 0) {
+            await usePlayerStore.getState().handleDeletedEntities(deletedTracks, deletedAlbums, deletedArtists);
+        }
 
         // Normalize any NULL is_pinned values to false
         await normalizePinnedValues().catch(() => {});
     },
 
     deleteFolderContents: async (folderPath: string, onProgress?: (phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
         try {
+            useSyncStore.getState().setIsScanning(true);
             onProgress?.('Buscando archivos a eliminar...');
             const tracksCollection = database.collections.get<Track>('tracks');
             
@@ -317,10 +480,39 @@ export const ScannerService = {
 
             if (tracksToDelete.length > 0) {
                 onProgress?.(`Eliminando ${tracksToDelete.length} canciones...`);
-                await database.write(async () => {
-                    const batchOps = tracksToDelete.map(t => t.prepareDestroyPermanently());
-                    await database.batch(batchOps);
-                });
+                const trackIdsToDelete = tracksToDelete.map(t => t.id);
+                
+                const BATCH_DELETE_SIZE = 100;
+                for (let i = 0; i < trackIdsToDelete.length; i += BATCH_DELETE_SIZE) {
+                    const batchIds = trackIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
+                    const tracksToDeleteBatch = await tracksCollection.query(Q.where('id', Q.oneOf(batchIds))).fetch();
+                    
+                    const playlistTracksCollection = database.collections.get('playlist_tracks');
+                    const trackTagsCollection = database.collections.get('track_tags');
+                    const trackCollaboratorsCollection = database.collections.get('track_collaborators');
+                    const playbackHistoryCollection = database.collections.get('playback_history');
+        
+                    const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
+                        playlistTracksCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
+                        trackTagsCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
+                        trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(batchIds))).fetch(),
+                        playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(batchIds))).fetch()
+                    ]);
+        
+                    await database.write(async () => {
+                        const batchOps = [
+                            ...tracksToDeleteBatch.map((t: Track) => t.prepareDestroyPermanently()),
+                            ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
+                            ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
+                            ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
+                            ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                        ];
+                        await database.batch(batchOps);
+                    });
+                }
+                
+                // Inform player store of immediate track deletions
+                await usePlayerStore.getState().handleDeletedEntities(trackIdsToDelete, [], []);
 
                 // Limpiamos los álbumes y artistas que se hayan quedado huérfanos
                 onProgress?.('Limpiando la biblioteca...');
@@ -328,6 +520,8 @@ export const ScannerService = {
             }
         } catch (error) {
             console.error("Error al borrar contenido de la carpeta:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
         }
     },
 

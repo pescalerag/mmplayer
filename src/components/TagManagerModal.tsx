@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
         marginTop: 10,
         textAlign: 'center',
     },

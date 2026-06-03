@@ -9,14 +9,16 @@ interface RecentPlaylistCardProps {
     id: string;
     name: string;
     description: string | null;
+    customCoverUrl?: string | null;
     onPress: () => void;
+    onLongPress?: () => void;
 }
 
 const { width } = Dimensions.get('window');
 
-export default function RecentPlaylistCard({ id, name, description, onPress }: RecentPlaylistCardProps) {
+export default function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress, onLongPress }: RecentPlaylistCardProps) {
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.card} onPress={onPress} onLongPress={onLongPress} delayLongPress={300} activeOpacity={0.8}>
             {/* Fondo con degradado oscuro de izquierda a derecha */}
             <LinearGradient
                 colors={['#181818', 'rgba(24, 24, 24, 0.85)', 'rgba(24, 24, 24, 0.3)']}
@@ -33,7 +35,7 @@ export default function RecentPlaylistCard({ id, name, description, onPress }: R
             </LinearGradient>
 
             <View style={styles.imageSection}>
-                <PlaylistCover playlistId={id} isFavorites={id === 'favorites'} width={90} height={90} borderRadius={0} />
+                <PlaylistCover playlistId={id} isFavorites={id === 'favorites'} width={90} height={90} borderRadius={0} customCoverUrl={customCoverUrl} />
             </View>
         </TouchableOpacity>
     );
@@ -71,7 +73,7 @@ const styles = StyleSheet.create({
         color: '#B3B3B3',
         fontSize: 12,
         fontFamily: 'Montserrat',
-        fontWeight: '500',
+        fontWeight: '700',
         marginTop: 4,
         lineHeight: 16,
     },

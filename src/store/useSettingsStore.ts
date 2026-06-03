@@ -8,6 +8,8 @@ interface SettingsState {
     excludedFolders: string[];
     excludeFolder: (folderPath: string) => void;
     includeFolder: (folderPath: string) => void;
+    lastSeenVersion: string | null;
+    setLastSeenVersion: (version: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -23,6 +25,8 @@ export const useSettingsStore = create<SettingsState>()(
             includeFolder: (folderPath) => set((state) => ({
                 excludedFolders: state.excludedFolders.filter((f) => f !== folderPath),
             })),
+            lastSeenVersion: null,
+            setLastSeenVersion: (version) => set({ lastSeenVersion: version }),
         }),
         {
             name: 'mmplayer-settings',

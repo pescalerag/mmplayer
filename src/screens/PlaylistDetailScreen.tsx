@@ -5,11 +5,11 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useState } from "react";
+import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -75,6 +75,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
       artistName={artistNames}
       playlistId={playlistId}
       onPress={onPress}
+      preventAutoHistory={true}
     />
   );
 });
@@ -190,6 +191,7 @@ function PlaylistDetailContent({
             try {
               navigation.goBack();
               await PlaylistService.deletePlaylist(playlist.id);
+              usePlayerStore.getState().removePlaylistFromRecents(playlist.id);
             } catch (err) {
               console.error("Error al eliminar la playlist:", err);
               Alert.alert(
@@ -209,6 +211,15 @@ function PlaylistDetailContent({
 
   const handleTrackPress = useCallback(
     (trackId: string) => {
+      HistoryService.updateUIRecents({
+        id: playlist.id,
+        type: "playlist",
+        context: "manual",
+        title: playlist.name,
+        subtitle: playlist.description || "Lista de reproducción personalizada",
+        imageUrl: playlist.coverCustomUrl || null,
+      });
+
       const trackIndex = tracks.findIndex((t) => t.id === trackId);
       if (trackIndex !== -1) {
         usePlayerStore
@@ -216,7 +227,7 @@ function PlaylistDetailContent({
           .loadQueue(tracks, trackIndex, playlistContextId);
       }
     },
-    [tracks, playlistContextId],
+    [tracks, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl],
   );
 
   const handleFabPress = async () => {
@@ -241,6 +252,14 @@ function PlaylistDetailContent({
 
   const handleShuffleFabPress = () => {
     if (tracks.length > 0) {
+      HistoryService.updateUIRecents({
+        id: playlist.id,
+        type: "playlist",
+        context: "manual",
+        title: playlist.name,
+        subtitle: playlist.description || "Lista de reproducción personalizada",
+        imageUrl: playlist.coverCustomUrl || null,
+      });
       usePlayerStore.getState().startShuffled(tracks, playlistContextId);
     }
   };
@@ -293,6 +312,7 @@ function PlaylistDetailContent({
           p.coverCustomUrl = newPath;
         });
       });
+      usePlayerStore.getState().updatePlaylistCoverInRecents(playlist.id, newPath);
     } catch (error) {
       console.error("Error guardando imagen:", error);
       Alert.alert("Error", "No se pudo guardar la imagen de la playlist.");
@@ -316,7 +336,6 @@ function PlaylistDetailContent({
         subtitle={playlist.description || "Lista de reproducción personalizada"}
         metaInfo={`${playlistTracks.length} ${playlistTracks.length === 1 ? "canción" : "canciones"} · ${formatAlbumDuration(totalDuration)}`}
         onBack={handleBack}
-        onHome={() => navigation.navigate("Biblioteca" as never)}
         onDelete={handleDelete}
         onEdit={handleEdit}
         onPickPhoto={handlePickPhoto}
@@ -356,12 +375,14 @@ function PlaylistDetailContent({
     (info: { item: PlaylistTrack; index: number }) => {
       const { item, index } = info;
       return (
-        <PlaylistTrackRow
-          playlistTrack={item}
-          playlistId={playlist.id}
-          index={index + 1}
-          onPress={handleTrackPress}
-        />
+        <View style={{ minHeight: 64, width: '100%' }}>
+            <PlaylistTrackRow
+              playlistTrack={item}
+              playlistId={playlist.id}
+              index={index + 1}
+              onPress={handleTrackPress}
+            />
+        </View>
       );
     },
     [handleTrackPress, playlist.id],
@@ -369,7 +390,7 @@ function PlaylistDetailContent({
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={playlistTracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
@@ -392,14 +413,7 @@ function PlaylistDetailContent({
             </View>
           )
         }
-        getItemLayout={(data, index) => ({
-          length: 64,
-          offset: 64 * index,
-          index,
-        })}
-        initialNumToRender={15}
-        maxToRenderPerBatch={10}
-        windowSize={10}
+
         contentContainerStyle={{
           paddingBottom:
             Layout.MINI_PLAYER_HEIGHT +
@@ -491,7 +505,7 @@ const styles = StyleSheet.create({
     color: "#888",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "500",
+    fontWeight: '700',
     textAlign: "center",
     marginTop: 8,
   },

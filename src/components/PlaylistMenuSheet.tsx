@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { 
-    Alert,
     Animated, 
     BackHandler, 
     Dimensions, 
@@ -14,23 +13,16 @@ import {
 } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Q } from '@nozbe/watermelondb';
-import { useFolderMenuStore } from '../store/useFolderMenuStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { ScannerService } from '../services/ScannerService';
 import { database } from '../database';
-import Track from '../database/models/Track';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useToastStore } from '../store/useToastStore';
+import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
+import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
+import PlaylistCover from './PlaylistCover';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function FolderMenuSheet() {
+export default function PlaylistMenuSheet() {
     const insets = useSafeAreaInsets();
-    const { isVisible, selectedFolderPath, selectedFolderName, closeMenu } = useFolderMenuStore();
-    const excludeFolder = useSettingsStore(state => state.excludeFolder);
-    const [tracks, setTracks] = useState<Track[]>([]);
+    const { isVisible, selectedPlaylist, closeMenu, navCallbacks } = usePlaylistMenuStore();
 
     // Valores animados
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -84,27 +76,6 @@ export default function FolderMenuSheet() {
         return () => subscription.remove();
     }, [isVisible, closeMenu]);
 
-    // Cargar todas las canciones de la carpeta seleccionada
-    useEffect(() => {
-        if (!isVisible || !selectedFolderPath) {
-            setTracks([]);
-            return;
-        }
-
-        const loadTracks = async () => {
-            try {
-                const tracksList = await database.collections.get<Track>('tracks').query(
-                    Q.where('file_url', Q.like(`${selectedFolderPath}%`))
-                ).fetch();
-                setTracks(tracksList);
-            } catch (error) {
-                console.error("Error loading folder tracks in menu sheet:", error);
-            }
-        };
-
-        loadTracks();
-    }, [isVisible, selectedFolderPath]);
-
     const [shouldRender, setShouldRender] = useState(isVisible);
 
     useEffect(() => {
@@ -115,29 +86,6 @@ export default function FolderMenuSheet() {
             return () => clearTimeout(timer);
         }
     }, [isVisible]);
-
-    const handleExclude = () => {
-        if (!selectedFolderPath) return;
-
-        Alert.alert(
-            "Excluir carpeta",
-            "¿Estás seguro de que deseas excluir esta carpeta del escaneo? Se borrarán todas sus canciones de la biblioteca.",
-            [
-                { text: "Cancelar", style: "cancel" },
-                { 
-                    text: "Excluir", 
-                    style: "destructive",
-                    onPress: async () => {
-                        closeMenu();
-                        // 1. Excluir carpeta en settings (persistente)
-                        excludeFolder(selectedFolderPath);
-                        // 2. Borrar contenido de la carpeta en la db y limpiar huérfanos
-                        await ScannerService.deleteFolderContents(selectedFolderPath);
-                    }
-                }
-            ]
-        );
-    };
 
     if (!shouldRender && !isVisible) return null;
 
@@ -162,61 +110,84 @@ export default function FolderMenuSheet() {
                 <View style={styles.dragIndicator} />
                 
                 <View style={styles.header}>
-                    <View style={[styles.thumbnail, styles.placeholder]}>
-                        <Ionicons name="folder" size={24} color="#8B5CF6" />
-                    </View>
+                    {selectedPlaylist && (
+                        <View style={{ marginRight: 16 }}>
+                            <PlaylistCover playlistId={selectedPlaylist.id} isFavorites={selectedPlaylist.id === 'favorites'} customCoverUrl={selectedPlaylist.coverCustomUrl} size={56} borderRadius={8} />
+                        </View>
+                    )}
                     <View style={styles.headerText}>
-                        <Text style={styles.title} numberOfLines={1}>{selectedFolderName}</Text>
-                        <Text style={styles.subtitle} numberOfLines={1}>Carpeta</Text>
+                        <Text style={styles.title} numberOfLines={1}>{selectedPlaylist?.name}</Text>
+                        <Text style={styles.subtitle} numberOfLines={1}>Playlist</Text>
                     </View>
                 </View>
 
-                {/* OPCIÓN: Añadir a continuación */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                {/* OPCIÓN: Fijar/Desfijar */}
+                {selectedPlaylist && selectedPlaylist.id !== 'favorites' && (
+                    <TouchableOpacity 
+                        style={styles.optionRow} 
+                        onPress={async () => {
+                            if (selectedPlaylist) {
+                                await database.write(async () => {
+                                    await selectedPlaylist.update((p) => {
+                                        p.isPinned = !p.isPinned;
+                                    });
+                                });
+                                closeMenu();
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name={selectedPlaylist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
+                        </View>
+                        <Text style={styles.optionText}>{selectedPlaylist?.isPinned ? "Desfijar de la biblioteca" : "Fijar en la biblioteca"}</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* OPCIÓN: Ver playlist */}
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={() => {
-                        if (tracks.length > 0) {
-                            usePlayerStore.getState().addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast('Carpeta añadida a continuación', 'musical-notes');
+                        if (selectedPlaylist) {
                             closeMenu();
+                            const playlistId = selectedPlaylist.id;
+                            if (navCallbacks.detail) {
+                                navCallbacks.detail(playlistId);
+                            } else if (navigationRef.isReady()) {
+                                const rootState = navigationRef.getRootState();
+                                const activeRoute = rootState.routes[rootState.index];
+                                const isPlayerActive = activeRoute?.name === 'Player';
+
+                                if (isPlayerActive) {
+                                    if (playlistId === 'favorites') {
+                                        navigationRef.navigate('FavoritesDetail');
+                                    } else {
+                                        navigationRef.navigate('PlaylistDetail', { playlistId });
+                                    }
+                                } else {
+                                    let tabName = getActiveTabName();
+                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                        tabName = 'Biblioteca';
+                                    }
+                                    if (playlistId === 'favorites') {
+                                        navigationRef.navigate('Main', {
+                                            screen: tabName,
+                                            params: { screen: 'FavoritesDetail' }
+                                        });
+                                    } else {
+                                        navigationRef.navigate('Main', {
+                                            screen: tabName,
+                                            params: { screen: 'PlaylistDetail', params: { playlistId } }
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                        <Ionicons name="list-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a continuación</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir al final de la cola */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (tracks.length > 0) {
-                            usePlayerStore.getState().addMultipleToQueueEnd(tracks);
-                            useToastStore.getState().showToast('Carpeta añadida a la cola', 'list');
-                            closeMenu();
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
-                </TouchableOpacity>
-
-                {/* Separador */}
-                <View style={styles.separator} />
-
-                {/* OPCIÓN: Excluir */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={handleExclude}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="eye-off-outline" size={24} color="#EF4444" />
-                    </View>
-                    <Text style={[styles.optionText, { color: '#EF4444' }]}>Excluir del escaneo</Text>
+                    <Text style={styles.optionText}>Ver playlist</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>
@@ -255,17 +226,6 @@ const styles = StyleSheet.create({
         borderBottomColor: '#282828',
         paddingBottom: 20,
     },
-    thumbnail: {
-        width: 56,
-        height: 56,
-        borderRadius: 8, // Cuadrado para carpetas
-        marginRight: 16,
-    },
-    placeholder: {
-        backgroundColor: '#282828',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     headerText: {
         flex: 1,
     },
@@ -299,10 +259,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
-    },
-    separator: {
-        height: 1,
-        backgroundColor: '#282828',
-        marginVertical: 8,
     },
 });

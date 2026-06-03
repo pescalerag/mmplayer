@@ -10,12 +10,15 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
+import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
+import Constants from 'expo-constants';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -29,7 +32,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
     const { showTagColors, setShowTagColors, excludedFolders, includeFolder } = useSettingsStore();
-    const [isScanning, setIsScanning] = useState(false);
+    const isScanning = useSyncStore(state => state.isScanning);
 
 
     return (
@@ -135,14 +138,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                         disabled={isScanning}
                                         onPress={async () => {
                                             includeFolder(folderPath);
-                                            setIsScanning(true);
-                                            try {
-                                                await ScannerService.autoScanAndroid();
-                                            } catch (err) {
-                                                console.error("Error scanning after restore:", err);
-                                            } finally {
-                                                setIsScanning(false);
-                                            }
+                                            await ScannerService.syncLibrary();
                                         }}
                                         activeOpacity={0.7}
                                     >
@@ -172,12 +168,84 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            Alert.alert(
+                                "Reparar Biblioteca",
+                                "Esta opción re-escaneará los metadatos de tus archivos de audio para encontrar artistas o colaboradores ocultos/perdidos. Tus playlists y favoritos no se verán afectados.\n\n¿Deseas continuar?",
+                                [
+                                    { text: "Cancelar", style: "cancel" },
+                                    { 
+                                        text: "Continuar", 
+                                        style: "default", 
+                                        onPress: async () => {
+                                            await ScannerService.repairCollaborators();
+                                            Alert.alert("Éxito", "¡Biblioteca reparada con éxito!");
+                                        }
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>Reparar Biblioteca</Text>
+                            <Text style={styles.settingDescription}>
+                                Útil si faltan artistas secundarios en tus canciones.
+                            </Text>
+                        </View>
+                        <Ionicons name="build" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            Alert.alert(
+                                "Forzar Re-escaneo Profundo",
+                                "¿Estás seguro? Esto vaciará toda la base de datos local (historiales, artistas, listas) y la volverá a crear desde los archivos de tu móvil. No borrará los archivos reales.",
+                                [
+                                    { text: "Cancelar", style: "cancel" },
+                                    { 
+                                        text: "Confirmar", 
+                                        style: "destructive", 
+                                        onPress: () => ScannerService.forceDeepScan() 
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Forzar Re-escaneo Profundo</Text>
+                            <Text style={styles.settingDescription}>
+                                Vacía la base de datos local y escanea todo desde cero.
+                            </Text>
+                        </View>
+                        <Ionicons name="refresh-circle" size={24} color="#EF4444" />
+                    </TouchableOpacity>
                 </View>
 
 
-                {/* --- SECCIÓN DE APP INFO --- */}
+                {/* --- SECCIÓN DE INFORMACIÓN --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>Información</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => navigation.navigate('ChangelogScreen')}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>Acerca de esta versión</Text>
+                            <Text style={styles.settingDescription}>
+                                Novedades, correcciones y notas de lanzamiento.
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                </View>
+
+                {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v0.3.0-beta</Text>
+                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '1.1.0-beta'}</Text>
                     <Text style={styles.infoTextSub}>Desarrollado por pescalerag. Betatesteado por Killerdroid</Text>
                 </View>
             </ScrollView>
@@ -235,7 +303,7 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         color: '#9A9A9A',
         marginTop: 4,
     },
@@ -252,12 +320,12 @@ const styles = StyleSheet.create({
         color: '#888888',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     infoTextSub: {
         color: '#666666',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
         marginTop: 4,
     },
     smokeEffect: {
@@ -282,7 +350,7 @@ const styles = StyleSheet.create({
     },
     settingDescription: {
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
         color: '#888',
         marginTop: 4,
         lineHeight: 16,
@@ -291,13 +359,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 8,
+        paddingVertical: 12,
+    },
+    separator: {
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        marginVertical: 4,
     },
     noExcludedText: {
         color: '#888888',
         fontStyle: 'italic',
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
     },
     excludedFolderRow: {
         flexDirection: 'row',
@@ -316,7 +389,7 @@ const styles = StyleSheet.create({
     folderPathText: {
         color: '#666666',
         fontSize: 11,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         marginTop: 2,
     },
     restoreButton: {

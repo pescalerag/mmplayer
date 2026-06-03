@@ -6,11 +6,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    FlatList,
     InteractionManager,
     Platform,
     ScrollView,
@@ -33,6 +33,8 @@ import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
+import { HistoryService } from '../services/HistoryService';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -90,6 +92,7 @@ const ArtistHeader = memo(function ArtistHeader({
     artist,
     imageUrl,
     albums,
+    tracks,
     tracksCount,
     isLoadingContent,
     showAllAlbums,
@@ -104,6 +107,49 @@ const ArtistHeader = memo(function ArtistHeader({
 }: any) {
     const handleBack = () => {
         navigation.goBack();
+    };
+
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const playbackContext = usePlayerStore(state => state.playbackContext);
+
+    const contextId = `artist-${artist.id}`;
+    const isCurrentContext = playbackContext === contextId;
+    const isCurrentContextPlaying = isCurrentContext && isPlaying;
+
+    const handlePlayPress = async () => {
+        if (!tracks || tracks.length === 0) return;
+        HistoryService.updateUIRecents({
+            id: artist.id,
+            type: "artist",
+            context: "manual",
+            title: artist.name,
+            subtitle: "Artista",
+            imageUrl: artist.imageUrl,
+        });
+
+        if (isCurrentContext) {
+            if (isPlaying) {
+                await TrackPlayer.pause();
+            } else {
+                await TrackPlayer.play();
+            }
+        } else {
+            usePlayerStore.getState().loadQueue(tracks, 0, contextId);
+        }
+    };
+
+    const handleShufflePress = () => {
+        if (!tracks || tracks.length === 0) return;
+        HistoryService.updateUIRecents({
+            id: artist.id,
+            type: "artist",
+            context: "manual",
+            title: artist.name,
+            subtitle: "Artista",
+            imageUrl: artist.imageUrl,
+        });
+        usePlayerStore.getState().startShuffled(tracks, contextId);
     };
 
     const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
@@ -121,9 +167,28 @@ const ArtistHeader = memo(function ArtistHeader({
                 metaInfo={metaInfo}
                 onBack={handleBack}
                 renderExtra={() => (
-                    <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
-                        <Ionicons name="camera" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
+                    <>
+                        <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
+                            <Ionicons name="camera" size={20} color="#FFFFFF" />
+                        </TouchableOpacity>
+
+                        {tracks && tracks.length > 0 && (
+                            <>
+                                <TouchableOpacity style={styles.shuffleFab} onPress={handleShufflePress}>
+                                    <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.playFab} onPress={handlePlayPress}>
+                                    <Ionicons
+                                        name={isCurrentContextPlaying ? "pause" : "play"}
+                                        size={28}
+                                        color="#FFFFFF"
+                                        style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}}
+                                    />
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </>
                 )}
             />
 
@@ -264,6 +329,8 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
                 await artist.update(a => { a.imageUrl = permanentUri; });
             });
 
+            usePlayerStore.getState().updateMediaImageInRecents(artist.id, 'artist', permanentUri);
+
             Alert.alert('¡Éxito!', 'La foto del artista se ha actualizado.');
         } catch (e) {
             console.error('Error guardando foto:', e);
@@ -281,12 +348,14 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
     const renderItem = useCallback((info: { item: Track; index: number }) => {
         const { item, index } = info;
         return (
-            <ArtistTrackRow
-                track={item}
-                contextId={`artist-${artist.id}`}
-                index={index + 1}
-                onPress={handleTrackPress}
-            />
+            <View style={{ minHeight: 64, width: '100%' }}>
+                <ArtistTrackRow
+                    track={item}
+                    contextId={`artist-${artist.id}`}
+                    index={index + 1}
+                    onPress={handleTrackPress}
+                />
+            </View>
         );
     }, [handleTrackPress]);
 
@@ -296,6 +365,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             artist={artist}
             imageUrl={artist.imageUrl}
             albums={albums}
+            tracks={tracks}
             tracksCount={tracks.length}
             isLoadingContent={isLoadingContent}
             showAllAlbums={showAllAlbums}
@@ -307,11 +377,11 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
         />
-    ), [artist, artist.imageUrl, albums, tracks.length, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
+    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
 
     return (
         <View style={styles.container}>
-            <FlatList
+            <FlashList
                 data={visibleTracks}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
@@ -323,20 +393,12 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
                         <Text style={styles.emptyText}>Este artista no tiene canciones escaneadas.</Text>
                     )
                 }
-                initialNumToRender={12}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-                getItemLayout={(_data, index) => ({
-                    length: 64,
-                    offset: 64 * index,
-                    index,
-                })}
+
                 contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom }}
                 showsVerticalScrollIndicator={false}
                 // Importante para evitar saltos
                 maintainVisibleContentPosition={{
                     autoscrollToTopThreshold: 0,
-                    minIndexForVisible: 0,
                 }}
             />
         </View>
@@ -453,6 +515,33 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    playFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#8B5CF6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+    },
+    shuffleFab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 86,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     headerInfo: {
         position: 'absolute',
         bottom: 20,
@@ -470,7 +559,7 @@ const styles = StyleSheet.create({
         color: '#CCCCCC',
         fontSize: 15,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     albumsScroll: {
         paddingLeft: 20,

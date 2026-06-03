@@ -85,45 +85,29 @@ const DetailHeaderLayout = ({
                 <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* Botón Cambiar Foto si aplica */}
-            {onPickPhoto && (
-                <TouchableOpacity
-                    style={[styles.backButton, { left: undefined, right: 166 }]}
-                    onPress={onPickPhoto}
-                >
-                    <Ionicons name="camera" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-            )}
-
-            {/* Botón Editar si aplica */}
-            {onEdit && (
-                <TouchableOpacity
-                    style={[styles.backButton, { left: undefined, right: 116 }]}
-                    onPress={onEdit}
-                >
-                    <Ionicons name="pencil-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-            )}
-
-            {/* Botón Eliminar si aplica */}
-            {onDelete && (
-                <TouchableOpacity
-                    style={[styles.backButton, { left: undefined, right: 66 }]}
-                    onPress={onDelete}
-                >
-                    <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-            )}
-
-            {/* Botón Volver a la Biblioteca / Home */}
-            {onHome && (
-                <TouchableOpacity
-                    style={[styles.backButton, { left: undefined, right: 16 }]}
-                    onPress={onHome}
-                >
-                    <Ionicons name="home" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
-            )}
+            {/* Botones de Acción Derechos */}
+            <View style={styles.actionButtonsContainer}>
+                {onPickPhoto && (
+                    <TouchableOpacity style={styles.actionButton} onPress={onPickPhoto}>
+                        <Ionicons name="camera" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                )}
+                {onEdit && (
+                    <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
+                        <Ionicons name="pencil-outline" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                )}
+                {onDelete && (
+                    <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
+                        <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                )}
+                {onHome && (
+                    <TouchableOpacity style={styles.actionButton} onPress={onHome}>
+                        <Ionicons name="home" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                )}
+            </View>
 
             {/* Info */}
             <View style={styles.headerInfo}>
@@ -201,6 +185,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         zIndex: 10,
     },
+    actionButtonsContainer: {
+        position: 'absolute',
+        top: 50,
+        right: 16,
+        flexDirection: 'row',
+        gap: 10,
+        zIndex: 10,
+    },
+    actionButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     headerInfo: {
         position: 'absolute',
         bottom: 20,
@@ -227,6 +227,6 @@ const styles = StyleSheet.create({
         color: '#CCCCCC',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
 });

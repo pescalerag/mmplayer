@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { memo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, Keyboard } from "react-native";
 import Track from "../database/models/Track";
 import { useTrackMenuStore } from "../store/useTrackMenuStore";
 import { formatTrackTime } from "../utils/time";
@@ -18,6 +18,7 @@ interface TrackRowProps {
   readonly artistName?: string;
   readonly playlistId?: string;
   readonly onPress?: (trackId: string) => void;
+  readonly preventAutoHistory?: boolean;
 }
 
 function TrackRow({
@@ -28,6 +29,7 @@ function TrackRow({
   artistName,
   playlistId,
   onPress,
+  preventAutoHistory,
 }: Readonly<TrackRowProps>) {
   const openMenu = useTrackMenuStore((state) => state.openMenu);
   
@@ -52,17 +54,22 @@ function TrackRow({
     <TouchableOpacity
       style={[styles.row, isCurrentTrack && styles.rowActive]}
       onPress={() => {
-        HistoryService.updateUIRecents({
-          id: track.id,
-          type: "track",
-          context: "manual",
-          title: track.title,
-          subtitle: artistName || "Artista desconocido",
-          imageUrl: coverUrl || null,
-        });
+        if (!preventAutoHistory) {
+          HistoryService.updateUIRecents({
+            id: track.id,
+            type: "track",
+            context: "manual",
+            title: track.title,
+            subtitle: artistName || "Artista desconocido",
+            imageUrl: coverUrl || null,
+          });
+        }
         onPress?.(track.id);
       }}
-      onLongPress={() => openMenu(track, {}, playlistId)}
+      onLongPress={() => {
+        Keyboard.dismiss();
+        openMenu(track, {}, playlistId);
+      }}
       delayLongPress={300}
       activeOpacity={0.6}
     >
@@ -112,7 +119,10 @@ function TrackRow({
         <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => openMenu(track, {}, playlistId)}
+          onPress={() => {
+            Keyboard.dismiss();
+            openMenu(track, {}, playlistId);
+          }}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
           <Ionicons name="ellipsis-vertical" size={20} color="#B3B3B3" />
@@ -163,14 +173,14 @@ const styles = StyleSheet.create({
     color: "#CCCCCC",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
     marginTop: 2,
   },
   duration: {
     color: "#CCCCCC",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   indexText: {
     color: "#B3B3B3",

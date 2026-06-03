@@ -3,10 +3,10 @@ import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import React, { useEffect, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
     ActivityIndicator,
     Dimensions,
-    FlatList,
     InteractionManager,
     ScrollView,
     StyleSheet,
@@ -68,6 +68,7 @@ const AlbumTrackRow = withObservables(
       index={index}
       artistName={artistNames}
       onPress={onPress}
+      preventAutoHistory={true}
     />
   );
 });
@@ -136,12 +137,21 @@ function AlbumDetailContent({
 
   const handleTrackPress = React.useCallback(
     (trackId: string) => {
+      HistoryService.updateUIRecents({
+        id: album.id,
+        type: "album",
+        context: "manual",
+        title: album.title,
+        subtitle: artist?.name,
+        imageUrl: album.coverUrl,
+      });
+
       const trackIndex = tracks.findIndex((t) => t.id === trackId);
       if (trackIndex !== -1) {
         usePlayerStore.getState().loadQueue(tracks, trackIndex, albumContextId);
       }
     },
-    [tracks, albumContextId],
+    [tracks, albumContextId, album.id, album.title, artist?.name, album.coverUrl],
   );
 
   // ─── LÓGICA DEL BOTÓN FLOTANTE (FAB) ───
@@ -166,6 +176,14 @@ function AlbumDetailContent({
   };
 
   const handleShuffleFabPress = () => {
+    HistoryService.updateUIRecents({
+      id: album.id,
+      type: "album",
+      context: "manual",
+      title: album.title,
+      subtitle: artist?.name,
+      imageUrl: album.coverUrl,
+    });
     usePlayerStore.getState().startShuffled(tracks, albumContextId);
   };
 
@@ -279,7 +297,7 @@ function AlbumDetailContent({
         index === 0 || tracks[index - 1].discNumber !== item.discNumber;
 
       return (
-        <View>
+        <View style={{ minHeight: 64, width: '100%' }}>
           {showDiscHeader && item.discNumber && item.discNumber > 1 && (
             <View style={styles.discHeader}>
               <Ionicons name="disc-outline" size={16} color="#8B5CF6" />
@@ -302,7 +320,7 @@ function AlbumDetailContent({
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={isLoadingTracks ? [] : tracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
@@ -320,14 +338,6 @@ function AlbumDetailContent({
             </Text>
           )
         }
-        getItemLayout={(data, index) => ({
-          length: 64,
-          offset: 64 * index,
-          index,
-        })}
-        initialNumToRender={12}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         contentContainerStyle={{
           paddingBottom:
             Layout.MINI_PLAYER_HEIGHT +
@@ -481,7 +491,7 @@ const styles = StyleSheet.create({
     color: "#CCCCCC",
     fontSize: 14,
     fontFamily: "Montserrat",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   playFab: {
     position: "absolute",

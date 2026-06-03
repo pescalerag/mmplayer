@@ -4,9 +4,9 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
     Alert,
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -163,7 +163,7 @@ function DebugHistoryContent({ history }: DebugHistoryContentProps) {
             </View>
 
             {/* List */}
-            <FlatList
+            <FlashList
                 data={history}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => <HistoryRow historyItem={item} />}
@@ -252,19 +252,19 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 13,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
         color: '#B3B3B3',
         marginTop: 2,
     },
     metadataText: {
         fontSize: 11,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         color: '#8A8A8A',
         marginTop: 6,
     },
     dateText: {
         fontSize: 11,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         color: '#666666',
         marginTop: 4,
     },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
         color: '#888888',
         fontSize: 13,
         fontFamily: 'Montserrat',
-        fontWeight: '500',
+        fontWeight: '700',
         textAlign: 'center',
         marginTop: 8,
         lineHeight: 18,

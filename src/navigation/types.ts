@@ -1,5 +1,13 @@
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp, NavigatorScreenParams } from '@react-navigation/native';
+export type HomeStackParamList = {
+    Home: undefined;
+    ArtistDetail: { artistId: string; fromPlayer?: boolean };
+    AlbumDetail: { albumId: string; fromPlayer?: boolean };
+    PlaylistDetail: { playlistId: string };
+    FavoritesDetail: undefined;
+    ChangelogScreen: undefined;
+};
 
 export type LibraryStackParamList = {
     Library: undefined;
@@ -29,6 +37,7 @@ export type RootStackParamList = {
     DebugHistory: undefined;
 };
 
+export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 export type LibraryNavigationProp = NativeStackNavigationProp<LibraryStackParamList>;
 export type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 export type ArtistDetailRouteProp = RouteProp<LibraryStackParamList, 'ArtistDetail'>;

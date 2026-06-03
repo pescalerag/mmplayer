@@ -7,7 +7,7 @@ import { usePlayerStore } from "../store/usePlayerStore";
 
 export type UIHistoryPayload = {
   id: string;
-  type: "track" | "album" | "playlist";
+  type: "track" | "album" | "playlist" | "artist";
   context: "manual" | "queue";
   durationPlayed?: number;
   title?: string;
@@ -49,11 +49,12 @@ export const HistoryService = {
         id: item.id,
         name: finalTitle || "Lista de reproducción sin título",
         description: finalSubtitle || null,
+        imageUrl: finalImageUrl || null,
       });
     } else {
       usePlayerStore.getState().addMediaToRecents({
         id: item.id,
-        type: item.type as "track" | "album",
+        type: item.type as "track" | "album" | "artist",
         title: finalTitle || "Sin título",
         subtitle: finalSubtitle || "Artista desconocido",
         imageUrl: finalImageUrl || null,

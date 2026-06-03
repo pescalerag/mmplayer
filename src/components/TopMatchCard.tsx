@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Keyboard } from 'react-native';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { TopMatch } from '../hooks/useMusicSearch';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import BlurredBackground from './BlurredBackground';
 
 interface TopMatchCardProps {
@@ -71,28 +73,42 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
 
 const TopMatchArtistCard = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
     artist: artist.observe(),
-}))(({ artist, onPress }: { artist: Artist; onPress: () => void }) => (
-    <TopMatchCardLayout
-        title={artist.name}
-        subtitle="Artista"
-        imageUrl={artist.imageUrl}
-        type="artist"
-        onPress={onPress}
-    />
-));
+}))(({ artist, onPress }: { artist: Artist; onPress: () => void }) => {
+    const openMenu = useArtistMenuStore(state => state.openMenu);
+    return (
+        <TopMatchCardLayout
+            title={artist.name}
+            subtitle="Artista"
+            imageUrl={artist.imageUrl}
+            type="artist"
+            onPress={onPress}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(artist);
+            }}
+        />
+    );
+});
 
 const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album }) => ({
     album: album.observe(),
     artist: album.artist.observe(),
-}))(({ album, artist, onPress }: { album: Album; artist: Artist; onPress: () => void }) => (
-    <TopMatchCardLayout
-        title={album.title}
-        subtitle={`Álbum • ${artist?.name || 'Desconocido'}`}
-        imageUrl={album.coverUrl}
-        type="album"
-        onPress={onPress}
-    />
-));
+}))(({ album, artist, onPress }: { album: Album; artist: Artist; onPress: () => void }) => {
+    const openMenu = useAlbumMenuStore(state => state.openMenu);
+    return (
+        <TopMatchCardLayout
+            title={album.title}
+            subtitle={`Álbum • ${artist?.name || 'Desconocido'}`}
+            imageUrl={album.coverUrl}
+            type="album"
+            onPress={onPress}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(album);
+            }}
+        />
+    );
+});
 
 const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
@@ -112,7 +128,10 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
             imageUrl={album?.coverUrl || null}
             type="track"
             onPress={onPress}
-            onLongPress={() => openMenu(track)}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(track);
+            }}
         />
     );
 });
@@ -178,6 +197,6 @@ const styles = StyleSheet.create({
         color: '#B3B3B3',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
     },
 });

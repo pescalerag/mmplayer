@@ -35,6 +35,8 @@ import Track from '../database/models/Track';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { formatTrackTime } from '../utils/time';
 import { getDynamicTagTextColor } from '../utils/color';
+import { HistoryService } from '../services/HistoryService';
+import { useToastStore } from '../store/useToastStore';
 
 
 const { width } = Dimensions.get('window');
@@ -125,6 +127,9 @@ const PlayerScreenUI = ({
         );
         try {
             await track.toggleLike();
+            if (track.isFavorite) { // Si AHORA es favorito, mostrar toast
+                useToastStore.getState().showToast('Añadido a favoritos', 'heart');
+            }
         } catch (e) {
             console.error('Error al dar me gusta:', e);
         }
@@ -571,7 +576,7 @@ const styles = StyleSheet.create({
     artist: {
         color: '#B3B3B3',
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
     },
     progressSection: {
         paddingHorizontal: 5,
@@ -591,7 +596,7 @@ const styles = StyleSheet.create({
     timeText: {
         color: '#B3B3B3',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '700',
     },
     controlsContainer: {
         flexDirection: 'row',

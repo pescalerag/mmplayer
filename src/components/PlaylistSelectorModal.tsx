@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Playlist from '../database/models/Playlist';
 import { PlaylistService } from '../services/PlaylistService';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useToastStore } from '../store/useToastStore';
 import PlaylistCover from './PlaylistCover';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -142,6 +143,11 @@ export default function PlaylistSelectorModal() {
     }, [keyboardHeight]);
 
     const handleDuplicateTracks = (playlistId: string, existingTrackIds: string[], duplicateTracks: typeof tracksToAssociate) => {
+        const showToast = (count: number) => {
+            const msg = count === 1 ? 'Añadido a la playlist' : `${count} añadidas a la playlist`;
+            useToastStore.getState().showToast(msg, 'list-circle');
+        };
+
         if (tracksToAssociate.length === 1) {
             const singleTrack = tracksToAssociate[0];
             Alert.alert(
@@ -149,7 +155,7 @@ export default function PlaylistSelectorModal() {
                 `"${singleTrack.title}" ya está en esta lista de reproducción. ¿Quieres añadirla de todos modos?`,
                 [
                     { text: "Cancelar", style: "cancel" },
-                    { text: "Añadir", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); closeSelector(); } }
+                    { text: "Añadir", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); showToast(1); closeSelector(); } }
                 ]
             );
             return;
@@ -159,9 +165,9 @@ export default function PlaylistSelectorModal() {
         const buttons: AlertButton[] = [{ text: "Cancelar", style: "cancel" }];
 
         if (newTracks.length > 0) {
-            buttons.push({ text: "Solo las nuevas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); closeSelector(); } });
+            buttons.push({ text: "Solo las nuevas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); showToast(newTracks.length); closeSelector(); } });
         }
-        buttons.push({ text: "Añadir todas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); closeSelector(); } });
+        buttons.push({ text: "Añadir todas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); showToast(tracksToAssociate.length); closeSelector(); } });
 
         const message = newTracks.length > 0
             ? `${duplicateTracks.length} de las ${tracksToAssociate.length} canciones ya están en esta lista de reproducción. ¿Quieres añadir solo las nuevas o todas?`
@@ -180,6 +186,8 @@ export default function PlaylistSelectorModal() {
                 handleDuplicateTracks(playlistId, existingTrackIds, duplicateTracks);
             } else {
                 await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id));
+                const msg = tracksToAssociate.length === 1 ? 'Añadido a la playlist' : `${tracksToAssociate.length} añadidas a la playlist`;
+                useToastStore.getState().showToast(msg, 'list-circle');
                 closeSelector();
             }
         } catch (e) {
@@ -197,6 +205,10 @@ export default function PlaylistSelectorModal() {
                 if (tracksToAssociate.length > 0) {
                     const trackIds = tracksToAssociate.map(t => t.id);
                     await PlaylistService.addMultipleTracksToPlaylist(playlist.id, trackIds);
+                    const msg = tracksToAssociate.length === 1 ? 'Añadido a la nueva playlist' : `${tracksToAssociate.length} añadidas a la nueva playlist`;
+                    useToastStore.getState().showToast(msg, 'list-circle');
+                } else {
+                    useToastStore.getState().showToast('Playlist creada', 'list-circle');
                 }
             }
             Keyboard.dismiss();
@@ -234,6 +246,7 @@ export default function PlaylistSelectorModal() {
 
             {/* Contenedor del bottom sheet */}
             <Animated.View 
+                pointerEvents="box-none"
                 style={[
                     styles.keyboardAvoid, 
                     { paddingBottom: keyboardHeight }
@@ -444,7 +457,7 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
         marginTop: 10,
         textAlign: 'center',
     },
@@ -472,7 +485,7 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 12,
         fontFamily: 'Montserrat',
-        fontWeight: '500',
+        fontWeight: '700',
         marginTop: 2,
     },
     sectionTitle: {
@@ -489,7 +502,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         height: 48,
         color: '#FFFFFF',
-        fontFamily: 'Montserrat',
+        fontFamily: 'Montserrat', fontWeight: '600',
         paddingHorizontal: 16,
         fontSize: 14,
         borderWidth: 1,

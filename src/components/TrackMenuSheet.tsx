@@ -23,6 +23,7 @@ import { useTagManagerStore } from '../store/useTagManagerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
+import { useToastStore } from '../store/useToastStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -171,6 +172,7 @@ export default function TrackMenuSheet() {
                     onPress={() => {
                         if (selectedTrack) {
                             addToQueueNext(selectedTrack);
+                            useToastStore.getState().showToast('Añadido a continuación', 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -187,6 +189,7 @@ export default function TrackMenuSheet() {
                     onPress={() => {
                         if (selectedTrack) {
                             addToQueueEnd(selectedTrack);
+                            useToastStore.getState().showToast('Añadido a la cola', 'list');
                             closeMenu();
                         }
                     }}
@@ -385,7 +388,7 @@ const styles = StyleSheet.create({
         color: '#B3B3B3',
         fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '700',
         marginTop: 4,
     },
     optionRow: {

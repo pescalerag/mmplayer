@@ -1,0 +1,201 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Animated, BackHandler } from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import { getChangelogForVersion } from '../constants/changelogs';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { navigationRef } from '../navigation/navigationRef';
+
+const { width, height } = Dimensions.get('window');
+
+// Calculamos tamaño de la imagen para mantener proporción 1080x1920 (9:16)
+const IMAGE_WIDTH = width * 0.75;
+const IMAGE_HEIGHT = IMAGE_WIDTH * (1920 / 1080);
+
+export default function UpdatedAppModal() {
+  const [visible, setVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+  
+  const { lastSeenVersion, setLastSeenVersion } = useSettingsStore();
+  const currentVersion = Constants.expoConfig?.version || '1.1.0-beta';
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  // Montaje / Desmontaje controlado
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+    } else {
+      const timer = setTimeout(() => setShouldRender(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (lastSeenVersion !== currentVersion) {
+      setVisible(true);
+    }
+  }, [lastSeenVersion, currentVersion]);
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.9,
+          duration: 250,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const onBackPress = () => {
+      handleClose();
+      return true;
+    };
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
+  }, [visible]);
+
+  const handleClose = () => {
+    setVisible(false);
+    setLastSeenVersion(currentVersion);
+  };
+
+  const handleSeeChanges = () => {
+    handleClose();
+    navigationRef.current?.navigate('Configuración', { screen: 'ChangelogScreen' });
+  };
+
+  if (!shouldRender && !visible) return null;
+
+  const versionData = getChangelogForVersion(currentVersion);
+
+  return (
+    <View 
+      style={[StyleSheet.absoluteFill, { zIndex: 10000, justifyContent: 'center', alignItems: 'center' }]} 
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
+      
+      <Animated.View style={[styles.modalContent, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+        
+        {/* Imagen del Changelog */}
+        <View style={styles.imageWrapper}>
+          <Image
+            source={versionData.image}
+            style={styles.image}
+            contentFit="cover"
+            transition={300}
+          />
+        </View>
+
+        {/* Botones fuera de la imagen */}
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleSeeChanges} activeOpacity={0.8}>
+            <Ionicons name="sparkles" size={20} color="#FFF" style={styles.buttonIcon} />
+            <Text style={styles.primaryButtonText}>VER CAMBIOS</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleClose} activeOpacity={0.6}>
+            <Text style={styles.secondaryButtonText}>Ahora no</Text>
+          </TouchableOpacity>
+        </View>
+
+      </Animated.View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  },
+  modalContent: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageWrapper: {
+    width: IMAGE_WIDTH,
+    height: Math.min(IMAGE_HEIGHT, height * 0.65), // Limit height so it fits on small screens
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  buttonsContainer: {
+    width: IMAGE_WIDTH,
+    marginTop: 30,
+    alignItems: 'center',
+    gap: 12,
+  },
+  primaryButton: {
+    backgroundColor: '#8B5CF6',
+    flexDirection: 'row',
+    width: '100%',
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: 'Montserrat',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  secondaryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  secondaryButtonText: {
+    color: '#A0A0A0',
+    fontSize: 14,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+  },
+});

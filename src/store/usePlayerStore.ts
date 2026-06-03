@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
 import Track from "../database/models/Track";
+import { navigationRef } from '../navigation/navigationRef';
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
@@ -52,6 +53,7 @@ interface PlayerState {
   clearPlayer: () => Promise<void>;
   setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
   decrementUserQueue: () => void;
+  clearUserQueue: () => Promise<void>;
   savePlaybackState: () => Promise<void>;
   restorePlaybackState: () => Promise<void>;
   saveRecentsState: () => Promise<void>;
@@ -60,11 +62,15 @@ interface PlayerState {
   recentPlaylists: RecentPlaylist[];
   addMediaToRecents: (item: Omit<RecentItem, "timestamp">) => void;
   addPlaylistToRecents: (item: Omit<RecentPlaylist, "timestamp">) => void;
+  updatePlaylistCoverInRecents: (playlistId: string, imageUrl: string | null) => void;
+  removePlaylistFromRecents: (playlistId: string) => void;
+  updateMediaImageInRecents: (id: string, type: RecentItem["type"], imageUrl: string | null) => void;
+  handleDeletedEntities: (trackIds: string[], albumIds: string[], artistIds: string[]) => Promise<void>;
 }
 
 export type RecentItem = {
   id: string;
-  type: "track" | "album";
+  type: "track" | "album" | "artist";
   title: string;
   subtitle: string;
   imageUrl: string | null;
@@ -75,6 +81,7 @@ export type RecentPlaylist = {
   id: string;
   name: string;
   description: string | null;
+  imageUrl?: string | null;
   timestamp: number;
 };
 
@@ -91,20 +98,42 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   loadQueue: async (tracks, index, context = "unknown") => {
     try {
-      const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+      const CHUNK_SIZE = 50;
+      // Reordenamos para que la canción seleccionada sea la primera
+      const tracksToPlay = [...tracks.slice(index), ...tracks.slice(0, index)];
+      
+      const initialChunk = tracksToPlay.slice(0, CHUNK_SIZE);
+      const remainingTracks = tracksToPlay.slice(CHUNK_SIZE);
+
+      const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
 
       await TrackPlayer.reset();
-      await TrackPlayer.add(tpTracks);
-      await TrackPlayer.skip(index);
+      await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
-      // Al cargar una nueva cola se resetea el shuffle y la cola manual
+      
       set({
-        activeTrack: tracks[index],
+        activeTrack: initialChunk[0],
         playbackContext: context,
         isShuffleEnabled: false,
         shuffleOriginalQueue: [],
         userQueueSize: 0,
       });
+
+      // Carga diferida en segundo plano
+      if (remainingTracks.length > 0) {
+        (async () => {
+          try {
+            for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
+              const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
+              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              await TrackPlayer.add(tpChunk);
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          } catch (bgError) {
+            console.error("Background queue loading error:", bgError);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Error loading queue:", error);
     }
@@ -112,30 +141,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   startShuffled: async (tracks, context = "unknown") => {
     try {
-      const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+      const CHUNK_SIZE = 50;
 
-      // 1. Crear un arreglo de índices y barajarlo
       const indices = Array.from({ length: tracks.length }, (_, i) => i);
       const shuffledIndices = indices.sort(() => Math.random() - 0.5);
-
       const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
-      const shuffledTpTracks = shuffledIndices.map((i) => tpTracks[i]);
 
-      // 2. Cargar la cola barajada completa
+      const initialChunk = shuffledTracks.slice(0, CHUNK_SIZE);
+      const remainingTracks = shuffledTracks.slice(CHUNK_SIZE);
+
+      const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
+
       await TrackPlayer.reset();
-      await TrackPlayer.add(shuffledTpTracks);
+      await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
 
-      // 3. Guardar estado: shuffle activo, cola original guardada
       set({
-        activeTrack: shuffledTracks[0],
+        activeTrack: initialChunk[0],
         playbackContext: context,
         isShuffleEnabled: true,
-        shuffleOriginalQueue: tpTracks,
+        shuffleOriginalQueue: initialTpTracks,
         userQueueSize: 0,
         hasPrevious: false,
         hasNext: shuffledTracks.length > 1,
       });
+
+      // Carga diferida en segundo plano
+      if (remainingTracks.length > 0) {
+        (async () => {
+          try {
+            for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
+              const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
+              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              await TrackPlayer.add(tpChunk);
+              
+              set(state => ({
+                  shuffleOriginalQueue: [...state.shuffleOriginalQueue, ...tpChunk]
+              }));
+              
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          } catch (bgError) {
+            console.error("Background shuffle loading error:", bgError);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Error starting shuffled queue:", error);
     }
@@ -243,6 +293,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue: [],
         userQueueSize: 0,
       });
+
+      // Cerrar el PlayerScreen si está abierto
+      if (navigationRef.isReady()) {
+        const currentRoute = navigationRef.getCurrentRoute();
+        const rootState = navigationRef.getRootState();
+        
+        if (
+          currentRoute?.name === 'PlayerHome' || 
+          (rootState && rootState.routes[rootState.index]?.name === 'Player')
+        ) { 
+          navigationRef.navigate('Main');
+        }
+      }
+
     } catch (error) {
       console.error("Error in clearPlayer:", error);
     }
@@ -258,6 +322,39 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   // y hay tracks de la user queue pendientes
   decrementUserQueue: () => {
     set((state) => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
+  },
+
+  clearUserQueue: async () => {
+    try {
+      const queue = await TrackPlayer.getQueue();
+      const activeIndex = await TrackPlayer.getActiveTrackIndex();
+      
+      if (activeIndex === undefined || activeIndex === null) return;
+
+      const indicesToRemove = queue
+        .map((track, index) => index > activeIndex && (track as any).isManual ? index : -1)
+        .filter(index => index !== -1);
+      
+      if (indicesToRemove.length > 0) {
+        // Ordenamos los índices de mayor a menor para que al borrar desde el final
+        // no afecte a los índices de las posiciones anteriores.
+        indicesToRemove.sort((a, b) => b - a);
+
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < indicesToRemove.length; i += CHUNK_SIZE) {
+          const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
+          await TrackPlayer.remove(chunk);
+          // Pausa corta para liberar el hilo de UI
+          await new Promise((resolve) => setTimeout(resolve, 16));
+        }
+      }
+      
+      set({ userQueueSize: 0 });
+      await get().updateQueueStatus();
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error("Error clearing user queue:", e);
+    }
   },
 
   // ── Persistencia en disco ──
@@ -421,5 +518,91 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     );
     set({ recentPlaylists: updated });
     get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+  },
+
+  updatePlaylistCoverInRecents: (playlistId, imageUrl) => {
+    const current = get().recentPlaylists;
+    let modified = false;
+    const updated = current.map((p) => {
+      if (p.id === playlistId && (p as any).imageUrl !== imageUrl) {
+        modified = true;
+        return { ...p, imageUrl };
+      }
+      return p;
+    });
+    if (modified) {
+      set({ recentPlaylists: updated });
+      get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
+  },
+
+  removePlaylistFromRecents: (playlistId) => {
+    const current = get().recentPlaylists;
+    const updated = current.filter((p) => p.id !== playlistId);
+    if (updated.length !== current.length) {
+      set({ recentPlaylists: updated });
+      get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
+  },
+
+  updateMediaImageInRecents: (id, type, imageUrl) => {
+    const current = get().recentMedia;
+    let modified = false;
+    const updated = current.map((item) => {
+      if (item.id === id && item.type === type && item.imageUrl !== imageUrl) {
+        modified = true;
+        return { ...item, imageUrl };
+      }
+      return item;
+    });
+    if (modified) {
+      set({ recentMedia: updated });
+      get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
+  },
+
+  handleDeletedEntities: async (trackIds, albumIds, artistIds) => {
+    try {
+      const state = get();
+      let shouldUpdateRecents = false;
+      const newRecentMedia = state.recentMedia.filter(item => {
+        if (item.type === 'track' && trackIds.includes(item.id)) return false;
+        if (item.type === 'album' && albumIds.includes(item.id)) return false;
+        return true;
+      });
+
+      if (newRecentMedia.length !== state.recentMedia.length) {
+        set({ recentMedia: newRecentMedia });
+        shouldUpdateRecents = true;
+      }
+
+      if (shouldUpdateRecents) {
+        await get().saveRecentsState();
+      }
+
+      // Handle queue
+      const activeTrack = state.activeTrack;
+      if (activeTrack && trackIds.includes(activeTrack.id)) {
+        // Current track deleted -> clear queue and stop
+        await get().clearPlayer();
+      } else if (trackIds.length > 0) {
+        // Check if any deleted track is in the queue
+        const queue = await TrackPlayer.getQueue();
+        const indicesToRemove: number[] = [];
+        queue.forEach((track, index) => {
+          if (track.id && trackIds.includes(track.id as string)) {
+            indicesToRemove.push(index);
+          }
+        });
+
+        if (indicesToRemove.length > 0) {
+          await TrackPlayer.remove(indicesToRemove);
+          await get().updateQueueStatus();
+          await get().savePlaybackState();
+        }
+      }
+    } catch (error) {
+      console.error("Error handling deleted entities in player store:", error);
+    }
   }
 }));
