@@ -313,6 +313,11 @@ function PlaylistDetailContent({
       }
 
       await FileSystem.copyAsync({ from: asset.uri, to: newPath });
+      try {
+        await FileSystem.deleteAsync(asset.uri, { idempotent: true });
+      } catch (e) {
+        console.warn("Error deleting temp image from cache:", e);
+      }
 
       await database.write(async () => {
         await playlist.update((p) => {

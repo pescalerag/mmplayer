@@ -156,6 +156,7 @@ function AlbumDetailContent({
 
   // ─── LÓGICA DEL BOTÓN FLOTANTE (FAB) ───
   const handleFabPress = async () => {
+    if (!tracks || tracks.length === 0) return;
     HistoryService.updateUIRecents({
       id: album.id,
       type: "album",
@@ -176,6 +177,7 @@ function AlbumDetailContent({
   };
 
   const handleShuffleFabPress = () => {
+    if (!tracks || tracks.length === 0) return;
     HistoryService.updateUIRecents({
       id: album.id,
       type: "album",

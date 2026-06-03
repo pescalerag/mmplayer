@@ -285,6 +285,11 @@ const saveImageToLocalFile = async (assetUri: string, artistName: string, oldPat
 
     await cleanupOldImage(oldPath, newPath);
     await FileSystem.copyAsync({ from: assetUri, to: newPath });
+    try {
+        await FileSystem.deleteAsync(assetUri, { idempotent: true });
+    } catch (e) {
+        console.warn("Error deleting temp image from cache:", e);
+    }
 
     return newPath;
 };
