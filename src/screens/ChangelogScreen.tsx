@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import SectionHeader from '../components/SectionHeader';
 import { changelogs } from '../constants/changelogs';
+import { Layout } from '../theme/theme';
 
 export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();
@@ -14,7 +15,7 @@ export default function ChangelogScreen() {
   return (
     <ScrollView 
       style={[styles.container, { paddingTop: insets.top }]}
-      contentContainerStyle={{ paddingBottom: 120 }}
+      contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 30 }}
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.headerTitle}>Historial de versiones</Text>
