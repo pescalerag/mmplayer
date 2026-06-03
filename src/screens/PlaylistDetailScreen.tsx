@@ -135,7 +135,14 @@ function PlaylistDetailContent({
       try {
         // Obtenemos todas las promesas a la vez y las resolvemos en paralelo
         const resolvedTracks = await Promise.all(
-          playlistTracks.map((pt) => pt.track.fetch()),
+          playlistTracks.map(async (pt) => {
+            try {
+              return await pt.track.fetch();
+            } catch (e) {
+              console.warn("Error cargando pista huerfana en playlist", e);
+              return null;
+            }
+          }),
         );
 
         // Filtramos por si alguna canción fue borrada del dispositivo
