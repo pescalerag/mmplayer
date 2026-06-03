@@ -7,6 +7,22 @@ export interface VersionChangelog {
 }
 
 export const changelogs: Record<string, VersionChangelog> = {
+  '1.1.0': {
+    version: '1.1.0',
+    title: 'Versión 1.1.0 (Estable)',
+    date: '03/06/2026',
+    image: require('../assets/updates/modalv1.1.0-stable.png'),
+    changes: [
+      'Optimización de Renderizado (Sin Flickering): Evita el parpadeo visual en portadas e imágenes de cabecera de las pantallas de detalles al cambiar el estado del reproductor.',
+      'Inyección de Nullcover Persistente: Inyección directa de portada por defecto en base de datos para archivos sin carátula, acelerando la navegación.',
+      'Soporte de Artistas Colaboradores Mejorado: Detección estricta separando colaboradores por coma (",") en lugar de barra diagonal en el escáner.',
+      'Prevención de Fugas de Memoria (Memory Leaks): Evita errores de actualización en componentes desmontados al navegar rápidamente de forma asíncrona.',
+      'Robusto contra Canciones Corruptas: Carga segura de playlists que ignora y omite pistas corruptas en la base de datos sin congelar la app.',
+      'Seguridad de Reproducción FAB: Impide reproducir álbumes o artistas con colas vacías o no cargadas, previniendo crashes nativos.',
+      'Limpieza de Caché del Dispositivo: Eliminación automática de portadas de caché temporales generadas al usar el selector de archivos.',
+      'Optimización de UI y Callbacks: Eliminación de funciones anónimas inline y memorización de componentes en la pantalla principal para un scroll ultra-fluido.'
+    ]
+  },
   '1.1.0-beta': {
     version: '1.1.0-beta',
     title: 'Versión 1.1.0-beta',
