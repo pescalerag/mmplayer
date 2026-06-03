@@ -173,11 +173,25 @@ const extractFileMetadata = (file: any) => {
         coverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
     }
     
+    const rawTitle = file.title?.trim();
+    const rawArtist = file.artist?.trim();
+    const rawAlbum = file.album?.trim();
+
+    const title = (!rawTitle || rawTitle === 'Unknown Title') 
+        ? file.filename.replace(/\.[^/.]+$/, '') 
+        : rawTitle;
+    const artistString = (!rawArtist || rawArtist === 'Unknown Artist') 
+        ? 'Artista Desconocido' 
+        : rawArtist;
+    const albumTitle = (!rawAlbum || rawAlbum === 'Unknown Album') 
+        ? 'Álbum Desconocido' 
+        : rawAlbum;
+
     return {
-        title: file.title?.trim() || file.filename.replace(/\.[^/.]+$/, ''),
-        artistString: file.artist?.trim() || 'Artista Desconocido',
-        albumTitle: file.album?.trim() || 'Álbum Desconocido',
-        albumId: file.albumId || file.album?.trim() || 'Álbum Desconocido',
+        title,
+        artistString,
+        albumTitle,
+        albumId: file.albumId || albumTitle,
         coverUrl: coverUrl,
         durationInSeconds: file.duration || 0,
         year: file.year || null,
