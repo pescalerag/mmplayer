@@ -55,8 +55,6 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
         setImageError(false);
     }, [track.id]);
 
-    const hasCover = Boolean(album?.coverUrl && album.coverUrl !== 'null' && album.coverUrl.trim() !== '') && !imageError;
-
     return (
         <TouchableOpacity
             activeOpacity={0.9}
@@ -68,19 +66,13 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
             <View style={styles.content}>
                 <View style={styles.leftSection}>
                     <View style={styles.artworkContainer}>
-                        {hasCover ? (
-                            <Image
-                                key={track.id}
-                                source={{ uri: album.coverUrl as string }}
-                                style={styles.artwork}
-                                contentFit="cover"
-                                onError={() => setImageError(true)}
-                            />
-                        ) : (
-                            <View style={styles.artworkPlaceholder}>
-                                <Ionicons name="musical-note" size={24} color="#535353" />
-                            </View>
-                        )}
+                        <Image
+                            key={track.id}
+                            source={{ uri: album.coverUrl as string }}
+                            style={styles.artwork}
+                            contentFit="cover"
+                            onError={() => setImageError(true)}
+                        />
                     </View>
 
                     <View style={styles.info}>
@@ -131,7 +123,6 @@ const styles = StyleSheet.create({
     leftSection: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     artwork: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#282828' },
     artworkContainer: { width: 44, height: 44, borderRadius: 6, overflow: 'hidden' },
-    artworkPlaceholder: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#282828', justifyContent: 'center', alignItems: 'center' },
     info: { flex: 1, marginLeft: 12 },
     title: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Montserrat', fontWeight: '700' },
     artist: { color: '#B3B3B3', fontSize: 12, fontFamily: 'Montserrat', fontWeight: '700', marginTop: 2 },

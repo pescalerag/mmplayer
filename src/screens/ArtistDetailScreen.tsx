@@ -73,15 +73,26 @@ const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }
     );
 });
 
-const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { album: Album; onPress: () => void }) {
+const AlbumCardWithNav = memo(function AlbumCardWithNav({
+    album,
+    onPress,
+    onLongPress,
+}: {
+    album: Album;
+    onPress: (album: Album) => void;
+    onLongPress: (album: Album) => void;
+}) {
+    const handlePress = useCallback(() => onPress(album), [album, onPress]);
+    const handleLongPress = useCallback(() => onLongPress(album), [album, onLongPress]);
+
     return (
         <View style={styles.albumCardWrapper}>
             <LibraryCard
                 title={album.title}
                 imageUrl={album.coverUrl}
                 placeholderIcon="albums"
-                onPress={onPress}
-                onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
+                onPress={handlePress}
+                onLongPress={handleLongPress}
             />
         </View>
     );
@@ -152,6 +163,22 @@ const ArtistHeader = memo(function ArtistHeader({
         usePlayerStore.getState().startShuffled(tracks, contextId);
     };
 
+    const handleAlbumPress = useCallback((album: Album) => {
+        const state = navigation.getState();
+        const previousRoute = state.routes[state.routes.length - 2];
+        const params = previousRoute?.params as { albumId?: string } | undefined;
+
+        if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
+            navigation.goBack();
+        } else {
+            navigation.navigate('AlbumDetail', { albumId: album.id });
+        }
+    }, [navigation]);
+
+    const handleAlbumLongPress = useCallback((album: Album) => {
+        useAlbumMenuStore.getState().openMenu(album);
+    }, []);
+
     const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
     const trackLabel = tracksCount === 1 ? 'canción' : 'canciones';
     const metaInfo = isLoadingContent
@@ -213,17 +240,8 @@ const ArtistHeader = memo(function ArtistHeader({
                                 <AlbumCardWithNav
                                     key={album.id}
                                     album={album}
-                                    onPress={() => {
-                                        const state = navigation.getState();
-                                        const previousRoute = state.routes[state.routes.length - 2];
-                                        const params = previousRoute?.params as { albumId?: string } | undefined;
-
-                                        if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
-                                            navigation.goBack();
-                                        } else {
-                                            navigation.navigate('AlbumDetail', { albumId: album.id });
-                                        }
-                                    }}
+                                    onPress={handleAlbumPress}
+                                    onLongPress={handleAlbumLongPress}
                                 />
                             ))}
                         </ScrollView>
@@ -267,6 +285,11 @@ const saveImageToLocalFile = async (assetUri: string, artistName: string, oldPat
 
     await cleanupOldImage(oldPath, newPath);
     await FileSystem.copyAsync({ from: assetUri, to: newPath });
+    try {
+        await FileSystem.deleteAsync(assetUri, { idempotent: true });
+    } catch (e) {
+        console.warn("Error deleting temp image from cache:", e);
+    }
 
     return newPath;
 };
@@ -419,13 +442,19 @@ export default function ArtistDetailScreen() {
     const [areAlbumsReady, setAreAlbumsReady] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
+
         const loadArtistData = async () => {
             try {
                 const artistDoc = await database.collections.get<Artist>('artists').find(artistId);
-                setArtist(artistDoc);
+                if (isMounted) {
+                    setArtist(artistDoc);
+                }
             } catch (error) {
                 console.error('Error cargando ArtistDetail Artist:', error);
-                Alert.alert('Error', 'No se pudo cargar la información del artista.');
+                if (isMounted) {
+                    Alert.alert('Error', 'No se pudo cargar la información del artista.');
+                }
             }
         };
 
@@ -434,13 +463,14 @@ export default function ArtistDetailScreen() {
                 const albumsDocs = await database.collections.get<Album>('albums')
                     .query(Q.where('artist_id', artistId))
                     .fetch();
-                setAlbums(albumsDocs);
-
                 const tracksDocs = await database.collections.get<Track>('tracks')
                     .query(Q.on('track_collaborators', 'artist_id', artistId))
                     .fetch();
-                setTracks(tracksDocs);
-                setAreAlbumsReady(true);
+                if (isMounted) {
+                    setAlbums(albumsDocs);
+                    setTracks(tracksDocs);
+                    setAreAlbumsReady(true);
+                }
             } catch (error) {
                 console.error('Error cargando ArtistDetail Content:', error);
             }
@@ -450,7 +480,10 @@ export default function ArtistDetailScreen() {
         const task = InteractionManager.runAfterInteractions(() => {
             loadContent();
         });
-        return () => task.cancel();
+        return () => {
+            isMounted = false;
+            task.cancel();
+        };
     }, [artistId]);
 
     if (!artist) {

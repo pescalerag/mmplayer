@@ -10,7 +10,14 @@ export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();
   const currentVersion = Constants.expoConfig?.version || '1.0.0';
   
-  const versionKeys = Object.keys(changelogs).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const versionKeys = Object.keys(changelogs).sort((a, b) => {
+    const cleanA = a.replace(/-beta$/, '');
+    const cleanB = b.replace(/-beta$/, '');
+    if (cleanA !== cleanB) {
+      return cleanB.localeCompare(cleanA, undefined, { numeric: true });
+    }
+    return a.endsWith('-beta') ? 1 : -1;
+  });
 
   return (
     <ScrollView 

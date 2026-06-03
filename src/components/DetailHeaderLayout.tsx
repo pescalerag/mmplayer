@@ -47,6 +47,10 @@ const DetailHeaderLayout = ({
     isFavorites = false,
     renderCover,
 }: DetailHeaderLayoutProps) => {
+    const imageSource = React.useMemo(() => 
+        imageUrl ? { uri: imageUrl } : null
+    , [imageUrl]);
+
     return (
         <View style={styles.headerContainer}>
             {renderCover ? (
@@ -62,7 +66,7 @@ const DetailHeaderLayout = ({
                 </LinearGradient>
             ) : imageUrl ? (
                 <Image
-                    source={{ uri: imageUrl }}
+                    source={imageSource}
                     style={styles.headerImage}
                     contentFit="cover"
                     transition={200}

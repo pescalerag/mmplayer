@@ -135,7 +135,14 @@ function PlaylistDetailContent({
       try {
         // Obtenemos todas las promesas a la vez y las resolvemos en paralelo
         const resolvedTracks = await Promise.all(
-          playlistTracks.map((pt) => pt.track.fetch()),
+          playlistTracks.map(async (pt) => {
+            try {
+              return await pt.track.fetch();
+            } catch (e) {
+              console.warn("Error cargando pista huerfana en playlist", e);
+              return null;
+            }
+          }),
         );
 
         // Filtramos por si alguna canción fue borrada del dispositivo
@@ -306,6 +313,11 @@ function PlaylistDetailContent({
       }
 
       await FileSystem.copyAsync({ from: asset.uri, to: newPath });
+      try {
+        await FileSystem.deleteAsync(asset.uri, { idempotent: true });
+      } catch (e) {
+        console.warn("Error deleting temp image from cache:", e);
+      }
 
       await database.write(async () => {
         await playlist.update((p) => {
@@ -319,7 +331,7 @@ function PlaylistDetailContent({
     }
   }, [playlist]);
 
-  const renderHeader = () => (
+  const listHeader = (
     <>
       <DetailHeaderLayout
         title={playlist.name}
@@ -394,7 +406,7 @@ function PlaylistDetailContent({
         data={playlistTracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           loadingTracks ? (
             <ActivityIndicator

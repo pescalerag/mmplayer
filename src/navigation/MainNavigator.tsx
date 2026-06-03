@@ -3,12 +3,11 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { StyleSheet, View, AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ScannerService } from "../services/ScannerService";
-import { useSyncStore } from "../store/useSyncStore";
 import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
 import GlobalToast from "../components/GlobalToast";
+import { ScannerService } from "../services/ScannerService";
 
 import MiniPlayer from "../components/MiniPlayer";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
@@ -97,6 +96,22 @@ const TabBarBackground = () => (
 
 const createTabListener = (navigation: any, route: any) => ({
   tabPress: (e: any) => {
+    const state = navigation.getState();
+    if (state) {
+      const currentRoute = state.routes[state.index];
+      const isFocused = currentRoute?.name === route.name;
+
+      if (isFocused) {
+        const nestedState = currentRoute.state;
+        const isAtRoot = !nestedState || nestedState.index === 0;
+
+        if (isAtRoot) {
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+
     e.preventDefault();
     navigation.reset({
       index: 0,
