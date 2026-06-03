@@ -191,6 +191,7 @@ function PlaylistDetailContent({
             try {
               navigation.goBack();
               await PlaylistService.deletePlaylist(playlist.id);
+              usePlayerStore.getState().removePlaylistFromRecents(playlist.id);
             } catch (err) {
               console.error("Error al eliminar la playlist:", err);
               Alert.alert(

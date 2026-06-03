@@ -329,6 +329,8 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
                 await artist.update(a => { a.imageUrl = permanentUri; });
             });
 
+            usePlayerStore.getState().updateMediaImageInRecents(artist.id, 'artist', permanentUri);
+
             Alert.alert('¡Éxito!', 'La foto del artista se ha actualizado.');
         } catch (e) {
             console.error('Error guardando foto:', e);

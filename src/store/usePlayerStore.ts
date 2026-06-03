@@ -63,6 +63,8 @@ interface PlayerState {
   addMediaToRecents: (item: Omit<RecentItem, "timestamp">) => void;
   addPlaylistToRecents: (item: Omit<RecentPlaylist, "timestamp">) => void;
   updatePlaylistCoverInRecents: (playlistId: string, imageUrl: string | null) => void;
+  removePlaylistFromRecents: (playlistId: string) => void;
+  updateMediaImageInRecents: (id: string, type: RecentItem["type"], imageUrl: string | null) => void;
   handleDeletedEntities: (trackIds: string[], albumIds: string[], artistIds: string[]) => Promise<void>;
 }
 
@@ -530,6 +532,31 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
     if (modified) {
       set({ recentPlaylists: updated });
+      get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
+  },
+
+  removePlaylistFromRecents: (playlistId) => {
+    const current = get().recentPlaylists;
+    const updated = current.filter((p) => p.id !== playlistId);
+    if (updated.length !== current.length) {
+      set({ recentPlaylists: updated });
+      get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
+    }
+  },
+
+  updateMediaImageInRecents: (id, type, imageUrl) => {
+    const current = get().recentMedia;
+    let modified = false;
+    const updated = current.map((item) => {
+      if (item.id === id && item.type === type && item.imageUrl !== imageUrl) {
+        modified = true;
+        return { ...item, imageUrl };
+      }
+      return item;
+    });
+    if (modified) {
+      set({ recentMedia: updated });
       get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));
     }
   },
