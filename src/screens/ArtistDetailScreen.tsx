@@ -437,13 +437,19 @@ export default function ArtistDetailScreen() {
     const [areAlbumsReady, setAreAlbumsReady] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
+
         const loadArtistData = async () => {
             try {
                 const artistDoc = await database.collections.get<Artist>('artists').find(artistId);
-                setArtist(artistDoc);
+                if (isMounted) {
+                    setArtist(artistDoc);
+                }
             } catch (error) {
                 console.error('Error cargando ArtistDetail Artist:', error);
-                Alert.alert('Error', 'No se pudo cargar la información del artista.');
+                if (isMounted) {
+                    Alert.alert('Error', 'No se pudo cargar la información del artista.');
+                }
             }
         };
 
@@ -452,13 +458,14 @@ export default function ArtistDetailScreen() {
                 const albumsDocs = await database.collections.get<Album>('albums')
                     .query(Q.where('artist_id', artistId))
                     .fetch();
-                setAlbums(albumsDocs);
-
                 const tracksDocs = await database.collections.get<Track>('tracks')
                     .query(Q.on('track_collaborators', 'artist_id', artistId))
                     .fetch();
-                setTracks(tracksDocs);
-                setAreAlbumsReady(true);
+                if (isMounted) {
+                    setAlbums(albumsDocs);
+                    setTracks(tracksDocs);
+                    setAreAlbumsReady(true);
+                }
             } catch (error) {
                 console.error('Error cargando ArtistDetail Content:', error);
             }
@@ -468,7 +475,10 @@ export default function ArtistDetailScreen() {
         const task = InteractionManager.runAfterInteractions(() => {
             loadContent();
         });
-        return () => task.cancel();
+        return () => {
+            isMounted = false;
+            task.cancel();
+        };
     }, [artistId]);
 
     if (!artist) {

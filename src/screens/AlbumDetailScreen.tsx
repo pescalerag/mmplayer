@@ -367,15 +367,18 @@ export default function AlbumDetailScreen() {
   const [areTracksReady, setAreTracksReady] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadHeaderData = async () => {
       try {
-        // 1. Cargar el álbum e inmediatamente su artista
         const albumDoc = await database.collections
           .get<Album>("albums")
           .find(albumId);
         const artistDoc = await albumDoc.artist.fetch();
-        setAlbum(albumDoc);
-        setArtist(artistDoc);
+        if (isMounted) {
+          setAlbum(albumDoc);
+          setArtist(artistDoc);
+        }
       } catch (error) {
         console.error("Error cargando AlbumDetail Header:", error);
       }
@@ -391,22 +394,25 @@ export default function AlbumDetailScreen() {
             Q.sortBy("track_number", Q.asc),
           )
           .fetch();
-        setTracks(tracksDocs);
-        setAreTracksReady(true);
+        if (isMounted) {
+          setTracks(tracksDocs);
+          setAreTracksReady(true);
+        }
       } catch (error) {
         console.error("Error cargando AlbumDetail Tracks:", error);
       }
     };
 
-    // Cargar lo ligero de inmediato
     loadHeaderData();
 
-    // Diferir lo pesado para después de la navegación
     const task = InteractionManager.runAfterInteractions(() => {
       loadTracks();
     });
 
-    return () => task.cancel();
+    return () => {
+      isMounted = false;
+      task.cancel();
+    };
   }, [albumId]);
 
   if (!album) {
