@@ -24,7 +24,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 const { width } = Dimensions.get('window');
 const gridItemWidth = (width - 48) / 2;
 
-const RecentMediaCard = ({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
     const [imageError, setImageError] = React.useState(false);
     
     React.useEffect(() => {
@@ -36,11 +36,14 @@ const RecentMediaCard = ({ item, isActuallyPlaying, activeTrack, onPress, onLong
     
     const showImage = Boolean(item.imageUrl && item.imageUrl !== 'null' && item.imageUrl.trim() !== '') && !imageError;
 
+    const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
+    const handleLongPress = React.useCallback(() => onLongPress?.(item), [item, onLongPress]);
+
     return (
         <TouchableOpacity
             style={[styles.gridCard, isActive && styles.gridCardActive]}
-            onPress={() => onPress(item)}
-            onLongPress={() => onLongPress?.(item)}
+            onPress={handlePress}
+            onLongPress={handleLongPress}
             delayLongPress={300}
             activeOpacity={0.7}
         >
@@ -66,7 +69,7 @@ const RecentMediaCard = ({ item, isActuallyPlaying, activeTrack, onPress, onLong
             </View>
         </TouchableOpacity>
     );
-};
+});
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
@@ -84,7 +87,7 @@ export default function HomeScreen() {
     const playbackStateRN = usePlaybackState();
     const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
 
-    const handleMediaPress = async (item: any) => {
+    const handleMediaPress = React.useCallback(async (item: any) => {
         if (item.type === 'album') {
             navigation.navigate('AlbumDetail', { albumId: item.id });
         } else if (item.type === 'artist') {
@@ -97,9 +100,9 @@ export default function HomeScreen() {
                 console.error('Error al reproducir track reciente:', error);
             }
         }
-    };
+    }, [navigation]);
 
-    const handleMediaLongPress = async (item: any) => {
+    const handleMediaLongPress = React.useCallback(async (item: any) => {
         try {
             if (item.type === 'album') {
                 const album = await database.get<Album>('albums').find(item.id);
@@ -117,7 +120,22 @@ export default function HomeScreen() {
         } catch (error) {
             console.error('Error al abrir menu contextual de reciente:', error);
         }
-    };
+    }, [navigation]);
+
+    const handlePlaylistPress = React.useCallback((id: string) => {
+        if (id === 'favorites') {
+            navigation.navigate('FavoritesDetail');
+        } else {
+            navigation.navigate('PlaylistDetail', { playlistId: id });
+        }
+    }, [navigation]);
+
+    const handlePlaylistLongPress = React.useCallback((id: string) => {
+        const playlist = recentPlaylists.find(p => p.id === id);
+        if (playlist) {
+            usePlaylistMenuStore.getState().openMenu(playlist as any);
+        }
+    }, [recentPlaylists]);
 
     return (
         <View style={styles.container}>
@@ -165,16 +183,8 @@ export default function HomeScreen() {
                             name={playlist.name}
                             description={playlist.description}
                             customCoverUrl={(playlist as any).imageUrl}
-                            onPress={() => {
-                                if (playlist.id === 'favorites') {
-                                    navigation.navigate('FavoritesDetail');
-                                } else {
-                                    navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
-                                }
-                            }}
-                            onLongPress={() => {
-                                usePlaylistMenuStore.getState().openMenu(playlist as any);
-                            }}
+                            onPress={handlePlaylistPress}
+                            onLongPress={handlePlaylistLongPress}
                         />
                     ))}
                 </View>

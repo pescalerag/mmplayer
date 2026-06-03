@@ -73,15 +73,26 @@ const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }
     );
 });
 
-const AlbumCardWithNav = memo(function AlbumCardWithNav({ album, onPress }: { album: Album; onPress: () => void }) {
+const AlbumCardWithNav = memo(function AlbumCardWithNav({
+    album,
+    onPress,
+    onLongPress,
+}: {
+    album: Album;
+    onPress: (album: Album) => void;
+    onLongPress: (album: Album) => void;
+}) {
+    const handlePress = useCallback(() => onPress(album), [album, onPress]);
+    const handleLongPress = useCallback(() => onLongPress(album), [album, onLongPress]);
+
     return (
         <View style={styles.albumCardWrapper}>
             <LibraryCard
                 title={album.title}
                 imageUrl={album.coverUrl}
                 placeholderIcon="albums"
-                onPress={onPress}
-                onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
+                onPress={handlePress}
+                onLongPress={handleLongPress}
             />
         </View>
     );
@@ -152,6 +163,22 @@ const ArtistHeader = memo(function ArtistHeader({
         usePlayerStore.getState().startShuffled(tracks, contextId);
     };
 
+    const handleAlbumPress = useCallback((album: Album) => {
+        const state = navigation.getState();
+        const previousRoute = state.routes[state.routes.length - 2];
+        const params = previousRoute?.params as { albumId?: string } | undefined;
+
+        if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
+            navigation.goBack();
+        } else {
+            navigation.navigate('AlbumDetail', { albumId: album.id });
+        }
+    }, [navigation]);
+
+    const handleAlbumLongPress = useCallback((album: Album) => {
+        useAlbumMenuStore.getState().openMenu(album);
+    }, []);
+
     const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
     const trackLabel = tracksCount === 1 ? 'canción' : 'canciones';
     const metaInfo = isLoadingContent
@@ -213,17 +240,8 @@ const ArtistHeader = memo(function ArtistHeader({
                                 <AlbumCardWithNav
                                     key={album.id}
                                     album={album}
-                                    onPress={() => {
-                                        const state = navigation.getState();
-                                        const previousRoute = state.routes[state.routes.length - 2];
-                                        const params = previousRoute?.params as { albumId?: string } | undefined;
-
-                                        if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
-                                            navigation.goBack();
-                                        } else {
-                                            navigation.navigate('AlbumDetail', { albumId: album.id });
-                                        }
-                                    }}
+                                    onPress={handleAlbumPress}
+                                    onLongPress={handleAlbumLongPress}
                                 />
                             ))}
                         </ScrollView>

@@ -10,15 +10,18 @@ interface RecentPlaylistCardProps {
     name: string;
     description: string | null;
     customCoverUrl?: string | null;
-    onPress: () => void;
-    onLongPress?: () => void;
+    onPress: (id: string) => void;
+    onLongPress?: (id: string) => void;
 }
 
 const { width } = Dimensions.get('window');
 
-export default function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress, onLongPress }: RecentPlaylistCardProps) {
+export default React.memo(function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress, onLongPress }: RecentPlaylistCardProps) {
+    const handlePress = React.useCallback(() => onPress(id), [id, onPress]);
+    const handleLongPress = React.useCallback(() => onLongPress?.(id), [id, onLongPress]);
+
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} onLongPress={onLongPress} delayLongPress={300} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.card} onPress={handlePress} onLongPress={handleLongPress} delayLongPress={300} activeOpacity={0.8}>
             {/* Fondo con degradado oscuro de izquierda a derecha */}
             <LinearGradient
                 colors={['#181818', 'rgba(24, 24, 24, 0.85)', 'rgba(24, 24, 24, 0.3)']}
@@ -39,7 +42,7 @@ export default function RecentPlaylistCard({ id, name, description, customCoverU
             </View>
         </TouchableOpacity>
     );
-}
+});
 
 const styles = StyleSheet.create({
     card: {
