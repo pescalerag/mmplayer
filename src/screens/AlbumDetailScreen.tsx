@@ -187,7 +187,7 @@ function AlbumDetailContent({
     usePlayerStore.getState().startShuffled(tracks, albumContextId);
   };
 
-  const renderHeader = () => (
+  const listHeader = (
     <>
       <DetailHeaderLayout
         title={album.title}
@@ -324,7 +324,7 @@ function AlbumDetailContent({
         data={isLoadingTracks ? [] : tracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           isLoadingTracks ? (
             <ActivityIndicator

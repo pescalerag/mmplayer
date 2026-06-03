@@ -319,7 +319,7 @@ function PlaylistDetailContent({
     }
   }, [playlist]);
 
-  const renderHeader = () => (
+  const listHeader = (
     <>
       <DetailHeaderLayout
         title={playlist.name}
@@ -394,7 +394,7 @@ function PlaylistDetailContent({
         data={playlistTracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           loadingTracks ? (
             <ActivityIndicator

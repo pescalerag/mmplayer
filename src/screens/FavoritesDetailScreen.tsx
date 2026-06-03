@@ -130,7 +130,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
         }
     };
 
-    const renderHeader = () => (
+    const listHeader = (
         <>
             <DetailHeaderLayout
                 title="Tus Favoritos"
@@ -193,7 +193,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 data={tracks}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
-                ListHeaderComponent={renderHeader}
+                ListHeaderComponent={listHeader}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="heart-dislike-outline" size={60} color="#555" />
