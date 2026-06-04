@@ -25,6 +25,10 @@ const BlurredBackground = ({
 
     const showPlaceholder = !imageUrl || hasError;
 
+    const imageSource = React.useMemo(() => 
+        imageUrl ? { uri: imageUrl } : null
+    , [imageUrl]);
+
     return (
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
             {showPlaceholder ? (
@@ -33,7 +37,7 @@ const BlurredBackground = ({
                 <>
                     <Image
                         key={imageUrl ?? 'none'}
-                        source={{ uri: imageUrl || '' }}
+                        source={imageSource}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"
                         transition={200}

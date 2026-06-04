@@ -1,5 +1,5 @@
 import { createMMKV } from "react-native-mmkv";
-import TrackPlayer, { Track as TPTrack } from "react-native-track-player";
+import TrackPlayer, { Track as TPTrack, RepeatMode } from "react-native-track-player";
 import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
@@ -85,6 +85,8 @@ export type RecentPlaylist = {
   timestamp: number;
 };
 
+let currentLoadId = 0;
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   activeTrack: null,
   playbackContext: null,
@@ -97,37 +99,59 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   recentPlaylists: [],
 
   loadQueue: async (tracks, index, context = "unknown") => {
+    const loadId = ++currentLoadId;
     try {
       const CHUNK_SIZE = 50;
-      // Reordenamos para que la canción seleccionada sea la primera
-      const tracksToPlay = [...tracks.slice(index), ...tracks.slice(0, index)];
       
-      const initialChunk = tracksToPlay.slice(0, CHUNK_SIZE);
-      const remainingTracks = tracksToPlay.slice(CHUNK_SIZE);
-
+      const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
       const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
+
+      if (currentLoadId !== loadId) return;
 
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
       
       set({
-        activeTrack: initialChunk[0],
+        activeTrack: tracks[index],
         playbackContext: context,
         isShuffleEnabled: false,
         shuffleOriginalQueue: [],
         userQueueSize: 0,
       });
 
-      // Carga diferida en segundo plano
-      if (remainingTracks.length > 0) {
+      const previousTracks = tracks.slice(0, index);
+      const remainingNextTracks = tracks.slice(index + CHUNK_SIZE);
+
+      if (previousTracks.length > 0 || remainingNextTracks.length > 0) {
         (async () => {
           try {
-            for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
-              const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
+            // 1. Cargar pistas anteriores y colocarlas al inicio de la cola
+            let insertIndex = 0;
+            for (let i = 0; i < previousTracks.length; i += CHUNK_SIZE) {
+              if (currentLoadId !== loadId) break;
+              const chunk = previousTracks.slice(i, i + CHUNK_SIZE);
               const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
-              await TrackPlayer.add(tpChunk);
+              if (currentLoadId !== loadId) break;
+              await TrackPlayer.add(tpChunk, insertIndex);
+              insertIndex += chunk.length;
+              await get().updateQueueStatus();
               await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            // 2. Cargar pistas posteriores restantes y agregarlas al final
+            for (let i = 0; i < remainingNextTracks.length; i += CHUNK_SIZE) {
+              if (currentLoadId !== loadId) break;
+              const chunk = remainingNextTracks.slice(i, i + CHUNK_SIZE);
+              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              if (currentLoadId !== loadId) break;
+              await TrackPlayer.add(tpChunk);
+              await get().updateQueueStatus();
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            if (currentLoadId === loadId) {
+              await get().savePlaybackState();
             }
           } catch (bgError) {
             console.error("Background queue loading error:", bgError);
@@ -140,6 +164,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   startShuffled: async (tracks, context = "unknown") => {
+    const loadId = ++currentLoadId;
     try {
       const CHUNK_SIZE = 50;
 
@@ -152,6 +177,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
 
+      if (currentLoadId !== loadId) return;
+
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
@@ -160,25 +187,37 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         activeTrack: initialChunk[0],
         playbackContext: context,
         isShuffleEnabled: true,
-        shuffleOriginalQueue: initialTpTracks,
+        shuffleOriginalQueue: [],
         userQueueSize: 0,
         hasPrevious: false,
         hasNext: shuffledTracks.length > 1,
       });
 
-      // Carga diferida en segundo plano
+      // Carga diferida de la cola original (en orden original) para permitir desactivar shuffle correctamente
+      (async () => {
+        try {
+          const originalTpTracks = await Promise.all(tracks.map(mapToTPTrack));
+          if (currentLoadId === loadId) {
+            set({ shuffleOriginalQueue: originalTpTracks });
+            await get().savePlaybackState();
+          }
+        } catch (bgError) {
+          console.error("Background original queue mapping error:", bgError);
+        }
+      })();
+
+      // Carga diferida en segundo plano de las pistas mezcladas en el reproductor nativo
       if (remainingTracks.length > 0) {
         (async () => {
           try {
             for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
+              if (currentLoadId !== loadId) break;
               const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
               const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              if (currentLoadId !== loadId) break;
               await TrackPlayer.add(tpChunk);
               
-              set(state => ({
-                  shuffleOriginalQueue: [...state.shuffleOriginalQueue, ...tpChunk]
-              }));
-              
+              await get().updateQueueStatus();
               await new Promise(resolve => setTimeout(resolve, 50));
             }
           } catch (bgError) {
@@ -192,12 +231,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   playSingleTrack: async (track, context = "unknown") => {
+    const loadId = ++currentLoadId;
     try {
       const tpTrack = await mapToTPTrack(track);
+      if (currentLoadId !== loadId) return;
       await TrackPlayer.reset();
       await TrackPlayer.add([tpTrack]);
       await TrackPlayer.play();
       set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
+      await get().updateQueueStatus();
+      await get().savePlaybackState();
     } catch (error) {
       console.error("Error playing single track:", error);
     }
@@ -459,10 +502,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           ? currentIndex
           : await TrackPlayer.getActiveTrackIndex();
 
-      if (index !== undefined && index !== null) {
+      const repeatMode = await TrackPlayer.getRepeatMode();
+
+      if (index !== undefined && index !== null && queue.length > 0) {
+        const hasPrev = index > 0 || repeatMode !== RepeatMode.Off;
+        const hasNxt = index < queue.length - 1 || repeatMode !== RepeatMode.Off;
         set({
-          hasPrevious: index > 0,
-          hasNext: index < queue.length - 1,
+          hasPrevious: hasPrev,
+          hasNext: hasNxt,
         });
       } else {
         set({ hasPrevious: false, hasNext: false });

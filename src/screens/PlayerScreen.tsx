@@ -72,18 +72,21 @@ const performToggleShuffle = async (
             await TrackPlayer.removeUpcomingTracks();
             if (shuffled.length > 0) await TrackPlayer.add(shuffled);
         } else {
-            // Buscar la canción actual en la cola original por ID
-            const currentTrack = currentQueue[currentIndex];
-            const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
-            const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
-            const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
-            await TrackPlayer.removeUpcomingTracks();
-            if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
+            if (shuffleOriginalQueue.length > 0) {
+                // Buscar la canción actual en la cola original por ID
+                const currentTrack = currentQueue[currentIndex];
+                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
+                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
+                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
+                await TrackPlayer.removeUpcomingTracks();
+                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
+            }
             // Limpiar el store global
             setShuffleState(false, []);
         }
-        // Guardar el nuevo orden de la cola en disco
+        // Guardar el nuevo orden de la cola en disco y actualizar status
         await usePlayerStore.getState().savePlaybackState();
+        await usePlayerStore.getState().updateQueueStatus(currentIndex);
     } catch (e) {
         console.error('Error toggling shuffle:', e);
     }
@@ -96,6 +99,10 @@ const PlayerScreenUI = ({
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
+
+    const artworkSource = React.useMemo(() => 
+        album.coverUrl ? { uri: album.coverUrl } : null
+    , [album.coverUrl]);
 
     // Shuffle — estado global (sobrevive a la navegación)
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
@@ -149,6 +156,7 @@ const PlayerScreenUI = ({
                         RepeatMode.Off;
             await TrackPlayer.setRepeatMode(next);
             setRepeatModeState(next);
+            await usePlayerStore.getState().updateQueueStatus();
         } catch (e) {
             console.error('Error cycling repeat mode:', e);
         }
@@ -231,7 +239,7 @@ const PlayerScreenUI = ({
                 <View style={styles.artworkContainer}>
                     <Image
                         key={track.id}
-                        source={{ uri: album.coverUrl as string }}
+                        source={artworkSource}
                         style={styles.artwork}
                         contentFit="cover"
                         transition={300}

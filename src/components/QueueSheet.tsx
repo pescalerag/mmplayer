@@ -138,6 +138,10 @@ export default function QueueSheet() {
             ]);
             setQueue(fullQueue);
             if (idx !== undefined && idx !== null) setActiveIndex(idx);
+            
+            // Actualizar estado en el store global y persistir en disco
+            await usePlayerStore.getState().updateQueueStatus(idx ?? undefined);
+            await usePlayerStore.getState().savePlaybackState();
         } catch (error) {
             console.error('Error removing track:', error);
         }
@@ -174,112 +178,35 @@ export default function QueueSheet() {
     };
 
     // --- RENDER: CANCIÓN ACTUAL (siempre visible en la tab Queue) ---
-    const renderCurrentTrack = () => {
-        if (!currentTrack) return null;
-        return (
-            <View style={styles.currentTrackRow}>
-                {currentTrack.artwork ? (
-                    <Image
-                        source={{ uri: currentTrack.artwork }}
-                        style={styles.thumbnail}
-                        contentFit="cover"
-                        transition={200}
-                    />
-                ) : (
-                    <View style={[styles.thumbnail, styles.placeholder]}>
-                        <Ionicons name="musical-notes" size={20} color="#666" />
-                    </View>
-                )}
-                <View style={styles.trackInfo}>
-                    <View style={styles.titleContainer}>
-                        <Text style={[styles.title, styles.textActive]} numberOfLines={1}>
-                            {currentTrack.title}
-                        </Text>
-                        <PlayingIndicator isPaused={!isPlayingGlobal} />
-                    </View>
-                    <Text style={styles.subtitle} numberOfLines={1}>
-                        {currentTrack.artist || 'Desconocido'}
-                    </Text>
-                </View>
-            </View>
-        );
-    };
+    const listHeader = React.useMemo(() => (
+        <CurrentTrackHeader currentTrack={currentTrack} isPlayingGlobal={isPlayingGlobal} />
+    ), [currentTrack, isPlayingGlobal]);
 
     // --- RENDER: FILA DE COLA (próximas) ---
-    const renderQueueItem = ({ item, index }: { item: any; index: number }) => {
-        const globalIndex = activeIndex + 1 + index;
-        const isUserQueued = index < userQueueSize;
-        const isManual = item.isManual === true || isUserQueued;
+    const renderQueueItem = React.useCallback(({ item, index }: { item: any; index: number }) => {
         return (
-            <TouchableOpacity
-                style={styles.trackRow}
-                onPress={() => handleSkipTo(globalIndex)}
-            >
-                {item.artwork ? (
-                    <Image
-                        source={{ uri: item.artwork }}
-                        style={styles.thumbnail}
-                        contentFit="cover"
-                        transition={200}
-                    />
-                ) : (
-                    <View style={[styles.thumbnail, styles.placeholder]}>
-                        <Ionicons name="musical-notes" size={20} color="#666" />
-                    </View>
-                )}
-                <View style={styles.trackInfo}>
-                    <View style={styles.titleRow}>
-                        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                        {isManual && (
-                            <View style={styles.userQueueBadge}>
-                                <Ionicons name="menu" size={12} color="#A78BFA" />
-                            </View>
-                        )}
-                    </View>
-                    <Text style={styles.subtitle} numberOfLines={1}>{item.artist || 'Desconocido'}</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => handleRemove(globalIndex, isUserQueued)}
-                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                >
-                    <Ionicons name="close-outline" size={24} color="#555" />
-                </TouchableOpacity>
-            </TouchableOpacity>
+            <QueueTrackRow
+                item={item}
+                index={index}
+                activeIndex={activeIndex}
+                userQueueSize={userQueueSize}
+                onSkip={handleSkipTo}
+                onRemove={handleRemove}
+            />
         );
-    };
+    }, [activeIndex, userQueueSize, handleSkipTo, handleRemove]);
 
     // --- RENDER: FILA DE HISTORIAL ---
-    const renderRecentItem = ({ item, index }: { item: TPTrack; index: number }) => {
-        const globalIndex = activeIndex - 1 - index;
+    const renderRecentItem = React.useCallback(({ item, index }: { item: TPTrack; index: number }) => {
         return (
-            <TouchableOpacity
-                style={styles.trackRow}
-                onPress={() => handleSkipTo(globalIndex)}
-                activeOpacity={0.7}
-            >
-                {item.artwork ? (
-                    <Image
-                        source={{ uri: item.artwork }}
-                        style={[styles.thumbnail, { opacity: 0.55 }]}
-                        contentFit="cover"
-                        transition={200}
-                    />
-                ) : (
-                    <View style={[styles.thumbnail, styles.placeholder, { opacity: 0.55 }]}>
-                        <Ionicons name="musical-notes" size={20} color="#555" />
-                    </View>
-                )}
-                <View style={styles.trackInfo}>
-                    <Text style={[styles.title, styles.textDimmed]} numberOfLines={1}>{item.title}</Text>
-                    <Text style={[styles.subtitle, styles.subtitleDimmed]} numberOfLines={1}>
-                        {item.artist || 'Desconocido'}
-                    </Text>
-                </View>
-                <Ionicons name="play-back-outline" size={18} color="#3A3A3A" />
-            </TouchableOpacity>
+            <RecentTrackRow
+                item={item}
+                index={index}
+                activeIndex={activeIndex}
+                onSkip={handleSkipTo}
+            />
         );
-    };
+    }, [activeIndex, handleSkipTo]);
 
     // Render/unmount controlado
     const [shouldRender, setShouldRender] = useState(isVisible);
@@ -381,7 +308,7 @@ export default function QueueSheet() {
                         data={upcomingTracks}
                         keyExtractor={(item, index) => `q-${item.id}-${index}`}
                         renderItem={renderQueueItem}
-                        ListHeaderComponent={renderCurrentTrack}
+                        ListHeaderComponent={listHeader}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
                                 <Ionicons name="musical-notes-outline" size={40} color="#252525" />
@@ -410,6 +337,147 @@ export default function QueueSheet() {
         </View>
     );
 }
+
+// ── SUB-COMPONENTES MEMOIZADOS PARA PREVENIR FLICKERING ──
+
+interface CurrentTrackHeaderProps {
+    currentTrack: TPTrack | null;
+    isPlayingGlobal: boolean;
+}
+
+const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal }: CurrentTrackHeaderProps) => {
+    const imageSource = React.useMemo(() => 
+        currentTrack?.artwork ? { uri: currentTrack.artwork } : null
+    , [currentTrack?.artwork]);
+
+    if (!currentTrack) return null;
+
+    return (
+        <View style={styles.currentTrackRow}>
+            {imageSource ? (
+                <Image
+                    source={imageSource}
+                    style={styles.thumbnail}
+                    contentFit="cover"
+                    transition={200}
+                />
+            ) : (
+                <View style={[styles.thumbnail, styles.placeholder]}>
+                    <Ionicons name="musical-notes" size={20} color="#666" />
+                </View>
+            )}
+            <View style={styles.trackInfo}>
+                <View style={styles.titleContainer}>
+                    <Text style={[styles.title, styles.textActive]} numberOfLines={1}>
+                        {currentTrack.title}
+                    </Text>
+                    <PlayingIndicator isPaused={!isPlayingGlobal} />
+                </View>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                    {currentTrack.artist || 'Desconocido'}
+                </Text>
+            </View>
+        </View>
+    );
+});
+
+interface QueueTrackRowProps {
+    item: any;
+    index: number;
+    activeIndex: number;
+    userQueueSize: number;
+    onSkip: (globalIndex: number) => void;
+    onRemove: (globalIndex: number, isUserQueued: boolean) => void;
+}
+
+const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onSkip, onRemove }: QueueTrackRowProps) => {
+    const globalIndex = activeIndex + 1 + index;
+    const isUserQueued = index < userQueueSize;
+    const isManual = item.isManual === true || isUserQueued;
+    const imageSource = React.useMemo(() => 
+        item.artwork ? { uri: item.artwork } : null
+    , [item.artwork]);
+
+    return (
+        <TouchableOpacity
+            style={styles.trackRow}
+            onPress={() => onSkip(globalIndex)}
+        >
+            {imageSource ? (
+                <Image
+                    source={imageSource}
+                    style={styles.thumbnail}
+                    contentFit="cover"
+                    transition={200}
+                />
+            ) : (
+                <View style={[styles.thumbnail, styles.placeholder]}>
+                    <Ionicons name="musical-notes" size={20} color="#666" />
+                </View>
+            )}
+            <View style={styles.trackInfo}>
+                <View style={styles.titleRow}>
+                    <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                    {isManual && (
+                        <View style={styles.userQueueBadge}>
+                            <Ionicons name="menu" size={12} color="#A78BFA" />
+                        </View>
+                    )}
+                </View>
+                <Text style={styles.subtitle} numberOfLines={1}>{item.artist || 'Desconocido'}</Text>
+            </View>
+            <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => onRemove(globalIndex, isUserQueued)}
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            >
+                <Ionicons name="close-outline" size={24} color="#555" />
+            </TouchableOpacity>
+        </TouchableOpacity>
+    );
+});
+
+interface RecentTrackRowProps {
+    item: TPTrack;
+    index: number;
+    activeIndex: number;
+    onSkip: (globalIndex: number) => void;
+}
+
+const RecentTrackRow = React.memo(({ item, index, activeIndex, onSkip }: RecentTrackRowProps) => {
+    const globalIndex = activeIndex - 1 - index;
+    const imageSource = React.useMemo(() => 
+        item.artwork ? { uri: item.artwork } : null
+    , [item.artwork]);
+
+    return (
+        <TouchableOpacity
+            style={styles.trackRow}
+            onPress={() => onSkip(globalIndex)}
+            activeOpacity={0.7}
+        >
+            {imageSource ? (
+                <Image
+                    source={imageSource}
+                    style={[styles.thumbnail, { opacity: 0.55 }]}
+                    contentFit="cover"
+                    transition={200}
+                />
+            ) : (
+                <View style={[styles.thumbnail, styles.placeholder, { opacity: 0.55 }]}>
+                    <Ionicons name="musical-notes" size={20} color="#555" />
+                </View>
+            )}
+            <View style={styles.trackInfo}>
+                <Text style={[styles.title, styles.textDimmed]} numberOfLines={1}>{item.title}</Text>
+                <Text style={[styles.subtitle, styles.subtitleDimmed]} numberOfLines={1}>
+                    {item.artist || 'Desconocido'}
+                </Text>
+            </View>
+            <Ionicons name="play-back-outline" size={18} color="#3A3A3A" />
+        </TouchableOpacity>
+    );
+});
 
 const styles = StyleSheet.create({
     overlay: {
