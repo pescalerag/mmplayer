@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mmplayer",
+    "name": "MMPlayer",
     "slug": "mmplayer",
     "icon": "./src/assets/images/icon.png",
     "version": "1.1.0",
@@ -29,7 +29,7 @@
         "foregroundImage": "./src/assets/images/android-icon-foreground.png",
         "backgroundImage": "./src/assets/images/android-icon-background.png"
       },
-      "package": "com.anonymous.mmplayer",
+      "package": "com.pescalerag.mmplayer",
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
