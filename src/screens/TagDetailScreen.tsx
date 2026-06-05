@@ -27,6 +27,7 @@ import { SearchNavigationProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 320;
@@ -77,9 +78,10 @@ const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => 
     index: number;
     onPress: (trackId: string) => void;
 }) {
+    const { t } = useTranslation();
     const artistNames = artists.length > 0
         ? artists.map(a => a.name).join(', ')
-        : 'Artista Desconocido';
+        : t('actions.unknown');
     return (
         <TrackRow
             track={track}
@@ -104,6 +106,7 @@ function TagDetailScreen({
 }) {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
+    const { t } = useTranslation();
 
     const tagColor = tag.color || '#8B5CF6';
 
@@ -162,7 +165,7 @@ function TagDetailScreen({
                     <View style={styles.headerInfo}>
                         <View style={styles.tagBadge}>
                             <Ionicons name="pricetag" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                            <Text style={styles.tagBadgeText}>ETIQUETA</Text>
+                            <Text style={styles.tagBadgeText}>{t('tags.tag_singular')}</Text>
                         </View>
                         
                         <Text style={styles.title} numberOfLines={2}>
@@ -170,7 +173,7 @@ function TagDetailScreen({
                         </Text>
                         
                         <Text style={styles.metaInfo}>
-                            {albums.length} {albums.length === 1 ? 'álbum' : 'álbumes'} · {tracks.length} {tracks.length === 1 ? 'canción' : 'canciones'}
+                            {albums.length} {albums.length === 1 ? t('library.album_singular') : t('library.album_plural')} · {tracks.length} {tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}
                         </Text>
                     </View>
                 </View>
@@ -178,7 +181,7 @@ function TagDetailScreen({
                 {/* Sección Álbumes */}
                 {albums.length > 0 && (
                     <View style={{ marginBottom: 24, marginTop: 16 }}>
-                        <SectionHeader title="Álbumes con esta etiqueta" />
+                        <SectionHeader title={t('tags.albums_with_tag')} />
                         <ScrollView
                             horizontal
                             showsHorizontalScrollIndicator={false}
@@ -199,13 +202,13 @@ function TagDetailScreen({
                 {/* Cabecera Canciones */}
                 {tracks.length > 0 && (
                     <View style={{ marginBottom: 8 }}>
-                        <SectionHeader title="Canciones con esta etiqueta" />
+                        <SectionHeader title={t('tags.songs_with_tag')} />
                         <View style={styles.tracksDivider} />
                     </View>
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, navigation, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress]);
+    }, [tag, albums, tracks.length, navigation, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t]);
 
     return (
         <View style={styles.container}>
@@ -217,7 +220,7 @@ function TagDetailScreen({
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="pricetags-outline" size={48} color="#555" />
-                        <Text style={styles.emptyText}>No hay elementos con esta etiqueta todavía.</Text>
+                        <Text style={styles.emptyText}>{t('tags.empty_tag_items')}</Text>
                     </View>
                 }
 

@@ -11,6 +11,7 @@ import Tag from '../database/models/Tag';
 import { TagService } from '../services/tagService';
 import { database } from '../database';
 import { Layout } from '../theme/theme';
+import { useTranslation } from 'react-i18next';
 
 interface TagManagementContentProps {
     tags: Tag[];
@@ -19,18 +20,19 @@ interface TagManagementContentProps {
 function TagManagementContent({ tags }: TagManagementContentProps) {
     const insets = useSafeAreaInsets();
     const { openForCreate, openForEdit } = useTagFormStore();
+    const { t } = useTranslation();
 
     // Altura dinámica del header para el smoke y padding del contenido
     const [headerHeight, setHeaderHeight] = useState(100);
 
     const handleDelete = (tag: Tag) => {
         Alert.alert(
-            "Eliminar Etiqueta",
-            `¿Estás seguro de que quieres eliminar la etiqueta "${tag.name}"? Se quitará de todas las canciones y álbumes.`,
+            t('tags.delete_tag_title'),
+            t('tags.delete_tag_confirm', { name: tag.name }),
             [
-                { text: "Cancelar", style: "cancel" },
+                { text: t('actions.cancel'), style: "cancel" },
                 {
-                    text: "Eliminar",
+                    text: t('actions.delete'),
                     style: "destructive",
                     onPress: async () => {
                         await TagService.deleteTag(tag.id);
@@ -98,11 +100,11 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
                             }}
                         >
                             <Ionicons name="add" size={22} color="#FFF" />
-                            <Text style={styles.createTagButtonText}>Crear nueva etiqueta</Text>
+                            <Text style={styles.createTagButtonText}>{t('tags.create')}</Text>
                         </TouchableOpacity>
                     }
                     ListEmptyComponent={
-                        <Text style={styles.empty}>No hay etiquetas creadas.</Text>
+                        <Text style={styles.empty}>{t('tags.empty_tags')}</Text>
                     }
 
                 />
@@ -133,7 +135,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
                 style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}
             >
-                <Text style={styles.headerTitle}>Gestión de Etiquetas</Text>
+                <Text style={styles.headerTitle}>{t('tags.manager')}</Text>
             </View>
 
         </View>

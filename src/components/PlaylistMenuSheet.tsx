@@ -17,11 +17,13 @@ import { database } from '../database';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import PlaylistCover from './PlaylistCover';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PlaylistMenuSheet() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, selectedPlaylist, closeMenu, navCallbacks } = usePlaylistMenuStore();
 
     // Valores animados
@@ -117,7 +119,7 @@ export default function PlaylistMenuSheet() {
                     )}
                     <View style={styles.headerText}>
                         <Text style={styles.title} numberOfLines={1}>{selectedPlaylist?.name}</Text>
-                        <Text style={styles.subtitle} numberOfLines={1}>Playlist</Text>
+                        <Text style={styles.subtitle} numberOfLines={1}>{t('library.playlist_singular')}</Text>
                     </View>
                 </View>
 
@@ -139,7 +141,7 @@ export default function PlaylistMenuSheet() {
                         <View style={styles.iconContainer}>
                             <Ionicons name={selectedPlaylist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
                         </View>
-                        <Text style={styles.optionText}>{selectedPlaylist?.isPinned ? "Desfijar de la biblioteca" : "Fijar en la biblioteca"}</Text>
+                        <Text style={styles.optionText}>{selectedPlaylist?.isPinned ? t('actions.unpin_library') : t('actions.pin_library')}</Text>
                     </TouchableOpacity>
                 )}
 
@@ -187,7 +189,7 @@ export default function PlaylistMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="list-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Ver playlist</Text>
+                    <Text style={styles.optionText}>{t('playlist.view')}</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>

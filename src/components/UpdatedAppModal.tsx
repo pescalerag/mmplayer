@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { getChangelogForVersion } from '../constants/changelogs';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { navigationRef } from '../navigation/navigationRef';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ const IMAGE_HEIGHT = IMAGE_WIDTH * (1920 / 1080);
 export default function UpdatedAppModal() {
   const [visible, setVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
+  const { t } = useTranslation();
   
   const { lastSeenVersion, setLastSeenVersion } = useSettingsStore();
   const currentVersion = Constants.expoConfig?.version || '1.1.0';
@@ -117,11 +119,11 @@ export default function UpdatedAppModal() {
         <View style={styles.buttonsContainer}>
           <TouchableOpacity style={styles.primaryButton} onPress={handleSeeChanges} activeOpacity={0.8}>
             <Ionicons name="sparkles" size={20} color="#FFF" style={styles.buttonIcon} />
-            <Text style={styles.primaryButtonText}>VER CAMBIOS</Text>
+            <Text style={styles.primaryButtonText}>{t('settings.view_changes')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryButton} onPress={handleClose} activeOpacity={0.6}>
-            <Text style={styles.secondaryButtonText}>Ahora no</Text>
+            <Text style={styles.secondaryButtonText}>{t('settings.now_no')}</Text>
           </TouchableOpacity>
         </View>
 

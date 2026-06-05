@@ -35,6 +35,7 @@ import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { HistoryService } from '../services/HistoryService';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -58,9 +59,10 @@ const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }
     album: track.album.observe(),
     artists: track.queryCollaborators.observe() as any,
 }))(function ArtistTrackRow({ track, album, artists, index, contextId, onPress }: { track: Track; album: Album; artists: Artist[]; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
+    const { t } = useTranslation();
     const artistNames = artists.length > 0
         ? artists.map(a => a.name).join(', ')
-        : 'Artista Desconocido';
+        : t('actions.unknown');
     return (
         <TrackRow
             track={track}
@@ -120,6 +122,7 @@ const ArtistHeader = memo(function ArtistHeader({
         navigation.goBack();
     };
 
+    const { t } = useTranslation();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
     const playbackContext = usePlayerStore(state => state.playbackContext);
@@ -135,7 +138,7 @@ const ArtistHeader = memo(function ArtistHeader({
             type: "artist",
             context: "manual",
             title: artist.name,
-            subtitle: "Artista",
+            subtitle: t('library.artist_singular'),
             imageUrl: artist.imageUrl,
         });
 
@@ -157,7 +160,7 @@ const ArtistHeader = memo(function ArtistHeader({
             type: "artist",
             context: "manual",
             title: artist.name,
-            subtitle: "Artista",
+            subtitle: t('library.artist_singular'),
             imageUrl: artist.imageUrl,
         });
         usePlayerStore.getState().startShuffled(tracks, contextId);
@@ -179,10 +182,10 @@ const ArtistHeader = memo(function ArtistHeader({
         useAlbumMenuStore.getState().openMenu(album);
     }, []);
 
-    const albumLabel = albums.length === 1 ? 'álbum' : 'álbumes';
-    const trackLabel = tracksCount === 1 ? 'canción' : 'canciones';
+    const albumLabel = albums.length === 1 ? t('library.album_singular') : t('library.album_plural');
+    const trackLabel = tracksCount === 1 ? t('library.song_singular') : t('library.song_plural');
     const metaInfo = isLoadingContent
-        ? 'Cargando contenido...'
+        ? t('actions.loading_content')
         : `${albums.length} ${albumLabel} · ${tracksCount} ${trackLabel}`;
 
     return (
@@ -198,7 +201,6 @@ const ArtistHeader = memo(function ArtistHeader({
                         <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
                             <Ionicons name="camera" size={20} color="#FFFFFF" />
                         </TouchableOpacity>
-
                         {tracks && tracks.length > 0 && (
                             <>
                                 <TouchableOpacity style={styles.shuffleFab} onPress={handleShufflePress}>
@@ -222,7 +224,7 @@ const ArtistHeader = memo(function ArtistHeader({
             {(albums.length > 0 || isLoadingContent) && (
                 <View style={{ marginBottom: 16 }}>
                     <SectionHeader
-                        title="Álbumes"
+                        title={t('library.albums')}
                         showSeeAll={albums.length > ALBUMS_PREVIEW && !showAllAlbums}
                         onSeeAll={() => setShowAllAlbums(true)}
                     />
@@ -252,7 +254,7 @@ const ArtistHeader = memo(function ArtistHeader({
             {(tracksCount > 0 || isLoadingContent) && (
                 <View style={{ marginBottom: 8 }}>
                     <SectionHeader
-                        title="Canciones"
+                        title={t('library.songs')}
                         showSeeAll={tracksCount > TRACKS_PREVIEW && !showAllTracks}
                         onSeeAll={() => setShowAllTracks(true)}
                     />
@@ -304,6 +306,7 @@ interface Props {
 function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: Props) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const [showAllAlbums, setShowAllAlbums] = useState(false);
     const [showAllTracks, setShowAllTracks] = useState(false);
     const [imageError, setImageError] = useState(false);
@@ -335,7 +338,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             });
         } catch (error) {
             console.error('PickPhoto: Error al lanzar explorador:', error);
-            Alert.alert('Error', 'Hubo un problema al abrir el explorador.');
+            Alert.alert(t('actions.error'), t('actions.pick_photo_error'));
             return;
         }
 
@@ -354,12 +357,12 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
 
             usePlayerStore.getState().updateMediaImageInRecents(artist.id, 'artist', permanentUri);
 
-            Alert.alert('¡Éxito!', 'La foto del artista se ha actualizado.');
+            Alert.alert(t('actions.success'), t('actions.artist_photo_updated'));
         } catch (e) {
             console.error('Error guardando foto:', e);
-            Alert.alert('Error', 'No se pudo guardar la foto.');
+            Alert.alert(t('actions.error'), t('actions.save_photo_error'));
         }
-    }, [artist]);
+    }, [artist, t]);
 
     const handleTrackPress = useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
@@ -413,7 +416,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
                     isLoadingContent ? (
                         <ActivityIndicator color="#8B5CF6" size="large" style={{ marginTop: 40 }} />
                     ) : (
-                        <Text style={styles.emptyText}>Este artista no tiene canciones escaneadas.</Text>
+                        <Text style={styles.emptyText}>{t('actions.no_songs_scanned')}</Text>
                     )
                 }
 
@@ -435,6 +438,7 @@ const ArtistDetailContent = withObservables(['artist'], ({ artist }: { artist: A
 export default function ArtistDetailScreen() {
     const route = useRoute<ArtistDetailRouteProp>();
     const { artistId } = route.params;
+    const { t } = useTranslation();
 
     const [artist, setArtist] = useState<Artist | null>(null);
     const [albums, setAlbums] = useState<Album[]>([]);
@@ -453,7 +457,7 @@ export default function ArtistDetailScreen() {
             } catch (error) {
                 console.error('Error cargando ArtistDetail Artist:', error);
                 if (isMounted) {
-                    Alert.alert('Error', 'No se pudo cargar la información del artista.');
+                    Alert.alert(t('actions.error'), t('actions.load_artist_error'));
                 }
             }
         };

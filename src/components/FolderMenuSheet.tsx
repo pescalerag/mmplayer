@@ -23,11 +23,13 @@ import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function FolderMenuSheet() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, selectedFolderPath, selectedFolderName, closeMenu } = useFolderMenuStore();
     const excludeFolder = useSettingsStore(state => state.excludeFolder);
     const [tracks, setTracks] = useState<Track[]>([]);
@@ -120,12 +122,12 @@ export default function FolderMenuSheet() {
         if (!selectedFolderPath) return;
 
         Alert.alert(
-            "Excluir carpeta",
-            "¿Estás seguro de que deseas excluir esta carpeta del escaneo? Se borrarán todas sus canciones de la biblioteca.",
+            t('actions.exclude_folder_title'),
+            t('actions.exclude_folder_confirm'),
             [
-                { text: "Cancelar", style: "cancel" },
+                { text: t('actions.cancel'), style: "cancel" },
                 { 
-                    text: "Excluir", 
+                    text: t('actions.exclude'), 
                     style: "destructive",
                     onPress: async () => {
                         closeMenu();
@@ -167,7 +169,7 @@ export default function FolderMenuSheet() {
                     </View>
                     <View style={styles.headerText}>
                         <Text style={styles.title} numberOfLines={1}>{selectedFolderName}</Text>
-                        <Text style={styles.subtitle} numberOfLines={1}>Carpeta</Text>
+                        <Text style={styles.subtitle} numberOfLines={1}>{t('library.folder_singular')}</Text>
                     </View>
                 </View>
 
@@ -177,7 +179,7 @@ export default function FolderMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast('Carpeta añadida a continuación', 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.folder_next'), 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -185,7 +187,7 @@ export default function FolderMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a continuación</Text>
+                    <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir al final de la cola */}
@@ -194,7 +196,7 @@ export default function FolderMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueEnd(tracks);
-                            useToastStore.getState().showToast('Carpeta añadida a la cola', 'list');
+                            useToastStore.getState().showToast(t('toasts.folder_queued'), 'list');
                             closeMenu();
                         }
                     }}
@@ -202,7 +204,7 @@ export default function FolderMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="list" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
+                    <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
 
                 {/* Separador */}
@@ -216,7 +218,7 @@ export default function FolderMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="eye-off-outline" size={24} color="#EF4444" />
                     </View>
-                    <Text style={[styles.optionText, { color: '#EF4444' }]}>Excluir del escaneo</Text>
+                    <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.exclude_scan')}</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>

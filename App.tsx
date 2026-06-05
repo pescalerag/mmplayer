@@ -29,6 +29,7 @@ import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import "./src/constants/i18n";
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient'; // Asegúrate de tener ex
 import React from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import PlaylistCover from './PlaylistCover';
+import { useTranslation } from 'react-i18next';
 
 interface RecentPlaylistCardProps {
     id: string;
@@ -17,8 +18,14 @@ interface RecentPlaylistCardProps {
 const { width } = Dimensions.get('window');
 
 export default React.memo(function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress, onLongPress }: RecentPlaylistCardProps) {
+    const { t } = useTranslation();
     const handlePress = React.useCallback(() => onPress(id), [id, onPress]);
     const handleLongPress = React.useCallback(() => onLongPress?.(id), [id, onLongPress]);
+
+    const displayName = id === 'favorites' ? t('home.your_favourites') : name;
+    const displayDescription = id === 'favorites' 
+        ? t('home.most_liked_songs') 
+        : (description || t('actions.playlist_empty_desc')); // Wait, fallback description or translated placeholder
 
     return (
         <TouchableOpacity style={styles.card} onPress={handlePress} onLongPress={handleLongPress} delayLongPress={300} activeOpacity={0.8}>
@@ -30,9 +37,9 @@ export default React.memo(function RecentPlaylistCard({ id, name, description, c
                 style={styles.gradientContainer}
             >
                 <View style={styles.textSection}>
-                    <Text style={styles.title} numberOfLines={1}>{name}</Text>
+                    <Text style={styles.title} numberOfLines={1}>{displayName}</Text>
                     <Text style={styles.description} numberOfLines={2}>
-                        {description || 'Lista de reproducción personalizada'}
+                        {displayDescription}
                     </Text>
                 </View>
             </LinearGradient>

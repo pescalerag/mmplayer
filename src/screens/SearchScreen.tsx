@@ -35,16 +35,17 @@ import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { useArtistMenuStore } from "../store/useArtistMenuStore";
 import { Layout } from "../theme/theme";
 import { HistoryService } from "../services/HistoryService";
+import { useTranslation } from "react-i18next";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
 type FilterOption = "all" | "artists" | "albums" | "tracks";
 
-const FILTER_TABS: { id: FilterOption; label: string }[] = [
-  { id: "all", label: "Todo" },
-  { id: "artists", label: "Artistas" },
-  { id: "albums", label: "Álbumes" },
-  { id: "tracks", label: "Canciones" },
+const FILTER_TABS: { id: FilterOption }[] = [
+  { id: "all" },
+  { id: "artists" },
+  { id: "albums" },
+  { id: "tracks" },
 ];
 
 // --- ENHANCED COMPONENTS FOR SEARCH ---
@@ -85,10 +86,11 @@ const SearchTrackRowBase = ({
   artists: Artist[];
   onPress?: () => void;
 }) => {
+  const { t } = useTranslation();
   const artistNames =
     artists.length > 0
       ? artists.map((a) => a.name).join(", ")
-      : "Artista Desconocido";
+      : t('actions.unknown');
 
   const handlePress = () => {
     onPress?.();
@@ -125,6 +127,7 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
   artist: Artist;
   onPress: (albumId: string) => void;
 }) {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => onPress(album.id), [onPress, album.id]);
   const handleLongPress = useCallback(() => {
     Keyboard.dismiss();
@@ -135,7 +138,7 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
     <View style={styles.cardContainer}>
       <LibraryCard
         title={album.title}
-        subtitle={artist?.name || "Artista Desconocido"}
+        subtitle={artist?.name || t('actions.unknown')}
         imageUrl={album.coverUrl}
         placeholderIcon="albums"
         onPress={handlePress}
@@ -203,6 +206,7 @@ SearchTagCard.displayName = "SearchTagCard";
 function SearchScreen({ tags }: { tags: Tag[] }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<SearchNavigationProp>();
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const {
     results,
@@ -215,6 +219,16 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const { history, saveSearch, clearHistory, deleteHistoryItem } =
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+
+  const getFilterLabel = (id: FilterOption) => {
+    switch (id) {
+      case "all": return t("actions.all");
+      case "artists": return t("library.artists");
+      case "albums": return t("library.albums");
+      case "tracks": return t("library.songs");
+      default: return "";
+    }
+  };
 
   // --- NUEVA LÓGICA: ¿ES EL ÚNICO RESULTADO? ---
   const totalResultsCount =
@@ -287,7 +301,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           const collaborators = await track.queryCollaborators.fetch() as Artist[];
           const artistNames = collaborators.length > 0
             ? collaborators.map(a => a.name).join(', ')
-            : 'Artista desconocido';
+            : t('actions.unknown');
           
           HistoryService.updateUIRecents({
             id: track.id,
@@ -304,7 +318,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
       usePlayerStore.getState().playSingleTrack(track, "search");
     }
-  }, [currentTopMatch, query, handleResultClick, navigation]);
+  }, [currentTopMatch, query, handleResultClick, navigation, t]);
 
   useEffect(() => {
     const tabNavigator: any = navigation.getParent();
@@ -341,9 +355,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       {!isSearching && history.length > 0 && (
         <View style={styles.historySection}>
           <View style={styles.sectionHeaderWithAction}>
-            <SectionHeader title="Búsquedas recientes" />
+            <SectionHeader title={t('search.recent')} />
             <TouchableOpacity onPress={clearHistory}>
-              <Text style={styles.clearHistoryText}>Borrar todo</Text>
+              <Text style={styles.clearHistoryText}>{t('actions.clear_all')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.historyList}>
@@ -366,10 +380,10 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
       {!isSearching && (
         <View style={styles.tagsSection}>
-          <Text style={styles.resultsTitle}>Explorar por etiquetas</Text>
+          <Text style={styles.resultsTitle}>{t('search.explore_tags')}</Text>
           {tags.length === 0 ? (
             <Text style={styles.noTagsText}>
-              No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum.
+              {t('search.no_tags')}
             </Text>
           ) : (
             <View style={styles.tagsContainer}>
@@ -394,7 +408,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       {/* Top Match Hero Card */}
       {isSearching && currentTopMatch && (
         <>
-          <Text style={styles.resultsTitle}>Mejor resultado</Text>
+          <Text style={styles.resultsTitle}>{t('search.top_match')}</Text>
           <TopMatchCard match={currentTopMatch} onPress={handleTopMatchPress} />
         </>
       )}
@@ -406,7 +420,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           (activeFilter === "albums" && results.albums.length > 1) ||
           (activeFilter === "tracks" && results.tracks.length > 1)) && (
           <>
-            <Text style={styles.resultsTitle}>Resultados</Text>
+            <Text style={styles.resultsTitle}>{t('search.matches')}</Text>
 
             {/* Artists Section */}
             {(activeFilter === "all" || activeFilter === "artists") &&
@@ -415,7 +429,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               ) && (
                 <>
                   <SectionHeader
-                    title={activeFilter === "all" ? "Artistas" : "Otros artistas"}
+                    title={activeFilter === "all" ? t('library.artists') : t('search.other_artists')}
                   />
                   <ScrollView
                     horizontal
@@ -442,7 +456,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               ) && (
                 <>
                   <SectionHeader
-                    title={activeFilter === "all" ? "Álbumes" : "Otros álbumes"}
+                    title={activeFilter === "all" ? t('library.albums') : t('search.other_albums')}
                   />
                   <ScrollView
                     horizontal
@@ -469,7 +483,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                   track.id !== currentTopMatch.item.id,
               ) && (
                 <SectionHeader
-                  title={activeFilter === "all" ? "Canciones" : "Más canciones"}
+                  title={activeFilter === "all" ? t('library.songs') : t('search.more_songs')}
                 />
               )}
           </>
@@ -495,7 +509,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         colors={["#8B5CF633", "transparent"]}
         style={[styles.searchGradient, { paddingTop: insets.top + 10 }]}
       >
-        <Text style={styles.title}>Buscar</Text>
+        <Text style={styles.title}>{t('search.title')}</Text>
         <View style={styles.searchBarContainer}>
           <View style={styles.searchBar}>
             <Ionicons
@@ -506,7 +520,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar artistas, álbumes o canciones"
+              placeholder={t('search.placeholder')}
               placeholderTextColor="#999"
               value={query}
               onChangeText={setQuery}
@@ -556,7 +570,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                       isActive && styles.filterTextActive,
                     ]}
                   >
-                    {tab.label}
+                    {getFilterLabel(tab.id)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -621,7 +635,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={64} color="#333" />
               <Text style={styles.emptyText}>
-                {`No hemos encontrado nada para "${query}"`}
+                {t('search.no_results', { query })}
               </Text>
             </View>
           );

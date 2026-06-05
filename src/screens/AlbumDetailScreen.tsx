@@ -37,6 +37,7 @@ import { usePlayerStore } from "../store/usePlayerStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useTagManagerStore } from "../store/useTagManagerStore";
 import { Layout } from "../theme/theme";
+import { useTranslation } from "react-i18next";
 
 const AlbumTrackRow = withObservables(
   ["track"],
@@ -57,10 +58,11 @@ const AlbumTrackRow = withObservables(
   index?: number;
   onPress?: (trackId: string) => void;
 }) {
+  const { t } = useTranslation();
   const artistNames =
     artists.length > 0
       ? artists.map((a) => a.name).join(", ")
-      : "Artista Desconocido";
+      : t('actions.unknown');
   return (
     <TrackRow
       track={track}
@@ -94,6 +96,7 @@ function AlbumDetailContent({
 }: Props & { isLoadingTracks: boolean }) {
   const navigation = useNavigation<any>();
   const showTagColors = useSettingsStore((state) => state.showTagColors);
+  const { t } = useTranslation();
 
   // ─── ESTADOS DEL REPRODUCTOR ───
   const playbackState = usePlaybackState();
@@ -237,7 +240,7 @@ function AlbumDetailContent({
                 onPress={handleOpenTagManager}
               >
                 <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
-                <Text style={styles.addTagText}>Añadir Tag</Text>
+                <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -251,7 +254,7 @@ function AlbumDetailContent({
         }
         metaInfo={[
           album.year,
-          `${tracks.length} ${tracks.length === 1 ? "canción" : "canciones"}`,
+          `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
           !isLoadingTracks && totalDuration > 0
             ? formatAlbumDuration(totalDuration)
             : null,
@@ -286,7 +289,7 @@ function AlbumDetailContent({
 
       {/* ── SECCIÓN DE CANCIONES (FUERA DEL HEADER FIJO) ── */}
       <View style={{ marginTop: 0, marginBottom: 4 }}>
-        <SectionHeader title="Canciones" />
+        <SectionHeader title={t('library.songs')} />
         <View style={styles.divider} />
       </View>
     </>
@@ -303,7 +306,7 @@ function AlbumDetailContent({
           {showDiscHeader && item.discNumber && item.discNumber > 1 && (
             <View style={styles.discHeader}>
               <Ionicons name="disc-outline" size={16} color="#8B5CF6" />
-              <Text style={styles.discText}>Disco {item.discNumber}</Text>
+              <Text style={styles.discText}>{t('library.disc_singular')} {item.discNumber}</Text>
             </View>
           )}
           <AlbumTrackRow
@@ -315,7 +318,7 @@ function AlbumDetailContent({
         </View>
       );
     },
-    [tracks, album.id, handleTrackPress],
+    [tracks, album.id, handleTrackPress, t],
   );
 
   const insets = useSafeAreaInsets();
@@ -336,7 +339,7 @@ function AlbumDetailContent({
             />
           ) : (
             <Text style={styles.emptyText}>
-              Este álbum no tiene canciones escaneadas.
+              {t('actions.no_album_songs_scanned')}
             </Text>
           )
         }
