@@ -73,7 +73,7 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
     artists: track.queryCollaborators.observe(),
 }))(TrackCard);
 
-const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
@@ -83,8 +83,21 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
     const isCurrentContext = playbackContext === contextId;
     const isCurrentContextPlaying = isCurrentContext && isPlaying;
 
+    const sortedTracks = React.useMemo(() => {
+        if (sortOption === 'duration_asc' || sortOption === 'duration_desc') {
+            return tracks;
+        }
+        const isDesc = sortOption === 'name_desc';
+        return [...tracks].sort((a, b) => {
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            const cmp = titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [tracks, sortOption]);
+
     const handlePlayPress = async () => {
-        if (tracks.length === 0) return;
+        if (sortedTracks.length === 0) return;
         if (isCurrentContext) {
             if (isPlaying) {
                 await TrackPlayer.pause();
@@ -92,17 +105,17 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
                 await TrackPlayer.play();
             }
         } else {
-            usePlayerStore.getState().loadQueue(tracks, 0, contextId);
+            usePlayerStore.getState().loadQueue(sortedTracks, 0, contextId);
         }
     };
 
     const handleShufflePress = () => {
-        if (tracks.length === 0) return;
-        usePlayerStore.getState().startShuffled(tracks, contextId);
+        if (sortedTracks.length === 0) return;
+        usePlayerStore.getState().startShuffled(sortedTracks, contextId);
     };
 
     const renderHeader = () => {
-        if (tracks.length === 0) return null;
+        if (sortedTracks.length === 0) return null;
         return (
             <View style={styles.listHeaderButtons}>
                 <TouchableOpacity style={styles.shuffleBtn} onPress={handleShufflePress}>
@@ -129,7 +142,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
     return (
         <FlashList
             ref={scrollRef}
-            data={tracks}
+            data={sortedTracks}
             keyExtractor={t => t.id}
             renderItem={renderItem}
             contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
@@ -190,10 +203,27 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+
+    const sortedAlbums = React.useMemo(() => {
+        if (sortOption === 'year_asc' || sortOption === 'year_desc') {
+            return albums;
+        }
+        const isDesc = sortOption === 'name_desc';
+        return [...albums].sort((a, b) => {
+            if (a.isPinned !== b.isPinned) {
+                return a.isPinned ? -1 : 1;
+            }
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            const cmp = titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [albums, sortOption]);
+
     return (
         <FlashList
             ref={scrollRef}
-            data={albums}
+            data={sortedAlbums}
             keyExtractor={a => a.id}
             renderItem={({ item, index }) => (
                 <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
@@ -260,10 +290,24 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+
+    const sortedArtists = React.useMemo(() => {
+        const isDesc = sortOption === 'name_desc';
+        return [...artists].sort((a, b) => {
+            if (a.isPinned !== b.isPinned) {
+                return a.isPinned ? -1 : 1;
+            }
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [artists, sortOption]);
+
     return (
         <FlashList
             ref={scrollRef}
-            data={artists}
+            data={sortedArtists}
             keyExtractor={a => a.id}
             renderItem={({ item, index }) => (
                 <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
@@ -382,13 +426,29 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
         navigation.navigate('FavoritesDetail');
     }, [navigation]);
 
+    const sortedPlaylists = React.useMemo(() => {
+        if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
+            return playlists;
+        }
+        const isDesc = sortOption === 'name_desc';
+        return [...playlists].sort((a, b) => {
+            if (a.isPinned !== b.isPinned) {
+                return a.isPinned ? -1 : 1;
+            }
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [playlists, sortOption]);
+
     const data = React.useMemo(() => {
         return [
             { id: 'create_new', isCreateNew: true, name: t('library.create_playlist') },
             { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
-            ...playlists
+            ...sortedPlaylists
         ];
-    }, [playlists, t]);
+    }, [sortedPlaylists, t]);
 
     return (
         <FlashList
@@ -506,7 +566,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                 });
             }
         }
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
     }, [tracks]);
 
     // Automatically clear selection if the folder no longer exists or becomes empty
