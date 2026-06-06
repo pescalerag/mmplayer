@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -444,10 +444,22 @@ const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: {
 })(PlaylistsList);
 
 
-// ----- FOLDER LIST -----
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
     const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
+    const isFocused = useIsFocused();
+
+    useEffect(() => {
+        if (!activeFolderPath || !isFocused) return;
+
+        const onBackPress = () => {
+            setActiveFolderPath(null);
+            return true;
+        };
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, [activeFolderPath, isFocused]);
 
     // Get unique leaf folders that directly contain tracks
     const folders = React.useMemo(() => {
