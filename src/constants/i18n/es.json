@@ -204,7 +204,8 @@
     "artist_queued": "Artista añadido a la cola",
     "added_to_playlist_plural": "{{count}} añadidas a la playlist",
     "added_to_new_playlist_plural": "{{count}} añadidas a la nueva playlist",
-    "playlist_created": "Playlist creada"
+    "playlist_created": "Playlist creada",
+    "tag_already_exists": "Ya existe una etiqueta con ese nombre"
   },
   "changelog": {
     "history_title": "Historial de versiones",

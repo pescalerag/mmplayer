@@ -204,7 +204,8 @@
     "artist_queued": "Artist added to queue",
     "added_to_playlist_plural": "{{count}} songs added to playlist",
     "added_to_new_playlist_plural": "{{count}} songs added to new playlist",
-    "playlist_created": "Playlist created"
+    "playlist_created": "Playlist created",
+    "tag_already_exists": "Tag name already exists"
   },
   "changelog": {
     "history_title": "Version History",

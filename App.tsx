@@ -22,6 +22,7 @@ import QueueSheet from "./src/components/QueueSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
+import GlobalToast from "./src/components/GlobalToast";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
@@ -126,6 +127,7 @@ export default function App() {
           <PlaylistMenuSheet />
           <FolderMenuSheet />
           <UpdatedAppModal />
+          <GlobalToast />
         </NavigationContainer>
       </View>
     </SafeAreaProvider>
