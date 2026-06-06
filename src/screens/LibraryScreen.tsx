@@ -28,6 +28,7 @@ import { ScannerService } from '../services/ScannerService';
 import { Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { useTranslation } from 'react-i18next';
+import { safeDecodeURIComponent, getSafeFileName } from '../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
@@ -561,7 +562,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                 const name = dirPath.substring(dirPath.lastIndexOf('/') + 1);
                 map.set(dirPath, {
                     path: dirPath,
-                    name: decodeURIComponent(name),
+                    name: safeDecodeURIComponent(name),
                     trackCount: 1
                 });
             }
@@ -584,7 +585,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
 
     const activeFolderName = React.useMemo(() => {
         if (!activeFolderPath) return '';
-        return decodeURIComponent(activeFolderPath.substring(activeFolderPath.lastIndexOf('/') + 1));
+        return getSafeFileName(activeFolderPath);
     }, [activeFolderPath]);
 
     const directTracks = React.useMemo(() => {

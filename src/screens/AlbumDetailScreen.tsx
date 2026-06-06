@@ -2,12 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { FlashList } from "@shopify/flash-list";
 import {
     ActivityIndicator,
     Dimensions,
-    InteractionManager,
     ScrollView,
     StyleSheet,
     Text,
@@ -90,13 +89,19 @@ interface Props {
 function AlbumDetailContent({
   album,
   artist,
-  tracks,
+  tracks: rawTracks,
   tags,
   isLoadingTracks,
 }: Props & { isLoadingTracks: boolean }) {
   const navigation = useNavigation<any>();
   const showTagColors = useSettingsStore((state) => state.showTagColors);
+  const excludedSongs = useSettingsStore((state) => state.excludedSongs);
   const { t } = useTranslation();
+
+  const tracks = React.useMemo(() => {
+    const excluded = excludedSongs || [];
+    return rawTracks.filter((t) => !excluded.includes(t.fileUrl));
+  }, [rawTracks, excludedSongs]);
 
   // ─── ESTADOS DEL REPRODUCTOR ───
   const playbackState = usePlaybackState();
@@ -356,82 +361,29 @@ function AlbumDetailContent({
   );
 }
 
-const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }) => ({
+const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { album: Album }) => ({
   album: album.observe(),
+  artist: album.artist.observe(),
+  tracks: database.collections.get<Track>("tracks").query(
+    Q.where("album_id", album.id),
+    Q.sortBy("disc_number", Q.asc),
+    Q.sortBy("track_number", Q.asc),
+  ).observe(),
   tags: album.queryTags.observe(),
 }))(AlbumDetailContent);
+
+const ObservableAlbumDetailMiddle = withObservables(["albumId"], ({ albumId }: { albumId: string }) => ({
+  album: database.collections.get<Album>("albums").findAndObserve(albumId),
+}))(function ObservableAlbumDetailMiddle({ album }: { album: Album }) {
+  return <EnhancedAlbumDetailContent album={album} isLoadingTracks={false} />;
+});
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 export default function AlbumDetailScreen() {
   const route = useRoute<AlbumDetailRouteProp>();
   const { albumId } = route.params;
 
-  const [album, setAlbum] = useState<Album | null>(null);
-  const [artist, setArtist] = useState<Artist | null>(null);
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [areTracksReady, setAreTracksReady] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadHeaderData = async () => {
-      try {
-        const albumDoc = await database.collections
-          .get<Album>("albums")
-          .find(albumId);
-        const artistDoc = await albumDoc.artist.fetch();
-        if (isMounted) {
-          setAlbum(albumDoc);
-          setArtist(artistDoc);
-        }
-      } catch (error) {
-        console.error("Error cargando AlbumDetail Header:", error);
-      }
-    };
-
-    const loadTracks = async () => {
-      try {
-        const tracksDocs = await database.collections
-          .get<Track>("tracks")
-          .query(
-            Q.where("album_id", albumId),
-            Q.sortBy("disc_number", Q.asc),
-            Q.sortBy("track_number", Q.asc),
-          )
-          .fetch();
-        if (isMounted) {
-          setTracks(tracksDocs);
-          setAreTracksReady(true);
-        }
-      } catch (error) {
-        console.error("Error cargando AlbumDetail Tracks:", error);
-      }
-    };
-
-    loadHeaderData();
-
-    const task = InteractionManager.runAfterInteractions(() => {
-      loadTracks();
-    });
-
-    return () => {
-      isMounted = false;
-      task.cancel();
-    };
-  }, [albumId]);
-
-  if (!album) {
-    return <View style={[styles.container, { backgroundColor: "#121212" }]} />;
-  }
-
-  return (
-    <EnhancedAlbumDetailContent
-      album={album}
-      artist={artist!}
-      tracks={tracks}
-      isLoadingTracks={!areTracksReady}
-    />
-  );
+  return <ObservableAlbumDetailMiddle albumId={albumId} />;
 }
 
 // ─── ESTILOS ─────────────────────────────────────────────────────────────────

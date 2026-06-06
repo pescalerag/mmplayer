@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
-import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
@@ -32,8 +31,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors, excludedFolders, includeFolder, language, setLanguage } = useSettingsStore();
-    const isScanning = useSyncStore(state => state.isScanning);
+    const { showTagColors, setShowTagColors, language, setLanguage } = useSettingsStore();
     const { t } = useTranslation();
 
 
@@ -156,38 +154,28 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </View>
                 </View>
 
-                {/* --- SECCIÓN DE CARPETAS EXCLUIDAS --- */}
+                {/* --- SECCIÓN DE EXCLUSIONES --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>{t('settings.excluded_folders')}</Text>
-                    {excludedFolders.length === 0 ? (
-                        <Text style={styles.noExcludedText}>{t('settings.no_excluded')}</Text>
-                    ) : (
-                        excludedFolders.map((folderPath) => {
-                            const folderName = decodeURIComponent(folderPath.substring(folderPath.lastIndexOf('/') + 1));
-                            return (
-                                <View key={folderPath} style={styles.excludedFolderRow}>
-                                    <View style={{ flex: 1, paddingRight: 10 }}>
-                                        <Text style={styles.folderNameText} numberOfLines={1}>{folderName}</Text>
-                                        <Text style={styles.folderPathText} numberOfLines={1}>{folderPath}</Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.restoreButton}
-                                        disabled={isScanning}
-                                        onPress={async () => {
-                                            includeFolder(folderPath);
-                                            await ScannerService.syncLibrary();
-                                        }}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons name="refresh-outline" size={16} color="#8B5CF6" />
-                                        <Text style={styles.restoreButtonText}>
-                                            {isScanning ? t('settings.syncing') : t('settings.restore')}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            );
-                        })
-                    )}
+                    <Text style={styles.sectionTitle}>{t('settings.exclusions')}</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => navigation.navigate('ExcludedFolders')}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.excluded_folders')}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => navigation.navigate('ExcludedSongs')}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.excluded_songs')}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* --- SECCIÓN DE DEBUG --- */}

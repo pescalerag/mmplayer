@@ -10,6 +10,9 @@ interface SettingsState {
     excludedFolders: string[];
     excludeFolder: (folderPath: string) => void;
     includeFolder: (folderPath: string) => void;
+    excludedSongs: string[];
+    excludeSong: (songPath: string) => void;
+    includeSong: (songPath: string) => void;
     lastSeenVersion: string | null;
     setLastSeenVersion: (version: string) => void;
     language: string | null;
@@ -22,12 +25,21 @@ export const useSettingsStore = create<SettingsState>()(
             showTagColors: true,
             setShowTagColors: (value) => set({ showTagColors: value }),
             excludedFolders: [],
+            excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {
                 if (state.excludedFolders.includes(folderPath)) return state;
                 return { excludedFolders: [...state.excludedFolders, folderPath] };
             }),
             includeFolder: (folderPath) => set((state) => ({
                 excludedFolders: state.excludedFolders.filter((f) => f !== folderPath),
+            })),
+            excludeSong: (songPath) => set((state) => {
+                const songs = state.excludedSongs || [];
+                if (songs.includes(songPath)) return state;
+                return { excludedSongs: [...songs, songPath] };
+            }),
+            includeSong: (songPath) => set((state) => ({
+                excludedSongs: (state.excludedSongs || []).filter((s) => s !== songPath),
             })),
             lastSeenVersion: null,
             setLastSeenVersion: (version) => set({ lastSeenVersion: version }),

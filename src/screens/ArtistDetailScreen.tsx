@@ -11,7 +11,6 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    InteractionManager,
     Platform,
     ScrollView,
     StyleSheet,
@@ -36,6 +35,7 @@ import { Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { HistoryService } from '../services/HistoryService';
 import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -303,13 +303,19 @@ interface Props {
     isLoadingContent: boolean;
 }
 
-function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: Props) {
+function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingContent }: Props) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const [showAllAlbums, setShowAllAlbums] = useState(false);
     const [showAllTracks, setShowAllTracks] = useState(false);
     const [imageError, setImageError] = useState(false);
+    const excludedSongs = useSettingsStore(state => state.excludedSongs);
+
+    const tracks = useMemo(() => {
+        const excluded = excludedSongs || [];
+        return rawTracks.filter(t => !excluded.includes(t.fileUrl));
+    }, [rawTracks, excludedSongs]);
 
     useEffect(() => {
         setImageError(false);
@@ -431,77 +437,28 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
     );
 }
 
-const ArtistDetailContent = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
+const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
     artist: artist.observe(),
+    albums: database.collections.get<Album>('albums')
+        .query(Q.where('artist_id', artist.id))
+        .observe(),
+    tracks: database.collections.get<Track>('tracks')
+        .query(Q.on('track_collaborators', 'artist_id', artist.id))
+        .observe(),
 }))(ArtistDetailContentBase);
 
+const ObservableArtistDetailMiddle = withObservables(['artistId'], ({ artistId }: { artistId: string }) => ({
+    artist: database.collections.get<Artist>('artists').findAndObserve(artistId),
+}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist }) {
+    return <EnhancedArtistDetailContent artist={artist} isLoadingContent={false} />;
+});
+
+// ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 export default function ArtistDetailScreen() {
     const route = useRoute<ArtistDetailRouteProp>();
     const { artistId } = route.params;
-    const { t } = useTranslation();
 
-    const [artist, setArtist] = useState<Artist | null>(null);
-    const [albums, setAlbums] = useState<Album[]>([]);
-    const [tracks, setTracks] = useState<Track[]>([]);
-    const [areAlbumsReady, setAreAlbumsReady] = useState(false);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        const loadArtistData = async () => {
-            try {
-                const artistDoc = await database.collections.get<Artist>('artists').find(artistId);
-                if (isMounted) {
-                    setArtist(artistDoc);
-                }
-            } catch (error) {
-                console.error('Error cargando ArtistDetail Artist:', error);
-                if (isMounted) {
-                    Alert.alert(t('actions.error'), t('actions.load_artist_error'));
-                }
-            }
-        };
-
-        const loadContent = async () => {
-            try {
-                const albumsDocs = await database.collections.get<Album>('albums')
-                    .query(Q.where('artist_id', artistId))
-                    .fetch();
-                const tracksDocs = await database.collections.get<Track>('tracks')
-                    .query(Q.on('track_collaborators', 'artist_id', artistId))
-                    .fetch();
-                if (isMounted) {
-                    setAlbums(albumsDocs);
-                    setTracks(tracksDocs);
-                    setAreAlbumsReady(true);
-                }
-            } catch (error) {
-                console.error('Error cargando ArtistDetail Content:', error);
-            }
-        };
-
-        loadArtistData();
-        const task = InteractionManager.runAfterInteractions(() => {
-            loadContent();
-        });
-        return () => {
-            isMounted = false;
-            task.cancel();
-        };
-    }, [artistId, t]);
-
-    if (!artist) {
-        return <View style={[styles.container, { backgroundColor: '#121212' }]} />;
-    }
-
-    return (
-        <ArtistDetailContent
-            artist={artist}
-            albums={albums}
-            tracks={tracks}
-            isLoadingContent={!areAlbumsReady}
-        />
-    );
+    return <ObservableArtistDetailMiddle artistId={artistId} />;
 }
 
 const styles = StyleSheet.create({

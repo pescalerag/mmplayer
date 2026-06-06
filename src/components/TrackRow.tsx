@@ -10,6 +10,8 @@ import { PlayingIndicator } from "./PlayingIndicator";
 import { usePlaybackState, State } from "react-native-track-player";
 import { HistoryService } from "../services/HistoryService";
 
+import { useSettingsStore } from "../store/useSettingsStore";
+
 interface TrackRowProps {
   readonly track: Track;
   readonly contextId: string;
@@ -39,6 +41,9 @@ function TrackRow({
   const playbackStateRN = usePlaybackState();
   const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
 
+  const excludedSongs = useSettingsStore((state) => state.excludedSongs) || [];
+  const isExcluded = excludedSongs.includes(track.fileUrl);
+
   const isCurrentTrack = activeTrack?.id === track.id && 
                         (playbackContext === contextId || contextId === 'queue');
 
@@ -47,6 +52,10 @@ function TrackRow({
   React.useEffect(() => {
       setImageError(false);
   }, [track.id]);
+
+  if (isExcluded) {
+    return null;
+  }
 
   return (
     <TouchableOpacity
