@@ -33,6 +33,15 @@ import { useTranslation } from 'react-i18next';
 // ----- CONSTANTES COMPARTIDAS -----
 const cardWidth = (Dimensions.get('window').width - 70) / 3;
 
+// ----- SUB-COMPONENTES DE ESTADO VACÍO -----
+const LibraryEmptyState = ({ icon, title, description }: { icon: string; title: string; description: string }) => (
+    <View style={styles.emptyContainer}>
+        <Ionicons name={icon as any} size={48} color="#444" style={styles.emptyIcon} />
+        <Text style={styles.emptyTitle}>{title}</Text>
+        <Text style={styles.emptySubtitle}>{description}</Text>
+    </View>
+);
+
 // ----- TRACK ITEMS -----
 const TrackCard = ({ track, album, artists }: { track: Track, album: Album, artists: any }) => {
     const { t } = useTranslation();
@@ -126,7 +135,11 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
             contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={renderHeader}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_songs')}</Text>
+                <LibraryEmptyState
+                    icon="musical-notes-outline"
+                    title={t('library.empty_songs')}
+                    description={t('library.empty_songs_desc')}
+                />
             }
         />
     );
@@ -192,7 +205,11 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_albums')}</Text>
+                <LibraryEmptyState
+                    icon="albums-outline"
+                    title={t('library.empty_albums')}
+                    description={t('library.empty_albums_desc')}
+                />
             }
         />
     );
@@ -258,7 +275,11 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_artists')}</Text>
+                <LibraryEmptyState
+                    icon="people-outline"
+                    title={t('library.empty_artists')}
+                    description={t('library.empty_artists_desc')}
+                />
             }
         />
     );
@@ -422,7 +443,11 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
+                <LibraryEmptyState
+                    icon="list-outline"
+                    title={t('library.empty_playlists')}
+                    description={t('library.empty_playlists_desc')}
+                />
             }
         />
     );
@@ -579,7 +604,11 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_folders')}</Text>
+                <LibraryEmptyState
+                    icon="folder-open-outline"
+                    title={t('library.empty_folders')}
+                    description={t('library.empty_folders_desc')}
+                />
             }
         />
     );
@@ -804,13 +833,31 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
         gap: 15,
     },
-    emptyText: {
-        color: '#666',
-        fontSize: 14,
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 80,
+        paddingHorizontal: 32,
+        width: '100%',
+    },
+    emptyIcon: {
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        color: '#E0E0E0',
+        fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         textAlign: 'center',
-        marginTop: 40,
+    },
+    emptySubtitle: {
+        color: '#666',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        textAlign: 'center',
+        marginTop: 8,
+        lineHeight: 18,
     },
     listHeaderButtons: {
         flexDirection: 'row',
