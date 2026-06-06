@@ -6,7 +6,6 @@ import React, { useEffect } from "react";
 import { AppState, AppStateStatus, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
-import GlobalToast from "../components/GlobalToast";
 import { ScannerService } from "../services/ScannerService";
 
 import MiniPlayer from "../components/MiniPlayer";
@@ -222,7 +221,6 @@ export default function MainNavigator() {
   return (
     <View style={{ flex: 1 }}>
       <GlobalSyncIndicator />
-      <GlobalToast />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen

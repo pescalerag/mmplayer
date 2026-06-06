@@ -22,6 +22,7 @@ import ColorPicker, {
 } from "reanimated-color-picker";
 import { TagService } from "../services/tagService";
 import { useTagFormStore } from "../store/useTagFormStore";
+import { useToastStore } from "../store/useToastStore";
 import { getDynamicTagTextColor } from "../utils/color";
 import { useTranslation } from "react-i18next";
 
@@ -148,14 +149,30 @@ export default function TagFormModal() {
   }, [keyboardHeight]);
 
   const handleSave = async () => {
-    if (!tagName.trim()) return;
+    const trimmed = tagName.trim();
+    if (!trimmed) return;
     try {
+      const normalizedInput = trimmed.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const allTags = await TagService.getAllTags();
+      const duplicateExists = allTags.some(t => {
+        const isSameNormalized = t.normalizedName === normalizedInput;
+        if (tag) {
+          return isSameNormalized && t.id !== tag.id;
+        }
+        return isSameNormalized;
+      });
+
+      if (duplicateExists) {
+        useToastStore.getState().showToast(t('toasts.tag_already_exists'), 'close-circle', '#EF4444');
+        return;
+      }
+
       const finalColor =
         customColorMode && customHexCode ? customHexCode : selectedColor;
       if (tag) {
-        await TagService.updateTag(tag.id, tagName, finalColor);
+        await TagService.updateTag(tag.id, trimmed, finalColor);
       } else {
-        await TagService.createTag(tagName, finalColor);
+        await TagService.createTag(trimmed, finalColor);
       }
       Keyboard.dismiss();
       if (onSaveCallback) onSaveCallback();

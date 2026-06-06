@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -28,10 +28,20 @@ import { ScannerService } from '../services/ScannerService';
 import { Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { useTranslation } from 'react-i18next';
+import { safeDecodeURIComponent, getSafeFileName } from '../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
 const cardWidth = (Dimensions.get('window').width - 70) / 3;
+
+// ----- SUB-COMPONENTES DE ESTADO VACÍO -----
+const LibraryEmptyState = ({ icon, title, description }: { icon: string; title: string; description: string }) => (
+    <View style={styles.emptyContainer}>
+        <Ionicons name={icon as any} size={48} color="#444" style={styles.emptyIcon} />
+        <Text style={styles.emptyTitle}>{title}</Text>
+        <Text style={styles.emptySubtitle}>{description}</Text>
+    </View>
+);
 
 // ----- TRACK ITEMS -----
 const TrackCard = ({ track, album, artists }: { track: Track, album: Album, artists: any }) => {
@@ -64,7 +74,7 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
     artists: track.queryCollaborators.observe(),
 }))(TrackCard);
 
-const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
@@ -74,8 +84,21 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
     const isCurrentContext = playbackContext === contextId;
     const isCurrentContextPlaying = isCurrentContext && isPlaying;
 
+    const sortedTracks = React.useMemo(() => {
+        if (sortOption === 'duration_asc' || sortOption === 'duration_desc') {
+            return tracks;
+        }
+        const isDesc = sortOption === 'name_desc';
+        return [...tracks].sort((a, b) => {
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            const cmp = titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [tracks, sortOption]);
+
     const handlePlayPress = async () => {
-        if (tracks.length === 0) return;
+        if (sortedTracks.length === 0) return;
         if (isCurrentContext) {
             if (isPlaying) {
                 await TrackPlayer.pause();
@@ -83,17 +106,17 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
                 await TrackPlayer.play();
             }
         } else {
-            usePlayerStore.getState().loadQueue(tracks, 0, contextId);
+            usePlayerStore.getState().loadQueue(sortedTracks, 0, contextId);
         }
     };
 
     const handleShufflePress = () => {
-        if (tracks.length === 0) return;
-        usePlayerStore.getState().startShuffled(tracks, contextId);
+        if (sortedTracks.length === 0) return;
+        usePlayerStore.getState().startShuffled(sortedTracks, contextId);
     };
 
     const renderHeader = () => {
-        if (tracks.length === 0) return null;
+        if (sortedTracks.length === 0) return null;
         return (
             <View style={styles.listHeaderButtons}>
                 <TouchableOpacity style={styles.shuffleBtn} onPress={handleShufflePress}>
@@ -120,13 +143,17 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
     return (
         <FlashList
             ref={scrollRef}
-            data={tracks}
+            data={sortedTracks}
             keyExtractor={t => t.id}
             renderItem={renderItem}
             contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={renderHeader}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_songs')}</Text>
+                <LibraryEmptyState
+                    icon="musical-notes-outline"
+                    title={t('library.empty_songs')}
+                    description={t('library.empty_songs_desc')}
+                />
             }
         />
     );
@@ -177,10 +204,27 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+
+    const sortedAlbums = React.useMemo(() => {
+        if (sortOption === 'year_asc' || sortOption === 'year_desc') {
+            return albums;
+        }
+        const isDesc = sortOption === 'name_desc';
+        return [...albums].sort((a, b) => {
+            if (a.isPinned !== b.isPinned) {
+                return a.isPinned ? -1 : 1;
+            }
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            const cmp = titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [albums, sortOption]);
+
     return (
         <FlashList
             ref={scrollRef}
-            data={albums}
+            data={sortedAlbums}
             keyExtractor={a => a.id}
             renderItem={({ item, index }) => (
                 <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
@@ -192,7 +236,11 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_albums')}</Text>
+                <LibraryEmptyState
+                    icon="albums-outline"
+                    title={t('library.empty_albums')}
+                    description={t('library.empty_albums_desc')}
+                />
             }
         />
     );
@@ -243,10 +291,24 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+
+    const sortedArtists = React.useMemo(() => {
+        const isDesc = sortOption === 'name_desc';
+        return [...artists].sort((a, b) => {
+            if (a.isPinned !== b.isPinned) {
+                return a.isPinned ? -1 : 1;
+            }
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [artists, sortOption]);
+
     return (
         <FlashList
             ref={scrollRef}
-            data={artists}
+            data={sortedArtists}
             keyExtractor={a => a.id}
             renderItem={({ item, index }) => (
                 <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
@@ -258,7 +320,11 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_artists')}</Text>
+                <LibraryEmptyState
+                    icon="people-outline"
+                    title={t('library.empty_artists')}
+                    description={t('library.empty_artists_desc')}
+                />
             }
         />
     );
@@ -361,13 +427,29 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
         navigation.navigate('FavoritesDetail');
     }, [navigation]);
 
+    const sortedPlaylists = React.useMemo(() => {
+        if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
+            return playlists;
+        }
+        const isDesc = sortOption === 'name_desc';
+        return [...playlists].sort((a, b) => {
+            if (a.isPinned !== b.isPinned) {
+                return a.isPinned ? -1 : 1;
+            }
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+            return isDesc ? -cmp : cmp;
+        });
+    }, [playlists, sortOption]);
+
     const data = React.useMemo(() => {
         return [
             { id: 'create_new', isCreateNew: true, name: t('library.create_playlist') },
             { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
-            ...playlists
+            ...sortedPlaylists
         ];
-    }, [playlists, t]);
+    }, [sortedPlaylists, t]);
 
     return (
         <FlashList
@@ -422,7 +504,11 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
+                <LibraryEmptyState
+                    icon="list-outline"
+                    title={t('library.empty_playlists')}
+                    description={t('library.empty_playlists_desc')}
+                />
             }
         />
     );
@@ -444,10 +530,22 @@ const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: {
 })(PlaylistsList);
 
 
-// ----- FOLDER LIST -----
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
     const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
+    const isFocused = useIsFocused();
+
+    useEffect(() => {
+        if (!activeFolderPath || !isFocused) return;
+
+        const onBackPress = () => {
+            setActiveFolderPath(null);
+            return true;
+        };
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, [activeFolderPath, isFocused]);
 
     // Get unique leaf folders that directly contain tracks
     const folders = React.useMemo(() => {
@@ -464,12 +562,12 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                 const name = dirPath.substring(dirPath.lastIndexOf('/') + 1);
                 map.set(dirPath, {
                     path: dirPath,
-                    name: decodeURIComponent(name),
+                    name: safeDecodeURIComponent(name),
                     trackCount: 1
                 });
             }
         }
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
     }, [tracks]);
 
     // Automatically clear selection if the folder no longer exists or becomes empty
@@ -487,7 +585,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
 
     const activeFolderName = React.useMemo(() => {
         if (!activeFolderPath) return '';
-        return decodeURIComponent(activeFolderPath.substring(activeFolderPath.lastIndexOf('/') + 1));
+        return getSafeFileName(activeFolderPath);
     }, [activeFolderPath]);
 
     const directTracks = React.useMemo(() => {
@@ -567,7 +665,11 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>{t('library.empty_folders')}</Text>
+                <LibraryEmptyState
+                    icon="folder-open-outline"
+                    title={t('library.empty_folders')}
+                    description={t('library.empty_folders_desc')}
+                />
             }
         />
     );
@@ -792,13 +894,31 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
         gap: 15,
     },
-    emptyText: {
-        color: '#666',
-        fontSize: 14,
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 80,
+        paddingHorizontal: 32,
+        width: '100%',
+    },
+    emptyIcon: {
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        color: '#E0E0E0',
+        fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         textAlign: 'center',
-        marginTop: 40,
+    },
+    emptySubtitle: {
+        color: '#666',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        textAlign: 'center',
+        marginTop: 8,
+        lineHeight: 18,
     },
     listHeaderButtons: {
         flexDirection: 'row',

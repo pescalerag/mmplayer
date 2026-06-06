@@ -58,8 +58,8 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         alignItems: 'center',
-        zIndex: 10000,
-        elevation: 10000,
+        zIndex: 999999,
+        elevation: 999999,
     },
     island: {
         flexDirection: 'row',

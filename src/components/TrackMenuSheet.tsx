@@ -11,7 +11,8 @@ import {
     Text, 
     TouchableOpacity, 
     TouchableWithoutFeedback, 
-    View 
+    View,
+    Alert
 } from 'react-native';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +26,8 @@ import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { ScannerService } from '../services/ScannerService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -34,9 +37,31 @@ export default function TrackMenuSheet() {
     const { isVisible, selectedTrack, closeMenu, navCallbacks } = useTrackMenuStore();
     const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
     const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
+    const excludeSong = useSettingsStore(state => state.excludeSong);
     
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [artistName, setArtistName] = useState(t('actions.unknown'));
+
+    const handleExclude = () => {
+        if (!selectedTrack) return;
+
+        Alert.alert(
+            t('actions.exclude_song_title'),
+            t('actions.exclude_song_confirm'),
+            [
+                { text: t('actions.cancel'), style: "cancel" },
+                { 
+                    text: t('actions.exclude'), 
+                    style: "destructive",
+                    onPress: async () => {
+                        closeMenu();
+                        excludeSong(selectedTrack.fileUrl);
+                        await ScannerService.deleteSongContents(selectedTrack.fileUrl);
+                    }
+                }
+            ]
+        );
+    };
     const [albumId, setAlbumId] = useState<string | null>(null);
     const [artistId, setArtistId] = useState<string | null>(null);
 
@@ -330,6 +355,17 @@ export default function TrackMenuSheet() {
                         <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                     </TouchableOpacity>
                 )}
+
+                {/* OPCIÓN: Excluir canción */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={handleExclude}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="eye-off-outline" size={24} color="#EF4444" />
+                    </View>
+                    <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.exclude_song')}</Text>
+                </TouchableOpacity>
             </Animated.View>
         </View>
     );

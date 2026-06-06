@@ -34,6 +34,7 @@ import { HistoryService } from "../services/HistoryService";
 import { PlaylistService } from "../services/PlaylistService";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { Layout } from "../theme/theme";
 import { formatAlbumDuration } from "../utils/time";
 import { useTranslation } from "react-i18next";
@@ -127,8 +128,14 @@ function PlaylistDetailContent({
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
-  const [tracks, setTracks] = useState<Track[]>([]);
+  const [rawTracks, setTracks] = useState<Track[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
+  const excludedSongs = useSettingsStore((state) => state.excludedSongs);
+
+  const tracks = React.useMemo(() => {
+    const excluded = excludedSongs || [];
+    return rawTracks.filter((t) => !excluded.includes(t.fileUrl));
+  }, [rawTracks, excludedSongs]);
 
   // Resolve Track records from PlaylistTrack relation
   useEffect(() => {
