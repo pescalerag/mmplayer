@@ -32,6 +32,7 @@ export default function PlaylistSelectorModal() {
     const { isVisible, tracksToAssociate, playlistToEdit, isCreatingDirectly, closeSelector } = usePlaylistSelectorStore();
 
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
+    const [alreadyPresentPlaylists, setAlreadyPresentPlaylists] = useState<Record<string, boolean>>({});
     const [isCreating, setIsCreating] = useState(false);
     const [playlistName, setPlaylistName] = useState('');
     const [playlistDesc, setPlaylistDesc] = useState('');
@@ -41,14 +42,28 @@ export default function PlaylistSelectorModal() {
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const keyboardHeight = useRef(new Animated.Value(0)).current;
 
-    const loadPlaylists = async () => {
+    const loadPlaylists = React.useCallback(async () => {
         try {
             const list = await PlaylistService.getAllPlaylists();
             setPlaylists(list);
+
+            if (tracksToAssociate.length > 0) {
+                const trackIds = tracksToAssociate.map(t => t.id);
+                const associationMap: Record<string, boolean> = {};
+                
+                await Promise.all(list.map(async (pl) => {
+                    const existingTrackIds = await PlaylistService.getTrackIdsInPlaylist(pl.id);
+                    const allPresent = trackIds.every(id => existingTrackIds.includes(id));
+                    associationMap[pl.id] = allPresent;
+                }));
+                setAlreadyPresentPlaylists(associationMap);
+            } else {
+                setAlreadyPresentPlaylists({});
+            }
         } catch (e) {
             console.error('Error cargando playlists:', e);
         }
-    };
+    }, [tracksToAssociate]);
 
     useEffect(() => {
         if (isVisible) {
@@ -96,7 +111,7 @@ export default function PlaylistSelectorModal() {
                 })
             ]).start();
         }
-    }, [isVisible, fadeAnim, slideAnim, playlistToEdit, isCreatingDirectly]);
+    }, [isVisible, fadeAnim, slideAnim, playlistToEdit, isCreatingDirectly, loadPlaylists]);
 
     // Manejar botón de atrás en Android
     useEffect(() => {
@@ -289,22 +304,32 @@ export default function PlaylistSelectorModal() {
                                         <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
                                     </View>
                                 ) : (
-                                    playlists.map(pl => (
-                                        <TouchableOpacity
-                                            key={pl.id}
-                                            style={styles.playlistItem}
-                                            onPress={() => handleSelectPlaylist(pl.id)}
-                                        >
-                                            <PlaylistCover playlistId={pl.id} size={48} customCoverUrl={pl.coverCustomUrl} />
-                                            <View style={styles.playlistInfo}>
-                                                <Text style={styles.playlistName} numberOfLines={1}>{pl.name}</Text>
-                                                <Text style={styles.playlistDesc} numberOfLines={1}>
-                                                    {pl.description || t('playlist.no_description')}
-                                                </Text>
-                                            </View>
-                                            <Ionicons name="chevron-forward" size={18} color="#555" />
-                                        </TouchableOpacity>
-                                    ))
+                                    playlists.map(pl => {
+                                        const isPresent = alreadyPresentPlaylists[pl.id];
+                                        return (
+                                            <TouchableOpacity
+                                                key={pl.id}
+                                                style={[
+                                                    styles.playlistItem,
+                                                    isPresent && styles.playlistItemPresent
+                                                ]}
+                                                onPress={() => handleSelectPlaylist(pl.id)}
+                                            >
+                                                <PlaylistCover playlistId={pl.id} size={48} customCoverUrl={pl.coverCustomUrl} />
+                                                <View style={styles.playlistInfo}>
+                                                    <Text style={styles.playlistName} numberOfLines={1}>{pl.name}</Text>
+                                                    <Text style={styles.playlistDesc} numberOfLines={1}>
+                                                        {pl.description || t('playlist.no_description')}
+                                                    </Text>
+                                                </View>
+                                                {isPresent ? (
+                                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                                ) : (
+                                                    <Ionicons name="chevron-forward" size={18} color="#555" />
+                                                )}
+                                            </TouchableOpacity>
+                                        );
+                                    })
                                 )}
                             </ScrollView>
                         </>
@@ -472,6 +497,10 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         borderWidth: 1,
         borderColor: '#2A2A2A',
+    },
+    playlistItemPresent: {
+        borderColor: '#10B981',
+        backgroundColor: 'rgba(16, 185, 129, 0.05)',
     },
     playlistInfo: {
         flex: 1,
