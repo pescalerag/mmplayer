@@ -23,6 +23,7 @@ import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -204,6 +205,22 @@ export default function FolderMenuSheet() {
                         <Ionicons name="list" size={24} color="#FFFFFF" />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir a Playlist */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (tracks.length > 0) {
+                            closeMenu();
+                            usePlaylistSelectorStore.getState().openSelector(tracks);
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
 
                 {/* Separador */}
