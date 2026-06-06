@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,8 +18,8 @@ import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
-import Constants from 'expo-constants';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useTranslation } from 'react-i18next';
+
 
 const { width } = Dimensions.get('window');
 const gridItemWidth = (width - 48) / 2;
@@ -70,13 +70,24 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
         </TouchableOpacity>
     );
 });
+RecentMediaCard.displayName = 'RecentMediaCard';
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
+    const { t } = useTranslation();
 
-    const recentMedia = usePlayerStore(state => state.recentMedia) || [];
-    const recentPlaylists = usePlayerStore(state => state.recentPlaylists) || [];
+    const getGreetingKey = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'home.welcome_morning';
+        if (hour < 20) return 'home.welcome_afternoon';
+        return 'home.welcome_evening';
+    };
+
+    const recentMediaRaw = usePlayerStore(state => state.recentMedia);
+    const recentMedia = React.useMemo(() => recentMediaRaw || [], [recentMediaRaw]);
+    const recentPlaylistsRaw = usePlayerStore(state => state.recentPlaylists);
+    const recentPlaylists = React.useMemo(() => recentPlaylistsRaw || [], [recentPlaylistsRaw]);
     const activeTrack = usePlayerStore(state => state.activeTrack);
 
     // Modal logic moved to App.tsx
@@ -149,7 +160,7 @@ export default function HomeScreen() {
                 showsVerticalScrollIndicator={false}
             >
             {/* Saludo Principal */}
-            <Text style={styles.welcomeText}>Buenas tardes</Text>
+            <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
 
             {/* SECCIÓN 1: Grid 2x3 de Recientes (Canciones y Álbumes) */}
             {recentMedia.length > 0 ? (
@@ -167,12 +178,12 @@ export default function HomeScreen() {
                 </View>
             ) : (
                 <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>Aquí aparecerá la música que reproduzcas.</Text>
+                    <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
                 </View>
             )}
 
             {/* SECCIÓN 2: Playlists Recientes */}
-            <Text style={styles.sectionTitle}>Tus Playlists</Text>
+            <Text style={styles.sectionTitle}>{t('home.my_playlists')}</Text>
 
             {recentPlaylists.length > 0 ? (
                 <View style={styles.playlistsContainer}>
@@ -190,7 +201,7 @@ export default function HomeScreen() {
                 </View>
             ) : (
                 <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>Aún no has escuchado ninguna playlist.</Text>
+                    <Text style={styles.emptyText}>{t('home.empty_playlists')}</Text>
                 </View>
             )}
         </ScrollView>

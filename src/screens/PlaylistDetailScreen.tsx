@@ -36,6 +36,7 @@ import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
 import { Layout } from "../theme/theme";
 import { formatAlbumDuration } from "../utils/time";
+import { useTranslation } from "react-i18next";
 
 const { width } = Dimensions.get("window");
 
@@ -62,10 +63,11 @@ const PlaylistTrackRowWithMetadata = withObservables(
   index: number;
   onPress: (trackId: string) => void;
 }) {
+  const { t } = useTranslation();
   const artistNames =
     artists.length > 0
       ? artists.map((a) => a.name).join(", ")
-      : "Artista Desconocido";
+      : t('actions.unknown');
   return (
     <TrackRow
       track={track}
@@ -123,6 +125,7 @@ function PlaylistDetailContent({
 }: PlaylistDetailContentProps) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
@@ -187,12 +190,12 @@ function PlaylistDetailContent({
 
   const handleDelete = () => {
     Alert.alert(
-      "Eliminar Playlist",
-      `¿Estás seguro de que quieres eliminar la lista "${playlist.name}"? Esta acción no se puede deshacer.`,
+      t('actions.delete_playlist_title'),
+      t('actions.delete_playlist_confirm', { name: playlist.name }),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t('actions.cancel'), style: "cancel" },
         {
-          text: "Eliminar",
+          text: t('actions.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -202,8 +205,8 @@ function PlaylistDetailContent({
             } catch (err) {
               console.error("Error al eliminar la playlist:", err);
               Alert.alert(
-                "Error",
-                "No se pudo eliminar la lista de reproducción.",
+                t('actions.error'),
+                t('actions.delete_playlist_error'),
               );
             }
           },
@@ -223,7 +226,7 @@ function PlaylistDetailContent({
         type: "playlist",
         context: "manual",
         title: playlist.name,
-        subtitle: playlist.description || "Lista de reproducción personalizada",
+        subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
         imageUrl: playlist.coverCustomUrl || null,
       });
 
@@ -234,7 +237,7 @@ function PlaylistDetailContent({
           .loadQueue(tracks, trackIndex, playlistContextId);
       }
     },
-    [tracks, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl],
+    [tracks, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, t],
   );
 
   const handleFabPress = async () => {
@@ -243,7 +246,7 @@ function PlaylistDetailContent({
       type: "playlist",
       context: "manual",
       title: playlist.name,
-      subtitle: playlist.description || "Lista de reproducción personalizada",
+      subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
       imageUrl: playlist.coverCustomUrl || null,
     });
     if (isCurrentPlaylist) {
@@ -264,7 +267,7 @@ function PlaylistDetailContent({
         type: "playlist",
         context: "manual",
         title: playlist.name,
-        subtitle: playlist.description || "Lista de reproducción personalizada",
+        subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
         imageUrl: playlist.coverCustomUrl || null,
       });
       usePlayerStore.getState().startShuffled(tracks, playlistContextId);
@@ -280,7 +283,7 @@ function PlaylistDetailContent({
       });
     } catch (error) {
       console.error("PickPhoto: Error al lanzar explorador:", error);
-      Alert.alert("Error", "Hubo un problema al abrir el explorador.");
+      Alert.alert(t('actions.error'), t('actions.pick_photo_error'));
       return;
     }
 
@@ -327,9 +330,9 @@ function PlaylistDetailContent({
       usePlayerStore.getState().updatePlaylistCoverInRecents(playlist.id, newPath);
     } catch (error) {
       console.error("Error guardando imagen:", error);
-      Alert.alert("Error", "No se pudo guardar la imagen de la playlist.");
+      Alert.alert(t('actions.error'), t('actions.save_photo_error'));
     }
-  }, [playlist]);
+  }, [playlist, t]);
 
   const listHeader = (
     <>
@@ -345,8 +348,8 @@ function PlaylistDetailContent({
             borderRadius={0}
           />
         )}
-        subtitle={playlist.description || "Lista de reproducción personalizada"}
-        metaInfo={`${playlistTracks.length} ${playlistTracks.length === 1 ? "canción" : "canciones"} · ${formatAlbumDuration(totalDuration)}`}
+        subtitle={playlist.description || t('actions.custom_playlist_subtitle')}
+        metaInfo={`${playlistTracks.length} ${playlistTracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
         onBack={handleBack}
         onDelete={handleDelete}
         onEdit={handleEdit}
@@ -377,7 +380,7 @@ function PlaylistDetailContent({
       />
 
       <View style={{ marginTop: 0, marginBottom: 4 }}>
-        <SectionHeader title="Canciones en la lista" />
+        <SectionHeader title={t('actions.songs_in_playlist')} />
         <View style={styles.divider} />
       </View>
     </>
@@ -417,10 +420,9 @@ function PlaylistDetailContent({
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="musical-notes-outline" size={60} color="#555" />
-              <Text style={styles.emptyText}>Esta lista está vacía.</Text>
+              <Text style={styles.emptyText}>{t('actions.playlist_empty')}</Text>
               <Text style={styles.emptySubtitle}>
-                Añade canciones desde la biblioteca pulsando los tres puntos al
-                lado de cualquier tema.
+                {t('actions.playlist_empty_desc')}
               </Text>
             </View>
           )

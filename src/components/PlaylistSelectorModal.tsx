@@ -22,11 +22,13 @@ import { PlaylistService } from '../services/PlaylistService';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
 import PlaylistCover from './PlaylistCover';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PlaylistSelectorModal() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, tracksToAssociate, playlistToEdit, isCreatingDirectly, closeSelector } = usePlaylistSelectorStore();
 
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -94,7 +96,7 @@ export default function PlaylistSelectorModal() {
                 })
             ]).start();
         }
-    }, [isVisible, fadeAnim, slideAnim, playlistToEdit]);
+    }, [isVisible, fadeAnim, slideAnim, playlistToEdit, isCreatingDirectly]);
 
     // Manejar botón de atrás en Android
     useEffect(() => {
@@ -113,7 +115,7 @@ export default function PlaylistSelectorModal() {
         };
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
-    }, [isVisible, isCreating, closeSelector, playlistToEdit]);
+    }, [isVisible, isCreating, closeSelector, playlistToEdit, isCreatingDirectly]);
 
     // Manejar altura del teclado en iOS y Android
     useEffect(() => {
@@ -144,36 +146,36 @@ export default function PlaylistSelectorModal() {
 
     const handleDuplicateTracks = (playlistId: string, existingTrackIds: string[], duplicateTracks: typeof tracksToAssociate) => {
         const showToast = (count: number) => {
-            const msg = count === 1 ? 'Añadido a la playlist' : `${count} añadidas a la playlist`;
+            const msg = count === 1 ? t('toasts.added_to_playlist') : t('toasts.added_to_playlist_plural', { count });
             useToastStore.getState().showToast(msg, 'list-circle');
         };
 
         if (tracksToAssociate.length === 1) {
             const singleTrack = tracksToAssociate[0];
             Alert.alert(
-                "Canción duplicada",
-                `"${singleTrack.title}" ya está en esta lista de reproducción. ¿Quieres añadirla de todos modos?`,
+                t('actions.duplicate_song_title'),
+                t('actions.duplicate_song_confirm', { title: singleTrack.title }),
                 [
-                    { text: "Cancelar", style: "cancel" },
-                    { text: "Añadir", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); showToast(1); closeSelector(); } }
+                    { text: t('actions.cancel'), style: "cancel" },
+                    { text: t('actions.add'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); showToast(1); closeSelector(); } }
                 ]
             );
             return;
         }
 
         const newTracks = tracksToAssociate.filter(t => !existingTrackIds.includes(t.id));
-        const buttons: AlertButton[] = [{ text: "Cancelar", style: "cancel" }];
+        const buttons: AlertButton[] = [{ text: t('actions.cancel'), style: "cancel" }];
 
         if (newTracks.length > 0) {
-            buttons.push({ text: "Solo las nuevas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); showToast(newTracks.length); closeSelector(); } });
+            buttons.push({ text: t('actions.only_new'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); showToast(newTracks.length); closeSelector(); } });
         }
-        buttons.push({ text: "Añadir todas", onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); showToast(tracksToAssociate.length); closeSelector(); } });
+        buttons.push({ text: t('actions.add_all'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); showToast(tracksToAssociate.length); closeSelector(); } });
 
         const message = newTracks.length > 0
-            ? `${duplicateTracks.length} de las ${tracksToAssociate.length} canciones ya están en esta lista de reproducción. ¿Quieres añadir solo las nuevas o todas?`
-            : `Todas las canciones (${duplicateTracks.length}) ya están en esta lista de reproducción. ¿Quieres añadirlas de todos modos?`;
+            ? t('actions.duplicate_songs_partial', { duplicateCount: duplicateTracks.length, totalCount: tracksToAssociate.length })
+            : t('actions.duplicate_songs_all', { count: duplicateTracks.length });
 
-        Alert.alert("Canciones duplicadas", message, buttons);
+        Alert.alert(t('actions.duplicate_songs_title'), message, buttons);
     };
 
     const handleSelectPlaylist = async (playlistId: string) => {
@@ -186,7 +188,7 @@ export default function PlaylistSelectorModal() {
                 handleDuplicateTracks(playlistId, existingTrackIds, duplicateTracks);
             } else {
                 await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id));
-                const msg = tracksToAssociate.length === 1 ? 'Añadido a la playlist' : `${tracksToAssociate.length} añadidas a la playlist`;
+                const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_playlist') : t('toasts.added_to_playlist_plural', { count: tracksToAssociate.length });
                 useToastStore.getState().showToast(msg, 'list-circle');
                 closeSelector();
             }
@@ -205,10 +207,10 @@ export default function PlaylistSelectorModal() {
                 if (tracksToAssociate.length > 0) {
                     const trackIds = tracksToAssociate.map(t => t.id);
                     await PlaylistService.addMultipleTracksToPlaylist(playlist.id, trackIds);
-                    const msg = tracksToAssociate.length === 1 ? 'Añadido a la nueva playlist' : `${tracksToAssociate.length} añadidas a la nueva playlist`;
+                    const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_new_playlist') : t('toasts.added_to_new_playlist_plural', { count: tracksToAssociate.length });
                     useToastStore.getState().showToast(msg, 'list-circle');
                 } else {
-                    useToastStore.getState().showToast('Playlist creada', 'list-circle');
+                    useToastStore.getState().showToast(t('toasts.playlist_created'), 'list-circle');
                 }
             }
             Keyboard.dismiss();
@@ -231,8 +233,8 @@ export default function PlaylistSelectorModal() {
     if (!shouldRender) return null;
 
     const subtitleText = tracksToAssociate.length === 1
-        ? `Añadir "${tracksToAssociate[0].title}" a...`
-        : `Añadir ${tracksToAssociate.length} canciones a...`;
+        ? t('actions.add_song_to', { title: tracksToAssociate[0].title })
+        : t('actions.add_songs_to', { count: tracksToAssociate.length });
 
     return (
         <View
@@ -266,7 +268,7 @@ export default function PlaylistSelectorModal() {
                     {!isCreating ? (
                         <>
                             <View style={styles.header}>
-                                <Text style={styles.headerTitle}>Añadir a Playlist</Text>
+                                <Text style={styles.headerTitle}>{t('actions.add_to_playlist')}</Text>
                                 <Text style={styles.headerSubtitle} numberOfLines={1}>
                                     {subtitleText}
                                 </Text>
@@ -277,14 +279,14 @@ export default function PlaylistSelectorModal() {
                                 onPress={() => setIsCreating(true)}
                             >
                                 <Ionicons name="add" size={20} color="#FFFFFF" />
-                                <Text style={styles.createButtonText}>Crear nueva playlist</Text>
+                                <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>
                             </TouchableOpacity>
 
                             <ScrollView style={styles.listScroll} contentContainerStyle={styles.listContent}>
                                 {playlists.length === 0 ? (
                                     <View style={styles.emptyContainer}>
                                         <Ionicons name="musical-notes-outline" size={48} color="#444" />
-                                        <Text style={styles.emptyText}>No tienes listas de reproducción creadas.</Text>
+                                        <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
                                     </View>
                                 ) : (
                                     playlists.map(pl => (
@@ -297,7 +299,7 @@ export default function PlaylistSelectorModal() {
                                             <View style={styles.playlistInfo}>
                                                 <Text style={styles.playlistName} numberOfLines={1}>{pl.name}</Text>
                                                 <Text style={styles.playlistDesc} numberOfLines={1}>
-                                                    {pl.description || 'Sin descripción'}
+                                                    {pl.description || t('playlist.no_description')}
                                                 </Text>
                                             </View>
                                             <Ionicons name="chevron-forward" size={18} color="#555" />
@@ -310,17 +312,17 @@ export default function PlaylistSelectorModal() {
                         <View>
                             <View style={styles.header}>
                                 <Text style={styles.headerTitle}>
-                                    {playlistToEdit ? 'Editar Playlist' : 'Nueva Playlist'}
+                                    {playlistToEdit ? t('playlist.edit') : t('playlist.new')}
                                 </Text>
                                 <Text style={styles.headerSubtitle}>
-                                    {playlistToEdit ? 'Modifica los detalles de tu lista' : 'Personaliza tu lista de reproducción'}
+                                    {playlistToEdit ? t('playlist.modify_details') : t('playlist.personalize')}
                                 </Text>
                             </View>
 
-                            <Text style={styles.sectionTitle}>Nombre de la playlist</Text>
+                            <Text style={styles.sectionTitle}>{t('playlist.name')}</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Escribe el nombre de la playlist..."
+                                placeholder={t('playlist.placeholder_name')}
                                 placeholderTextColor="#666"
                                 value={playlistName}
                                 onChangeText={setPlaylistName}
@@ -329,10 +331,10 @@ export default function PlaylistSelectorModal() {
                                 autoCorrect={false}
                             />
 
-                            <Text style={styles.sectionTitle}>Descripción (Opcional)</Text>
+                            <Text style={styles.sectionTitle}>{t('playlist.description')}</Text>
                             <TextInput
                                 style={[styles.input, styles.textArea]}
-                                placeholder="Escribe una breve descripción..."
+                                placeholder={t('playlist.placeholder_desc')}
                                 placeholderTextColor="#666"
                                 value={playlistDesc}
                                 onChangeText={setPlaylistDesc}
@@ -352,7 +354,7 @@ export default function PlaylistSelectorModal() {
                                         }
                                     }}
                                 >
-                                    <Text style={styles.btnCancelText}>Cancelar</Text>
+                                    <Text style={styles.btnCancelText}>{t('actions.cancel')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[
@@ -364,7 +366,7 @@ export default function PlaylistSelectorModal() {
                                     disabled={!playlistName.trim()}
                                 >
                                     <Text style={styles.btnConfirmText}>
-                                        {playlistToEdit ? 'Guardar Cambios' : (isCreatingDirectly ? 'Crear Playlist' : 'Crear y Añadir')}
+                                        {playlistToEdit ? t('actions.save_changes') : (isCreatingDirectly ? t('library.create_playlist') : t('playlist.create_and_add'))}
                                     </Text>
                                 </TouchableOpacity>
                             </View>

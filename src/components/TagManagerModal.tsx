@@ -19,11 +19,13 @@ import Tag from '../database/models/Tag';
 import { TagService } from '../services/tagService';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { useTagFormStore } from '../store/useTagFormStore';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TagManagerModal() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, targetType, targetId, targetTitle, closeManager } = useTagManagerStore();
     const { openForCreate } = useTagFormStore();
 
@@ -35,7 +37,7 @@ export default function TagManagerModal() {
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     // Cargar tags y selecciones
-    const reloadData = async () => {
+    const reloadData = React.useCallback(async () => {
         if (!targetId || !targetType) return;
         try {
             const tags = await TagService.getAllTags();
@@ -51,7 +53,7 @@ export default function TagManagerModal() {
         } catch (e) {
             console.error('Error cargando tags:', e);
         }
-    };
+    }, [targetId, targetType]);
 
     useEffect(() => {
         if (isVisible) {
@@ -85,7 +87,7 @@ export default function TagManagerModal() {
                 })
             ]).start();
         }
-    }, [isVisible, targetId, targetType]);
+    }, [isVisible, targetId, targetType, reloadData, fadeAnim, slideAnim]);
 
     // Manejar botón físico de atrás en Android
     useEffect(() => {
@@ -118,15 +120,15 @@ export default function TagManagerModal() {
     const handleAlbumTagToggle = (targetId: string, tagId: string, isAssociated: boolean) => {
         const shouldAssociate = !isAssociated;
         const tagName = allTags.find(t => t.id === tagId)?.name ?? '';
-        const title = shouldAssociate ? 'Aplicar etiqueta' : 'Quitar etiqueta';
+        const title = shouldAssociate ? t('tags.apply_tag') : t('tags.remove_tag');
         const message = shouldAssociate
-            ? `¿Quieres aplicar la etiqueta "${tagName}" también a todas las canciones de este álbum?`
-            : `¿Quieres quitar la etiqueta "${tagName}" también de todas las canciones de este álbum?`;
+            ? t('tags.apply_tag_album_songs', { name: tagName })
+            : t('tags.remove_tag_album_songs', { name: tagName });
 
         Alert.alert(title, message, [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: shouldAssociate ? 'Solo al Álbum' : 'Solo del Álbum', onPress: () => toggleAlbum(targetId, tagId, shouldAssociate, isAssociated, false) },
-            { text: 'Álbum y Canciones', style: shouldAssociate ? 'default' : 'destructive', onPress: () => toggleAlbum(targetId, tagId, shouldAssociate, isAssociated, true) },
+            { text: t('actions.cancel'), style: 'cancel' },
+            { text: shouldAssociate ? t('tags.only_album') : t('tags.only_from_album'), onPress: () => toggleAlbum(targetId, tagId, shouldAssociate, isAssociated, false) },
+            { text: t('tags.album_and_songs'), style: shouldAssociate ? 'default' : 'destructive', onPress: () => toggleAlbum(targetId, tagId, shouldAssociate, isAssociated, true) },
         ], { cancelable: true });
     };
 
@@ -188,7 +190,7 @@ export default function TagManagerModal() {
 
                     <View style={styles.header}>
                         <Text style={styles.headerTitle} numberOfLines={1}>
-                            Etiquetas de {targetType === 'track' ? 'canción' : 'álbum'}
+                            {targetType === 'track' ? t('tags.song_tags') : t('tags.album_tags')}
                         </Text>
                         <Text style={styles.headerSubtitle} numberOfLines={1}>
                             {targetTitle}
@@ -198,7 +200,7 @@ export default function TagManagerModal() {
 
 
                     {/* Lista de etiquetas disponibles */}
-                    <Text style={styles.sectionTitle}>Selecciona etiquetas</Text>
+                    <Text style={styles.sectionTitle}>{t('tags.select')}</Text>
                     <View style={styles.tagsContainer}>
                         <ScrollView
                             style={styles.tagsScrollView}
@@ -208,7 +210,7 @@ export default function TagManagerModal() {
                             {allTags.length === 0 ? (
                                 <View style={styles.emptyContainer}>
                                     <Ionicons name="pricetags-outline" size={32} color="#555" />
-                                    <Text style={styles.emptyText}>No tienes etiquetas.</Text>
+                                    <Text style={styles.emptyText}>{t('tags.empty_tags')}</Text>
                                 </View>
                             ) : (
                                 allTags.map(tag => {
@@ -246,7 +248,7 @@ export default function TagManagerModal() {
                         }}
                     >
                         <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-                        <Text style={styles.createTagButtonGlobalText}>Crear nueva etiqueta</Text>
+                        <Text style={styles.createTagButtonGlobalText}>{t('tags.create')}</Text>
                     </TouchableOpacity>
 
                 </Animated.View>

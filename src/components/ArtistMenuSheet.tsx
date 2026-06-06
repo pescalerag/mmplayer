@@ -21,11 +21,13 @@ import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ArtistMenuSheet() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, selectedArtist, closeMenu, navCallbacks } = useArtistMenuStore();
     const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
     const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
@@ -151,7 +153,7 @@ export default function ArtistMenuSheet() {
                     )}
                     <View style={styles.headerText}>
                         <Text style={styles.title} numberOfLines={1}>{selectedArtist?.name}</Text>
-                        <Text style={styles.subtitle} numberOfLines={1}>Artista</Text>
+                        <Text style={styles.subtitle} numberOfLines={1}>{t('library.artist_singular')}</Text>
                     </View>
                 </View>
 
@@ -172,7 +174,7 @@ export default function ArtistMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name={selectedArtist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>{selectedArtist?.isPinned ? "Desfijar de la biblioteca" : "Fijar en la biblioteca"}</Text>
+                    <Text style={styles.optionText}>{selectedArtist?.isPinned ? t('actions.unpin_library') : t('actions.pin_library')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a continuación */}
@@ -181,7 +183,7 @@ export default function ArtistMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast('Artista añadido a continuación', 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.artist_next'), 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -189,7 +191,7 @@ export default function ArtistMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a continuación</Text>
+                    <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir al final */}
@@ -198,7 +200,7 @@ export default function ArtistMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueEnd(tracks);
-                            useToastStore.getState().showToast('Artista añadido a la cola', 'list');
+                            useToastStore.getState().showToast(t('toasts.artist_queued'), 'list');
                             closeMenu();
                         }
                     }}
@@ -206,7 +208,7 @@ export default function ArtistMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="list" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
+                    <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Ver artista */}
@@ -242,7 +244,7 @@ export default function ArtistMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="person-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Ver artista</Text>
+                    <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>

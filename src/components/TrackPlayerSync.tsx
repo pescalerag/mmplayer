@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
-import TrackPlayer, { 
-    State, 
+import { 
     Event, 
     useTrackPlayerEvents 
 } from 'react-native-track-player';

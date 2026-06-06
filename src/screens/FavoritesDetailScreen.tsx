@@ -23,6 +23,7 @@ import { HistoryService } from '../services/HistoryService';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Layout } from '../theme/theme';
 import { formatAlbumDuration } from '../utils/time';
+import { useTranslation } from 'react-i18next';
 
 
 // ─── FAVORITES TRACK ROW COMPONENT ───
@@ -43,9 +44,10 @@ const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }
     index: number;
     onPress: (trackId: string) => void;
 }) {
+    const { t } = useTranslation();
     const artistNames = artists.length > 0
         ? artists.map(a => a.name).join(', ')
-        : 'Artista Desconocido';
+        : t('actions.unknown');
     return (
         <TrackRow
             track={track}
@@ -66,6 +68,7 @@ interface FavoritesDetailProps {
 function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
 
     // Player States
     const playbackState = usePlaybackState();
@@ -88,13 +91,13 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 id: 'favorites',
                 type: 'playlist',
                 context: 'manual',
-                title: 'Tus Favoritos',
-                subtitle: 'Lista de reproducción especial',
+                title: t('home.your_favourites'),
+                subtitle: t('actions.special'),
                 imageUrl: null,
             });
             usePlayerStore.getState().loadQueue(tracks, trackIndex, 'favorites');
         }
-    }, [tracks]);
+    }, [tracks, t]);
 
     const handleFabPress = async () => {
         if (isCurrentContext) {
@@ -108,8 +111,8 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 id: 'favorites',
                 type: 'playlist',
                 context: 'manual',
-                title: 'Tus Favoritos',
-                subtitle: 'Lista de reproducción especial',
+                title: t('home.your_favourites'),
+                subtitle: t('actions.special'),
                 imageUrl: null,
             });
             usePlayerStore.getState().loadQueue(tracks, 0, 'favorites');
@@ -122,8 +125,8 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 id: 'favorites',
                 type: 'playlist',
                 context: 'manual',
-                title: 'Tus Favoritos',
-                subtitle: 'Lista de reproducción especial',
+                title: t('home.your_favourites'),
+                subtitle: t('actions.special'),
                 imageUrl: null,
             });
             usePlayerStore.getState().startShuffled(tracks, 'favorites');
@@ -133,11 +136,11 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
     const listHeader = (
         <>
             <DetailHeaderLayout
-                title="Tus Favoritos"
+                title={t('home.your_favourites')}
                 isFavorites={true}
                 placeholderIcon="heart"
-                subtitle="Lista de reproducción especial"
-                metaInfo={`${tracks.length} ${tracks.length === 1 ? 'canción' : 'canciones'} · ${formatAlbumDuration(totalDuration)}`}
+                subtitle={t('actions.special')}
+                metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
                 renderExtra={() => (
                     tracks.length > 0 && (
@@ -160,7 +163,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                                     size={28} 
                                     color="#FFFFFF"
                                     style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}}
-                                />
+                                    />
                             </TouchableOpacity>
                         </>
                     )
@@ -168,7 +171,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
             />
 
             <View style={{ marginTop: 0, marginBottom: 4 }}>
-                <SectionHeader title="Canciones favoritas" />
+                <SectionHeader title={t('actions.favorites_songs')} />
                 <View style={styles.divider} />
             </View>
         </>
@@ -197,8 +200,8 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="heart-dislike-outline" size={60} color="#555" />
-                        <Text style={styles.emptyText}>Aún no tienes canciones favoritas.</Text>
-                        <Text style={styles.emptySubtitle}>Pulsa el icono del corazón en el reproductor para añadir canciones aquí.</Text>
+                        <Text style={styles.emptyText}>{t('actions.empty_favorites')}</Text>
+                        <Text style={styles.emptySubtitle}>{t('actions.empty_favorites_desc')}</Text>
                     </View>
                 }
 

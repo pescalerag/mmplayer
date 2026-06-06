@@ -24,19 +24,22 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
 import { useToastStore } from '../store/useToastStore';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TrackMenuSheet() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, selectedTrack, closeMenu, navCallbacks } = useTrackMenuStore();
     const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
     const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
     
     const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [artistName, setArtistName] = useState('Desconocido');
+    const [artistName, setArtistName] = useState(t('actions.unknown'));
     const [albumId, setAlbumId] = useState<string | null>(null);
     const [artistId, setArtistId] = useState<string | null>(null);
+
 
     // Valores animados
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -101,12 +104,12 @@ export default function TrackMenuSheet() {
                 selectedTrack.queryCollaborators.fetch() as Promise<Artist[]>
             ]);
             setImageUrl(album?.coverUrl || null);
-            setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : 'Desconocido');
+            setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : t('actions.unknown'));
             setAlbumId(album?.id || null);
             setArtistId(artists[0]?.id || null);
         };
         loadMetadata();
-    }, [selectedTrack]);
+    }, [selectedTrack, t]);
 
     // Ocultar completamente el componente cuando no está visible para no interceptar toques
     // Pero dejamos que termine la animación
@@ -172,7 +175,7 @@ export default function TrackMenuSheet() {
                     onPress={() => {
                         if (selectedTrack) {
                             addToQueueNext(selectedTrack);
-                            useToastStore.getState().showToast('Añadido a continuación', 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.playing_next'), 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -180,7 +183,7 @@ export default function TrackMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a continuación</Text>
+                    <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir al final */}
@@ -189,7 +192,7 @@ export default function TrackMenuSheet() {
                     onPress={() => {
                         if (selectedTrack) {
                             addToQueueEnd(selectedTrack);
-                            useToastStore.getState().showToast('Añadido a la cola', 'list');
+                            useToastStore.getState().showToast(t('toasts.added_to_queue'), 'list');
                             closeMenu();
                         }
                     }}
@@ -197,7 +200,7 @@ export default function TrackMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="list" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
+                    <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Gestionar Etiquetas */}
@@ -213,7 +216,7 @@ export default function TrackMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Gestionar etiquetas</Text>
+                    <Text style={styles.optionText}>{t('tags.manage')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a Playlist */}
@@ -229,7 +232,7 @@ export default function TrackMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a Playlist</Text>
+                    <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Eliminar de Playlist (Solo aparece si estamos dentro de una) */}
@@ -247,7 +250,7 @@ export default function TrackMenuSheet() {
                         <View style={styles.iconContainer}>
                             <Ionicons name="trash-outline" size={24} color="#EF4444" />
                         </View>
-                        <Text style={[styles.optionText, { color: '#EF4444' }]}>Eliminar de esta lista</Text>
+                        <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.remove_from_playlist')}</Text>
                     </TouchableOpacity>
                 )}
 
@@ -287,7 +290,7 @@ export default function TrackMenuSheet() {
                         <View style={styles.iconContainer}>
                             <Ionicons name="disc-outline" size={24} color="#FFFFFF" />
                         </View>
-                        <Text style={styles.optionText}>Ir al álbum</Text>
+                        <Text style={styles.optionText}>{t('actions.go_to_album')}</Text>
                     </TouchableOpacity>
                 )}
 
@@ -324,7 +327,7 @@ export default function TrackMenuSheet() {
                         <View style={styles.iconContainer}>
                             <Ionicons name="person-outline" size={24} color="#FFFFFF" />
                         </View>
-                        <Text style={styles.optionText}>Ver artista</Text>
+                        <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                     </TouchableOpacity>
                 )}
             </Animated.View>

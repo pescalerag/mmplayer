@@ -24,16 +24,18 @@ import { useTagManagerStore } from '../store/useTagManagerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { useToastStore } from '../store/useToastStore';
+import { useTranslation } from 'react-i18next';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function AlbumMenuSheet() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const { isVisible, selectedAlbum, closeMenu, navCallbacks } = useAlbumMenuStore();
     const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
     const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
     
-    const [artistName, setArtistName] = useState('Desconocido');
+    const [artistName, setArtistName] = useState(t('actions.unknown'));
     const [artistId, setArtistId] = useState<string | null>(null);
     const [tracks, setTracks] = useState<Track[]>([]);
 
@@ -103,7 +105,7 @@ export default function AlbumMenuSheet() {
                         Q.sortBy('track_number', Q.asc)
                     ).fetch() as Promise<Track[]>
                 ]);
-                setArtistName(artistDoc?.name || 'Desconocido');
+                setArtistName(artistDoc?.name || t('actions.unknown'));
                 setArtistId(artistDoc?.id || null);
                 setTracks(tracksList);
             } catch (error) {
@@ -111,7 +113,7 @@ export default function AlbumMenuSheet() {
             }
         };
         loadTracksAndMetadata();
-    }, [selectedAlbum]);
+    }, [selectedAlbum, t]);
 
     const [shouldRender, setShouldRender] = useState(isVisible);
 
@@ -182,7 +184,7 @@ export default function AlbumMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name={selectedAlbum?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>{selectedAlbum?.isPinned ? "Desfijar" : "Fijar"}</Text>
+                    <Text style={styles.optionText}>{selectedAlbum?.isPinned ? t('actions.unpin') : t('actions.pin')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a continuación */}
@@ -191,7 +193,7 @@ export default function AlbumMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast('Álbum añadido a continuación', 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.album_next'), 'musical-notes');
                             closeMenu();
                         }
                     }}
@@ -199,7 +201,7 @@ export default function AlbumMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a continuación</Text>
+                    <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir all al final */}
@@ -208,7 +210,7 @@ export default function AlbumMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueEnd(tracks);
-                            useToastStore.getState().showToast('Álbum añadido a la cola', 'list');
+                            useToastStore.getState().showToast(t('toasts.album_queued'), 'list');
                             closeMenu();
                         }
                     }}
@@ -216,7 +218,7 @@ export default function AlbumMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="list" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir al final de la cola</Text>
+                    <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Gestionar Etiquetas */}
@@ -232,7 +234,7 @@ export default function AlbumMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Gestionar etiquetas</Text>
+                    <Text style={styles.optionText}>{t('tags.manage')}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a Playlist */}
@@ -248,7 +250,7 @@ export default function AlbumMenuSheet() {
                     <View style={styles.iconContainer}>
                         <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.optionText}>Añadir a Playlist</Text>
+                    <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
 
                 {/* ── Separador ── */}
@@ -285,7 +287,7 @@ export default function AlbumMenuSheet() {
                         <View style={styles.iconContainer}>
                             <Ionicons name="person-outline" size={24} color="#FFFFFF" />
                         </View>
-                        <Text style={styles.optionText}>Ver artista</Text>
+                        <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                     </TouchableOpacity>
                 )}
             </Animated.View>

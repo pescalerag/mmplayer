@@ -5,7 +5,7 @@ import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -25,9 +25,9 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useLibraryStore, SortOption } from '../store/useLibraryStore';
 import { useSortModalStore } from '../store/useSortModalStore';
 import { ScannerService } from '../services/ScannerService';
-import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
+import { useTranslation } from 'react-i18next';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
@@ -35,9 +35,10 @@ const cardWidth = (Dimensions.get('window').width - 70) / 3;
 
 // ----- TRACK ITEMS -----
 const TrackCard = ({ track, album, artists }: { track: Track, album: Album, artists: any }) => {
+    const { t } = useTranslation();
     const artistNames = (artists as Artist[]).length > 0
         ? (artists as Artist[]).map(a => a.name).join(', ')
-        : 'Artista Desconocido';
+        : t('actions.unknown');
 
     // Movemos la lógica aquí para evitar pasar funciones anidadas desde la FlatList
     const handlePress = () => {
@@ -64,6 +65,7 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
 }))(TrackCard);
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const { t } = useTranslation();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
     const playbackContext = usePlayerStore(state => state.playbackContext);
@@ -96,11 +98,11 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
             <View style={styles.listHeaderButtons}>
                 <TouchableOpacity style={styles.shuffleBtn} onPress={handleShufflePress}>
                     <Ionicons name="shuffle" size={20} color="#FFFFFF" />
-                    <Text style={styles.shuffleBtnText}>Aleatorio</Text>
+                    <Text style={styles.shuffleBtnText}>{t('actions.shuffle')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.playBtn} onPress={handlePlayPress}>
                     <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}} />
-                    <Text style={styles.playBtnText}>{isCurrentContextPlaying ? "Pausar" : "Reproducir"}</Text>
+                    <Text style={styles.playBtnText}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -124,7 +126,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tra
             contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={renderHeader}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay canciones en la biblioteca.</Text>
+                <Text style={styles.emptyText}>{t('library.empty_songs')}</Text>
             }
         />
     );
@@ -147,6 +149,7 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
 
 // ----- ALBUM ITEMS -----
 const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, onPress?: () => void }) => {
+    const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
     
     const handlePress = React.useCallback(() => {
@@ -157,7 +160,7 @@ const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, o
     return (
         <LibraryCard
             title={album.title}
-            subtitle={artist?.name || 'Artista desconocido'}
+            subtitle={artist?.name || t('actions.unknown')}
             imageUrl={album.coverUrl}
             placeholderIcon="albums"
             isPinned={album.isPinned}
@@ -173,7 +176,7 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 }))(AlbumCard);
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
-    const navigation = useNavigation<LibraryNavigationProp>();
+    const { t } = useTranslation();
     return (
         <FlashList
             ref={scrollRef}
@@ -188,7 +191,9 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             )}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-
+            ListEmptyComponent={
+                <Text style={styles.emptyText}>{t('library.empty_albums')}</Text>
+            }
         />
     );
 };
@@ -237,7 +242,7 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 }))(ArtistCard);
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
-    const navigation = useNavigation<LibraryNavigationProp>();
+    const { t } = useTranslation();
     return (
         <FlashList
             ref={scrollRef}
@@ -253,7 +258,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay artistas en la biblioteca.</Text>
+                <Text style={styles.emptyText}>{t('library.empty_artists')}</Text>
             }
         />
     );
@@ -321,6 +326,7 @@ const PlaylistCard = memo(function PlaylistCard({
 const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
     playlist: playlist.observe(),
 }))(({ playlist, onPress }: { playlist: Playlist, onPress?: () => void }) => {
+    const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
     
     const handlePress = React.useCallback(() => {
@@ -332,7 +338,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
         <PlaylistCard
             playlistId={playlist.id}
             title={playlist.name}
-            subtitle={playlist.description || 'Playlist'}
+            subtitle={playlist.description || t('library.playlist_singular')}
             customCoverUrl={playlist.coverCustomUrl}
             isPinned={playlist.isPinned}
             onPress={handlePress}
@@ -344,6 +350,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
 });
 
 const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
+    const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
 
     const handleCreatePlaylist = React.useCallback(() => {
@@ -356,11 +363,11 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
 
     const data = React.useMemo(() => {
         return [
-            { id: 'create_new', isCreateNew: true, name: 'Crear Playlist' },
-            { id: 'favorites', name: 'Tus Favoritos', isFavorites: true, coverCustomUrl: null, description: 'Lista de favoritas' },
+            { id: 'create_new', isCreateNew: true, name: t('library.create_playlist') },
+            { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
             ...playlists
         ];
-    }, [playlists]);
+    }, [playlists, t]);
 
     return (
         <FlashList
@@ -390,7 +397,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                                 playlistId="favorites"
                                 isFavorites={true}
                                 title={item.name}
-                                subtitle="Especial"
+                                subtitle={t('actions.special')}
                                 onPress={handleNavFavorites}
                                 onLongPress={() => {
                                     usePlaylistMenuStore.getState().openMenu(item as any);
@@ -415,7 +422,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay playlists creadas.</Text>
+                <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
             }
         />
     );
@@ -439,6 +446,7 @@ const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: {
 
 // ----- FOLDER LIST -----
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const { t } = useTranslation();
     const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
 
     // Get unique leaf folders that directly contain tracks
@@ -512,7 +520,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                         <View style={styles.folderTitleRow}>
                             <TouchableOpacity onPress={() => setActiveFolderPath(null)} style={styles.folderBackBtn} activeOpacity={0.7}>
                                 <Ionicons name="chevron-back" size={20} color="#8B5CF6" />
-                                <Text style={styles.folderBackBtnText}>Atrás</Text>
+                                <Text style={styles.folderBackBtnText}>{t('library.back')}</Text>
                             </TouchableOpacity>
                             <Text style={[styles.currentFolderTitle, { marginLeft: 8 }]} numberOfLines={1}>
                                 📁 {activeFolderName}
@@ -524,22 +532,22 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
         );
     }
 
-type Folder = { path: string; name: string; trackCount: number };
+    type Folder = { path: string; name: string; trackCount: number };
 
-const FolderCard = React.memo(({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) => {
-    const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
-    const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
+    const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) {
+        const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
+        const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
 
-    return (
-        <LibraryCard
-            title={folder.name}
-            subtitle={`${folder.trackCount} ${folder.trackCount === 1 ? 'canción' : 'canciones'}`}
-            placeholderIcon="folder"
-            onPress={handlePress}
-            onLongPress={handleLongPress}
-        />
-    );
-});
+        return (
+            <LibraryCard
+                title={folder.name}
+                subtitle={`${folder.trackCount} ${folder.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
+                placeholderIcon="folder"
+                onPress={handlePress}
+                onLongPress={handleLongPress}
+            />
+        );
+    });
 
     return (
         <FlashList
@@ -559,7 +567,7 @@ const FolderCard = React.memo(({ folder, onOpen, onMenu }: { folder: Folder, onO
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
-                <Text style={styles.emptyText}>No hay carpetas escaneadas.</Text>
+                <Text style={styles.emptyText}>{t('library.empty_folders')}</Text>
             }
         />
     );
@@ -574,6 +582,7 @@ type TabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<TabType>('albums');
 
     // Estado para guardar la altura dinámica del Título + Selectores
@@ -583,8 +592,6 @@ export default function LibraryScreen() {
     const artistSort = useLibraryStore(state => state.artistSort);
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
-    
-    const isScanning = useSyncStore(state => state.isScanning);
 
     const getActiveSortOption = (): SortOption => {
         if (activeTab === 'albums') return albumSort;
@@ -667,7 +674,7 @@ export default function LibraryScreen() {
                 style={{ paddingTop: insets.top + 10 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>Tu Biblioteca</Text>
+                    <Text style={styles.title}>{t('library.title')}</Text>
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                         <TouchableOpacity
                             onPress={() => ScannerService.syncLibrary()}
@@ -696,31 +703,31 @@ export default function LibraryScreen() {
                         style={[styles.tabButton, activeTab === 'albums' && styles.activeTab]}
                         onPress={() => setActiveTab('albums')}
                     >
-                        <Text style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]}>Álbumes</Text>
+                        <Text style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]}>{t('library.albums')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'playlists' && styles.activeTab]}
                         onPress={() => setActiveTab('playlists')}
                     >
-                        <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>Playlists</Text>
+                        <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>{t('library.playlists')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'artists' && styles.activeTab]}
                         onPress={() => setActiveTab('artists')}
                     >
-                        <Text style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]}>Artistas</Text>
+                        <Text style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]}>{t('library.artists')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'folders' && styles.activeTab]}
                         onPress={() => setActiveTab('folders')}
                     >
-                        <Text style={[styles.tabText, activeTab === 'folders' && styles.activeTabText]}>Carpetas</Text>
+                        <Text style={[styles.tabText, activeTab === 'folders' && styles.activeTabText]}>{t('library.folders')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tabButton, activeTab === 'tracks' && styles.activeTab]}
                         onPress={() => setActiveTab('tracks')}
                     >
-                        <Text style={[styles.tabText, activeTab === 'tracks' && styles.activeTabText]}>Canciones</Text>
+                        <Text style={[styles.tabText, activeTab === 'tracks' && styles.activeTabText]}>{t('library.songs')}</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </View>

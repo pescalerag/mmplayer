@@ -19,6 +19,7 @@ import { ScannerService } from '../services/ScannerService';
 import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 import Constants from 'expo-constants';
+import { useTranslation } from 'react-i18next';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -31,8 +32,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors, excludedFolders, includeFolder } = useSettingsStore();
+    const { showTagColors, setShowTagColors, excludedFolders, includeFolder, language, setLanguage } = useSettingsStore();
     const isScanning = useSyncStore(state => state.isScanning);
+    const { t } = useTranslation();
 
 
     return (
@@ -63,7 +65,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 10, paddingHorizontal: 20, zIndex: 10 }}
             >
-                <Text style={styles.headerTitle}>Configuración</Text>
+                <Text style={styles.headerTitle}>{t('settings.title')}</Text>
             </View>
 
             {/* 1. CAPA DE CONTENIDO (AL FONDO) */}
@@ -80,33 +82,68 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
             >
                 {/* --- SECCIÓN DE ESTADÍSTICAS --- */}
                 <View style={styles.statsCard}>
-                    <Text style={styles.sectionTitle}>Estado de tu Biblioteca</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{tracksCount}</Text>
-                            <Text style={styles.statLabel}>Canciones</Text>
+                            <Text style={styles.statLabel}>{t('library.songs')}</Text>
                         </View>
                         <View style={styles.divider} />
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{albumsCount}</Text>
-                            <Text style={styles.statLabel}>Álbumes</Text>
+                            <Text style={styles.statLabel}>{t('library.albums')}</Text>
                         </View>
                         <View style={styles.divider} />
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{artistsCount}</Text>
-                            <Text style={styles.statLabel}>Artistas</Text>
+                            <Text style={styles.statLabel}>{t('library.artists')}</Text>
                         </View>
+                    </View>
+                </View>
+
+                {/* --- SECCIÓN DE IDIOMA --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>{t('settings.language')}</Text>
+                    <View style={styles.languageContainer}>
+                        <TouchableOpacity
+                            style={[
+                                styles.languageButton,
+                                language === 'es' && styles.languageButtonActive
+                            ]}
+                            onPress={() => setLanguage('es')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.flagEmoji}>🇪🇸</Text>
+                            <Text style={[
+                                styles.languageText,
+                                language === 'es' && styles.languageTextActive
+                            ]}>Español</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.languageButton,
+                                language === 'en' && styles.languageButtonActive
+                            ]}
+                            onPress={() => setLanguage('en')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.flagEmoji}>🇬🇧</Text>
+                            <Text style={[
+                                styles.languageText,
+                                language === 'en' && styles.languageTextActive
+                            ]}>English</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* --- SECCIÓN DE AJUSTES --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Visualización</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.visualization')}</Text>
                     <View style={styles.settingRow}>
                         <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>Colores de etiquetas</Text>
+                            <Text style={styles.settingLabel}>{t('settings.tag_colors')}</Text>
                             <Text style={styles.settingDescription}>
-                                Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.
+                                {t('settings.tag_colors_desc')}
                             </Text>
                         </View>
                         <Switch
@@ -121,9 +158,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE CARPETAS EXCLUIDAS --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Carpetas excluidas</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.excluded_folders')}</Text>
                     {excludedFolders.length === 0 ? (
-                        <Text style={styles.noExcludedText}>No hay carpetas excluidas.</Text>
+                        <Text style={styles.noExcludedText}>{t('settings.no_excluded')}</Text>
                     ) : (
                         excludedFolders.map((folderPath) => {
                             const folderName = decodeURIComponent(folderPath.substring(folderPath.lastIndexOf('/') + 1));
@@ -144,7 +181,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                     >
                                         <Ionicons name="refresh-outline" size={16} color="#8B5CF6" />
                                         <Text style={styles.restoreButtonText}>
-                                            {isScanning ? 'Sincronizando...' : 'Restaurar'}
+                                            {isScanning ? t('settings.syncing') : t('settings.restore')}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -155,15 +192,15 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE DEBUG --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Depuración</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.debug')}</Text>
                     <TouchableOpacity
                         style={styles.buttonRow}
                         onPress={() => navigation.navigate('DebugHistory')}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>Debug Historial</Text>
+                            <Text style={styles.settingLabel}>{t('settings.debug_history')}</Text>
                             <Text style={styles.settingDescription}>
-                                Ver el historial completo de reproducción almacenado en la base de datos local.
+                                {t('settings.debug_history_desc')}
                             </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
@@ -173,16 +210,16 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         style={styles.buttonRow}
                         onPress={() => {
                             Alert.alert(
-                                "Reparar Biblioteca",
-                                "Esta opción re-escaneará los metadatos de tus archivos de audio para encontrar artistas o colaboradores ocultos/perdidos. Tus playlists y favoritos no se verán afectados.\n\n¿Deseas continuar?",
+                                t('settings.repair_alert_title'),
+                                t('settings.repair_alert_desc'),
                                 [
-                                    { text: "Cancelar", style: "cancel" },
+                                    { text: t('actions.cancel'), style: "cancel" },
                                     { 
-                                        text: "Continuar", 
+                                        text: t('actions.continue'), 
                                         style: "default", 
                                         onPress: async () => {
                                             await ScannerService.repairCollaborators();
-                                            Alert.alert("Éxito", "¡Biblioteca reparada con éxito!");
+                                            Alert.alert(t('settings.success'), t('settings.repair_success'));
                                         }
                                     }
                                 ]
@@ -190,9 +227,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         }}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>Reparar Biblioteca</Text>
+                            <Text style={styles.settingLabel}>{t('settings.repair_library')}</Text>
                             <Text style={styles.settingDescription}>
-                                Útil si faltan artistas secundarios en tus canciones.
+                                {t('settings.repair_library_desc')}
                             </Text>
                         </View>
                         <Ionicons name="build" size={20} color="#8B5CF6" />
@@ -202,12 +239,12 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         style={styles.buttonRow}
                         onPress={() => {
                             Alert.alert(
-                                "Borrado de datos completo",
-                                "⚠️ Acción irreversible. Se borrarán TODOS los datos de la app: biblioteca, playlists, etiquetas, historial, recientes y configuración persistida. Los archivos de audio de tu móvil no se verán afectados.\n\n¿Estás seguro?",
+                                t('settings.wipe_alert_title'),
+                                t('settings.wipe_alert_desc'),
                                 [
-                                    { text: "Cancelar", style: "cancel" },
+                                    { text: t('actions.cancel'), style: "cancel" },
                                     { 
-                                        text: "Borrar todo", 
+                                        text: t('settings.wipe_confirm'), 
                                         style: "destructive", 
                                         onPress: () => ScannerService.fullDataWipe() 
                                     }
@@ -216,9 +253,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         }}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Borrado de datos completo</Text>
+                            <Text style={[styles.settingLabel, { color: '#EF4444' }]}>{t('settings.full_data_removal')}</Text>
                             <Text style={styles.settingDescription}>
-                                Borra toda la base de datos, playlists, etiquetas, historial y configuración. Luego re-escanea tu biblioteca desde cero.
+                                {t('settings.full_data_removal_desc')}
                             </Text>
                         </View>
                         <Ionicons name="trash" size={24} color="#EF4444" />
@@ -228,15 +265,15 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE INFORMACIÓN --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>Información</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.info')}</Text>
                     <TouchableOpacity
                         style={styles.buttonRow}
                         onPress={() => navigation.navigate('ChangelogScreen')}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>Acerca de esta versión</Text>
+                            <Text style={styles.settingLabel}>{t('settings.about_version')}</Text>
                             <Text style={styles.settingDescription}>
-                                Novedades, correcciones y notas de lanzamiento.
+                                {t('settings.release_notes')}
                             </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
@@ -246,7 +283,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                 {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
                     <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '1.1.0'}</Text>
-                    <Text style={styles.infoTextSub}>Desarrollado por pescalerag. Betatesteado por Killerdroid</Text>
+                    <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>
         </View>
@@ -406,6 +443,39 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: 'Montserrat',
         fontWeight: '700',
+    },
+    languageContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 4,
+    },
+    languageButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 12,
+        paddingVertical: 12,
+        gap: 8,
+    },
+    languageButtonActive: {
+        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        borderColor: '#8B5CF6',
+    },
+    flagEmoji: {
+        fontSize: 20,
+    },
+    languageText: {
+        color: '#888888',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    languageTextActive: {
+        color: '#FFFFFF',
     },
 });
 

@@ -21,9 +21,9 @@ import ColorPicker, {
     Swatches,
 } from "reanimated-color-picker";
 import { TagService } from "../services/tagService";
-
 import { useTagFormStore } from "../store/useTagFormStore";
 import { getDynamicTagTextColor } from "../utils/color";
+import { useTranslation } from "react-i18next";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -40,6 +40,7 @@ const COLOR_PALETTE = [
 export default function TagFormModal() {
   const { isVisible, tag, closeForm, onSaveCallback } = useTagFormStore();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [tagName, setTagName] = useState("");
   const [selectedColor, setSelectedColor] = useState(COLOR_PALETTE[0]);
@@ -102,7 +103,7 @@ export default function TagFormModal() {
         }),
       ]).start();
     }
-  }, [isVisible, tag]);
+  }, [isVisible, tag, fadeAnim, slideAnim]);
 
   // Manejar botón físico de atrás en Android
   useEffect(() => {
@@ -144,7 +145,7 @@ export default function TagFormModal() {
       showSubscription.remove();
       hideSubscription.remove();
     };
-  }, []);
+  }, [keyboardHeight]);
 
   const handleSave = async () => {
     if (!tagName.trim()) return;
@@ -210,18 +211,18 @@ export default function TagFormModal() {
 
           <View style={styles.header}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              Gestión de Etiquetas
+              {t('tags.manager')}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {tag ? "Editar etiqueta" : "Crear etiqueta"}
+              {tag ? t('tags.edit') : t('tags.create_tag')}
             </Text>
           </View>
 
           {/* Nombre de la etiqueta */}
-          <Text style={styles.sectionTitle}>Nombre de etiqueta</Text>
+          <Text style={styles.sectionTitle}>{t('tags.name')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nombre de etiqueta (ej: Rock, FLAC...)"
+            placeholder={t('tags.placeholder_name')}
             placeholderTextColor="#666"
             value={tagName}
             onChangeText={setTagName}
@@ -231,7 +232,7 @@ export default function TagFormModal() {
 
           {/* Selector de Color */}
           <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
-            Color de etiqueta
+            {t('tags.color')}
           </Text>
           <View style={styles.colorRow}>
             {COLOR_PALETTE.slice(0, 5).map((color) => {
@@ -284,7 +285,7 @@ export default function TagFormModal() {
                 <Text style={styles.pickerHexLabel}>
                   {customHexCode
                     ? customHexCode.toUpperCase()
-                    : "Elige un color"}
+                    : t('tags.select_color')}
                 </Text>
               </View>
 
@@ -325,7 +326,7 @@ export default function TagFormModal() {
                     },
                   ]}
                 >
-                  Confirmar color
+                  {t('tags.confirm_color')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -347,7 +348,7 @@ export default function TagFormModal() {
                 { color: getDynamicTagTextColor(selectedColor) },
               ]}
             >
-              {tag ? "Guardar Cambios" : "Crear Etiqueta"}
+              {tag ? t('actions.save_changes') : t('tags.create_tag')}
             </Text>
           </TouchableOpacity>
         </Animated.View>

@@ -4,6 +4,7 @@ import PlaybackHistory from "../database/models/PlaybackHistory";
 import Track from "../database/models/Track";
 import Album from "../database/models/Album";
 import { usePlayerStore } from "../store/usePlayerStore";
+import i18n from "../constants/i18n";
 
 export type UIHistoryPayload = {
   id: string;
@@ -142,8 +143,8 @@ export const HistoryService = {
         usePlayerStore.setState({
           recentPlaylists: [{
             id: 'favorites',
-            name: 'Tus Favoritos',
-            description: 'Las canciones que más te gustan',
+            name: i18n.t('home.your_favourites'),
+            description: i18n.t('home.most_liked_songs'),
             timestamp: Date.now()
           }]
         });

@@ -61,7 +61,7 @@ export const PlayingIndicator = ({ color = '#8B5CF6', isPaused = false }: Playin
             scale2.stopAnimation();
             scale3.stopAnimation();
         };
-    }, [isPaused]);
+    }, [isPaused, scale1, scale2, scale3]);
 
     const renderBar = (anim: Animated.Value) => (
         <Animated.View

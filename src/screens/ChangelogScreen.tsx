@@ -5,9 +5,11 @@ import Constants from 'expo-constants';
 import SectionHeader from '../components/SectionHeader';
 import { changelogs } from '../constants/changelogs';
 import { Layout } from '../theme/theme';
+import { useTranslation } from 'react-i18next';
 
 export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const currentVersion = Constants.expoConfig?.version || '1.0.0';
   
   const versionKeys = Object.keys(changelogs).sort((a, b) => {
@@ -25,8 +27,8 @@ export default function ChangelogScreen() {
       contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 30 }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.headerTitle}>Historial de versiones</Text>
-      <Text style={styles.headerSubtitle}>Descubre la evolución de MMPlayer</Text>
+      <Text style={styles.headerTitle}>{t('changelog.history_title')}</Text>
+      <Text style={styles.headerSubtitle}>{t('changelog.history_subtitle')}</Text>
 
       {versionKeys.map((version) => {
         const data = changelogs[version];
@@ -35,15 +37,15 @@ export default function ChangelogScreen() {
         return (
           <View key={version} style={styles.versionBlock}>
             <View style={styles.versionHeaderRow}>
-              <SectionHeader title={`Versión ${version}`} />
+              <SectionHeader title={t('changelog.version_label', { version })} />
               {isCurrent && (
                 <View style={styles.currentBadge}>
-                  <Text style={styles.currentBadgeText}>Actual</Text>
+                  <Text style={styles.currentBadgeText}>{t('changelog.current_badge')}</Text>
                 </View>
               )}
             </View>
             
-            <Text style={styles.versionDate}>{data.date} — {data.title}</Text>
+            <Text style={versionDateStyle(isCurrent)}>{data.date} — {data.title}</Text>
 
             <View style={[styles.card, isCurrent && styles.cardCurrent]}>
               {data.changes.map((change, index) => (
@@ -56,6 +58,11 @@ export default function ChangelogScreen() {
     </ScrollView>
   );
 }
+
+const versionDateStyle = (isCurrent: boolean) => [
+  styles.versionDate,
+  isCurrent && { color: '#8B5CF6' } // highlight current version date if helpful, or keep standard style
+];
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },

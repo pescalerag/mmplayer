@@ -4,7 +4,7 @@ import { Q } from '@nozbe/watermelondb';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import { Platform } from 'react-native';
+import { Platform, Image as RNImage } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
 import { getAudioFiles } from '../../modules/native-audio-scanner';
 import { database } from '../database';
@@ -12,7 +12,6 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
-import { Image as RNImage } from 'react-native';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { HistoryService } from './HistoryService';
 

@@ -18,7 +18,6 @@ import TrackPlayer, {
     Event,
     State,
     Track as TPTrack,
-    useActiveTrack,
     usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
@@ -40,7 +39,6 @@ export default function QueueSheet() {
     const clearUserQueue = usePlayerStore(state => state.clearUserQueue);
 
     // ── Hooks reactivos de RNTP ──
-    const currentTrackRNTP = useActiveTrack();
     const playbackState = usePlaybackState();
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
@@ -96,7 +94,7 @@ export default function QueueSheet() {
                 Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true })
             ]).start();
         }
-    }, [isVisible]);
+    }, [isVisible, fadeAnim, slideAnim]);
 
     // --- BACKHANDLER ---
     useEffect(() => {
@@ -117,7 +115,7 @@ export default function QueueSheet() {
         }).start();
     };
 
-    const handleSkipTo = async (globalIndex: number) => {
+    const handleSkipTo = React.useCallback(async (globalIndex: number) => {
         try {
             await TrackPlayer.skip(globalIndex);
             await TrackPlayer.play();
@@ -125,9 +123,9 @@ export default function QueueSheet() {
         } catch (error) {
             console.error('Error skipping to track:', error);
         }
-    };
+    }, [setActiveIndex]);
 
-    const handleRemove = async (globalIndex: number, isUserQueued: boolean) => {
+    const handleRemove = React.useCallback(async (globalIndex: number, isUserQueued: boolean) => {
         try {
             await TrackPlayer.remove(globalIndex);
             // Si era un track de la user queue, decrementamos el contador
@@ -145,7 +143,7 @@ export default function QueueSheet() {
         } catch (error) {
             console.error('Error removing track:', error);
         }
-    };
+    }, [decrementUserQueue]);
 
     const handleTrashPress = () => {
         Alert.alert(
@@ -380,6 +378,7 @@ const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal }: Curren
         </View>
     );
 });
+CurrentTrackHeader.displayName = 'CurrentTrackHeader';
 
 interface QueueTrackRowProps {
     item: any;
@@ -436,6 +435,7 @@ const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onS
         </TouchableOpacity>
     );
 });
+QueueTrackRow.displayName = 'QueueTrackRow';
 
 interface RecentTrackRowProps {
     item: TPTrack;
@@ -478,6 +478,7 @@ const RecentTrackRow = React.memo(({ item, index, activeIndex, onSkip }: RecentT
         </TouchableOpacity>
     );
 });
+RecentTrackRow.displayName = 'RecentTrackRow';
 
 const styles = StyleSheet.create({
     overlay: {

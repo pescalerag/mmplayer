@@ -2,11 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, ActivityIndicator, Text, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSyncStore } from '../store/useSyncStore';
+import { useTranslation } from 'react-i18next';
 
 export default function GlobalSyncIndicator() {
     const isScanning = useSyncStore(state => state.isScanning);
     const insets = useSafeAreaInsets();
     const translateY = useRef(new Animated.Value(-100)).current;
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (isScanning) {
@@ -29,7 +31,7 @@ export default function GlobalSyncIndicator() {
         <Animated.View style={[styles.container, { transform: [{ translateY }] }]} pointerEvents="none">
             <View style={styles.island}>
                 <ActivityIndicator size="small" color="#8B5CF6" />
-                <Text style={styles.text}>Sincronizando biblioteca...</Text>
+                <Text style={styles.text}>{t('toasts.syncing')}</Text>
             </View>
         </Animated.View>
     );
