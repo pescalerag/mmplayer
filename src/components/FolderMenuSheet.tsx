@@ -21,7 +21,6 @@ import { ScannerService } from '../services/ScannerService';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
 

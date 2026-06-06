@@ -9,7 +9,6 @@ import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
     Keyboard,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -318,7 +317,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
       usePlayerStore.getState().playSingleTrack(track, "search");
     }
-  }, [currentTopMatch, query, handleResultClick, navigation, t]);
+  }, [currentTopMatch, handleResultClick, navigation, t]);
 
   useEffect(() => {
     const tabNavigator: any = navigation.getParent();

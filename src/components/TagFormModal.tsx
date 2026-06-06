@@ -103,7 +103,7 @@ export default function TagFormModal() {
         }),
       ]).start();
     }
-  }, [isVisible, tag]);
+  }, [isVisible, tag, fadeAnim, slideAnim]);
 
   // Manejar botón físico de atrás en Android
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function TagFormModal() {
       showSubscription.remove();
       hideSubscription.remove();
     };
-  }, []);
+  }, [keyboardHeight]);
 
   const handleSave = async () => {
     if (!tagName.trim()) return;

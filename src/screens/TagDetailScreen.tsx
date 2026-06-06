@@ -208,7 +208,7 @@ function TagDetailScreen({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, navigation, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t]);
+    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t]);
 
     return (
         <View style={styles.container}>

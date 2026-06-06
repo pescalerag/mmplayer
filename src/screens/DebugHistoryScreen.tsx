@@ -42,7 +42,7 @@ function HistoryRow({ historyItem }: HistoryRowProps) {
                     setAlbum(albumDoc);
                     setArtist(artistDoc);
                 }
-            } catch (err) {
+            } catch {
                 // El track podría haber sido eliminado de la base de datos
             } finally {
                 if (isMounted) setLoading(false);

@@ -73,7 +73,7 @@ function TrackRow({
     >
       {/* Imagen o número de pista */}
       <View style={styles.leftCol}>
-        {coverUrl ? (
+        {coverUrl && !imageError ? (
           <Image
             key={track.id}
             source={{ uri: coverUrl as string }}

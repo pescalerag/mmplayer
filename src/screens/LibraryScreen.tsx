@@ -5,7 +5,7 @@ import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
@@ -25,7 +25,6 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useLibraryStore, SortOption } from '../store/useLibraryStore';
 import { useSortModalStore } from '../store/useSortModalStore';
 import { ScannerService } from '../services/ScannerService';
-import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { useTranslation } from 'react-i18next';
@@ -178,7 +177,6 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
-    const navigation = useNavigation<LibraryNavigationProp>();
     return (
         <FlashList
             ref={scrollRef}
@@ -245,7 +243,6 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
-    const navigation = useNavigation<LibraryNavigationProp>();
     return (
         <FlashList
             ref={scrollRef}
@@ -537,7 +534,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
 
     type Folder = { path: string; name: string; trackCount: number };
 
-    const FolderCard = React.memo(({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) => {
+    const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) {
         const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
         const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
 
@@ -595,8 +592,6 @@ export default function LibraryScreen() {
     const artistSort = useLibraryStore(state => state.artistSort);
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
-    
-    const isScanning = useSyncStore(state => state.isScanning);
 
     const getActiveSortOption = (): SortOption => {
         if (activeTab === 'albums') return albumSort;

@@ -35,7 +35,6 @@ import Track from '../database/models/Track';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { formatTrackTime } from '../utils/time';
 import { getDynamicTagTextColor } from '../utils/color';
-import { HistoryService } from '../services/HistoryService';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
 
@@ -239,15 +238,21 @@ const PlayerScreenUI = ({
 
                 {/* Artwork */}
                 <View style={styles.artworkContainer}>
-                    <Image
-                        key={track.id}
-                        source={artworkSource}
-                        style={styles.artwork}
-                        contentFit="cover"
-                        transition={300}
-                        cachePolicy="memory-disk"
-                        onError={() => setImageError(true)}
-                    />
+                    {artworkSource && !imageError ? (
+                        <Image
+                            key={track.id}
+                            source={artworkSource}
+                            style={styles.artwork}
+                            contentFit="cover"
+                            transition={300}
+                            cachePolicy="memory-disk"
+                            onError={() => setImageError(true)}
+                        />
+                    ) : (
+                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                            <Ionicons name="musical-notes" size={80} color="#666" />
+                        </View>
+                    )}
                 </View>
 
                 {/* Info */}
@@ -507,6 +512,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.5,
         shadowRadius: 30,
         elevation: 10,
+    },
+    artworkPlaceholder: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#282828',
     },
     infoContainer: {
         flexDirection: 'row',

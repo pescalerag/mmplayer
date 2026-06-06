@@ -70,7 +70,12 @@ export default function UpdatedAppModal() {
         })
       ]).start();
     }
-  }, [visible]);
+  }, [visible, fadeAnim, scaleAnim]);
+
+  const handleClose = React.useCallback(() => {
+    setVisible(false);
+    setLastSeenVersion(currentVersion);
+  }, [currentVersion, setLastSeenVersion]);
 
   useEffect(() => {
     if (!visible) return;
@@ -80,12 +85,7 @@ export default function UpdatedAppModal() {
     };
     const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
     return () => subscription.remove();
-  }, [visible]);
-
-  const handleClose = () => {
-    setVisible(false);
-    setLastSeenVersion(currentVersion);
-  };
+  }, [visible, handleClose]);
 
   const handleSeeChanges = () => {
     handleClose();

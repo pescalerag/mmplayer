@@ -48,7 +48,7 @@ export default function PlaylistCover({
                         setLoading(false);
                         return;
                     }
-                } catch (error) {
+                } catch {
                     // Ignoramos si no se encuentra (ej: id 'favorites')
                 }
 

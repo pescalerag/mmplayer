@@ -37,7 +37,7 @@ export default function TagManagerModal() {
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     // Cargar tags y selecciones
-    const reloadData = async () => {
+    const reloadData = React.useCallback(async () => {
         if (!targetId || !targetType) return;
         try {
             const tags = await TagService.getAllTags();
@@ -53,7 +53,7 @@ export default function TagManagerModal() {
         } catch (e) {
             console.error('Error cargando tags:', e);
         }
-    };
+    }, [targetId, targetType]);
 
     useEffect(() => {
         if (isVisible) {
@@ -87,7 +87,7 @@ export default function TagManagerModal() {
                 })
             ]).start();
         }
-    }, [isVisible, targetId, targetType]);
+    }, [isVisible, targetId, targetType, reloadData, fadeAnim, slideAnim]);
 
     // Manejar botón físico de atrás en Android
     useEffect(() => {

@@ -96,7 +96,7 @@ export default function PlaylistSelectorModal() {
                 })
             ]).start();
         }
-    }, [isVisible, fadeAnim, slideAnim, playlistToEdit]);
+    }, [isVisible, fadeAnim, slideAnim, playlistToEdit, isCreatingDirectly]);
 
     // Manejar botón de atrás en Android
     useEffect(() => {
@@ -115,7 +115,7 @@ export default function PlaylistSelectorModal() {
         };
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
-    }, [isVisible, isCreating, closeSelector, playlistToEdit]);
+    }, [isVisible, isCreating, closeSelector, playlistToEdit, isCreatingDirectly]);
 
     // Manejar altura del teclado en iOS y Android
     useEffect(() => {

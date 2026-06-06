@@ -66,13 +66,19 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
             <View style={styles.content}>
                 <View style={styles.leftSection}>
                     <View style={styles.artworkContainer}>
-                        <Image
-                            key={track.id}
-                            source={{ uri: album.coverUrl as string }}
-                            style={styles.artwork}
-                            contentFit="cover"
-                            onError={() => setImageError(true)}
-                        />
+                        {album.coverUrl && !imageError ? (
+                            <Image
+                                key={track.id}
+                                source={{ uri: album.coverUrl as string }}
+                                style={styles.artwork}
+                                contentFit="cover"
+                                onError={() => setImageError(true)}
+                            />
+                        ) : (
+                            <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                <Ionicons name="musical-notes" size={16} color="#666" />
+                            </View>
+                        )}
                     </View>
 
                     <View style={styles.info}>
@@ -122,6 +128,7 @@ const styles = StyleSheet.create({
     content: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
     leftSection: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     artwork: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#282828' },
+    artworkPlaceholder: { justifyContent: 'center', alignItems: 'center' },
     artworkContainer: { width: 44, height: 44, borderRadius: 6, overflow: 'hidden' },
     info: { flex: 1, marginLeft: 12 },
     title: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Montserrat', fontWeight: '700' },

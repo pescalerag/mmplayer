@@ -369,7 +369,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
         if (trackIndex !== -1) {
             usePlayerStore.getState().loadQueue(tracks, trackIndex, `artist-${artist.id}`);
         }
-    }, [tracks]);
+    }, [tracks, artist.id]);
 
     const renderItem = useCallback((info: { item: Track; index: number }) => {
         const { item, index } = info;
@@ -383,7 +383,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
                 />
             </View>
         );
-    }, [handleTrackPress]);
+    }, [handleTrackPress, artist.id]);
 
     // Usamos el componente Header estable
     const listHeader = useMemo(() => (
@@ -403,7 +403,7 @@ function ArtistDetailContentBase({ artist, albums, tracks, isLoadingContent }: P
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
         />
-    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
+    ), [artist, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
 
     return (
         <View style={styles.container}>
@@ -488,7 +488,7 @@ export default function ArtistDetailScreen() {
             isMounted = false;
             task.cancel();
         };
-    }, [artistId]);
+    }, [artistId, t]);
 
     if (!artist) {
         return <View style={[styles.container, { backgroundColor: '#121212' }]} />;
