@@ -9,6 +9,13 @@ export interface VersionChangelog {
 }
 
 export const changelogs: Record<string, VersionChangelog> = {
+  '1.2.0': {
+    version: '1.2.0',
+    get title() { return i18n.t('changelog.v_1_2_0.title'); },
+    get date() { return i18n.t('changelog.v_1_2_0.date'); },
+    image: require('../assets/updates/modalv1.2.0.png'),
+    get changes() { return i18n.t('changelog.v_1_2_0.changes', { returnObjects: true }) as unknown as string[]; }
+  },
   '1.1.0': {
     version: '1.1.0',
     get title() { return i18n.t('changelog.v_1_1_0.title'); },

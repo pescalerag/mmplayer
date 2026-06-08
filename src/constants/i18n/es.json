@@ -227,6 +227,20 @@
     "default_title": "MMPlayer se ha actualizado",
     "default_date": "Nueva Actualización",
     "default_changes": ["Mejoras de rendimiento y corrección de errores menores."],
+    "v_1_2_0": {
+      "title": "Versión 1.2.0 (Estable)",
+      "date": "08/06/2026",
+      "changes": [
+        "Implementada la internacionalización (soporte multiidioma).",
+        "Añadido un aviso (toast) de error al intentar crear una etiqueta que ya existe.",
+        "Corregido el comportamiento de navegación del botón atrás de Android al ver el contenido de una carpeta.",
+        "Añadidos textos informativos cuando la biblioteca está vacía.",
+        "Añadida la posibilidad de agregar carpetas completas a una lista de reproducción.",
+        "Corregida la función de ordenación en la Biblioteca.",
+        "Implementada la exclusión de canciones individuales del escaneo.",
+        "Añadido un indicador visual cuando una canción ya está en una playlist."
+      ]
+    },
     "v_1_1_0": {
       "title": "Versión 1.1.0 (Estable)",
       "date": "03/06/2026",
