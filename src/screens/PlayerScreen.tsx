@@ -377,11 +377,17 @@ const PlayerScreenUI = ({
 
                     {/* ── ANTERIOR ── */}
                     <TouchableOpacity
-                        onPress={() => TrackPlayer.skipToPrevious().catch(() => { })}
+                        onPress={() => {
+                            if (position > 3) {
+                                TrackPlayer.seekTo(0).catch(() => { });
+                            } else {
+                                TrackPlayer.skipToPrevious().catch(() => { });
+                            }
+                        }}
                         style={styles.controlButton}
-                        disabled={!hasPrevious}
+                        disabled={!hasPrevious && position <= 3}
                     >
-                        <Ionicons name="play-back" size={38} color={hasPrevious ? '#FFFFFF' : '#535353'} />
+                        <Ionicons name="play-back" size={38} color={(hasPrevious || position > 3) ? '#FFFFFF' : '#535353'} />
                     </TouchableOpacity>
 
                     <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
