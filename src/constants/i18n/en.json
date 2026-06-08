@@ -189,6 +189,7 @@
     "exclude_song": "Exclude song",
     "exclude_song_title": "Exclude song",
     "exclude_song_confirm": "Are you sure you want to exclude this song from scanning? It will be deleted from your library.",
+    "share": "Share",
     "add": "Add",
     "only_new": "Only new ones",
     "add_all": "Add all",
@@ -283,5 +284,16 @@
         "Multiple performance fixes."
       ]
     }
+  },
+  "screens": {
+    "artists": "Artists"
+  },
+  "sleep_timer": {
+    "title": "Sleep Timer",
+    "deactivate": "Deactivate",
+    "minutes": "min",
+    "hour": "1 hour",
+    "off": "Deactivated",
+    "status_active": "Playback will pause in:"
   }
 }

@@ -16,8 +16,9 @@ class NativeAudioScannerModule : Module() {
       val audioList = mutableListOf<Map<String, Any?>>()
       val validAlbumArts = mutableMapOf<Long, String?>()
       
+      val supportsAlbumArtist = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
       val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-      val projection = arrayOf(
+      val projection = mutableListOf(
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.DATA,
         MediaStore.Audio.Media.TITLE,
@@ -26,15 +27,19 @@ class NativeAudioScannerModule : Module() {
         MediaStore.Audio.Media.ALBUM_ID,
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.TRACK,
-        MediaStore.Audio.Media.YEAR
+        MediaStore.Audio.Media.YEAR,
+        MediaStore.Audio.Media.DATE_MODIFIED
       )
+      if (supportsAlbumArtist) {
+        projection.add(MediaStore.Audio.Media.ALBUM_ARTIST)
+      }
       
       // Filter out files that are not music
       val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
       
       context.contentResolver.query(
         uri,
-        projection,
+        projection.toTypedArray(),
         selection,
         null,
         "${MediaStore.Audio.Media.TITLE} ASC"
@@ -47,7 +52,9 @@ class NativeAudioScannerModule : Module() {
         val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
         val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-        val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR) // <-- AÑADIDO
+        val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+        val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+        val albumArtistColumn = if (supportsAlbumArtist) cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST) else -1
 
         val sArtworkUri = Uri.parse("content://media/external/audio/albumart")
 
@@ -60,6 +67,12 @@ class NativeAudioScannerModule : Module() {
           val albumId = cursor.getLong(albumIdColumn)
           val durationMs = cursor.getLong(durationColumn)
           val year = cursor.getInt(yearColumn)
+          val dateModifiedSec = cursor.getLong(dateModifiedColumn)
+          val albumArtist = if (supportsAlbumArtist && albumArtistColumn != -1) {
+            cursor.getString(albumArtistColumn)
+          } else {
+            null
+          }
           
           var finalCoverUrl = validAlbumArts[albumId]
           if (!validAlbumArts.containsKey(albumId)) {
@@ -88,7 +101,9 @@ class NativeAudioScannerModule : Module() {
               "duration" to (durationMs / 1000.0), // Convert to seconds
               "trackNumber" to (cursor.getInt(trackColumn) % 1000),
               "discNumber" to if (cursor.getInt(trackColumn) >= 1000) (cursor.getInt(trackColumn) / 1000) else 1,
-              "year" to if (year > 0) year else null
+              "year" to if (year > 0) year else null,
+              "albumArtist" to albumArtist,
+              "lastModified" to (dateModifiedSec * 1000)
             )
             audioList.add(fileMap)
           }

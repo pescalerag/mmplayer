@@ -26,18 +26,20 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 
 import withObservables from '@nozbe/with-observables';
+import * as Sharing from 'expo-sharing';
+import { useTranslation } from 'react-i18next';
 import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
-import { formatTrackTime } from '../utils/time';
-import { getDynamicTagTextColor } from '../utils/color';
+import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import { useToastStore } from '../store/useToastStore';
-import { useTranslation } from 'react-i18next';
-
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { getDynamicTagTextColor } from '../utils/color';
+import { formatTrackTime } from '../utils/time';
 
 const { width } = Dimensions.get('window');
 
@@ -54,6 +56,7 @@ interface PlayerScreenUIProps {
     hasNext: boolean;
     hasPrevious: boolean;
 }
+
 
 const performToggleShuffle = async (
     isShuffleEnabled: boolean,
@@ -97,12 +100,14 @@ const PlayerScreenUI = ({
 }: PlayerScreenUIProps) => {
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
+    const openSleepTimer = useSleepTimerStore(state => state.openSheet);
+    const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
 
-    const artworkSource = React.useMemo(() => 
+    const artworkSource = React.useMemo(() =>
         album.coverUrl ? { uri: album.coverUrl } : null
-    , [album.coverUrl]);
+        , [album.coverUrl]);
 
     // Shuffle — estado global (sobrevive a la navegación)
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
@@ -179,9 +184,13 @@ const PlayerScreenUI = ({
     };
 
     const handleArtistPress = () => {
-        const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
-        if (!targetArtistId) return;
-        navigation.navigate('ArtistDetail', { artistId: targetArtistId });
+        if (artists && artists.length > 1) {
+            useArtistsListSheetStore.getState().openSheet(artists);
+        } else {
+            const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
+            if (!targetArtistId) return;
+            navigation.navigate('ArtistDetail', { artistId: targetArtistId });
+        }
     };
 
     const handleOpenTagManager = React.useCallback(() => {
@@ -190,6 +199,21 @@ const PlayerScreenUI = ({
 
     const handleOpenPlaylistSelector = React.useCallback(() => {
         usePlaylistSelectorStore.getState().openSelector(track);
+    }, [track]);
+
+    const handleShare = React.useCallback(async () => {
+        if (!track?.fileUrl) return;
+        try {
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (isAvailable) {
+                await Sharing.shareAsync(track.fileUrl, {
+                    dialogTitle: `Compartir ${track.title}`,
+                    mimeType: 'audio/*',
+                });
+            }
+        } catch (error) {
+            console.error('Error al compartir el archivo de audio:', error);
+        }
     }, [track]);
 
     const [imageError, setImageError] = React.useState(false);
@@ -286,7 +310,7 @@ const PlayerScreenUI = ({
                                 </TouchableOpacity>
                             )}
                         </View>
- 
+
                         <MarqueeText
                             text={track.title}
                             style={styles.title}
@@ -425,6 +449,33 @@ const PlayerScreenUI = ({
 
                 {/* Footer / Secondary Actions */}
                 <View style={[styles.footer, { marginBottom: insets.bottom + 10 }]}>
+                    {/* Left group: Sleep Timer + Share */}
+                    <View style={styles.footerLeftGroup}>
+                        <TouchableOpacity
+                            onPress={openSleepTimer}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name="timer-outline"
+                                size={24}
+                                color={isSleepTimerActive ? '#A78BFA' : '#B3B3B3'}
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleShare}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name="share-social-outline"
+                                size={24}
+                                color="#B3B3B3"
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Right: Queue */}
                     <TouchableOpacity
                         onPress={openQueue}
                         style={styles.footerButton}
@@ -627,8 +678,14 @@ const styles = StyleSheet.create({
     },
     footer: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        paddingHorizontal: 10,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    footerLeftGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
     },
     footerButton: {
         padding: 8,

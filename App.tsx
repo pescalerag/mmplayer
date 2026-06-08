@@ -24,12 +24,15 @@ import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import GlobalToast from "./src/components/GlobalToast";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
+import ArtistsListSheet from "./src/components/ArtistsListSheet";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
+import SleepTimerSheet from "./src/components/SleepTimerSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { ScannerService } from "./src/services/ScannerService";
 import "./src/constants/i18n";
 
 export default function App() {
@@ -55,6 +58,11 @@ export default function App() {
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
         await usePlayerStore.getState().restoreRecentsState();
+
+        // Ejecutar migración de last_modified en segundo plano para legacy tracks
+        ScannerService.migrateLastModifiedIfNeeded().catch((err) => {
+          console.error("Error al ejecutar migración de last_modified:", err);
+        });
       } catch (e: any) {
         console.warn("Error en la inicialización:", e);
       } finally {
@@ -127,6 +135,8 @@ export default function App() {
           <PlaylistMenuSheet />
           <FolderMenuSheet />
           <UpdatedAppModal />
+          <ArtistsListSheet />
+          <SleepTimerSheet />
           <GlobalToast />
         </NavigationContainer>
       </View>

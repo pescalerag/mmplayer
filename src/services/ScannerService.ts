@@ -175,6 +175,7 @@ const extractFileMetadata = (file: any) => {
     const rawTitle = file.title?.trim();
     const rawArtist = file.artist?.trim();
     const rawAlbum = file.album?.trim();
+    const rawAlbumArtist = file.albumArtist?.trim();
 
     const title = (!rawTitle || rawTitle === 'Unknown Title') 
         ? file.filename.replace(/\.[^/.]+$/, '') 
@@ -185,6 +186,9 @@ const extractFileMetadata = (file: any) => {
     const albumTitle = (!rawAlbum || rawAlbum === 'Unknown Album') 
         ? 'Álbum Desconocido' 
         : rawAlbum;
+    const albumArtist = (rawAlbumArtist && rawAlbumArtist !== 'Unknown Artist' && rawAlbumArtist.length > 0)
+        ? rawAlbumArtist
+        : null;
 
     return {
         title,
@@ -194,6 +198,8 @@ const extractFileMetadata = (file: any) => {
         coverUrl: coverUrl,
         durationInSeconds: file.duration || 0,
         year: file.year || null,
+        albumArtist,
+        lastModified: file.lastModified || 0,
     };
 };
 
@@ -245,19 +251,43 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
 };
 
 // --- 4. Helper to resolve and optionally create an album ---
-const resolveAlbum = (
+const resolveAlbum = async (
     albumId: string,
     albumTitle: string,
     primaryArtist: Artist,
     coverUrl: string | null,
     year: number | null,
     albumCache: Map<string, Album>,
-    albumsCollection: any
+    albumsCollection: any,
+    artistCache: Map<string, Artist>,
+    artistsCollection: any,
+    newArtistOps: any[]
 ) => {
     const newAlbumOps: any[] = [];
     let album = albumCache.get(albumId) || albumCache.get(albumTitle);
 
-    if (!album) {
+    if (album) {
+        // Si el álbum tiene el mismo año pero el artista es diferente, lo agrupamos en "Varios Artistas"
+        if (year !== null && album.year === year) {
+            const currentArtistId = (album._raw as any).artist_id;
+            if (currentArtistId && currentArtistId !== primaryArtist.id) {
+                const { trackArtists: variosArtists, newArtistOps: newVariosOps } = await resolveArtists("Varios Artistas", artistCache, artistsCollection);
+                newArtistOps.push(...newVariosOps);
+                const variosArtist = variosArtists[0];
+
+                if (currentArtistId !== variosArtist.id) {
+                    if ((album as any)._status === 'created') {
+                        album.artist.set(variosArtist);
+                    } else {
+                        const updateOp = album.prepareUpdate((a: any) => {
+                            a.artist.set(variosArtist);
+                        });
+                        newAlbumOps.push(updateOp);
+                    }
+                }
+            }
+        }
+    } else {
         const newAlbum = albumsCollection.prepareCreate((a: any) => {
             a.title = albumTitle;
             a.normalizedTitle = normalizeText(albumTitle);
@@ -298,6 +328,7 @@ const prepareTrackRecords = (
         t.discNumber = file.discNumber || 1;
         t.album.set(album);
         t.artist.set(primaryArtist);
+        t.lastModified = meta.lastModified;
     });
     ops.push(track);
 
@@ -748,6 +779,9 @@ export const ScannerService = {
         const excludedFolders = useSettingsStore.getState().excludedFolders;
         const excludedSongs = useSettingsStore.getState().excludedSongs || [];
 
+        const affectedAlbumIds = new Set<string>();
+        const affectedArtistIds = new Set<string>();
+
         await database.write(async () => {
             const artistCache = new Map<string, Artist>();
             const albumCache = new Map<string, Album>();
@@ -758,8 +792,9 @@ export const ScannerService = {
             const existingAlbums = await albumsCollection.query().fetch();
             for (const a of existingAlbums) albumCache.set(a.title, a);
 
-            const existingTracksRaw = await tracksCollection.query().unsafeFetchRaw();
-            const existingLinks = new Set(existingTracksRaw.map((t: any) => t.file_url));
+            const existingTracks = await tracksCollection.query().fetch();
+            const existingTrackMap = new Map<string, Track>();
+            existingTracks.forEach(t => existingTrackMap.set(t.fileUrl, t));
 
             let batchOps: any[] = [];
             const BATCH_SIZE = 500;
@@ -771,36 +806,129 @@ export const ScannerService = {
 
                 const isFolderExcluded = excludedFolders.some(folderPath => file.uri.startsWith(folderPath));
                 const isSongExcluded = excludedSongs.includes(file.uri);
-                if (isFolderExcluded || isSongExcluded || existingLinks.has(file.uri)) {
+                if (isFolderExcluded || isSongExcluded) {
                     skipped++;
                     continue;
                 }
 
-                // 1. Parse Metadata
-                const meta = extractFileMetadata(file);
+                const existingTrack = existingTrackMap.get(file.uri);
+                if (existingTrack) {
+                    const dbLastModified = existingTrack.lastModified || 0;
+                    if (file.lastModified <= dbLastModified) {
+                        skipped++;
+                        continue;
+                    }
 
-                // 2. Resolve Artists
-                const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
-                batchOps.push(...newArtistOps);
-                const primaryArtist = trackArtists[0];
+                    // Guardar IDs de álbum y artista antiguos para limpiar si quedan vacíos
+                    const oldAlbumId = (existingTrack._raw as any).album_id;
+                    const oldArtistId = (existingTrack._raw as any).artist_id;
+                    if (oldAlbumId) affectedAlbumIds.add(oldAlbumId);
+                    if (oldArtistId) affectedArtistIds.add(oldArtistId);
 
-                // 3. Resolve Album
-                const { album, newAlbumOps } = resolveAlbum(
-                    meta.albumId,
-                    meta.albumTitle,
-                    primaryArtist,
-                    meta.coverUrl,
-                    meta.year,
-                    albumCache,
-                    albumsCollection
-                );
-                batchOps.push(...newAlbumOps);
+                    // Se ha modificado el archivo: actualizamos metadatos
+                    const meta = extractFileMetadata(file);
 
-                // 4. Create Track & Collaborators
-                const trackOps = prepareTrackRecords(file, meta, album!, primaryArtist, trackArtists, tracksCollection, collaboratorsCollection);
-                batchOps.push(...trackOps);
+                    // Resolve Artists
+                    const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+                    batchOps.push(...newArtistOps);
+                    const primaryArtist = trackArtists[0];
 
-                added++;
+                    // Resolve Album Artist
+                    let albumArtistObj = primaryArtist;
+                    if (meta.albumArtist) {
+                        const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
+                        batchOps.push(...newAlbumArtistOps);
+                        if (albumArtists.length > 0) {
+                            albumArtistObj = albumArtists[0];
+                        }
+                    }
+
+                    // Resolve Album
+                    const { album, newAlbumOps } = await resolveAlbum(
+                        meta.albumId,
+                        meta.albumTitle,
+                        albumArtistObj,
+                        meta.coverUrl,
+                        meta.year,
+                        albumCache,
+                        albumsCollection,
+                        artistCache,
+                        artistsCollection,
+                        batchOps
+                    );
+                    batchOps.push(...newAlbumOps);
+
+                    // Update Track metadata
+                    const updateOp = existingTrack.prepareUpdate((t: any) => {
+                        t.title = meta.title;
+                        t.normalizedTitle = normalizeText(meta.title);
+                        t.duration = meta.durationInSeconds;
+                        t.trackNumber = file.trackNumber || 0;
+                        t.discNumber = file.discNumber || 1;
+                        t.lastModified = meta.lastModified;
+                        t.album.set(album);
+                        t.artist.set(primaryArtist);
+                    });
+                    batchOps.push(updateOp);
+
+                    // Re-associate collaborators
+                    const collaboratorsCollection = database.collections.get('track_collaborators');
+                    const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', existingTrack.id)).fetch();
+                    existingCollabs.forEach(c => {
+                        const collabArtistId = (c._raw as any).artist_id;
+                        if (collabArtistId) affectedArtistIds.add(collabArtistId);
+                    });
+                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+
+                    for (const artist of trackArtists) {
+                        const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
+                            tc.track.set(existingTrack);
+                            tc.artist.set(artist);
+                        });
+                        batchOps.push(newCollab);
+                    }
+
+                    added++;
+                } else {
+                    // 1. Parse Metadata
+                    const meta = extractFileMetadata(file);
+
+                    // 2. Resolve Artists
+                    const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+                    batchOps.push(...newArtistOps);
+                    const primaryArtist = trackArtists[0];
+
+                    // 2.5 Resolve Album Artist if present
+                    let albumArtistObj = primaryArtist;
+                    if (meta.albumArtist) {
+                        const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
+                        batchOps.push(...newAlbumArtistOps);
+                        if (albumArtists.length > 0) {
+                            albumArtistObj = albumArtists[0];
+                        }
+                    }
+
+                    // 3. Resolve Album
+                    const { album, newAlbumOps } = await resolveAlbum(
+                        meta.albumId,
+                        meta.albumTitle,
+                        albumArtistObj,
+                        meta.coverUrl,
+                        meta.year,
+                        albumCache,
+                        albumsCollection,
+                        artistCache,
+                        artistsCollection,
+                        batchOps
+                    );
+                    batchOps.push(...newAlbumOps);
+
+                    // 4. Create Track & Collaborators
+                    const trackOps = prepareTrackRecords(file, meta, album!, primaryArtist, trackArtists, tracksCollection, collaboratorsCollection);
+                    batchOps.push(...trackOps);
+
+                    added++;
+                }
 
                 // 5. Batch Execution
                 if (batchOps.length >= BATCH_SIZE) {
@@ -814,6 +942,18 @@ export const ScannerService = {
             }
         });
 
+        // Limpiar álbumes/artistas vacíos si se cambiaron metadatos en tracks existentes
+        if (affectedAlbumIds.size > 0 || affectedArtistIds.size > 0) {
+            onProgress?.(audioFiles.length, audioFiles.length, 'Limpiando álbumes/artistas vacíos...');
+            await ScannerService.cleanDeletedFiles({
+                targetAlbumIds: Array.from(affectedAlbumIds),
+                targetArtistIds: Array.from(affectedArtistIds),
+                skipFileCheck: true
+            }, (phase) => onProgress?.(audioFiles.length, audioFiles.length, phase)).catch(err => {
+                console.error("Error limpiando álbumes/artistas vacíos tras actualización:", err);
+            });
+        }
+
         if (added > 0) {
             await HistoryService.initializeDefaultsIfNeeded();
         }
@@ -823,5 +963,51 @@ export const ScannerService = {
 
         onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
         return { total: audioFiles.length, added, skipped };
+    },
+
+    migrateLastModifiedIfNeeded: async () => {
+        try {
+            const tracksCollection = database.collections.get<Track>('tracks');
+            const allTracks = await tracksCollection.query().fetch();
+            const tracksToMigrate = allTracks.filter(t => !t.lastModified);
+
+            if (tracksToMigrate.length === 0) {
+                return;
+            }
+
+            console.log(`[Migration] Encontradas ${tracksToMigrate.length} canciones sin last_modified. Rellenando...`);
+
+            const audioFiles = await getAudioFiles();
+            const fileMap = new Map<string, number>();
+            audioFiles.forEach(f => fileMap.set(f.uri, f.lastModified));
+
+            let batchOps: any[] = [];
+            const BATCH_SIZE = 400;
+
+            await database.write(async () => {
+                for (const track of tracksToMigrate) {
+                    const lm = fileMap.get(track.fileUrl);
+                    if (lm) {
+                        const updateOp = track.prepareUpdate((t: any) => {
+                            t.lastModified = lm;
+                        });
+                        batchOps.push(updateOp);
+                    }
+
+                    if (batchOps.length >= BATCH_SIZE) {
+                        await database.batch(batchOps);
+                        batchOps = [];
+                    }
+                }
+
+                if (batchOps.length > 0) {
+                    await database.batch(batchOps);
+                }
+            });
+
+            console.log('[Migration] Migración de last_modified completada con éxito.');
+        } catch (error) {
+            console.error('[Migration] Error ejecutando migración de last_modified:', error);
+        }
     }
 };

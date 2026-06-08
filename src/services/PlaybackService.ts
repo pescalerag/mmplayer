@@ -1,5 +1,8 @@
 import TrackPlayer, { Event, State } from "react-native-track-player";
+import { createMMKV } from "react-native-mmkv";
 import { HistoryService } from "./HistoryService";
+
+const storage = createMMKV();
 
 let lastPlayTimestamp: number | null = null;
 let currentTrackId: string | null = null;
@@ -47,6 +50,11 @@ export const PlaybackTimeTracker = {
 
   isTimerRunning() {
     return lastPlayTimestamp !== null;
+  },
+
+  setAccumulatedSeconds(trackId: string, seconds: number) {
+    accumulatedTimes[trackId] = seconds * 1000;
+    currentTrackId = trackId;
   }
 };
 
@@ -81,6 +89,18 @@ export const PlaybackService = async function () {
     } else {
       PlaybackTimeTracker.onStateNotPlaying();
     }
+
+    // Persistir posición y acumulado ante cambios de estado (pausa, stop, etc.)
+    try {
+      const trackId = PlaybackTimeTracker.getCurrentTrackId();
+      if (trackId) {
+        const progress = await TrackPlayer.getProgress();
+        storage.set("@player_position", progress.position);
+        storage.set("@player_accumulated", PlaybackTimeTracker.getAccumulatedSeconds(trackId));
+      }
+    } catch (e) {
+      console.error("Error persistiendo posición en PlaybackState:", e);
+    }
   });
 
   TrackPlayer.addEventListener(
@@ -92,6 +112,10 @@ export const PlaybackService = async function () {
       // Reset position memory on track change
       lastKnownPosition = 0;
       lastKnownDuration = 0;
+
+      // Limpiar minutaje y acumulado persistido de la canción anterior
+      storage.set("@player_position", 0);
+      storage.set("@player_accumulated", 0);
 
       // Record check if the timer was active prior to transition
       const wasPlaying = PlaybackTimeTracker.isTimerRunning();
@@ -162,6 +186,17 @@ export const PlaybackService = async function () {
       
       lastKnownPosition = position;
       lastKnownDuration = duration;
+
+      // Persistir posición y acumulado periódicamente (cada 1s)
+      try {
+        const trackId = PlaybackTimeTracker.getCurrentTrackId();
+        if (trackId) {
+          storage.set("@player_position", position);
+          storage.set("@player_accumulated", PlaybackTimeTracker.getAccumulatedSeconds(trackId));
+        }
+      } catch (e) {
+        console.error("Error persistiendo posición en PlaybackProgressUpdated:", e);
+      }
     }
   );
 };

@@ -80,7 +80,7 @@ const HEADER_HEIGHT = 380;
 // ─── CONTENIDO PRINCIPAL ─────────────────────────────────────────────────────
 interface Props {
   album: Album;
-  artist: Artist;
+  artist: Artist | null;
   tracks: Track[];
   tags: Tag[];
   fromPlayer?: boolean;
@@ -129,6 +129,7 @@ function AlbumDetailContent({
   };
 
   const navigateToArtist = () => {
+    if (!artist) return;
     const state = navigation.getState();
     const previousRoute = state.routes[state.routes.length - 2];
     const params = previousRoute?.params as { artistId?: string } | undefined;
@@ -251,10 +252,12 @@ function AlbumDetailContent({
           </View>
         )}
         subtitle={
-          artist && (
+          artist && artist.name !== "Varios Artistas" ? (
             <TouchableOpacity onPress={navigateToArtist}>
               <Text style={styles.artistNameLink}>{artist.name}</Text>
             </TouchableOpacity>
+          ) : (
+            artist && <Text style={styles.artistName}>{artist.name}</Text>
           )
         }
         metaInfo={[
@@ -369,7 +372,7 @@ const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { albu
     Q.sortBy("disc_number", Q.asc),
     Q.sortBy("track_number", Q.asc),
   ).observe(),
-  tags: album.queryTags.observe(),
+  tags: album.queryTags.observe() as any,
 }))(AlbumDetailContent);
 
 const ObservableAlbumDetailMiddle = withObservables(["albumId"], ({ albumId }: { albumId: string }) => ({
