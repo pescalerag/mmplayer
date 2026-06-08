@@ -189,6 +189,7 @@
     "exclude_song": "Excluir canción",
     "exclude_song_title": "Excluir canción",
     "exclude_song_confirm": "¿Estás seguro de que deseas excluir esta canción del escaneo? Se borrará de la biblioteca.",
+    "share": "Compartir",
     "add": "Añadir",
     "only_new": "Solo las nuevas",
     "add_all": "Añadir todas",

@@ -2,15 +2,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { 
-    Animated, 
-    BackHandler, 
-    Dimensions, 
-    Platform, 
-    StyleSheet, 
-    Text, 
-    TouchableOpacity, 
-    TouchableWithoutFeedback, 
+import {
+    Animated,
+    BackHandler,
+    Dimensions,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
     Alert
 } from 'react-native';
@@ -29,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
+import * as Sharing from 'expo-sharing';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -63,6 +65,23 @@ export default function TrackMenuSheet() {
             ]
         );
     };
+
+    const handleShare = async () => {
+        if (!selectedTrack?.fileUrl) return;
+        try {
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (isAvailable) {
+                closeMenu();
+                await Sharing.shareAsync(selectedTrack.fileUrl, {
+                    dialogTitle: `Compartir ${selectedTrack.title}`,
+                    mimeType: 'audio/*',
+                });
+            }
+        } catch (error) {
+            console.error('Error al compartir:', error);
+        }
+    };
+
     const [albumId, setAlbumId] = useState<string | null>(null);
     const [artistId, setArtistId] = useState<string | null>(null);
     const [artistsList, setArtistsList] = useState<Artist[]>([]);
@@ -166,11 +185,10 @@ export default function TrackMenuSheet() {
             </TouchableWithoutFeedback>
 
             {/* Contenedor del Menú animado con Slide */}
-            <Animated.View 
+            <Animated.View
                 style={[
-                    styles.sheetContainer, 
-                    { 
-                        paddingBottom: insets.bottom + 20,
+                    styles.sheetContainer,
+                    {
                         transform: [{ translateY: slideAnim }]
                     }
                 ]}
@@ -196,6 +214,14 @@ export default function TrackMenuSheet() {
                         <Text style={styles.subtitle} numberOfLines={1}>{artistName}</Text>
                     </View>
                 </View>
+
+                {/* Opciones con scroll */}
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+                >
 
                 {/* OPCIÓN: Añadir a continuación */}
                 <TouchableOpacity 
@@ -281,6 +307,17 @@ export default function TrackMenuSheet() {
                         <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.remove_from_playlist')}</Text>
                     </TouchableOpacity>
                 )}
+
+                {/* OPCIÓN: Compartir */}
+                <TouchableOpacity
+                    style={styles.optionRow}
+                    onPress={handleShare}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="share-social-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.optionText}>{t('actions.share')}</Text>
+                </TouchableOpacity>
 
                 {/* ── Separador ── */}
                 <View style={styles.separator} />
@@ -375,6 +412,8 @@ export default function TrackMenuSheet() {
                     </View>
                     <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.exclude_song')}</Text>
                 </TouchableOpacity>
+
+                </ScrollView>
             </Animated.View>
         </View>
     );
@@ -390,9 +429,11 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         padding: 24,
+        paddingBottom: 0,
         position: 'absolute',
         bottom: 0,
         width: '100%',
+        maxHeight: SCREEN_HEIGHT * 0.72,
         borderTopWidth: 1,
         borderColor: '#282828',
     },
