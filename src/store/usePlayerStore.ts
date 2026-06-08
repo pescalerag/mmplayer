@@ -85,6 +85,34 @@ export type RecentPlaylist = {
   timestamp: number;
 };
 
+async function flushCurrentTrackToHistory() {
+  try {
+    // Importación dinámica para evitar ciclo de dependencias (HistoryService <-> usePlayerStore)
+    const { HistoryService } = require("../services/HistoryService");
+    const { PlaybackTimeTracker } = require("../services/PlaybackService");
+    
+    const state = usePlayerStore.getState();
+    const activeTrack = state.activeTrack;
+    
+    if (activeTrack && activeTrack.id) {
+      PlaybackTimeTracker.onStateNotPlaying();
+      
+      const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(activeTrack.id.toString());
+
+      if (durationPlayed >= 20) {
+        console.log(`[Historial] Guardando en historial. Canción: ${activeTrack.id.toString()}, Duración: ${Math.floor(durationPlayed)}s.`);
+        await HistoryService.logToDatabase(activeTrack.id.toString(), durationPlayed, "manual");
+      } else {
+        console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
+      }
+      
+      PlaybackTimeTracker.clearAccumulated(activeTrack.id.toString());
+    }
+  } catch (e) {
+    console.error("Error flushing history before reset:", e);
+  }
+}
+
 let currentLoadId = 0;
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -108,6 +136,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (currentLoadId !== loadId) return;
 
+      await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
@@ -179,6 +208,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (currentLoadId !== loadId) return;
 
+      await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
@@ -235,6 +265,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       const tpTrack = await mapToTPTrack(track);
       if (currentLoadId !== loadId) return;
+      await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       await TrackPlayer.add([tpTrack]);
       await TrackPlayer.play();
@@ -325,6 +356,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearPlayer: async () => {
     try {
+      await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       storage.remove(PERSISTENCE_KEY);
       set({
