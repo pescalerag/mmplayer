@@ -297,13 +297,15 @@ export default function TrackMenuSheet() {
                                 const activeRoute = rootState.routes[rootState.index];
                                 const isPlayerActive = activeRoute?.name === 'Player';
 
-                                if (isPlayerActive) {
+                                let tabName = getActiveTabName();
+                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                    tabName = 'Biblioteca';
+                                }
+
+                                const currentTab = getActiveTabName();
+                                if (isPlayerActive || tabName === currentTab) {
                                     navigationRef.navigate('AlbumDetail', { albumId });
                                 } else {
-                                    let tabName = getActiveTabName();
-                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                        tabName = 'Biblioteca';
-                                    }
                                     navigationRef.navigate('Main', {
                                         screen: tabName,
                                         params: { screen: 'AlbumDetail', params: { albumId } }
@@ -334,13 +336,15 @@ export default function TrackMenuSheet() {
                                 const activeRoute = rootState.routes[rootState.index];
                                 const isPlayerActive = activeRoute?.name === 'Player';
 
-                                if (isPlayerActive) {
+                                let tabName = getActiveTabName();
+                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                    tabName = 'Biblioteca';
+                                }
+
+                                const currentTab = getActiveTabName();
+                                if (isPlayerActive || tabName === currentTab) {
                                     navigationRef.navigate('ArtistDetail', { artistId });
                                 } else {
-                                    let tabName = getActiveTabName();
-                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                        tabName = 'Biblioteca';
-                                    }
                                     navigationRef.navigate('Main', {
                                         screen: tabName,
                                         params: { screen: 'ArtistDetail', params: { artistId } }

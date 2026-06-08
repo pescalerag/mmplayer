@@ -114,7 +114,7 @@ const createTabListener = (navigation: any, route: any) => ({
     e.preventDefault();
     navigation.reset({
       index: 0,
-      routes: [{ name: route.name }],
+      routes: [{ name: route.name, params: undefined }],
     });
   },
 });

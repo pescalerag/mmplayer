@@ -225,13 +225,15 @@ export default function ArtistMenuSheet() {
                                 const activeRoute = rootState.routes[rootState.index];
                                 const isPlayerActive = activeRoute?.name === 'Player';
 
-                                if (isPlayerActive) {
+                                let tabName = getActiveTabName();
+                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                    tabName = 'Biblioteca';
+                                }
+
+                                const currentTab = getActiveTabName();
+                                if (isPlayerActive || tabName === currentTab) {
                                     navigationRef.navigate('ArtistDetail', { artistId });
                                 } else {
-                                    let tabName = getActiveTabName();
-                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                        tabName = 'Biblioteca';
-                                    }
                                     navigationRef.navigate('Main', {
                                         screen: tabName,
                                         params: { screen: 'ArtistDetail', params: { artistId } }

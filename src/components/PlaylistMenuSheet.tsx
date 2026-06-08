@@ -159,17 +159,19 @@ export default function PlaylistMenuSheet() {
                                 const activeRoute = rootState.routes[rootState.index];
                                 const isPlayerActive = activeRoute?.name === 'Player';
 
-                                if (isPlayerActive) {
+                                let tabName = getActiveTabName();
+                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                    tabName = 'Biblioteca';
+                                }
+
+                                const currentTab = getActiveTabName();
+                                if (isPlayerActive || tabName === currentTab) {
                                     if (playlistId === 'favorites') {
                                         navigationRef.navigate('FavoritesDetail');
                                     } else {
                                         navigationRef.navigate('PlaylistDetail', { playlistId });
                                     }
                                 } else {
-                                    let tabName = getActiveTabName();
-                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                        tabName = 'Biblioteca';
-                                    }
                                     if (playlistId === 'favorites') {
                                         navigationRef.navigate('Main', {
                                             screen: tabName,
