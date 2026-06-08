@@ -19,6 +19,7 @@ export default class Track extends Model {
     @field('is_favorite') isFavorite: boolean;
     @field('track_number') trackNumber: number | null;
     @field('disc_number') discNumber: number | null;
+    @field('last_modified') lastModified: number;
 
     @relation('albums', 'album_id') album: any;
     @relation('artists', 'artist_id') artist: any;

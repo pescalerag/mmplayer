@@ -27,7 +27,8 @@ class NativeAudioScannerModule : Module() {
         MediaStore.Audio.Media.ALBUM_ID,
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.TRACK,
-        MediaStore.Audio.Media.YEAR
+        MediaStore.Audio.Media.YEAR,
+        MediaStore.Audio.Media.DATE_MODIFIED
       )
       if (supportsAlbumArtist) {
         projection.add(MediaStore.Audio.Media.ALBUM_ARTIST)
@@ -52,6 +53,7 @@ class NativeAudioScannerModule : Module() {
         val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
         val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+        val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
         val albumArtistColumn = if (supportsAlbumArtist) cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST) else -1
 
         val sArtworkUri = Uri.parse("content://media/external/audio/albumart")
@@ -65,6 +67,7 @@ class NativeAudioScannerModule : Module() {
           val albumId = cursor.getLong(albumIdColumn)
           val durationMs = cursor.getLong(durationColumn)
           val year = cursor.getInt(yearColumn)
+          val dateModifiedSec = cursor.getLong(dateModifiedColumn)
           val albumArtist = if (supportsAlbumArtist && albumArtistColumn != -1) {
             cursor.getString(albumArtistColumn)
           } else {
@@ -99,7 +102,8 @@ class NativeAudioScannerModule : Module() {
               "trackNumber" to (cursor.getInt(trackColumn) % 1000),
               "discNumber" to if (cursor.getInt(trackColumn) >= 1000) (cursor.getInt(trackColumn) / 1000) else 1,
               "year" to if (year > 0) year else null,
-              "albumArtist" to albumArtist
+              "albumArtist" to albumArtist,
+              "lastModified" to (dateModifiedSec * 1000)
             )
             audioList.add(fileMap)
           }

@@ -31,6 +31,7 @@ import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { ScannerService } from "./src/services/ScannerService";
 import "./src/constants/i18n";
 
 export default function App() {
@@ -56,6 +57,11 @@ export default function App() {
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
         await usePlayerStore.getState().restoreRecentsState();
+
+        // Ejecutar migración de last_modified en segundo plano para legacy tracks
+        ScannerService.migrateLastModifiedIfNeeded().catch((err) => {
+          console.error("Error al ejecutar migración de last_modified:", err);
+        });
       } catch (e: any) {
         console.warn("Error en la inicialización:", e);
       } finally {

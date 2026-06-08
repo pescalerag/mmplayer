@@ -16,6 +16,7 @@ export type AudioTag = {
   discNumber: number;
   year?: number | null; // Nuestro nuevo campo
   albumArtist?: string | null;
+  lastModified: number;
 };
 
 export async function getAudioFiles(): Promise<AudioTag[]> {
