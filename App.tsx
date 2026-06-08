@@ -26,6 +26,7 @@ import GlobalToast from "./src/components/GlobalToast";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
 import ArtistsListSheet from "./src/components/ArtistsListSheet";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
+import SleepTimerSheet from "./src/components/SleepTimerSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -135,6 +136,7 @@ export default function App() {
           <FolderMenuSheet />
           <UpdatedAppModal />
           <ArtistsListSheet />
+          <SleepTimerSheet />
           <GlobalToast />
         </NavigationContainer>
       </View>

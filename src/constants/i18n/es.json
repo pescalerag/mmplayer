@@ -286,5 +286,13 @@
   },
   "screens": {
     "artists": "Artistas"
+  },
+  "sleep_timer": {
+    "title": "Temporizador de apagado",
+    "deactivate": "Desactivar",
+    "minutes": "min",
+    "hour": "1 hora",
+    "off": "Desactivado",
+    "status_active": "La reproducción se pausará en:"
   }
 }

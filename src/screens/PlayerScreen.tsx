@@ -25,6 +25,7 @@ import Tag from '../database/models/Tag';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
+import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 
@@ -98,6 +99,8 @@ const PlayerScreenUI = ({
 }: PlayerScreenUIProps) => {
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
+    const openSleepTimer = useSleepTimerStore(state => state.openSheet);
+    const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
 
@@ -431,6 +434,18 @@ const PlayerScreenUI = ({
                 {/* Footer / Secondary Actions */}
                 <View style={[styles.footer, { marginBottom: insets.bottom + 10 }]}>
                     <TouchableOpacity
+                        onPress={openSleepTimer}
+                        style={styles.footerButton}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <Ionicons
+                            name="timer-outline"
+                            size={24}
+                            color={isSleepTimerActive ? '#A78BFA' : '#B3B3B3'}
+                        />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         onPress={openQueue}
                         style={styles.footerButton}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -632,8 +647,8 @@ const styles = StyleSheet.create({
     },
     footer: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        paddingHorizontal: 10,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
     },
     footerButton: {
         padding: 8,

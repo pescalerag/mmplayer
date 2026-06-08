@@ -286,5 +286,13 @@
   },
   "screens": {
     "artists": "Artists"
+  },
+  "sleep_timer": {
+    "title": "Sleep Timer",
+    "deactivate": "Deactivate",
+    "minutes": "min",
+    "hour": "1 hour",
+    "off": "Deactivated",
+    "status_active": "Playback will pause in:"
   }
 }
