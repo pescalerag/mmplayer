@@ -4,7 +4,7 @@ A high-performance, offline-first local music player built with React Native.
 
 MMPlayer is designed to handle massive local audio libraries with extreme efficiency. By combining a reactive database architecture with advanced memory management and lazy loading techniques, it delivers a fluid, uncompromised user experience regardless of the library size.
 
-![mmplayer banner](src/assets/images/mediabanner.jpg)
+![mmplayer banner](src/assets/images/mediabanner.png)
 
 ## Key Features
 

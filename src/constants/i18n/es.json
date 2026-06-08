@@ -228,6 +228,22 @@
     "default_title": "MMPlayer se ha actualizado",
     "default_date": "Nueva Actualización",
     "default_changes": ["Mejoras de rendimiento y corrección de errores menores."],
+    "v_1_3_0": {
+      "title": "Versión 1.3.0 (Estable)",
+      "date": "08/06/2026",
+      "changes": [
+        "Posición de reproducción persistente: la app recuerda en qué punto dejaste cada canción y la retoma al volver.",
+        "Pantalla de múltiples artistas: nueva hoja que lista todos los artistas colaboradores de una pista.",
+        "Soporte de Album Artist: lectura del campo 'Album Artist' para una agrupación de álbumes más precisa.",
+        "Columna last_modified en base de datos: el escáner detecta cambios en los metadatos de los archivos y los actualiza automáticamente.",
+        "Temporizador de apagado (Sleep Timer): pausa la reproducción automáticamente tras 5, 10, 20, 30, 45 minutos o 1 hora.",
+        "Compartir audio: puedes compartir el archivo de cualquier canción desde el reproductor o el menú contextual.",
+        "Altura máxima en el menú de track: el menú ahora tiene scroll y no ocupa toda la pantalla.",
+        "Corregido problema de navegación al acceder a un artista desde la vista de carpetas.",
+        "Nuevo comportamiento del botón 'Anterior': vuelve al inicio de la canción en lugar de ir a la anterior si ya ha pasado tiempo.",
+        "Sistema de historial de reproducción corregido y mejorado."
+      ]
+    },
     "v_1_2_0": {
       "title": "Versión 1.2.0 (Estable)",
       "date": "08/06/2026",
