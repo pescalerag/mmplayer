@@ -227,6 +227,20 @@
     "default_title": "MMPlayer has been updated",
     "default_date": "New Update",
     "default_changes": ["Performance improvements and minor bug fixes."],
+    "v_1_2_0": {
+      "title": "Version 1.2.0 (Stable)",
+      "date": "08/06/2026",
+      "changes": [
+        "Implemented internationalization support (multi-language).",
+        "Added an error toast message when trying to create a tag that already exists.",
+        "Fixed Android back button navigation behavior when viewing a folder's content.",
+        "Added informative text messages when the library is empty.",
+        "Added the ability to add entire folders to a playlist.",
+        "Fixed the sorting functionality within the Library.",
+        "Implemented excluding of individual songs from library scanning.",
+        "Added a visual indicator to show when a song is already added to a playlist."
+      ]
+    },
     "v_1_1_0": {
       "title": "Version 1.1.0 (Stable)",
       "date": "03/06/2026",
