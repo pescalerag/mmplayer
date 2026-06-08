@@ -433,6 +433,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   // ── Persistencia en disco ──
+  // ── Persistencia en disco ──
   savePlaybackState: async () => {
     try {
       const queue = await TrackPlayer.getQueue();
@@ -446,9 +447,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (queue.length === 0) {
         storage.remove(PERSISTENCE_KEY);
+        storage.remove("@player_position");
+        storage.remove("@player_accumulated");
         return;
       }
 
+      // Guardar el estado general sin position y accumulatedTime en el JSON de la cola
       const payload = JSON.stringify({
         queue,
         index,
@@ -458,6 +462,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         userQueueSize,
       });
       storage.set(PERSISTENCE_KEY, payload);
+
+      // Guardar minutaje y acumulado en claves separadas (primitivas numéricas) para micro-optimizar
+      try {
+        const progress = await TrackPlayer.getProgress();
+        storage.set("@player_position", progress.position);
+      } catch (pe) {
+        console.error("Error obteniendo posición del track:", pe);
+      }
+
+      if (index !== undefined && index !== null && index >= 0 && index < queue.length) {
+        const activeTPTrack = queue[index];
+        if (activeTPTrack?.id) {
+          try {
+            const { PlaybackTimeTracker } = require("../services/PlaybackService");
+            const accumulatedTime = PlaybackTimeTracker.getAccumulatedSeconds(activeTPTrack.id.toString());
+            storage.set("@player_accumulated", accumulatedTime);
+          } catch (te) {
+            console.error("Error obteniendo acumulado del tracker:", te);
+          }
+        }
+      }
     } catch (error) {
       console.error("Error guardando estado de reproducción:", error);
     }
@@ -481,6 +506,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (!queue || queue.length === 0) return;
 
+      // Obtener posición y acumulado de sus claves primitivas (evita parsear el JSON de la cola cada segundo)
+      const position = storage.getNumber("@player_position") || 0;
+      const accumulatedTime = storage.getNumber("@player_accumulated") || 0;
+
       // 1. Rehidratar el motor nativo de TrackPlayer
       await TrackPlayer.reset();
       await TrackPlayer.add(queue);
@@ -490,6 +519,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           ? index
           : 0;
       await TrackPlayer.skip(safeIndex);
+
+      if (position > 0) {
+        await TrackPlayer.seekTo(position);
+        console.log(`[Store] Restaurado minutaje a la posición: ${position}s`);
+      }
 
       // Iniciamos pausado para no sorprender al usuario al abrir la app
       await TrackPlayer.pause();
@@ -502,6 +536,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           trackModel = await database
             .get<Track>("tracks")
             .find(activeTPTrack.id);
+            
+          // 2.5 Rehidratar el PlaybackTimeTracker con el tiempo acumulado guardado
+          if (accumulatedTime > 0) {
+            const { PlaybackTimeTracker } = require("../services/PlaybackService");
+            PlaybackTimeTracker.setAccumulatedSeconds(activeTPTrack.id.toString(), accumulatedTime);
+            console.log(`[Store] Restaurado tracker con ${accumulatedTime}s acumulados para track: ${activeTPTrack.id}`);
+          }
         } catch (dbError) {
           console.warn(
             "[Store] No se encontró el modelo en WatermelonDB:",
