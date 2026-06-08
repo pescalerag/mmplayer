@@ -257,7 +257,7 @@ export default function AlbumMenuSheet() {
                 <View style={styles.separator} />
 
                 {/* OPCIÓN: Ver artista */}
-                {artistId && (
+                {artistId && artistName !== "Varios Artistas" && (
                     <TouchableOpacity
                         style={styles.optionRow}
                         onPress={() => {

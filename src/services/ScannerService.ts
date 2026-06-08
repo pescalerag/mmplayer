@@ -175,6 +175,7 @@ const extractFileMetadata = (file: any) => {
     const rawTitle = file.title?.trim();
     const rawArtist = file.artist?.trim();
     const rawAlbum = file.album?.trim();
+    const rawAlbumArtist = file.albumArtist?.trim();
 
     const title = (!rawTitle || rawTitle === 'Unknown Title') 
         ? file.filename.replace(/\.[^/.]+$/, '') 
@@ -185,6 +186,9 @@ const extractFileMetadata = (file: any) => {
     const albumTitle = (!rawAlbum || rawAlbum === 'Unknown Album') 
         ? 'Álbum Desconocido' 
         : rawAlbum;
+    const albumArtist = (rawAlbumArtist && rawAlbumArtist !== 'Unknown Artist' && rawAlbumArtist.length > 0)
+        ? rawAlbumArtist
+        : null;
 
     return {
         title,
@@ -194,6 +198,7 @@ const extractFileMetadata = (file: any) => {
         coverUrl: coverUrl,
         durationInSeconds: file.duration || 0,
         year: file.year || null,
+        albumArtist,
     };
 };
 
@@ -245,19 +250,43 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
 };
 
 // --- 4. Helper to resolve and optionally create an album ---
-const resolveAlbum = (
+const resolveAlbum = async (
     albumId: string,
     albumTitle: string,
     primaryArtist: Artist,
     coverUrl: string | null,
     year: number | null,
     albumCache: Map<string, Album>,
-    albumsCollection: any
+    albumsCollection: any,
+    artistCache: Map<string, Artist>,
+    artistsCollection: any,
+    newArtistOps: any[]
 ) => {
     const newAlbumOps: any[] = [];
     let album = albumCache.get(albumId) || albumCache.get(albumTitle);
 
-    if (!album) {
+    if (album) {
+        // Si el álbum tiene el mismo año pero el artista es diferente, lo agrupamos en "Varios Artistas"
+        if (year !== null && album.year === year) {
+            const currentArtistId = (album._raw as any).artist_id;
+            if (currentArtistId && currentArtistId !== primaryArtist.id) {
+                const { trackArtists: variosArtists, newArtistOps: newVariosOps } = await resolveArtists("Varios Artistas", artistCache, artistsCollection);
+                newArtistOps.push(...newVariosOps);
+                const variosArtist = variosArtists[0];
+
+                if (currentArtistId !== variosArtist.id) {
+                    if ((album as any)._status === 'created') {
+                        album.artist.set(variosArtist);
+                    } else {
+                        const updateOp = album.prepareUpdate((a: any) => {
+                            a.artist.set(variosArtist);
+                        });
+                        newAlbumOps.push(updateOp);
+                    }
+                }
+            }
+        }
+    } else {
         const newAlbum = albumsCollection.prepareCreate((a: any) => {
             a.title = albumTitle;
             a.normalizedTitle = normalizeText(albumTitle);
@@ -784,15 +813,28 @@ export const ScannerService = {
                 batchOps.push(...newArtistOps);
                 const primaryArtist = trackArtists[0];
 
+                // 2.5 Resolve Album Artist if present
+                let albumArtistObj = primaryArtist;
+                if (meta.albumArtist) {
+                    const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
+                    batchOps.push(...newAlbumArtistOps);
+                    if (albumArtists.length > 0) {
+                        albumArtistObj = albumArtists[0];
+                    }
+                }
+
                 // 3. Resolve Album
-                const { album, newAlbumOps } = resolveAlbum(
+                const { album, newAlbumOps } = await resolveAlbum(
                     meta.albumId,
                     meta.albumTitle,
-                    primaryArtist,
+                    albumArtistObj,
                     meta.coverUrl,
                     meta.year,
                     albumCache,
-                    albumsCollection
+                    albumsCollection,
+                    artistCache,
+                    artistsCollection,
+                    batchOps
                 );
                 batchOps.push(...newAlbumOps);
 
