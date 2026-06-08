@@ -369,7 +369,7 @@ const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { albu
     Q.sortBy("disc_number", Q.asc),
     Q.sortBy("track_number", Q.asc),
   ).observe(),
-  tags: album.queryTags.observe(),
+  tags: album.queryTags.observe() as any,
 }))(AlbumDetailContent);
 
 const ObservableAlbumDetailMiddle = withObservables(["albumId"], ({ albumId }: { albumId: string }) => ({

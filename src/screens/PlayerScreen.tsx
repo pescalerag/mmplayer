@@ -33,6 +33,7 @@ import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import { formatTrackTime } from '../utils/time';
 import { getDynamicTagTextColor } from '../utils/color';
 import { useToastStore } from '../store/useToastStore';
@@ -179,9 +180,13 @@ const PlayerScreenUI = ({
     };
 
     const handleArtistPress = () => {
-        const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
-        if (!targetArtistId) return;
-        navigation.navigate('ArtistDetail', { artistId: targetArtistId });
+        if (artists && artists.length > 1) {
+            useArtistsListSheetStore.getState().openSheet(artists);
+        } else {
+            const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
+            if (!targetArtistId) return;
+            navigation.navigate('ArtistDetail', { artistId: targetArtistId });
+        }
     };
 
     const handleOpenTagManager = React.useCallback(() => {

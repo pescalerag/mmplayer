@@ -283,5 +283,8 @@
         "Múltiples correcciones de rendimiento."
       ]
     }
+  },
+  "screens": {
+    "artists": "Artistas"
   }
 }

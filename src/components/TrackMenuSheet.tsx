@@ -28,6 +28,7 @@ import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
+import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ export default function TrackMenuSheet() {
     };
     const [albumId, setAlbumId] = useState<string | null>(null);
     const [artistId, setArtistId] = useState<string | null>(null);
+    const [artistsList, setArtistsList] = useState<Artist[]>([]);
 
 
     // Valores animados
@@ -132,6 +134,7 @@ export default function TrackMenuSheet() {
             setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : t('actions.unknown'));
             setAlbumId(album?.id || null);
             setArtistId(artists[0]?.id || null);
+            setArtistsList(artists);
         };
         loadMetadata();
     }, [selectedTrack, t]);
@@ -327,7 +330,9 @@ export default function TrackMenuSheet() {
                         style={styles.optionRow}
                         onPress={() => {
                             closeMenu();
-                            if (navCallbacks.artist) {
+                            if (artistsList.length > 1) {
+                                useArtistsListSheetStore.getState().openSheet(artistsList);
+                            } else if (navCallbacks.artist) {
                                 // Abierto desde el Player: goBack() + navigate con fromPlayer
                                 navCallbacks.artist(artistId);
                             } else if (navigationRef.isReady()) {

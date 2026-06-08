@@ -24,6 +24,7 @@ import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import GlobalToast from "./src/components/GlobalToast";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
+import ArtistsListSheet from "./src/components/ArtistsListSheet";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import MainNavigator from "./src/navigation/MainNavigator";
@@ -127,6 +128,7 @@ export default function App() {
           <PlaylistMenuSheet />
           <FolderMenuSheet />
           <UpdatedAppModal />
+          <ArtistsListSheet />
           <GlobalToast />
         </NavigationContainer>
       </View>
