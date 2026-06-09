@@ -1,30 +1,30 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    Animated,
-    BackHandler,
-    Dimensions,
-    Keyboard,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Animated,
+  BackHandler,
+  Dimensions,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ColorPicker, {
-    HueSlider,
-    Panel1,
-    Swatches,
+  HueSlider,
+  Panel1,
+  Swatches,
 } from "reanimated-color-picker";
 import { TagService } from "../services/tagService";
 import { useTagFormStore } from "../store/useTagFormStore";
 import { useToastStore } from "../store/useToastStore";
 import { getDynamicTagTextColor } from "../utils/color";
-import { useTranslation } from "react-i18next";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -66,7 +66,7 @@ export default function TagFormModal() {
           setCustomColorMode(false);
           setCustomHexCode("");
         } else {
-          setCustomColorMode(true);
+          setCustomColorMode(false);
           setCustomHexCode(tag.color);
         }
       } else {
