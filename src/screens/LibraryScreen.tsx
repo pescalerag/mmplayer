@@ -2,11 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
-import { FlashList } from '@shopify/flash-list';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, BackHandler } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
 import TrackRow from '../components/TrackRow';
@@ -16,19 +18,17 @@ import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
+import { ScannerService } from '../services/ScannerService';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
-import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { useFolderMenuStore } from '../store/useFolderMenuStore';
+import { SortOption, useLibraryStore } from '../store/useLibraryStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useLibraryStore, SortOption } from '../store/useLibraryStore';
 import { useSortModalStore } from '../store/useSortModalStore';
-import { ScannerService } from '../services/ScannerService';
 import { Layout } from '../theme/theme';
-import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
-import { useTranslation } from 'react-i18next';
-import { safeDecodeURIComponent, getSafeFileName } from '../utils/safeDecode';
+import { getSafeFileName, safeDecodeURIComponent } from '../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
@@ -178,7 +178,7 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
 const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, onPress?: () => void }) => {
     const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
-    
+
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
         else navigation.navigate('AlbumDetail', { albumId: album.id });
@@ -265,7 +265,7 @@ const EnhancedAlbumList = withObservables(['sortOption'], ({ sortOption }: { sor
 // ----- ARTIST ITEMS -----
 const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void }) => {
     const navigation = useNavigation<LibraryNavigationProp>();
-    
+
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
         else navigation.navigate('ArtistDetail', { artistId: artist.id });
@@ -334,7 +334,7 @@ const EnhancedArtistList = withObservables(['sortOption'], ({ sortOption }: { so
     let orderCol = 'name';
     let orderDir = Q.asc;
     if (sortOption === 'name_desc') orderDir = Q.desc;
-    
+
     return {
         artists: database.collections.get<Artist>('artists').query(
             Q.sortBy('is_pinned', Q.desc),
@@ -394,7 +394,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
 }))(({ playlist, onPress }: { playlist: Playlist, onPress?: () => void }) => {
     const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
-    
+
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
         else navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
@@ -554,7 +554,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             const lastSlash = track.fileUrl.lastIndexOf('/');
             if (lastSlash === -1) continue;
             const dirPath = track.fileUrl.substring(0, lastSlash);
-            
+
             const existing = map.get(dirPath);
             if (existing) {
                 existing.trackCount++;
@@ -590,9 +590,16 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
 
     const directTracks = React.useMemo(() => {
         if (!activeFolderPath) return [];
-        return tracks.filter(t => {
+
+        const filteredTracks = tracks.filter(t => {
             const lastSlash = t.fileUrl.lastIndexOf('/');
             return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
+        });
+
+        return filteredTracks.sort((a, b) => {
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            return titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
         });
     }, [tracks, activeFolderPath]);
 
@@ -655,10 +662,10 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             keyExtractor={f => f.path}
             renderItem={({ item, index }) => (
                 <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
-                    <FolderCard 
-                        folder={item} 
-                        onOpen={setActiveFolderPath} 
-                        onMenu={(path, name) => useFolderMenuStore.getState().openMenu(path, name)} 
+                    <FolderCard
+                        folder={item}
+                        onOpen={setActiveFolderPath}
+                        onMenu={(path, name) => useFolderMenuStore.getState().openMenu(path, name)}
                     />
                 </View>
             )}
