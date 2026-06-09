@@ -90,6 +90,8 @@
     "visualization": "Visualización",
     "tag_colors": "Colores de etiquetas",
     "tag_colors_desc": "Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.",
+    "silent_sync": "Escaneo silencioso al volver",
+    "silent_sync_desc": "Oculta el aviso de 'Sincronizando Biblioteca...' cuando vuelves a la aplicación, pero sigue escaneando en segundo plano.",
     "excluded_folders": "Carpetas excluidas",
     "exclusions": "Exclusiones",
     "excluded_songs": "Canciones excluidas",
@@ -228,6 +230,18 @@
     "default_title": "MMPlayer se ha actualizado",
     "default_date": "Nueva Actualización",
     "default_changes": ["Mejoras de rendimiento y corrección de errores menores."],
+    "v_1_3_1": {
+      "title": "Versión 1.3.1 (Hotfix)",
+      "date": "09/06/2026",
+      "changes": [
+        "Solucionado error que hacía que el modal de etiqueta se abriera con el selector de color desplegado.",
+        "Solucionado error de ordenación dentro de las carpetas.",
+        "Solucionado errores al cambiar metadatos de canciones.",
+        "Añadida opción para ocultar el toast de sincronizar biblioteca cuando la app pasa a primer plano.",
+        "Solucionado error que hacía que la app se iniciara con un pantallazo blanco.",
+        "Cambiada UI de PlayerScreen para mayor comodidad y accesibilidad."
+      ]
+    },
     "v_1_3_0": {
       "title": "Versión 1.3.0 (Estable)",
       "date": "08/06/2026",

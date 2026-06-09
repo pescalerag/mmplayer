@@ -4,36 +4,38 @@ import * as MediaLibrary from "expo-media-library";
 import * as NavigationBar from "expo-navigation-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Platform,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AlbumMenuSheet from "./src/components/AlbumMenuSheet";
 import ArtistMenuSheet from "./src/components/ArtistMenuSheet";
+import ArtistsListSheet from "./src/components/ArtistsListSheet";
 import FolderMenuSheet from "./src/components/FolderMenuSheet";
+import GlobalToast from "./src/components/GlobalToast";
 import PlaylistMenuSheet from "./src/components/PlaylistMenuSheet";
 import PlaylistSelectorModal from "./src/components/PlaylistSelectorModal";
 import QueueSheet from "./src/components/QueueSheet";
+import SleepTimerSheet from "./src/components/SleepTimerSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
-import GlobalToast from "./src/components/GlobalToast";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
-import ArtistsListSheet from "./src/components/ArtistsListSheet";
-import UpdatedAppModal from "./src/components/UpdatedAppModal";
-import SleepTimerSheet from "./src/components/SleepTimerSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
+import UpdatedAppModal from "./src/components/UpdatedAppModal";
+import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
+import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
-import { ScannerService } from "./src/services/ScannerService";
-import "./src/constants/i18n";
+SystemUI.setBackgroundColorAsync('#000000');
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -67,14 +69,14 @@ export default function App() {
         console.warn("Error en la inicialización:", e);
       } finally {
         setFontsLoaded(true);
-        await SplashScreen.hideAsync().catch(() => {});
+        await SplashScreen.hideAsync().catch(() => { });
       }
     }
     prepare().catch((e: any) => {
       console.error("Error fatal en prepare():", e);
       setError(e?.message ?? "Error desconocido al arrancar");
       setFontsLoaded(true);
-      SplashScreen.hideAsync().catch(() => {});
+      SplashScreen.hideAsync().catch(() => { });
     });
   }, []);
 

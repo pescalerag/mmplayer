@@ -3,27 +3,33 @@ import React from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import PlaylistCover from './PlaylistCover';
 import { useTranslation } from 'react-i18next';
+import withObservables from '@nozbe/with-observables';
+import { database } from '../database';
+import Playlist from '../database/models/Playlist';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 interface RecentPlaylistCardProps {
     id: string;
     name: string;
     description: string | null;
     customCoverUrl?: string | null;
+    playlist?: Playlist | null;
     onPress: (id: string) => void;
     onLongPress?: (id: string) => void;
 }
 
 const { width } = Dimensions.get('window');
 
-export default React.memo(function RecentPlaylistCard({ id, name, description, customCoverUrl, onPress, onLongPress }: RecentPlaylistCardProps) {
+export const RecentPlaylistCardBase = React.memo(function RecentPlaylistCard({ id, name, description, customCoverUrl, playlist, onPress, onLongPress }: RecentPlaylistCardProps) {
     const { t } = useTranslation();
     const handlePress = React.useCallback(() => onPress(id), [id, onPress]);
     const handleLongPress = React.useCallback(() => onLongPress?.(id), [id, onLongPress]);
 
-    const displayName = id === 'favorites' ? t('home.your_favourites') : name;
+    const displayName = id === 'favorites' ? t('home.your_favourites') : (playlist?.name || name);
     const displayDescription = id === 'favorites' 
         ? t('home.most_liked_songs') 
-        : (description || t('actions.playlist_empty_desc')); // Wait, fallback description or translated placeholder
+        : (playlist?.description || description || t('actions.playlist_empty_desc'));
 
     return (
         <TouchableOpacity style={styles.card} onPress={handlePress} onLongPress={handleLongPress} delayLongPress={300} activeOpacity={0.8}>
@@ -94,3 +100,9 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
 });
+
+export default withObservables(['id'], ({ id }: { id: string }) => ({
+    playlist: id === 'favorites' 
+        ? of(null) 
+        : database.collections.get<Playlist>('playlists').findAndObserve(id).pipe(catchError(() => of(null)))
+}))(RecentPlaylistCardBase);

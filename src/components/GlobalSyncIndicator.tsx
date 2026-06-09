@@ -6,12 +6,15 @@ import { useTranslation } from 'react-i18next';
 
 export default function GlobalSyncIndicator() {
     const isScanning = useSyncStore(state => state.isScanning);
+    const isSilentScan = useSyncStore(state => state.isSilentScan);
     const insets = useSafeAreaInsets();
     const translateY = useRef(new Animated.Value(-100)).current;
     const { t } = useTranslation();
 
+    const shouldShow = isScanning && !isSilentScan;
+
     useEffect(() => {
-        if (isScanning) {
+        if (shouldShow) {
             Animated.spring(translateY, {
                 toValue: insets.top > 0 ? insets.top + 10 : 40,
                 useNativeDriver: true,
@@ -25,7 +28,7 @@ export default function GlobalSyncIndicator() {
                 useNativeDriver: true,
             }).start();
         }
-    }, [isScanning, insets.top, translateY]);
+    }, [shouldShow, insets.top, translateY]);
 
     return (
         <Animated.View style={[styles.container, { transform: [{ translateY }] }]} pointerEvents="none">

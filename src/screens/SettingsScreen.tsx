@@ -31,7 +31,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors, language, setLanguage } = useSettingsStore();
+    const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume } = useSettingsStore();
     const { t } = useTranslation();
 
 
@@ -149,6 +149,24 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             onValueChange={setShowTagColors}
                             trackColor={{ false: '#282828', true: '#8B5CF6' }}
                             thumbColor={showTagColors ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
+                    <View style={styles.separator} />
+                    
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.silent_sync')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.silent_sync_desc')}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={hideSyncToastOnResume}
+                            onValueChange={setHideSyncToastOnResume}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={hideSyncToastOnResume ? '#FFFFFF' : '#888888'}
                             ios_backgroundColor="#282828"
                         />
                     </View>

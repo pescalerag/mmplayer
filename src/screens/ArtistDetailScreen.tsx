@@ -409,7 +409,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
         />
-    ), [artist, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
+    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
 
     return (
         <View style={styles.container}>

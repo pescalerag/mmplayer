@@ -448,7 +448,7 @@ const PlayerScreenUI = ({
                 </View>
 
                 {/* Footer / Secondary Actions */}
-                <View style={[styles.footer, { marginBottom: insets.bottom + 10 }]}>
+                <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
                     {/* Left group: Sleep Timer + Share */}
                     <View style={styles.footerLeftGroup}>
                         <TouchableOpacity
@@ -680,12 +680,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 13,
     },
     footerLeftGroup: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 14,
     },
     footerButton: {
         padding: 8,
