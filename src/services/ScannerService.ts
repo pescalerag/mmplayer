@@ -293,6 +293,9 @@ const resolveAlbum = async (
             if ((album as any)._status === 'created') {
                 if (nextArtist) album.artist.set(nextArtist);
                 if (newCover) album.coverUrl = newCover;
+            } else if ((album as any)._preparedState === 'update') {
+                if (newCover) (album._raw as any).cover_url = newCover;
+                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
             } else {
                 const updateOp = album.prepareUpdate((a: any) => {
                     if (nextArtist) a.artist.set(nextArtist);
@@ -476,7 +479,8 @@ export const ScannerService = {
                     batchOps.push(...newArtistOps);
 
                     const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', track.id)).fetch();
-                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+                    const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
+                    batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
 
                     for (const artist of trackArtists) {
                         const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
@@ -830,6 +834,11 @@ export const ScannerService = {
 
                 const existingTrack = existingTrackMap.get(file.uri);
                 if (existingTrack) {
+                    if ((existingTrack as any)._preparedState) {
+                        skipped++;
+                        continue;
+                    }
+                    
                     const dbLastModified = existingTrack.lastModified || 0;
                     if (file.lastModified <= dbLastModified) {
                         skipped++;
@@ -896,7 +905,8 @@ export const ScannerService = {
                         const collabArtistId = (c._raw as any).artist_id;
                         if (collabArtistId) affectedArtistIds.add(collabArtistId);
                     });
-                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+                    const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
+                    batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
 
                     for (const artist of trackArtists) {
                         const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
