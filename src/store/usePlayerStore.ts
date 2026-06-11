@@ -1,5 +1,5 @@
 import { createMMKV } from "react-native-mmkv";
-import TrackPlayer, { Track as TPTrack, RepeatMode } from "react-native-track-player";
+import TrackPlayer, { RepeatMode, Track as TPTrack } from "react-native-track-player";
 import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
@@ -90,13 +90,13 @@ async function flushCurrentTrackToHistory() {
     // Importación dinámica para evitar ciclo de dependencias (HistoryService <-> usePlayerStore)
     const { HistoryService } = require("../services/HistoryService");
     const { PlaybackTimeTracker } = require("../services/PlaybackService");
-    
+
     const state = usePlayerStore.getState();
     const activeTrack = state.activeTrack;
-    
+
     if (activeTrack && activeTrack.id) {
       PlaybackTimeTracker.onStateNotPlaying();
-      
+
       const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(activeTrack.id.toString());
 
       if (durationPlayed >= 20) {
@@ -105,7 +105,7 @@ async function flushCurrentTrackToHistory() {
       } else {
         console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
       }
-      
+
       PlaybackTimeTracker.clearAccumulated(activeTrack.id.toString());
     }
   } catch (e) {
@@ -130,7 +130,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const loadId = ++currentLoadId;
     try {
       const CHUNK_SIZE = 50;
-      
+
       const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
       const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
 
@@ -140,7 +140,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.play();
-      
+
       set({
         activeTrack: tracks[index],
         playbackContext: context,
@@ -246,7 +246,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
               if (currentLoadId !== loadId) break;
               await TrackPlayer.add(tpChunk);
-              
+
               await get().updateQueueStatus();
               await new Promise(resolve => setTimeout(resolve, 50));
             }
@@ -373,11 +373,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (navigationRef.isReady()) {
         const currentRoute = navigationRef.getCurrentRoute();
         const rootState = navigationRef.getRootState();
-        
+
         if (
-          currentRoute?.name === 'PlayerHome' || 
+          currentRoute?.name === 'PlayerHome' ||
           (rootState && rootState.routes[rootState.index]?.name === 'Player')
-        ) { 
+        ) {
           navigationRef.navigate('Main');
         }
       }
@@ -403,13 +403,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       const queue = await TrackPlayer.getQueue();
       const activeIndex = await TrackPlayer.getActiveTrackIndex();
-      
+
       if (activeIndex === undefined || activeIndex === null) return;
 
       const indicesToRemove = queue
         .map((track, index) => index > activeIndex && (track as any).isManual ? index : -1)
         .filter(index => index !== -1);
-      
+
       if (indicesToRemove.length > 0) {
         // Ordenamos los índices de mayor a menor para que al borrar desde el final
         // no afecte a los índices de las posiciones anteriores.
@@ -423,7 +423,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           await new Promise((resolve) => setTimeout(resolve, 16));
         }
       }
-      
+
       set({ userQueueSize: 0 });
       await get().updateQueueStatus();
       await get().savePlaybackState();
@@ -536,7 +536,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           trackModel = await database
             .get<Track>("tracks")
             .find(activeTPTrack.id);
-            
+
           // 2.5 Rehidratar el PlaybackTimeTracker con el tiempo acumulado guardado
           if (accumulatedTime > 0) {
             const { PlaybackTimeTracker } = require("../services/PlaybackService");
@@ -688,6 +688,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const newRecentMedia = state.recentMedia.filter(item => {
         if (item.type === 'track' && trackIds.includes(item.id)) return false;
         if (item.type === 'album' && albumIds.includes(item.id)) return false;
+        if (item.type === 'artist' && artistIds.includes(item.id)) return false;
         return true;
       });
 

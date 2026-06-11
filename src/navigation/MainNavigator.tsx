@@ -7,6 +7,7 @@ import { AppState, AppStateStatus, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
 import { ScannerService } from "../services/ScannerService";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 import MiniPlayer from "../components/MiniPlayer";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
@@ -204,13 +205,17 @@ function MainTabs() {
 }
 
 export default function MainNavigator() {
+  const appState = React.useRef(AppState.currentState);
+
   useEffect(() => {
     ScannerService.syncLibrary();
 
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
-        ScannerService.syncLibrary();
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        const isSilent = useSettingsStore.getState().hideSyncToastOnResume;
+        ScannerService.syncLibrary(undefined, isSilent);
       }
+      appState.current = nextAppState;
     });
 
     return () => {

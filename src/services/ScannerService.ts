@@ -171,20 +171,20 @@ const extractFileMetadata = (file: any) => {
     if (!coverUrl) {
         coverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
     }
-    
+
     const rawTitle = file.title?.trim();
     const rawArtist = file.artist?.trim();
     const rawAlbum = file.album?.trim();
     const rawAlbumArtist = file.albumArtist?.trim();
 
-    const title = (!rawTitle || rawTitle === 'Unknown Title') 
-        ? file.filename.replace(/\.[^/.]+$/, '') 
+    const title = (!rawTitle || rawTitle === 'Unknown Title')
+        ? file.filename.replace(/\.[^/.]+$/, '')
         : rawTitle;
-    const artistString = (!rawArtist || rawArtist === 'Unknown Artist') 
-        ? 'Artista Desconocido' 
+    const artistString = (!rawArtist || rawArtist === 'Unknown Artist')
+        ? 'Artista Desconocido'
         : rawArtist;
-    const albumTitle = (!rawAlbum || rawAlbum === 'Unknown Album') 
-        ? 'Álbum Desconocido' 
+    const albumTitle = (!rawAlbum || rawAlbum === 'Unknown Album')
+        ? 'Álbum Desconocido'
         : rawAlbum;
     const albumArtist = (rawAlbumArtist && rawAlbumArtist !== 'Unknown Artist' && rawAlbumArtist.length > 0)
         ? rawAlbumArtist
@@ -255,6 +255,7 @@ const resolveAlbum = async (
     albumId: string,
     albumTitle: string,
     primaryArtist: Artist,
+    isExplicitAlbumArtist: boolean,
     coverUrl: string | null,
     year: number | null,
     albumCache: Map<string, Album>,
@@ -267,24 +268,43 @@ const resolveAlbum = async (
     let album = albumCache.get(albumId) || albumCache.get(albumTitle);
 
     if (album) {
-        // Si el álbum tiene el mismo año pero el artista es diferente, lo agrupamos en "Varios Artistas"
-        if (year !== null && album.year === year) {
-            const currentArtistId = (album._raw as any).artist_id;
-            if (currentArtistId && currentArtistId !== primaryArtist.id) {
-                const { trackArtists: variosArtists, newArtistOps: newVariosOps } = await resolveArtists("Varios Artistas", artistCache, artistsCollection);
-                newArtistOps.push(...newVariosOps);
-                const variosArtist = variosArtists[0];
+        const currentArtistId = (album._raw as any).artist_id;
+        let nextArtist: Artist | null = null;
 
-                if (currentArtistId !== variosArtist.id) {
-                    if ((album as any)._status === 'created') {
-                        album.artist.set(variosArtist);
-                    } else {
-                        const updateOp = album.prepareUpdate((a: any) => {
-                            a.artist.set(variosArtist);
-                        });
-                        newAlbumOps.push(updateOp);
-                    }
-                }
+        if (isExplicitAlbumArtist && currentArtistId !== primaryArtist.id) {
+            nextArtist = primaryArtist;
+        } else if (!isExplicitAlbumArtist && currentArtistId !== primaryArtist.id && year !== null && album.year === year) {
+            const { trackArtists: variosArtists, newArtistOps: newVariosOps } = await resolveArtists("Varios Artistas", artistCache, artistsCollection);
+            const variosArtist = variosArtists[0];
+
+            if (currentArtistId !== variosArtist.id) {
+                newArtistOps.push(...newVariosOps);
+                nextArtist = variosArtist;
+            }
+        }
+
+        const isDefaultCover = coverUrl === RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        let newCover = null;
+        if (coverUrl && album.coverUrl !== coverUrl && !isDefaultCover) {
+            newCover = coverUrl;
+        }
+
+        if (nextArtist || newCover) {
+            if ((album as any)._status === 'created') {
+                if (nextArtist) album.artist.set(nextArtist);
+                if (newCover) album.coverUrl = newCover;
+            } else if ((album as any)._preparedState === 'update') {
+                if (newCover) (album._raw as any).cover_url = newCover;
+                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+            } else {
+                const updateOp = album.prepareUpdate((a: any) => {
+                    if (nextArtist) a.artist.set(nextArtist);
+                    if (newCover) a.coverUrl = newCover;
+                });
+                newAlbumOps.push(updateOp);
+
+                if (newCover) (album._raw as any).cover_url = newCover;
+                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
             }
         }
     } else {
@@ -372,16 +392,16 @@ const normalizePinnedValues = async () => {
 };
 
 export const ScannerService = {
-    syncLibrary: async (onProgress?: (current: number, total: number, phase: string) => void) => {
+    syncLibrary: async (onProgress?: (current: number, total: number, phase: string) => void, isSilent: boolean = false) => {
         if (useSyncStore.getState().isScanning) return;
         try {
-            useSyncStore.getState().setIsScanning(true);
+            useSyncStore.getState().setIsScanning(true, isSilent);
             await ScannerService.cleanDeletedFiles((phase) => onProgress?.(0, 0, phase));
             await ScannerService.autoScanAndroid(onProgress);
         } catch (error) {
             console.error("Error en syncLibrary:", error);
         } finally {
-            useSyncStore.getState().setIsScanning(false);
+            useSyncStore.getState().setIsScanning(false, false);
         }
     },
 
@@ -459,7 +479,8 @@ export const ScannerService = {
                     batchOps.push(...newArtistOps);
 
                     const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', track.id)).fetch();
-                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+                    const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
+                    batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
 
                     for (const artist of trackArtists) {
                         const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
@@ -813,6 +834,11 @@ export const ScannerService = {
 
                 const existingTrack = existingTrackMap.get(file.uri);
                 if (existingTrack) {
+                    if ((existingTrack as any)._preparedState) {
+                        skipped++;
+                        continue;
+                    }
+                    
                     const dbLastModified = existingTrack.lastModified || 0;
                     if (file.lastModified <= dbLastModified) {
                         skipped++;
@@ -848,6 +874,7 @@ export const ScannerService = {
                         meta.albumId,
                         meta.albumTitle,
                         albumArtistObj,
+                        !!meta.albumArtist,
                         meta.coverUrl,
                         meta.year,
                         albumCache,
@@ -878,7 +905,8 @@ export const ScannerService = {
                         const collabArtistId = (c._raw as any).artist_id;
                         if (collabArtistId) affectedArtistIds.add(collabArtistId);
                     });
-                    batchOps.push(...existingCollabs.map(c => c.prepareDestroyPermanently()));
+                    const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
+                    batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
 
                     for (const artist of trackArtists) {
                         const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
@@ -913,6 +941,7 @@ export const ScannerService = {
                         meta.albumId,
                         meta.albumTitle,
                         albumArtistObj,
+                        !!meta.albumArtist,
                         meta.coverUrl,
                         meta.year,
                         albumCache,

@@ -2,10 +2,12 @@ import { create } from 'zustand';
 
 interface SyncState {
     isScanning: boolean;
-    setIsScanning: (isScanning: boolean) => void;
+    isSilentScan: boolean;
+    setIsScanning: (isScanning: boolean, isSilentScan?: boolean) => void;
 }
 
 export const useSyncStore = create<SyncState>((set) => ({
     isScanning: false,
-    setIsScanning: (isScanning) => set({ isScanning }),
+    isSilentScan: false,
+    setIsScanning: (isScanning, isSilentScan = false) => set({ isScanning, isSilentScan }),
 }));

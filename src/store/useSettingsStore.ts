@@ -17,6 +17,8 @@ interface SettingsState {
     setLastSeenVersion: (version: string) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
+    hideSyncToastOnResume: boolean;
+    setHideSyncToastOnResume: (value: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -24,6 +26,8 @@ export const useSettingsStore = create<SettingsState>()(
         (set) => ({
             showTagColors: true,
             setShowTagColors: (value) => set({ showTagColors: value }),
+            hideSyncToastOnResume: false,
+            setHideSyncToastOnResume: (value) => set({ hideSyncToastOnResume: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {
