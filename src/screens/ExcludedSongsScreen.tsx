@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
 import { useSyncStore } from '../store/useSyncStore';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
 import { useTranslation } from 'react-i18next';
 import { getSafeFileName } from '../utils/safeDecode';
 
@@ -28,12 +28,7 @@ export default function ExcludedSongsScreen() {
     const songs = excludedSongs || [];
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
 
             {/* CAPA DEL HUMO (INTERMEDIO) */}
             <LinearGradient

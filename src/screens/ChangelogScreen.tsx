@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import SectionHeader from '../components/SectionHeader';
 import { changelogs } from '../constants/changelogs';
-import { Layout } from '../theme/theme';
+import { Layout, Colors } from '../theme/theme';
 import { useTranslation } from 'react-i18next';
 
 export default function ChangelogScreen() {
@@ -65,7 +65,7 @@ const versionDateStyle = (isCurrent: boolean) => [
 ];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: Colors.dark.background },
   headerTitle: { fontSize: 28, fontFamily: 'Montserrat', fontWeight: '900', color: '#FFF', paddingHorizontal: 20, marginTop: 20 },
   headerSubtitle: { fontSize: 14, fontFamily: 'Montserrat', fontWeight: '500', color: '#888', paddingHorizontal: 20, marginTop: 4, marginBottom: 10 },
   versionBlock: { marginTop: 24 },

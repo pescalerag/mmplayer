@@ -35,7 +35,7 @@ import { PlaylistService } from "../services/PlaylistService";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
 import { useSettingsStore } from "../store/useSettingsStore";
-import { Layout } from "../theme/theme";
+import { Colors, Layout } from "../theme/theme";
 import { formatAlbumDuration } from "../utils/time";
 import { useTranslation } from "react-i18next";
 
@@ -472,7 +472,7 @@ export default function PlaylistDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: Colors.dark.background,
   },
   divider: {
     height: 1,

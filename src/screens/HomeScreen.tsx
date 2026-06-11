@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors } from '../theme/theme';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlayingIndicator } from '../components/PlayingIndicator';
@@ -212,7 +213,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000', // Fondo negro puro
+        backgroundColor: Colors.dark.background, // Fondo global
     },
     welcomeText: {
         color: '#FFFFFF',

@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Colors } from '../theme/theme';
 import MarqueeText from './MarqueeText';
 
 const { width } = Dimensions.get('window');
@@ -47,9 +48,9 @@ const DetailHeaderLayout = ({
     isFavorites = false,
     renderCover,
 }: DetailHeaderLayoutProps) => {
-    const imageSource = React.useMemo(() => 
+    const imageSource = React.useMemo(() =>
         imageUrl ? { uri: imageUrl } : null
-    , [imageUrl]);
+        , [imageUrl]);
 
     return (
         <View style={styles.headerContainer}>
@@ -80,7 +81,7 @@ const DetailHeaderLayout = ({
 
             {/* Gradient overlay */}
             <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)', '#121212'] as any}
+                colors={['transparent', 'rgba(0,0,0,0.8)', Colors.dark.background] as any}
                 style={styles.gradient}
             />
 
@@ -125,7 +126,7 @@ const DetailHeaderLayout = ({
                         spacing={80}
                     />
                 </View>
-                
+
                 {subtitle && (
                     <View style={[styles.subtitleContainer, renderExtra ? { marginRight: 120 } : null]}>
                         {typeof subtitle === 'string' ? (
@@ -141,7 +142,7 @@ const DetailHeaderLayout = ({
                         )}
                     </View>
                 )}
-                
+
                 {metaInfo && (
                     <Text style={[styles.metaInfo, renderExtra ? { marginRight: 120 } : null]}>{metaInfo}</Text>
                 )}

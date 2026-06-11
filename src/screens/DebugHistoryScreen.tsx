@@ -18,7 +18,7 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import PlaybackHistory from '../database/models/PlaybackHistory';
 import Track from '../database/models/Track';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
 
 interface HistoryRowProps {
     historyItem: PlaybackHistory;
@@ -142,12 +142,7 @@ function DebugHistoryContent({ history }: DebugHistoryContentProps) {
     };
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
 
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10 }]}>

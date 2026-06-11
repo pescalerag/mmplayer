@@ -2,19 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
-import { FlashList } from '@shopify/flash-list';
-import { 
-    Dimensions, 
-    ScrollView, 
-    StyleSheet, 
-    Text, 
-    TouchableOpacity, 
-    View 
+import {
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTranslation } from 'react-i18next';
 import LibraryCard from '../components/LibraryCard';
 import SectionHeader from '../components/SectionHeader';
 import TrackRow from '../components/TrackRow';
@@ -24,10 +25,9 @@ import Artist from '../database/models/Artist';
 import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import { SearchNavigationProp } from '../navigation/types';
-import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { Layout } from '../theme/theme';
-import { useTranslation } from 'react-i18next';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { Colors, Layout } from '../theme/theme';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 320;
@@ -149,8 +149,8 @@ function TagDetailScreen({
                 {/* Custom Gradient Header */}
                 <View style={styles.headerContainer}>
                     <LinearGradient
-                        colors={[tagColor, 'rgba(0,0,0,0.8)', '#121212']}
-                        locations={[0, 0.6, 1]}
+                        colors={[tagColor, 'rgba(0,0,0,0.5)', Colors.dark.background]}
+                        locations={[0, 0.8, 1]}
                         style={styles.headerGradient}
                     />
 
@@ -167,11 +167,11 @@ function TagDetailScreen({
                             <Ionicons name="pricetag" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
                             <Text style={styles.tagBadgeText}>{t('tags.tag_singular')}</Text>
                         </View>
-                        
+
                         <Text style={styles.title} numberOfLines={2}>
                             {tag.name}
                         </Text>
-                        
+
                         <Text style={styles.metaInfo}>
                             {albums.length} {albums.length === 1 ? t('library.album_singular') : t('library.album_plural')} · {tracks.length} {tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}
                         </Text>
@@ -234,7 +234,7 @@ function TagDetailScreen({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: Colors.dark.background,
     },
     headerContainer: {
         width,

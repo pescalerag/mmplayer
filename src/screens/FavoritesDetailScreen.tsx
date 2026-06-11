@@ -21,7 +21,7 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { HistoryService } from '../services/HistoryService';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
 import { formatAlbumDuration } from '../utils/time';
 import { useTranslation } from 'react-i18next';
 
@@ -226,7 +226,7 @@ export default function FavoritesDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: Colors.dark.background,
     },
     divider: {
         height: 1,

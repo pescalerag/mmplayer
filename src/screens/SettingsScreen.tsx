@@ -1,24 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
+    Alert,
     ScrollView,
     StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
-    View,
-    Alert
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
-import { Layout } from '../theme/theme';
-import Constants from 'expo-constants';
-import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -36,12 +36,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
             <LinearGradient
@@ -154,7 +149,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </View>
 
                     <View style={styles.separator} />
-                    
+
                     <View style={styles.settingRow}>
                         <View style={{ flex: 1, paddingRight: 15 }}>
                             <Text style={styles.settingLabel}>{t('settings.silent_sync')}</Text>
@@ -220,9 +215,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 t('settings.repair_alert_desc'),
                                 [
                                     { text: t('actions.cancel'), style: "cancel" },
-                                    { 
-                                        text: t('actions.continue'), 
-                                        style: "default", 
+                                    {
+                                        text: t('actions.continue'),
+                                        style: "default",
                                         onPress: async () => {
                                             await ScannerService.repairCollaborators();
                                             Alert.alert(t('settings.success'), t('settings.repair_success'));
@@ -249,10 +244,10 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 t('settings.wipe_alert_desc'),
                                 [
                                     { text: t('actions.cancel'), style: "cancel" },
-                                    { 
-                                        text: t('settings.wipe_confirm'), 
-                                        style: "destructive", 
-                                        onPress: () => ScannerService.fullDataWipe() 
+                                    {
+                                        text: t('settings.wipe_confirm'),
+                                        style: "destructive",
+                                        onPress: () => ScannerService.fullDataWipe()
                                     }
                                 ]
                             );

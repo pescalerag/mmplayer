@@ -35,7 +35,7 @@ import { HistoryService } from "../services/HistoryService";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useTagManagerStore } from "../store/useTagManagerStore";
-import { Layout } from "../theme/theme";
+import { Colors, Layout } from "../theme/theme";
 import { useTranslation } from "react-i18next";
 
 const AlbumTrackRow = withObservables(
@@ -393,7 +393,7 @@ export default function AlbumDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: Colors.dark.background,
   },
   headerContainer: {
     width,

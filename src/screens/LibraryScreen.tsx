@@ -4,6 +4,7 @@ import withObservables from '@nozbe/with-observables';
 import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors } from '../theme/theme';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -734,12 +735,7 @@ export default function LibraryScreen() {
     }, [navigation]);
 
     return (
-        <LinearGradient
-            colors={['#000000', '#22222221', '#000000']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.container} // Quitamos el padding de aquí para que el humo empiece exacto en top: 0
-        >
+        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
@@ -840,7 +836,7 @@ export default function LibraryScreen() {
                     </TouchableOpacity>
                 </ScrollView>
             </View>
-        </LinearGradient>
+        </View>
     );
 }
 
