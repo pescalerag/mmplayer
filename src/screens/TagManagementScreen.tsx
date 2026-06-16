@@ -70,7 +70,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
     const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
+        <View style={[styles.container, { backgroundColor: Colors.background }]}>
 
             {/* 1. CONTENIDO - LISTA */}
             <View style={StyleSheet.absoluteFill}>

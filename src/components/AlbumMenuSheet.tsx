@@ -25,10 +25,13 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function AlbumMenuSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, selectedAlbum, closeMenu, navCallbacks } = useAlbumMenuStore();
@@ -158,7 +161,7 @@ export default function AlbumMenuSheet() {
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="albums" size={24} color="#666" />
+                            <Ionicons name="albums" size={24} color={colors.textSecondary} />
                         </View>
                     )}
                     <View style={styles.headerText}>
@@ -182,7 +185,7 @@ export default function AlbumMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name={selectedAlbum?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
+                        <Ionicons name={selectedAlbum?.isPinned ? "pin" : "pin-outline"} size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{selectedAlbum?.isPinned ? t('actions.unpin') : t('actions.pin')}</Text>
                 </TouchableOpacity>
@@ -199,7 +202,7 @@ export default function AlbumMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                        <Ionicons name="return-down-forward" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
@@ -216,7 +219,7 @@ export default function AlbumMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color="#FFFFFF" />
+                        <Ionicons name="list" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
@@ -232,7 +235,7 @@ export default function AlbumMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="pricetag-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('tags.manage')}</Text>
                 </TouchableOpacity>
@@ -248,7 +251,7 @@ export default function AlbumMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="add-circle-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
@@ -287,7 +290,7 @@ export default function AlbumMenuSheet() {
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+                            <Ionicons name="person-outline" size={24} color={colors.text} />
                         </View>
                         <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                     </TouchableOpacity>
@@ -297,7 +300,7 @@ export default function AlbumMenuSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -311,7 +314,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -326,7 +329,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 20,
     },
     thumbnail: {
@@ -336,7 +339,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -344,15 +347,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 18,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
     },
     subtitle: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 4,
     },
@@ -369,14 +372,14 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     optionText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     separator: {
         height: 1,
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         marginVertical: 8,
     },
 });

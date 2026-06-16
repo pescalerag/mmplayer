@@ -149,7 +149,7 @@ function TagDetailScreen({
                 {/* Custom Gradient Header */}
                 <View style={styles.headerContainer}>
                     <LinearGradient
-                        colors={[tagColor, 'rgba(0,0,0,0.5)', Colors.dark.background]}
+                        colors={[tagColor, 'rgba(0,0,0,0.5)', Colors.background]}
                         locations={[0, 0.8, 1]}
                         style={styles.headerGradient}
                     />
@@ -234,7 +234,7 @@ function TagDetailScreen({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.background,
+        backgroundColor: Colors.background,
     },
     headerContainer: {
         width,

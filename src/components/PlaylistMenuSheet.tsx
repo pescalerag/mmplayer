@@ -18,10 +18,13 @@ import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import PlaylistCover from './PlaylistCover';
 import { useTranslation } from 'react-i18next';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PlaylistMenuSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, selectedPlaylist, closeMenu, navCallbacks } = usePlaylistMenuStore();
@@ -139,7 +142,7 @@ export default function PlaylistMenuSheet() {
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name={selectedPlaylist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
+                            <Ionicons name={selectedPlaylist?.isPinned ? "pin" : "pin-outline"} size={24} color={colors.text} />
                         </View>
                         <Text style={styles.optionText}>{selectedPlaylist?.isPinned ? t('actions.unpin_library') : t('actions.pin_library')}</Text>
                     </TouchableOpacity>
@@ -189,7 +192,7 @@ export default function PlaylistMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="list-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="list-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('playlist.view')}</Text>
                 </TouchableOpacity>
@@ -198,7 +201,7 @@ export default function PlaylistMenuSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -212,7 +215,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -227,22 +230,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 20,
     },
     headerText: {
         flex: 1,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 18,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
     },
     subtitle: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 4,
     },
@@ -259,9 +262,9 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     optionText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
 });

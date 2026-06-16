@@ -2,6 +2,7 @@
 // Con Expo y variable fonts, usamos fontFamily + fontWeight en los estilos
 export const Fonts = {
     regular: 'Montserrat-Regular',
+    semiBold: 'Montserrat-SemiBold',
     bold: 'Montserrat-Bold',
     italic: 'Montserrat-Italic',
     boldItalic: 'Montserrat-BoldItalic',
@@ -10,6 +11,7 @@ export const Fonts = {
 // Mapa de carga para expo-font
 export const fontAssets = {
     [Fonts.regular]:   require('../assets/fonts/Montserrat-VariableFont_wght.ttf'),
+    [Fonts.semiBold]:  require('../assets/fonts/Montserrat-VariableFont_wght.ttf'),
     [Fonts.bold]:      require('../assets/fonts/Montserrat-VariableFont_wght.ttf'),
     [Fonts.italic]:    require('../assets/fonts/Montserrat-Italic-VariableFont_wght.ttf'),
     [Fonts.boldItalic]:require('../assets/fonts/Montserrat-Italic-VariableFont_wght.ttf'),

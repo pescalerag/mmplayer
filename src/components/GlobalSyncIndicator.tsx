@@ -3,8 +3,12 @@ import { Animated, ActivityIndicator, Text, StyleSheet, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSyncStore } from '../store/useSyncStore';
 import { useTranslation } from 'react-i18next';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function GlobalSyncIndicator() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const isScanning = useSyncStore(state => state.isScanning);
     const isSilentScan = useSyncStore(state => state.isSilentScan);
     const insets = useSafeAreaInsets();
@@ -33,14 +37,14 @@ export default function GlobalSyncIndicator() {
     return (
         <Animated.View style={[styles.container, { transform: [{ translateY }] }]} pointerEvents="none">
             <View style={styles.island}>
-                <ActivityIndicator size="small" color="#8B5CF6" />
+                <ActivityIndicator size="small" color={colors.accent} />
                 <Text style={styles.text}>{t('toasts.syncing')}</Text>
             </View>
         </Animated.View>
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         position: 'absolute',
         top: 0,
@@ -63,12 +67,12 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 8,
         borderWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     text: {
-        color: '#FFFFFF',
+        color: colors.text,
         marginLeft: 10,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontSize: 13,
         fontWeight: '700',
     }

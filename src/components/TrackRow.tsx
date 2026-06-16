@@ -7,10 +7,12 @@ import { useTrackMenuStore } from "../store/useTrackMenuStore";
 import { formatTrackTime } from "../utils/time";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { PlayingIndicator } from "./PlayingIndicator";
+import { Colors } from "../theme/theme";
 import { usePlaybackState, State } from "react-native-track-player";
 import { HistoryService } from "../services/HistoryService";
 
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface TrackRowProps {
   readonly track: Track;
@@ -33,6 +35,8 @@ function TrackRow({
   onPress,
   preventAutoHistory,
 }: Readonly<TrackRowProps>) {
+    const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
   const openMenu = useTrackMenuStore((state) => state.openMenu);
   
   const activeTrack = usePlayerStore((state) => state.activeTrack);
@@ -97,7 +101,7 @@ function TrackRow({
             {index ? (
               <Text style={styles.indexText}>{index}</Text>
             ) : (
-              <Ionicons name="musical-note" size={16} color="#B3B3B3" />
+              <Ionicons name="musical-note" size={16} color={colors.textSecondary} />
             )}
           </View>
         )}
@@ -132,7 +136,7 @@ function TrackRow({
           }}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <Ionicons name="ellipsis-vertical" size={20} color="#B3B3B3" />
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -141,29 +145,29 @@ function TrackRow({
 
 export default memo(TrackRow);
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    height: 64,
-    paddingHorizontal: 20,
+    height: layout.MINI_PLAYER_HEIGHT,
+    paddingHorizontal: spacing.lg || 20,
   },
   rowActive: {
-    backgroundColor: "rgba(139, 92, 246, 0.1)", // El "moradito" de la cola
+    backgroundColor: colors.accentAlpha10, // El "moradito" de la cola
   },
   leftCol: {
-    marginRight: 12,
+    marginRight: spacing.sm || 12, // 12 can fallback to sm
   },
   cover: {
     width: 44,
     height: 44,
-    borderRadius: 4,
+    borderRadius: radii.sm || 4,
   },
   coverPlaceholder: {
     width: 44,
     height: 44,
-    borderRadius: 4,
-    backgroundColor: "#282828",
+    borderRadius: radii.sm || 4,
+    backgroundColor: colors.cardBackground,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -171,45 +175,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
-    fontFamily: "Montserrat",
-    fontWeight: "700",
+    fontFamily: fonts.regular,
+    fontWeight: fontWeights.bold,
   },
   artist: {
-    color: "#CCCCCC",
+    color: colors.textSecondary,
     fontSize: 14,
-    fontFamily: "Montserrat",
-    fontWeight: "700",
+    fontFamily: fonts.regular,
+    fontWeight: fontWeights.bold,
     marginTop: 2,
   },
   duration: {
-    color: "#CCCCCC",
+    color: colors.textSecondary,
     fontSize: 14,
-    fontFamily: "Montserrat",
-    fontWeight: "700",
+    fontFamily: fonts.regular,
+    fontWeight: fontWeights.bold,
   },
   indexText: {
-    color: "#B3B3B3",
+    color: colors.textSecondary,
     fontSize: 14,
-    fontFamily: "Montserrat",
-    fontWeight: "700",
+    fontFamily: fonts.regular,
+    fontWeight: fontWeights.bold,
   },
   rightCol: {
     flexDirection: "row",
     alignItems: "center",
   },
   moreButton: {
-    padding: 4,
-    marginLeft: 4,
+    padding: spacing.xs || 4,
+    marginLeft: spacing.xs || 4,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm || 8,
   },
   titleActive: {
-    color: "#A78BFA", // Violet-400
-    fontWeight: "700",
+    color: colors.accentLight, // Violet-400
+    fontWeight: fontWeights.bold,
   },
 });

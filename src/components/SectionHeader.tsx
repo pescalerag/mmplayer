@@ -1,6 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
+
 interface SectionHeaderProps {
     readonly title: string;
     readonly onSeeAll?: () => void;
@@ -8,6 +11,8 @@ interface SectionHeaderProps {
 }
 
 export default function SectionHeader({ title, onSeeAll, showSeeAll = false }: Readonly<SectionHeaderProps>) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
@@ -20,7 +25,7 @@ export default function SectionHeader({ title, onSeeAll, showSeeAll = false }: R
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -30,15 +35,15 @@ const styles = StyleSheet.create({
         marginTop: 24,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 20,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: 'bold',
     },
     seeAll: {
-        color: '#8B5CF6',
+        color: colors.accent,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
 });

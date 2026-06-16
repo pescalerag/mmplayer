@@ -10,6 +10,7 @@ import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import BlurredBackground from './BlurredBackground';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface TopMatchCardProps {
     match: TopMatch;
@@ -27,6 +28,8 @@ interface LayoutProps {
 
 // --- SHARED LAYOUT ---
 const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPress }: LayoutProps) => {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     return (
         <TouchableOpacity 
             style={styles.container} 
@@ -55,7 +58,7 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="musical-notes" size={24} color="#666" />
+                            <Ionicons name="musical-notes" size={24} color={colors.textSecondary} />
                         </View>
                     )}
 
@@ -152,7 +155,7 @@ export default function TopMatchCard({ match, onPress }: TopMatchCardProps) {
     }
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         height: 140,
         marginHorizontal: 20,
@@ -161,7 +164,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         backgroundColor: '#1A1A1A',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: colors.overlayAlpha10,
     },
     content: {
         flex: 1,
@@ -174,7 +177,7 @@ const styles = StyleSheet.create({
     },
     thumbnail: {
         width: 64,
-        height: 64,
+        height: layout.MINI_PLAYER_HEIGHT,
         marginRight: 16,
     },
     placeholder: {
@@ -187,16 +190,16 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 22,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         marginBottom: 4,
     },
     subtitle: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
 });

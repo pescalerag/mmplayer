@@ -735,7 +735,7 @@ export default function LibraryScreen() {
     }, [navigation]);
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
+        <View style={[styles.container, { backgroundColor: Colors.background }]}>
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>

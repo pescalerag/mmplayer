@@ -4,56 +4,139 @@
  */
 
 import { Platform } from 'react-native';
+import { DefaultTheme as NavigationDefaultTheme, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 
-const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+  text: '#ECEDEE',
+  textSecondary: '#9BA1A6',
+  disabled: '#535353',
+  background: '#000000',
+  cardBackground: '#1E1E1E',
+  heartIcon: '#EF4444',
+  tint: tintColorDark,
+  icon: '#9BA1A6',
+  tabIconDefault: '#9BA1A6',
+  tabIconSelected: tintColorDark,
+  accent: '#8B5CF6',
+  accentLight: '#A78BFA',
+  accentAlpha5: 'rgba(139, 92, 246, 0.05)',
+  accentAlpha8: 'rgba(139, 92, 246, 0.08)',
+  accentAlpha10: 'rgba(139, 92, 246, 0.1)',
+  accentAlpha15: 'rgba(139, 92, 246, 0.15)',
+  accentAlpha18: 'rgba(139, 92, 246, 0.18)',
+  accentAlpha20: 'rgba(139, 92, 246, 0.2)',
+  accentAlpha30: 'rgba(139, 92, 246, 0.3)',
+  accentAlpha40: 'rgba(139, 92, 246, 0.4)',
+  accentLightAlpha12: 'rgba(167, 139, 250, 0.12)',
+  accentLightAlpha30: 'rgba(167, 139, 250, 0.3)',
+  accentLightAlpha35: 'rgba(167, 139, 250, 0.35)',
+  overlayAlpha02: 'rgba(255, 255, 255, 0.02)',
+  overlayAlpha03: 'rgba(255, 255, 255, 0.03)',
+  overlayAlpha04: 'rgba(255, 255, 255, 0.04)',
+  overlayAlpha05: 'rgba(255, 255, 255, 0.05)',
+  overlayAlpha08: 'rgba(255, 255, 255, 0.08)',
+  overlayAlpha10: 'rgba(255, 255, 255, 0.1)',
+  overlayAlpha15: 'rgba(255, 255, 255, 0.15)',
+  overlayAlpha20: 'rgba(255, 255, 255, 0.2)',
+};
+
+import { Fonts } from './fonts';
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};
+
+export const Radii = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  full: 9999,
+};
+
+export const FontWeights = {
+  regular: '400',
+  semiBold: '600',
+  bold: '700',
+} as const;
+
+export const Shadows = {
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 1.0,
+    elevation: 1,
   },
-  dark: {
-    text: '#ECEDEE',
-    background: '#000000',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    elevation: 6,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.44,
+    shadowRadius: 10.32,
+    elevation: 16,
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
+export const Typography = {
   default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+    fontFamily: Fonts.regular,
+    fontWeight: FontWeights.regular,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  title: {
+    fontFamily: Fonts.bold,
+    fontWeight: FontWeights.bold,
+    fontSize: 24,
+    lineHeight: 32,
   },
-});
+  subtitle: {
+    fontFamily: Fonts.bold,
+    fontWeight: FontWeights.bold,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  defaultSemiBold: {
+    fontFamily: Fonts.semiBold, // Using semiBold font file alias
+    fontWeight: FontWeights.semiBold,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  link: {
+    fontFamily: Fonts.regular,
+    fontWeight: FontWeights.regular,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+};
 
 export const Layout = {
   MINI_PLAYER_HEIGHT: 64,
   TAB_BAR_HEIGHT: 60,
   PLAYER_MARGIN: 36,
+};
+
+export const NavigationThemeDark = {
+  ...NavigationDarkTheme,
+  colors: {
+    ...NavigationDarkTheme.colors,
+    primary: Colors.tint,
+    background: Colors.background,
+    card: Colors.cardBackground,
+    text: Colors.text,
+    border: Colors.overlayAlpha10,
+    notification: Colors.accent,
+  },
 };

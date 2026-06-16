@@ -18,10 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ArtistsListSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
@@ -147,12 +150,12 @@ export default function ArtistsListSheet() {
                                     />
                                 ) : (
                                     <View style={[styles.thumbnail, styles.placeholder]}>
-                                        <Ionicons name="person" size={24} color="#666" />
+                                        <Ionicons name="person" size={24} color={colors.textSecondary} />
                                     </View>
                                 )}
                                 <Text style={styles.artistName} numberOfLines={1}>{item.name}</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#666" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                     )}
                 />
@@ -161,7 +164,7 @@ export default function ArtistsListSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -175,7 +178,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
         maxHeight: SCREEN_HEIGHT * 0.6,
     },
     dragIndicator: {
@@ -190,9 +193,9 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 20,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
     },
     artistRow: {
@@ -216,14 +219,14 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
     artistName: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         flex: 1,
     },

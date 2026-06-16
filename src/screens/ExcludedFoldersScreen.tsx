@@ -16,8 +16,11 @@ import { useSyncStore } from '../store/useSyncStore';
 import { Colors, Layout } from '../theme/theme';
 import { useTranslation } from 'react-i18next';
 import { getSafeFileName } from '../utils/safeDecode';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function ExcludedFoldersScreen() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const [headerHeight, setHeaderHeight] = useState(100);
@@ -26,7 +29,7 @@ export default function ExcludedFoldersScreen() {
     const { t } = useTranslation();
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
 
             {/* CAPA DEL HUMO (INTERMEDIO) */}
             <LinearGradient
@@ -38,7 +41,7 @@ export default function ExcludedFoldersScreen() {
 
             {/* CAPA DE ILUMINACIÓN MORADA */}
             <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
+                colors={[colors.accentAlpha20, "transparent"]}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
@@ -50,7 +53,7 @@ export default function ExcludedFoldersScreen() {
             >
                 <View style={styles.headerRow}>
                     <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={28} color="#8B5CF6" />
+                        <Ionicons name="chevron-back" size={28} color={colors.accent} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle} numberOfLines={1}>{t('settings.excluded_folders')}</Text>
                 </View>
@@ -89,7 +92,7 @@ export default function ExcludedFoldersScreen() {
                                         }}
                                         activeOpacity={0.7}
                                     >
-                                        <Ionicons name="refresh-outline" size={16} color="#8B5CF6" />
+                                        <Ionicons name="refresh-outline" size={16} color={colors.accent} />
                                         <Text style={styles.restoreButtonText}>
                                             {isScanning ? t('settings.syncing') : t('settings.restore')}
                                         </Text>
@@ -104,7 +107,7 @@ export default function ExcludedFoldersScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         flex: 1,
     },
@@ -132,13 +135,13 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 24,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '900',
-        color: '#FFFFFF',
+        color: colors.text,
         flex: 1,
     },
     sectionCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: colors.overlayAlpha05,
         borderRadius: 16,
         padding: 20,
         marginBottom: 20,
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
         color: '#888888',
         fontStyle: 'italic',
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '600',
         textAlign: 'center',
         paddingVertical: 20,
@@ -165,34 +168,34 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+        borderBottomColor: colors.overlayAlpha05,
     },
     folderNameText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     folderPathText: {
-        color: '#666666',
+        color: colors.textSecondary,
         fontSize: 11,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '600',
         marginTop: 2,
     },
     restoreButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        backgroundColor: colors.accentAlpha10,
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 15,
         gap: 4,
     },
     restoreButtonText: {
-        color: '#8B5CF6',
+        color: colors.accent,
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
 });

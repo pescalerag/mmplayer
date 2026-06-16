@@ -36,7 +36,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.dark.background }]}>
+        <View style={[styles.container, { backgroundColor: Colors.background }]}>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
             <LinearGradient

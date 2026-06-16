@@ -23,10 +23,14 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
 import PlaylistCover from './PlaylistCover';
 import { useTranslation } from 'react-i18next';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PlaylistSelectorModal() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, tracksToAssociate, playlistToEdit, isCreatingDirectly, closeSelector } = usePlaylistSelectorStore();
@@ -293,7 +297,7 @@ export default function PlaylistSelectorModal() {
                                 style={styles.createButton}
                                 onPress={() => setIsCreating(true)}
                             >
-                                <Ionicons name="add" size={20} color="#FFFFFF" />
+                                <Ionicons name="add" size={20} color={colors.text} />
                                 <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>
                             </TouchableOpacity>
 
@@ -348,7 +352,7 @@ export default function PlaylistSelectorModal() {
                             <TextInput
                                 style={styles.input}
                                 placeholder={t('playlist.placeholder_name')}
-                                placeholderTextColor="#666"
+                                placeholderTextColor={colors.textSecondary}
                                 value={playlistName}
                                 onChangeText={setPlaylistName}
                                 maxLength={30}
@@ -360,7 +364,7 @@ export default function PlaylistSelectorModal() {
                             <TextInput
                                 style={[styles.input, styles.textArea]}
                                 placeholder={t('playlist.placeholder_desc')}
-                                placeholderTextColor="#666"
+                                placeholderTextColor={colors.textSecondary}
                                 value={playlistDesc}
                                 onChangeText={setPlaylistDesc}
                                 maxLength={120}
@@ -403,7 +407,7 @@ export default function PlaylistSelectorModal() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     containerAbsolute: {
         ...StyleSheet.absoluteFillObject,
     },
@@ -422,7 +426,7 @@ const styles = StyleSheet.create({
         padding: 24,
         maxHeight: SCREEN_HEIGHT * 0.85,
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -435,21 +439,21 @@ const styles = StyleSheet.create({
     header: {
         marginBottom: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 15,
     },
     headerTitle: {
-        color: '#8B5CF6',
+        color: colors.accent,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     headerSubtitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 20,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         marginTop: 4,
     },
@@ -457,15 +461,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#8B5CF6',
+        backgroundColor: colors.accent,
         borderRadius: 12,
         paddingVertical: 12,
         marginBottom: 20,
         gap: 8,
     },
     createButtonText: {
-        color: '#FFFFFF',
-        fontFamily: 'Montserrat',
+        color: colors.text,
+        fontFamily: fonts.regular,
         fontWeight: '800',
         fontSize: 14,
     },
@@ -481,9 +485,9 @@ const styles = StyleSheet.create({
         paddingVertical: 40,
     },
     emptyText: {
-        color: '#666',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 10,
         textAlign: 'center',
@@ -507,22 +511,22 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     playlistName: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 15,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     playlistDesc: {
         color: '#888',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 2,
     },
     sectionTitle: {
         color: '#888',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textTransform: 'uppercase',
         letterSpacing: 0.8,
@@ -532,8 +536,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#1A1A1A',
         borderRadius: 12,
         height: 48,
-        color: '#FFFFFF',
-        fontFamily: 'Montserrat', fontWeight: '600',
+        color: colors.text,
+        fontFamily: fonts.regular, fontWeight: '600',
         paddingHorizontal: 16,
         fontSize: 14,
         borderWidth: 1,
@@ -558,22 +562,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     btnCancel: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: colors.overlayAlpha05,
         borderWidth: 1,
         borderColor: '#2A2A2A',
     },
     btnCancelText: {
-        color: '#B3B3B3',
-        fontFamily: 'Montserrat',
+        color: colors.textSecondary,
+        fontFamily: fonts.regular,
         fontWeight: '700',
         fontSize: 14,
     },
     btnConfirm: {
-        backgroundColor: '#8B5CF6',
+        backgroundColor: colors.accent,
     },
     btnConfirmText: {
-        color: '#FFFFFF',
-        fontFamily: 'Montserrat',
+        color: colors.text,
+        fontFamily: fonts.regular,
         fontWeight: '800',
         fontSize: 14,
     },

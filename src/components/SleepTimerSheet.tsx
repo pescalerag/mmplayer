@@ -13,6 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height } = Dimensions.get('window');
 
@@ -25,6 +27,8 @@ const formatHHMMSS = (totalSeconds: number) => {
 };
 
 export default function SleepTimerSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { isVisible, isActive, timeLeft, closeSheet, startTimer, deactivate } = useSleepTimerStore();
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
@@ -128,7 +132,7 @@ export default function SleepTimerSheet() {
                             style={styles.deactivateButton}
                             onPress={deactivate}
                         >
-                            <Ionicons name="stop-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                            <Ionicons name="stop-circle-outline" size={20} color={colors.text} style={{ marginRight: 8 }} />
                             <Text style={styles.deactivateButtonText}>
                                 {t('sleep_timer.deactivate')}
                             </Text>
@@ -140,7 +144,7 @@ export default function SleepTimerSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -153,7 +157,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#1E1E1E',
+        borderColor: colors.cardBackground,
         overflow: 'hidden',
         paddingHorizontal: 24,
     },
@@ -169,21 +173,21 @@ const styles = StyleSheet.create({
     header: {
         marginBottom: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 15,
     },
     headerTitle: {
-        color: '#8B5CF6',
+        color: colors.accent,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     headerSubtitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 20,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         marginTop: 4,
     },
@@ -197,11 +201,11 @@ const styles = StyleSheet.create({
         color: '#535353',
         fontSize: 48,
         fontWeight: 'bold',
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         letterSpacing: 2,
     },
     clockTextActive: {
-        color: '#A78BFA',
+        color: colors.accentLight,
     },
     contentContainer: {
         marginBottom: 10,
@@ -224,13 +228,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     optionButtonText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     deactivateButton: {
-        backgroundColor: '#EF4444',
+        backgroundColor: colors.heartIcon,
         borderRadius: 24,
         paddingVertical: 14,
         flexDirection: 'row',
@@ -239,9 +243,9 @@ const styles = StyleSheet.create({
         marginHorizontal: 20,
     },
     deactivateButtonText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: 'bold',
     },
 });

@@ -16,6 +16,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SortOption, useLibraryStore } from "../store/useLibraryStore";
 import { useSortModalStore } from "../store/useSortModalStore";
 
+import { Colors } from "../theme/theme";
+import { useAppTheme } from "@/hooks/useAppTheme";
+
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 type SortOptionItem = { value: SortOption; label: string };
@@ -46,6 +49,8 @@ const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
 };
 
 export default function SortModalSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const insets = useSafeAreaInsets();
   const { isVisible, activeTab, activeSort, closeModal } = useSortModalStore();
 
@@ -165,7 +170,7 @@ export default function SortModalSheet() {
                 <Ionicons
                   name={isActive ? "checkmark-circle" : "ellipse-outline"}
                   size={22}
-                  color={isActive ? "#8B5CF6" : "#555"}
+                  color={isActive ? colors.accent : "#555"}
                 />
               </View>
               <Text
@@ -181,7 +186,7 @@ export default function SortModalSheet() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -195,7 +200,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "100%",
     borderTopWidth: 1,
-    borderColor: "#282828",
+    borderColor: colors.cardBackground,
   },
   dragIndicator: {
     width: 36,
@@ -208,19 +213,19 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#282828",
+    borderBottomColor: colors.cardBackground,
     paddingBottom: 20,
   },
   title: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 18,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "800",
   },
   subtitle: {
-    color: "#B3B3B3",
+    color: colors.textSecondary,
     fontSize: 13,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "700",
     marginTop: 4,
   },
@@ -237,12 +242,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   optionText: {
-    color: "#CCCCCC",
+    color: colors.textSecondary,
     fontSize: 16,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "700",
   },
   optionTextActive: {
-    color: "#FFFFFF",
+    color: colors.text,
   },
 });

@@ -2,6 +2,9 @@ import TrackPlayer, { Event, State } from "react-native-track-player";
 import { createMMKV } from "react-native-mmkv";
 import { HistoryService } from "./HistoryService";
 
+const MIN_SECONDS_FOR_HISTORY = 20;
+const SKIP_PREVIOUS_THRESHOLD = 3;
+
 const storage = createMMKV();
 
 let lastPlayTimestamp: number | null = null;
@@ -65,7 +68,7 @@ export const PlaybackService = async function () {
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
     try {
       const { position } = await TrackPlayer.getProgress();
-      if (position > 3) {
+      if (position > SKIP_PREVIOUS_THRESHOLD) {
         await TrackPlayer.seekTo(0);
       } else {
         await TrackPlayer.skipToPrevious();
@@ -124,7 +127,7 @@ export const PlaybackService = async function () {
 
       if (previousTrackId) {
         const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId);
-        if (durationPlayed >= 20) {
+        if (durationPlayed >= MIN_SECONDS_FOR_HISTORY) {
           console.log(`[Historial] Guardando en historial. Canción: ${previousTrackId}, Duración: ${Math.floor(durationPlayed)}s.`);
           await HistoryService.logToDatabase(
             previousTrackId,
@@ -132,7 +135,7 @@ export const PlaybackService = async function () {
             "queue",
           );
         } else {
-          console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
+          console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${MIN_SECONDS_FOR_HISTORY}s).`);
         }
         PlaybackTimeTracker.clearAccumulated(previousTrackId);
       }
@@ -169,11 +172,11 @@ export const PlaybackService = async function () {
                 
                 const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackId);
                 
-                if (durationPlayed >= 20) {
+                if (durationPlayed >= MIN_SECONDS_FOR_HISTORY) {
                   console.log(`[Historial] Guardando en historial (bucle). Canción: ${trackId}, Duración: ${Math.floor(durationPlayed)}s.`);
                   await HistoryService.logToDatabase(trackId, durationPlayed, "queue");
                 } else {
-                  console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
+                  console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${MIN_SECONDS_FOR_HISTORY}s).`);
                 }
                 
                 PlaybackTimeTracker.clearAccumulated(trackId);

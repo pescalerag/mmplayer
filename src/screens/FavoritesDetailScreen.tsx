@@ -24,7 +24,7 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { Colors, Layout } from '../theme/theme';
 import { formatAlbumDuration } from '../utils/time';
 import { useTranslation } from 'react-i18next';
-
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 // ─── FAVORITES TRACK ROW COMPONENT ───
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
@@ -66,6 +66,8 @@ interface FavoritesDetailProps {
 }
 
 function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
@@ -150,7 +152,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                                 style={styles.shuffleFab}
                                 onPress={handleShuffleFabPress}
                             >
-                                <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                                <Ionicons name="shuffle" size={22} color={colors.text} />
                             </TouchableOpacity>
 
                             {/* Play/Pause Button */}
@@ -161,7 +163,7 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                                 <Ionicons 
                                     name={isCurrentContextPlaying ? "pause" : "play"} 
                                     size={28} 
-                                    color="#FFFFFF"
+                                    color={colors.text}
                                     style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}}
                                     />
                             </TouchableOpacity>
@@ -223,14 +225,14 @@ export default function FavoritesDetailScreen() {
     return <ObservableFavoritesDetail />;
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.background,
+        backgroundColor: colors.background,
     },
     divider: {
         height: 1,
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         marginHorizontal: 20,
         marginBottom: 4,
     },
@@ -241,7 +243,7 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: '#8B5CF6',
+        backgroundColor: colors.accent,
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 8,
@@ -269,9 +271,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 40,
     },
     emptyText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 16,
@@ -279,7 +281,7 @@ const styles = StyleSheet.create({
     emptySubtitle: {
         color: '#888',
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 8,

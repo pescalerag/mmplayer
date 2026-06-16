@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { database } from '../database';
 import PlaylistTrack from '../database/models/PlaylistTrack';
 import Playlist from '../database/models/Playlist';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface PlaylistCoverProps {
     playlistId: string;
@@ -27,6 +28,8 @@ export default function PlaylistCover({
     height: propHeight,
     borderRadius = 12,
 }: PlaylistCoverProps) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [firstCover, setFirstCover] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -85,7 +88,7 @@ export default function PlaylistCover({
                 end={{ x: 1, y: 1 }}
                 style={[styles.container, { width: w, height: h, borderRadius }]}
             >
-                <Ionicons name="heart" size={Math.min(w, h) * 0.45} color="#FFFFFF" />
+                <Ionicons name="heart" size={Math.min(w, h) * 0.45} color={colors.text} />
             </LinearGradient>
         );
     }
@@ -131,7 +134,7 @@ export default function PlaylistCover({
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         borderRadius: 12,
         overflow: 'hidden',
@@ -143,7 +146,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#1E1E1E',
+        backgroundColor: colors.cardBackground,
         borderWidth: 1,
         borderColor: '#2A2A2A',
     },

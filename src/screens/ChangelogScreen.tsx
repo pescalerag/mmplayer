@@ -65,7 +65,7 @@ const versionDateStyle = (isCurrent: boolean) => [
 ];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
+  container: { flex: 1, backgroundColor: Colors.background },
   headerTitle: { fontSize: 28, fontFamily: 'Montserrat', fontWeight: '900', color: '#FFF', paddingHorizontal: 20, marginTop: 20 },
   headerSubtitle: { fontSize: 14, fontFamily: 'Montserrat', fontWeight: '500', color: '#888', paddingHorizontal: 20, marginTop: 4, marginBottom: 10 },
   versionBlock: { marginTop: 24 },
