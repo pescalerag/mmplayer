@@ -30,7 +30,16 @@ const normalizeText = (value: string) =>
     value
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, "");
+
+const sanitizeDbString = (str: string | undefined | null) => {
+    if (!str) return str;
+    return str
+        .replace(/[\0\x00-\x1F\x7F]/g, '')
+        .replace(/#/g, '')
+        .trim();
+};
 
 // 1. Helper function to find and delete tracks with missing files
 const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: string) => void) => {
@@ -172,10 +181,10 @@ const extractFileMetadata = (file: any) => {
         coverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
     }
 
-    const rawTitle = file.title?.trim();
-    const rawArtist = file.artist?.trim();
-    const rawAlbum = file.album?.trim();
-    const rawAlbumArtist = file.albumArtist?.trim();
+    const rawTitle = sanitizeDbString(file.title);
+    const rawArtist = sanitizeDbString(file.artist);
+    const rawAlbum = sanitizeDbString(file.album);
+    const rawAlbumArtist = sanitizeDbString(file.albumArtist);
 
     const title = (!rawTitle || rawTitle === 'Unknown Title')
         ? file.filename.replace(/\.[^/.]+$/, '')
@@ -341,7 +350,7 @@ const prepareTrackRecords = (
     const track = tracksCollection.prepareCreate((t: any) => {
         t.title = meta.title;
         t.normalizedTitle = normalizeText(meta.title);
-        t.fileUrl = file.uri;
+        t.fileUrl = file.uri.replace(/#/g, '%23');
         t.duration = meta.durationInSeconds;
         t.isFavorite = false;
         t.trackNumber = file.trackNumber || 0;
@@ -506,6 +515,95 @@ export const ScannerService = {
             console.error("Error reparando colaboradores:", error);
         } finally {
             useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
+    repairCorruptedData: async (onProgress?: (phase: string) => void) => {
+        try {
+            onProgress?.('Iniciando reparación de datos corruptos...');
+            const tracksCollection = database.collections.get<Track>('tracks');
+            const albumsCollection = database.collections.get<Album>('albums');
+            const artistsCollection = database.collections.get<Artist>('artists');
+
+            const [tracks, albums, artists] = await Promise.all([
+                tracksCollection.query().fetch(),
+                albumsCollection.query().fetch(),
+                artistsCollection.query().fetch()
+            ]);
+
+            let batchOps: any[] = [];
+            const BATCH_SIZE = 400;
+
+            // Limpiar Artistas
+            onProgress?.('Reparando artistas...');
+            for (const artist of artists) {
+                const cleanName = sanitizeDbString(artist.name) || 'Artista Desconocido';
+                const normName = normalizeText(cleanName);
+
+                if (artist.name !== cleanName || artist.normalizedName !== normName) {
+                    batchOps.push(
+                        artist.prepareUpdate(a => {
+                            a.name = cleanName;
+                            a.normalizedName = normName;
+                        })
+                    );
+                }
+            }
+
+            // Limpiar Álbumes
+            onProgress?.('Reparando álbumes...');
+            for (const album of albums) {
+                const cleanTitle = sanitizeDbString(album.title) || 'Álbum Desconocido';
+                const normTitle = normalizeText(cleanTitle);
+
+                if (album.title !== cleanTitle || album.normalizedTitle !== normTitle) {
+                    batchOps.push(
+                        album.prepareUpdate(a => {
+                            a.title = cleanTitle;
+                            a.normalizedTitle = normTitle;
+                        })
+                    );
+                }
+            }
+
+            // Limpiar Tracks
+            onProgress?.('Reparando canciones...');
+            for (const track of tracks) {
+                const cleanTitle = sanitizeDbString(track.title) || 'Unknown Title';
+                const normTitle = normalizeText(cleanTitle);
+                let urlChanged = false;
+                let cleanUrl = track.fileUrl;
+
+                if (track.fileUrl.includes('#')) {
+                    cleanUrl = track.fileUrl.replace(/#/g, '%23');
+                    urlChanged = true;
+                }
+
+                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged) {
+                    batchOps.push(
+                        track.prepareUpdate(t => {
+                            t.title = cleanTitle;
+                            t.normalizedTitle = normTitle;
+                            if (urlChanged) t.fileUrl = cleanUrl;
+                        })
+                    );
+                }
+            }
+
+            // Ejecutar en Lotes
+            if (batchOps.length > 0) {
+                onProgress?.(`Guardando ${batchOps.length} reparaciones en base de datos...`);
+                for (let i = 0; i < batchOps.length; i += BATCH_SIZE) {
+                    const chunk = batchOps.slice(i, i + BATCH_SIZE);
+                    await database.write(async () => {
+                        await database.batch(chunk);
+                    });
+                }
+            }
+
+            onProgress?.('¡Reparación completada!');
+        } catch (error) {
+            console.error('Error reparando datos corruptos:', error);
         }
     },
 
