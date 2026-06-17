@@ -19,6 +19,7 @@ import Track from '../database/models/Track';
 import { database } from '../database';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { useTranslation } from 'react-i18next';
@@ -212,6 +213,25 @@ export default function ArtistMenuSheet() {
                         <Ionicons name="list" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Añadir a Playlist */}
+                <TouchableOpacity
+                    style={styles.optionRow}
+                    onPress={() => {
+                        if (tracks.length === 0) {
+                            useToastStore.getState().showToast('El artista no tiene canciones', 'close-circle', '#EF4444');
+                            closeMenu();
+                            return;
+                        }
+                        closeMenu();
+                        usePlaylistSelectorStore.getState().openSelector(tracks);
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="add-circle-outline" size={24} color={colors.text} />
+                    </View>
+                    <Text style={styles.optionText}>{t('actions.add_to_playlist') || 'Añadir a playlist'}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Ver artista */}
