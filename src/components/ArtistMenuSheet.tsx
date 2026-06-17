@@ -186,7 +186,7 @@ export default function ArtistMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast(t('toasts.artist_next'), 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.artist_next'), 'return-down-forward');
                             closeMenu();
                         }
                     }}

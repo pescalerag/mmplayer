@@ -183,7 +183,7 @@ export default function FolderMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast(t('toasts.folder_next'), 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.folder_next'), 'return-down-forward');
                             closeMenu();
                         }
                     }}

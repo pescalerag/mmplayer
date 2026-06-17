@@ -12,12 +12,14 @@ import {
     Switch,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Modal
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { ScannerService } from '../services/ScannerService';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
+import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
 import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
@@ -31,8 +33,17 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume } = useSettingsStore();
+    const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume, swipeLeftAction, swipeRightAction } = useSettingsStore();
     const { t } = useTranslation();
+    const { openSheet } = useSwipeActionSheetStore();
+
+    const swipeOptions: { label: string, value: SwipeAction, icon: any }[] = [
+        { label: t('settings.swipe_action_add_next'), value: 'add_next', icon: 'return-down-forward' },
+        { label: t('settings.swipe_action_add_last'), value: 'add_last', icon: 'list' },
+        { label: t('actions.add_to_playlist'), value: 'add_to_playlist', icon: 'add-circle-outline' },
+        { label: t('settings.swipe_action_toggle_favorite'), value: 'toggle_favorite', icon: 'heart' },
+        { label: t('settings.swipe_action_none'), value: 'none', icon: 'close' },
+    ];
 
 
     return (
@@ -167,6 +178,40 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </View>
                 </View>
 
+                {/* --- SECCIÓN DE GESTOS --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>{t('settings.swipe_actions')}</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            openSheet('left');
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.swipe_left')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {swipeOptions.find(o => o.value === swipeLeftAction)?.label}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            openSheet('right');
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.swipe_right')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {swipeOptions.find(o => o.value === swipeRightAction)?.label}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                </View>
+
                 {/* --- SECCIÓN DE EXCLUSIONES --- */}
                 <View style={styles.sectionCard}>
                     <Text style={styles.sectionTitle}>{t('settings.exclusions')}</Text>
@@ -287,6 +332,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>
+
         </View>
     );
 }

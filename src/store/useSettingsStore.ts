@@ -19,7 +19,13 @@ interface SettingsState {
     setLanguage: (lang: string) => void;
     hideSyncToastOnResume: boolean;
     setHideSyncToastOnResume: (value: boolean) => void;
+    swipeLeftAction: SwipeAction;
+    setSwipeLeftAction: (action: SwipeAction) => void;
+    swipeRightAction: SwipeAction;
+    setSwipeRightAction: (action: SwipeAction) => void;
 }
+
+export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -28,6 +34,10 @@ export const useSettingsStore = create<SettingsState>()(
             setShowTagColors: (value) => set({ showTagColors: value }),
             hideSyncToastOnResume: false,
             setHideSyncToastOnResume: (value) => set({ hideSyncToastOnResume: value }),
+            swipeLeftAction: 'add_last',
+            setSwipeLeftAction: (action) => set({ swipeLeftAction: action }),
+            swipeRightAction: 'add_next',
+            setSwipeRightAction: (action) => set({ swipeRightAction: action }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

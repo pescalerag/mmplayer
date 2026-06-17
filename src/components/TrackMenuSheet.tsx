@@ -232,7 +232,7 @@ export default function TrackMenuSheet() {
                     onPress={() => {
                         if (selectedTrack) {
                             addToQueueNext(selectedTrack);
-                            useToastStore.getState().showToast(t('toasts.playing_next'), 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.playing_next'), 'return-down-forward');
                             closeMenu();
                         }
                     }}
