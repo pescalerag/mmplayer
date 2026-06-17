@@ -4,6 +4,8 @@ import withObservables from '@nozbe/with-observables';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
+import { TagsNavigationProp } from '../navigation/types';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTagFormStore } from '../store/useTagFormStore';
@@ -21,6 +23,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
     const insets = useSafeAreaInsets();
     const { openForCreate, openForEdit } = useTagFormStore();
     const { t } = useTranslation();
+    const navigation = useNavigation<TagsNavigationProp>();
 
     // Altura dinámica del header para el smoke y padding del contenido
     const [headerHeight, setHeaderHeight] = useState(100);
@@ -44,7 +47,11 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
 
     const renderItem = ({ item }: { item: Tag }) => {
         return (
-            <View style={styles.tagCard}>
+            <TouchableOpacity 
+                style={styles.tagCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color })}
+            >
                 <View style={[styles.colorDot, { backgroundColor: item.color }]} />
                 <Text style={styles.tagName}>{item.name}</Text>
 
@@ -63,7 +70,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
                 >
                     <Ionicons name="trash" size={20} color="#EF4444" />
                 </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
         );
     };
 

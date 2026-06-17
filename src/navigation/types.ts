@@ -25,6 +25,13 @@ export type SearchStackParamList = {
     TagDetail: { tagId: string; tagName: string; tagColor: string };
 };
 
+export type TagsStackParamList = {
+    Tags: undefined;
+    TagDetail: { tagId: string; tagName: string; tagColor: string };
+    ArtistDetail: { artistId: string; fromPlayer?: boolean };
+    AlbumDetail: { albumId: string; fromPlayer?: boolean };
+};
+
 export type PlayerStackParamList = {
     PlayerHome: undefined;
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
@@ -40,6 +47,7 @@ export type RootStackParamList = {
 export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 export type LibraryNavigationProp = NativeStackNavigationProp<LibraryStackParamList>;
 export type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
+export type TagsNavigationProp = NativeStackNavigationProp<TagsStackParamList>;
 export type ArtistDetailRouteProp = RouteProp<LibraryStackParamList, 'ArtistDetail'>;
 export type AlbumDetailRouteProp = RouteProp<LibraryStackParamList, 'AlbumDetail'>;
 export type TagDetailRouteProp = RouteProp<SearchStackParamList, 'TagDetail'>;
