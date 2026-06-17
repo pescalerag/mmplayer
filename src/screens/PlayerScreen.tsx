@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
@@ -11,7 +12,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
@@ -29,6 +31,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 
+import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
@@ -134,6 +137,44 @@ const PlayerScreenUI = ({
     const heartAnimatedStyle = useAnimatedStyle(() => {
         return {
             transform: [{ scale: heartScale.value }]
+        };
+    });
+
+    // ── Swipe Gestures ──
+    const translateX = useSharedValue(0);
+    const hasTriggeredHaptic = useSharedValue(false);
+
+    const triggerHaptic = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    };
+
+    const skipNext = () => TrackPlayer.skipToNext().catch(() => { });
+    const skipPrevious = () => TrackPlayer.skipToPrevious().catch(() => { });
+
+    const panGesture = Gesture.Pan()
+        .activeOffsetX([-20, 20])
+        .onUpdate((event) => {
+            translateX.value = event.translationX;
+            if (Math.abs(translateX.value) > 100 && !hasTriggeredHaptic.value) {
+                hasTriggeredHaptic.value = true;
+                runOnJS(triggerHaptic)();
+            } else if (Math.abs(translateX.value) <= 100) {
+                hasTriggeredHaptic.value = false;
+            }
+        })
+        .onEnd(() => {
+            if (translateX.value < -100) {
+                runOnJS(skipNext)();
+            } else if (translateX.value > 100) {
+                runOnJS(skipPrevious)();
+            }
+            translateX.value = withSpring(0, { damping: 25, stiffness: 60 });
+            hasTriggeredHaptic.value = false;
+        });
+
+    const swipeAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateX: translateX.value }]
         };
     });
 
@@ -267,21 +308,25 @@ const PlayerScreenUI = ({
 
                 {/* Artwork */}
                 <View style={styles.artworkContainer}>
-                    {artworkSource && !imageError ? (
-                        <Image
-                            key={track.id}
-                            source={artworkSource}
-                            style={styles.artwork}
-                            contentFit="cover"
-                            transition={300}
-                            cachePolicy="memory-disk"
-                            onError={() => setImageError(true)}
-                        />
-                    ) : (
-                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
-                        </View>
-                    )}
+                    <GestureDetector gesture={panGesture}>
+                        <Animated.View style={swipeAnimatedStyle}>
+                            {artworkSource && !imageError ? (
+                                <Image
+                                    key={track.id}
+                                    source={artworkSource}
+                                    style={styles.artwork}
+                                    contentFit="cover"
+                                    transition={300}
+                                    cachePolicy="memory-disk"
+                                    onError={() => setImageError(true)}
+                                />
+                            ) : (
+                                <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                    <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                </View>
+                            )}
+                        </Animated.View>
+                    </GestureDetector>
                 </View>
 
                 {/* Info */}
@@ -524,7 +569,7 @@ const PlayerScreen = () => {
     );
 };
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}, shadows: any = {lg: {}}) => StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radii: any = { sm: 4, md: 8, lg: 12, full: 9999 }, fontWeights: any = { regular: '400', semiBold: '600', bold: '700' }, shadows: any = { lg: {} }) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -642,7 +687,7 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, 
     artist: {
         color: colors.textSecondary,
         fontSize: 16,
-        fontFamily: fonts.regular, 
+        fontFamily: fonts.regular,
         fontWeight: fontWeights.bold,
     },
     progressSection: {
@@ -663,7 +708,7 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, 
     timeText: {
         color: colors.textSecondary,
         fontSize: 12,
-        fontFamily: fonts.regular, 
+        fontFamily: fonts.regular,
         fontWeight: fontWeights.bold,
     },
     controlsContainer: {

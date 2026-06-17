@@ -123,6 +123,7 @@ const createTabListener = (navigation: any, route: any) => ({
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { appTabsOrder, initialAppRoute } = useSettingsStore();
 
   const screenOptions = React.useMemo(
     () => ({
@@ -149,44 +150,46 @@ function MainTabs() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Tab.Navigator screenOptions={screenOptions}>
-        <Tab.Screen
-          name="Inicio"
-          component={HomeNavigator}
-          options={{ tabBarIcon: HomeIcon }}
-          listeners={({ navigation, route }) =>
-            createTabListener(navigation, route)
+      <Tab.Navigator screenOptions={screenOptions} initialRouteName={initialAppRoute}>
+        {appTabsOrder.map(tabName => {
+          let Component: any;
+          let IconComp: any;
+          let useListener = true;
+
+          switch (tabName) {
+            case 'Inicio':
+              Component = HomeNavigator;
+              IconComp = HomeIcon;
+              break;
+            case 'Biblioteca':
+              Component = LibraryNavigator;
+              IconComp = LibraryIcon;
+              break;
+            case 'Buscar':
+              Component = SearchNavigator;
+              IconComp = SearchIcon;
+              break;
+            case 'Etiquetas':
+              Component = TagManagementScreen;
+              IconComp = TagsIcon;
+              useListener = false; // Etiquetas no usa createTabListener
+              break;
+            case 'Configuración':
+              Component = SettingsNavigator;
+              IconComp = SettingsIcon;
+              break;
           }
-        />
-        <Tab.Screen
-          name="Biblioteca"
-          component={LibraryNavigator}
-          options={{ tabBarIcon: LibraryIcon }}
-          listeners={({ navigation, route }) =>
-            createTabListener(navigation, route)
-          }
-        />
-        <Tab.Screen
-          name="Buscar"
-          component={SearchNavigator}
-          options={{ tabBarIcon: SearchIcon }}
-          listeners={({ navigation, route }) =>
-            createTabListener(navigation, route)
-          }
-        />
-        <Tab.Screen
-          name="Etiquetas"
-          component={TagManagementScreen}
-          options={{ tabBarIcon: TagsIcon }}
-        />
-        <Tab.Screen
-          name="Configuración"
-          component={SettingsNavigator}
-          options={{ tabBarIcon: SettingsIcon }}
-          listeners={({ navigation, route }) =>
-            createTabListener(navigation, route)
-          }
-        />
+
+          return (
+            <Tab.Screen
+              key={tabName}
+              name={tabName}
+              component={Component}
+              options={{ tabBarIcon: IconComp }}
+              listeners={useListener ? ({ navigation, route }) => createTabListener(navigation, route) : undefined}
+            />
+          );
+        })}
       </Tab.Navigator>
 
       <View

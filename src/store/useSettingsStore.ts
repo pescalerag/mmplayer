@@ -23,9 +23,17 @@ interface SettingsState {
     setSwipeLeftAction: (action: SwipeAction) => void;
     swipeRightAction: SwipeAction;
     setSwipeRightAction: (action: SwipeAction) => void;
+    libraryTabsOrder: LibraryTabType[];
+    setLibraryTabsOrder: (order: LibraryTabType[]) => void;
+    appTabsOrder: AppTabType[];
+    setAppTabsOrder: (order: AppTabType[]) => void;
+    initialAppRoute: AppTabType;
+    setInitialAppRoute: (route: AppTabType) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
+export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
+export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -38,6 +46,12 @@ export const useSettingsStore = create<SettingsState>()(
             setSwipeLeftAction: (action) => set({ swipeLeftAction: action }),
             swipeRightAction: 'add_next',
             setSwipeRightAction: (action) => set({ swipeRightAction: action }),
+            libraryTabsOrder: ['albums', 'playlists', 'artists', 'folders', 'tracks'],
+            setLibraryTabsOrder: (order) => set({ libraryTabsOrder: order }),
+            appTabsOrder: ['Inicio', 'Biblioteca', 'Buscar', 'Etiquetas', 'Configuración'],
+            setAppTabsOrder: (order) => set({ appTabsOrder: order }),
+            initialAppRoute: 'Inicio',
+            setInitialAppRoute: (route) => set({ initialAppRoute: route }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

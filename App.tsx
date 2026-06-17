@@ -23,6 +23,8 @@ import GlobalToast from "./src/components/GlobalToast";
 import PlaylistMenuSheet from "./src/components/PlaylistMenuSheet";
 import PlaylistSelectorModal from "./src/components/PlaylistSelectorModal";
 import QueueSheet from "./src/components/QueueSheet";
+import LibraryTabsOrderSheet from "./src/components/LibraryTabsOrderSheet";
+import AppTabsOrderSheet from "./src/components/AppTabsOrderSheet";
 import SleepTimerSheet from "./src/components/SleepTimerSheet";
 import SwipeActionSheet from "./src/components/SwipeActionSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
@@ -142,6 +144,8 @@ export default function App() {
           <UpdatedAppModal />
           <ArtistsListSheet />
           <SleepTimerSheet />
+          <LibraryTabsOrderSheet />
+          <AppTabsOrderSheet />
           <SwipeActionSheet />
           <GlobalToast />
         </NavigationContainer>

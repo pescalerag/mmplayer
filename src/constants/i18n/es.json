@@ -12,6 +12,13 @@
     "empty_playlists": "Aún no has escuchado ninguna playlist.",
     "special_playlist": "Lista de reproducción especial"
   },
+  "navigation": {
+    "home": "Inicio",
+    "library": "Biblioteca",
+    "search": "Buscar",
+    "tags": "Etiquetas",
+    "settings": "Configuración"
+  },
   "library": {
     "title": "Tu Biblioteca",
     "albums": "Álbumes",
@@ -126,7 +133,15 @@
     "wipe_confirm": "Borrar todo",
     "no_excluded": "No hay carpetas excluidas.",
     "restore": "Restaurar",
-    "syncing": "Sincronizando..."
+    "syncing": "Sincronizando...",
+    "tab_order": "Orden de pestañas",
+    "tab_order_desc": "Personalizar el orden de las pestañas en la biblioteca",
+    "drag_to_reorder": "Mantén pulsado y arrastra para reordenar",
+    "app_tabs_order": "Navegación principal",
+    "app_tabs_desc": "Personaliza la barra inferior",
+    "initial_route": "Pantalla de inicio",
+    "drag_to_reorder_tabs": "Orden de la barra (Mantén presionado para mover)",
+    "confirm_restart": "Confirmar y Reiniciar"
   },
   "queue": {
     "title": "Cola",

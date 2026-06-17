@@ -12,6 +12,13 @@
     "empty_playlists": "You haven't listened to any playlists yet.",
     "special_playlist": "Special Playlist"
   },
+  "navigation": {
+    "home": "Home",
+    "library": "Library",
+    "search": "Search",
+    "tags": "Tags",
+    "settings": "Settings"
+  },
   "library": {
     "title": "Your Library",
     "albums": "Albums",
@@ -126,7 +133,15 @@
     "wipe_confirm": "Delete all",
     "no_excluded": "No folders excluded.",
     "restore": "Restore",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "tab_order": "Tab order",
+    "tab_order_desc": "Customize the order of library tabs",
+    "drag_to_reorder": "Press and hold to drag and reorder",
+    "app_tabs_order": "Main Navigation",
+    "app_tabs_desc": "Customize the bottom bar",
+    "initial_route": "Startup screen",
+    "drag_to_reorder_tabs": "Bar order (Hold to move)",
+    "confirm_restart": "Confirm and Restart"
   },
   "queue": {
     "title": "Queue",
