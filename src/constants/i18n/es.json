@@ -126,7 +126,10 @@
     "wipe_confirm": "Borrar todo",
     "no_excluded": "No hay carpetas excluidas.",
     "restore": "Restaurar",
-    "syncing": "Sincronizando..."
+    "syncing": "Sincronizando...",
+    "tab_order": "Orden de pestañas",
+    "tab_order_desc": "Personalizar el orden de las pestañas en la biblioteca",
+    "drag_to_reorder": "Mantén pulsado y arrastra para reordenar"
   },
   "queue": {
     "title": "Cola",

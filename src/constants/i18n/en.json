@@ -126,7 +126,10 @@
     "wipe_confirm": "Delete all",
     "no_excluded": "No folders excluded.",
     "restore": "Restore",
-    "syncing": "Syncing..."
+    "syncing": "Syncing...",
+    "tab_order": "Tab order",
+    "tab_order_desc": "Customize the order of library tabs",
+    "drag_to_reorder": "Press and hold to drag and reorder"
   },
   "queue": {
     "title": "Queue",

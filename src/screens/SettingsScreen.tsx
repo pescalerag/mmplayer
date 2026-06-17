@@ -20,6 +20,7 @@ import { database } from '../database';
 import { ScannerService } from '../services/ScannerService';
 import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
 import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
+import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
 import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
@@ -36,6 +37,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume, swipeLeftAction, swipeRightAction } = useSettingsStore();
     const { t } = useTranslation();
     const { openSheet } = useSwipeActionSheetStore();
+    const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
 
     const swipeOptions: { label: string, value: SwipeAction, icon: any }[] = [
         { label: t('settings.swipe_action_add_next'), value: 'add_next', icon: 'return-down-forward' },
@@ -176,6 +178,21 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             ios_backgroundColor="#282828"
                         />
                     </View>
+
+                    <View style={styles.separator} />
+
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={openLibraryTabsOrderSheet}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.tab_order')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.tab_order_desc')}
+                            </Text>
+                        </View>
+                        <Ionicons name="list" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* --- SECCIÓN DE GESTOS --- */}

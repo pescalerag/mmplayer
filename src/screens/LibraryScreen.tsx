@@ -4,6 +4,7 @@ import withObservables from '@nozbe/with-observables';
 import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { TabView } from 'react-native-tab-view';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Colors } from '../theme/theme';
@@ -26,6 +27,7 @@ import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { useFolderMenuStore } from '../store/useFolderMenuStore';
 import { SortOption, useLibraryStore } from '../store/useLibraryStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
@@ -695,7 +697,25 @@ type TabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<TabType>('albums');
+    const libraryTabsOrder = useSettingsStore(state => state.libraryTabsOrder);
+    
+    // Convertir el order del store a rutas
+    const [index, setIndex] = useState(0);
+    const routes = React.useMemo(() => {
+        return libraryTabsOrder.map(key => {
+            let title = '';
+            switch (key) {
+                case 'albums': title = t('library.albums'); break;
+                case 'playlists': title = t('library.playlists'); break;
+                case 'artists': title = t('library.artists'); break;
+                case 'folders': title = t('library.folders'); break;
+                case 'tracks': title = t('library.songs'); break;
+            }
+            return { key, title };
+        });
+    }, [libraryTabsOrder, t]);
+
+    const activeTab = routes[index]?.key as TabType || 'albums';
 
     // Estado para guardar la altura dinámica del Título + Selectores
     const [headerHeight, setHeaderHeight] = useState(130);
@@ -729,23 +749,39 @@ export default function LibraryScreen() {
             const currentRoute = state.routes[state.index];
 
             if (currentRoute.key === e.target) {
-                setActiveTab('albums');
+                // Ir al primer tab
+                setIndex(0);
             }
         });
 
         return unsubscribe;
     }, [navigation]);
 
+    const renderScene = ({ route }: { route: { key: string } }) => {
+        switch (route.key) {
+            case 'albums': return <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'artists': return <EnhancedArtistList sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'folders': return <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'tracks': return <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'playlists': return <EnhancedPlaylistsList sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            default: return null;
+        }
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: Colors.background }]}>
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
-                {activeTab === 'albums' && <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'artists' && <EnhancedArtistList sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'folders' && <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'tracks' && <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
-                {activeTab === 'playlists' && <EnhancedPlaylistsList sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />}
+                <TabView
+                    navigationState={{ index, routes }}
+                    renderScene={renderScene}
+                    onIndexChange={setIndex}
+                    initialLayout={{ width: Dimensions.get('window').width }}
+                    renderTabBar={() => null}
+                    swipeEnabled={true}
+                    lazy={true}
+                />
             </View>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
@@ -806,36 +842,15 @@ export default function LibraryScreen() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.tabsContainer}
                 >
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'albums' && styles.activeTab]}
-                        onPress={() => setActiveTab('albums')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'albums' && styles.activeTabText]}>{t('library.albums')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'playlists' && styles.activeTab]}
-                        onPress={() => setActiveTab('playlists')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>{t('library.playlists')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'artists' && styles.activeTab]}
-                        onPress={() => setActiveTab('artists')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'artists' && styles.activeTabText]}>{t('library.artists')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'folders' && styles.activeTab]}
-                        onPress={() => setActiveTab('folders')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'folders' && styles.activeTabText]}>{t('library.folders')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'tracks' && styles.activeTab]}
-                        onPress={() => setActiveTab('tracks')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'tracks' && styles.activeTabText]}>{t('library.songs')}</Text>
-                    </TouchableOpacity>
+                    {routes.map((route, i) => (
+                        <TouchableOpacity
+                            key={route.key}
+                            style={[styles.tabButton, index === i && styles.activeTab]}
+                            onPress={() => setIndex(i)}
+                        >
+                            <Text style={[styles.tabText, index === i && styles.activeTabText]}>{route.title}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </ScrollView>
             </View>
         </View>

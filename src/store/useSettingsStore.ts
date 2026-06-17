@@ -23,9 +23,12 @@ interface SettingsState {
     setSwipeLeftAction: (action: SwipeAction) => void;
     swipeRightAction: SwipeAction;
     setSwipeRightAction: (action: SwipeAction) => void;
+    libraryTabsOrder: LibraryTabType[];
+    setLibraryTabsOrder: (order: LibraryTabType[]) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
+export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -38,6 +41,8 @@ export const useSettingsStore = create<SettingsState>()(
             setSwipeLeftAction: (action) => set({ swipeLeftAction: action }),
             swipeRightAction: 'add_next',
             setSwipeRightAction: (action) => set({ swipeRightAction: action }),
+            libraryTabsOrder: ['albums', 'playlists', 'artists', 'folders', 'tracks'],
+            setLibraryTabsOrder: (order) => set({ libraryTabsOrder: order }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {
