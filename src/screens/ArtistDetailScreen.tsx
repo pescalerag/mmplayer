@@ -31,7 +31,7 @@ import Track from '../database/models/Track';
 import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { HistoryService } from '../services/HistoryService';
 import { useTranslation } from 'react-i18next';
@@ -464,7 +464,7 @@ export default function ArtistDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: Colors.background,
     },
     headerContainer: {
         width,

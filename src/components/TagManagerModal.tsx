@@ -20,10 +20,14 @@ import { TagService } from '../services/tagService';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { useTagFormStore } from '../store/useTagFormStore';
 import { useTranslation } from 'react-i18next';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TagManagerModal() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, targetType, targetId, targetTitle, closeManager } = useTagManagerStore();
@@ -230,7 +234,7 @@ export default function TagManagerModal() {
                                                 <Ionicons
                                                     name={isSelected ? "checkbox" : "square-outline"}
                                                     size={22}
-                                                    color={isSelected ? tag.color : '#666'}
+                                                    color={isSelected ? tag.color : colors.textSecondary}
                                                 />
                                             </View>
                                         </TouchableOpacity>
@@ -247,7 +251,7 @@ export default function TagManagerModal() {
                             openForCreate(reloadData);
                         }}
                     >
-                        <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+                        <Ionicons name="add-circle-outline" size={20} color={colors.text} />
                         <Text style={styles.createTagButtonGlobalText}>{t('tags.create')}</Text>
                     </TouchableOpacity>
 
@@ -257,7 +261,7 @@ export default function TagManagerModal() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -273,7 +277,7 @@ const styles = StyleSheet.create({
         padding: 24,
         maxHeight: SCREEN_HEIGHT * 0.85,
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -286,28 +290,28 @@ const styles = StyleSheet.create({
     header: {
         marginBottom: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 15,
     },
     headerTitle: {
-        color: '#8B5CF6',
+        color: colors.accent,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     headerSubtitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 20,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
         marginTop: 4,
     },
     sectionTitle: {
         color: '#888',
         fontSize: 12,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textTransform: 'uppercase',
         letterSpacing: 0.8,
@@ -343,7 +347,7 @@ const styles = StyleSheet.create({
     tagName: {
         color: '#E0E0E0',
         fontSize: 15,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         flex: 1,
     },
@@ -356,9 +360,9 @@ const styles = StyleSheet.create({
         paddingVertical: 40,
     },
     emptyText: {
-        color: '#666',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 10,
         textAlign: 'center',
@@ -367,15 +371,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#8B5CF6',
+        backgroundColor: colors.accent,
         borderRadius: 12,
         paddingVertical: 12,
         marginTop: 10,
         gap: 8,
     },
     createTagButtonGlobalText: {
-        color: '#FFFFFF',
-        fontFamily: 'Montserrat',
+        color: colors.text,
+        fontFamily: fonts.regular,
         fontWeight: '800',
         fontSize: 14,
     },

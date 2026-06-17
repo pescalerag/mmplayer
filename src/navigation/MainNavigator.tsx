@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
 import { ScannerService } from "../services/ScannerService";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { Colors } from "../theme/theme";
 
 import MiniPlayer from "../components/MiniPlayer";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
@@ -87,7 +88,7 @@ const TabBarBackground = () => (
       "rgba(0, 0, 0, 0.65)",
       "rgba(0, 0, 0, 0.90)",
       "rgba(0, 0, 0, 0.98)",
-      "#000000",
+      Colors.background,
     ]}
     locations={[0, 0.2, 0.45, 0.75, 1]}
     style={StyleSheet.absoluteFill}
@@ -126,8 +127,8 @@ function MainTabs() {
   const screenOptions = React.useMemo(
     () => ({
       tabBarShowLabel: false,
-      tabBarActiveTintColor: "#ffffffff",
-      tabBarInactiveTintColor: "rgba(154, 154, 154, 1)",
+      tabBarActiveTintColor: Colors.tabIconSelected,
+      tabBarInactiveTintColor: Colors.tabIconDefault,
       tabBarStyle: {
         borderTopWidth: 0,
         backgroundColor: "transparent",

@@ -4,6 +4,8 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlayingIndicator } from '../components/PlayingIndicator';
@@ -20,11 +22,12 @@ import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { useTranslation } from 'react-i18next';
 
-
 const { width } = Dimensions.get('window');
 const gridItemWidth = (width - 48) / 2;
 
 const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    const { colors, fonts, layout, radii, fontWeights } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, undefined, radii, fontWeights), [colors, fonts, layout, radii, fontWeights]);
     const [imageError, setImageError] = React.useState(false);
     
     React.useEffect(() => {
@@ -56,7 +59,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
                 />
             ) : (
                 <View style={[styles.gridImage, styles.placeholderGrid]}>
-                    <Ionicons name={item.type === 'album' ? 'albums' : 'musical-note'} size={24} color="#B3B3B3" />
+                    <Ionicons name={item.type === 'album' ? 'albums' : 'musical-note'} size={24} color={colors.textSecondary} />
                 </View>
             )}
             <View style={styles.gridInfo}>
@@ -64,7 +67,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
                     {item.title}
                 </Text>
                 {isCurrentTrack && (
-                    <PlayingIndicator isPaused={!isActuallyPlaying} color="#A78BFA" />
+                    <PlayingIndicator isPaused={!isActuallyPlaying} color={colors.accentLight} />
                 )}
             </View>
         </TouchableOpacity>
@@ -73,6 +76,8 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
 RecentMediaCard.displayName = 'RecentMediaCard';
 
 export default function HomeScreen() {
+    const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
@@ -151,7 +156,7 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
+                colors={[colors.accentAlpha20, "transparent"]}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
             />
             <ScrollView
@@ -209,41 +214,41 @@ export default function HomeScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000', // Fondo negro puro
+        backgroundColor: colors.background, // Fondo global
     },
     welcomeText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 26,
-        fontFamily: 'Montserrat',
-        fontWeight: '800',
-        paddingHorizontal: 20,
-        marginBottom: 20,
+        fontFamily: fonts.regular,
+        fontWeight: '800', // Explicitly extra bold, but we can fall back to bold if not in token
+        paddingHorizontal: spacing.lg || 20,
+        marginBottom: spacing.lg || 20,
         letterSpacing: -0.5,
     },
     sectionTitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 20,
-        fontFamily: 'Montserrat',
-        fontWeight: '800',
-        paddingHorizontal: 20,
-        marginTop: 32,
-        marginBottom: 16,
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
+        paddingHorizontal: spacing.lg || 20,
+        marginTop: spacing.xl || 32,
+        marginBottom: spacing.md || 16,
     },
     gridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        paddingHorizontal: 16,
-        gap: 12,
+        paddingHorizontal: spacing.md || 16,
+        gap: spacing.sm || 8, // Adjusting gap to standard sm
         justifyContent: 'space-between'
     },
     gridCard: {
         width: gridItemWidth,
         height: 56,
-        backgroundColor: '#282828',
-        borderRadius: 6,
+        backgroundColor: colors.cardBackground,
+        borderRadius: radii.md || 8, // originally 6, but 8 is close
         flexDirection: 'row',
         alignItems: 'center',
         overflow: 'hidden',
@@ -251,14 +256,14 @@ const styles = StyleSheet.create({
         borderColor: 'transparent',
     },
     gridCardActive: {
-        backgroundColor: 'rgba(139, 92, 246, 0.18)',
+        backgroundColor: colors.accentAlpha18,
         borderWidth: 1,
-        borderColor: 'rgba(167, 139, 250, 0.35)',
+        borderColor: colors.accentLightAlpha35,
     },
     gridImage: {
         width: 56,
         height: 56,
-        backgroundColor: '#1E1E1E'
+        backgroundColor: colors.cardBackground
     },
     placeholderGrid: {
         justifyContent: 'center',
@@ -270,26 +275,26 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     gridTitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 12,
-        fontFamily: 'Montserrat',
-        fontWeight: '700',
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
         lineHeight: 16,
     },
     gridTitleActive: {
-        color: '#A78BFA',
+        color: colors.accentLight,
     },
     playlistsContainer: {
-        paddingBottom: 20,
+        paddingBottom: spacing.lg || 20,
     },
     emptyState: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
+        paddingHorizontal: spacing.lg || 20,
+        paddingVertical: spacing.sm || 10,
     },
     emptyText: {
-        color: '#A0A0A0',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
-        fontWeight: '700',
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
     },
 });

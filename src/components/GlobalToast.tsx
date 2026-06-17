@@ -3,8 +3,11 @@ import { Animated, Text, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useToastStore } from '../store/useToastStore';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function GlobalToast() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { visible, message, icon, color } = useToastStore();
     const insets = useSafeAreaInsets();
     const translateY = useRef(new Animated.Value(-100)).current;
@@ -51,7 +54,7 @@ export default function GlobalToast() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         position: 'absolute',
         top: 0,
@@ -77,9 +80,9 @@ const styles = StyleSheet.create({
         borderColor: '#333',
     },
     text: {
-        color: '#FFFFFF',
+        color: colors.text,
         marginLeft: 8,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontSize: 14,
         fontWeight: '700',
     }

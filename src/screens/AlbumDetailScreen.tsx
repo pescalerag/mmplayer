@@ -35,8 +35,9 @@ import { HistoryService } from "../services/HistoryService";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useTagManagerStore } from "../store/useTagManagerStore";
-import { Layout } from "../theme/theme";
+import { Colors, Layout } from "../theme/theme";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const AlbumTrackRow = withObservables(
   ["track"],
@@ -93,6 +94,8 @@ function AlbumDetailContent({
   tags,
   isLoadingTracks,
 }: Props & { isLoadingTracks: boolean }) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const navigation = useNavigation<any>();
   const showTagColors = useSettingsStore((state) => state.showTagColors);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
@@ -220,7 +223,7 @@ function AlbumDetailContent({
                       {
                         backgroundColor: showTagColors
                           ? t.color
-                          : "rgba(255, 255, 255, 0.08)",
+                          : colors.overlayAlpha08,
                       },
                     ]}
                     onPress={handleOpenTagManager}
@@ -231,7 +234,7 @@ function AlbumDetailContent({
                         {
                           color: showTagColors
                             ? getDynamicTagTextColor(t.color)
-                            : "#FFFFFF",
+                            : colors.text,
                         },
                       ]}
                     >
@@ -245,7 +248,7 @@ function AlbumDetailContent({
                 style={styles.addTagButton}
                 onPress={handleOpenTagManager}
               >
-                <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
+                <Ionicons name="add-circle-outline" size={14} color={colors.textSecondary} />
                 <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
               </TouchableOpacity>
             )}
@@ -278,7 +281,7 @@ function AlbumDetailContent({
                 style={styles.shuffleFab}
                 onPress={handleShuffleFabPress}
               >
-                <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                <Ionicons name="shuffle" size={22} color={colors.text} />
               </TouchableOpacity>
 
               {/* Botón Play/Pause */}
@@ -286,7 +289,7 @@ function AlbumDetailContent({
                 <Ionicons
                   name={isCurrentAlbumPlaying ? "pause" : "play"}
                   size={28}
-                  color="#FFFFFF"
+                  color={colors.text}
                   style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
                 />
               </TouchableOpacity>
@@ -313,7 +316,7 @@ function AlbumDetailContent({
         <View style={{ minHeight: 64, width: '100%' }}>
           {showDiscHeader && item.discNumber && item.discNumber > 1 && (
             <View style={styles.discHeader}>
-              <Ionicons name="disc-outline" size={16} color="#8B5CF6" />
+              <Ionicons name="disc-outline" size={16} color={colors.accent} />
               <Text style={styles.discText}>{t('library.disc_singular')} {item.discNumber}</Text>
             </View>
           )}
@@ -341,7 +344,7 @@ function AlbumDetailContent({
         ListEmptyComponent={
           isLoadingTracks ? (
             <ActivityIndicator
-              color="#8B5CF6"
+              color={colors.accent}
               size="large"
               style={{ marginTop: 40 }}
             />
@@ -390,10 +393,10 @@ export default function AlbumDetailScreen() {
 }
 
 // ─── ESTILOS ─────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: colors.background,
   },
   headerContainer: {
     width,
@@ -405,7 +408,7 @@ const styles = StyleSheet.create({
     height: HEADER_HEIGHT,
   },
   headerPlaceholder: {
-    backgroundColor: "#282828",
+    backgroundColor: colors.cardBackground,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -434,29 +437,29 @@ const styles = StyleSheet.create({
     right: 20,
   },
   albumTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 28,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "bold",
     marginBottom: 4,
   },
   artistName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "700",
     marginBottom: 4,
   },
   artistNameLink: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "700",
   },
   albumMeta: {
-    color: "#CCCCCC",
+    color: colors.textSecondary,
     fontSize: 14,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "700",
   },
   playFab: {
@@ -466,7 +469,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#8B5CF6",
+    backgroundColor: colors.accent,
     justifyContent: "center",
     alignItems: "center",
     elevation: 8,
@@ -488,12 +491,12 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#282828",
+    backgroundColor: colors.cardBackground,
     marginHorizontal: 20,
     marginBottom: 4,
   },
   emptyText: {
-    color: "#B3B3B3",
+    color: colors.textSecondary,
     textAlign: "center",
     marginTop: 40,
     fontSize: 15,
@@ -506,9 +509,9 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   discText: {
-    color: "#8B5CF6",
+    color: colors.accent,
     fontSize: 14,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "bold",
     marginLeft: 8,
     textTransform: "uppercase",
@@ -531,9 +534,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tagText: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 11,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "800",
   },
   addTagButton: {
@@ -543,9 +546,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   addTagText: {
-    color: "#B3B3B3",
+    color: colors.textSecondary,
     fontSize: 12,
-    fontFamily: "Montserrat",
+    fontFamily: fonts.regular,
     fontWeight: "700",
   },
 });

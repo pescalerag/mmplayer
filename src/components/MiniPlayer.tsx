@@ -13,19 +13,23 @@ import { MainNavigationProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import BlurredBackground from './BlurredBackground';
 import PlayPauseButton from './PlayPauseButton';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 // --- FONDO DIFUMINADO ---
 
 const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any }) => ({
     track: track.observe(),
     album: track.album.observe(),
-}))(({ album }: { album: Album }) => (
-    <BlurredBackground
-        imageUrl={album.coverUrl}
-        blurIntensity={Platform.OS === 'ios' ? 40 : 70}
-        gradientColors={['rgba(26, 26, 26, 0.3)', 'rgba(0, 0, 0, 0.6)']}
-    />
-));
+}))(({ album }: { album: Album }) => {
+    const { colors } = useAppTheme();
+    return (
+        <BlurredBackground
+            imageUrl={album.coverUrl}
+            blurIntensity={Platform.OS === 'ios' ? 40 : 70}
+            gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)', colors.background]}
+        />
+    );
+});
 
 
 
@@ -38,6 +42,8 @@ interface MiniPlayerUIProps {
 }
 
 const MiniProgressBar = () => {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { position, duration } = useProgress();
     const progress = duration > 0 ? (position / duration) * 100 : 0;
     
@@ -49,6 +55,8 @@ const MiniProgressBar = () => {
 };
 
 const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIProps) => {
+    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const [imageError, setImageError] = React.useState(false);
 
     React.useEffect(() => {
@@ -76,7 +84,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
                             />
                         ) : (
                             <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                <Ionicons name="musical-notes" size={16} color="#666" />
+                                <Ionicons name="musical-notes" size={16} color={colors.textSecondary} />
                             </View>
                         )}
                     </View>
@@ -123,21 +131,21 @@ const MiniPlayer = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: { width: '100%', height: 64, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', elevation: 10 },
-    content: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}, shadows: any = {lg: {}}) => StyleSheet.create({
+    container: { width: '100%', height: layout.MINI_PLAYER_HEIGHT, borderRadius: radii.lg || 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.overlayAlpha10, ...shadows.lg },
+    content: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md || 12 },
     leftSection: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-    artwork: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#282828' },
+    artwork: { width: 44, height: 44, borderRadius: radii.sm || 6, backgroundColor: colors.cardBackground },
     artworkPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-    artworkContainer: { width: 44, height: 44, borderRadius: 6, overflow: 'hidden' },
-    info: { flex: 1, marginLeft: 12 },
-    title: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Montserrat', fontWeight: '700' },
-    artist: { color: '#B3B3B3', fontSize: 12, fontFamily: 'Montserrat', fontWeight: '700', marginTop: 2 },
+    artworkContainer: { width: 44, height: 44, borderRadius: radii.sm || 6, overflow: 'hidden' },
+    info: { flex: 1, marginLeft: spacing.sm || 12 },
+    title: { color: colors.text, fontSize: 14, fontFamily: fonts.regular, fontWeight: fontWeights.bold },
+    artist: { color: colors.textSecondary, fontSize: 12, fontFamily: fonts.regular, fontWeight: fontWeights.bold, marginTop: 2 },
     controls: { flexDirection: 'row', alignItems: 'center' },
-    controlIcon: { padding: 8 },
-    playPauseButton: { padding: 4 },
-    progressContainer: { width: '100%', height: 2.5, backgroundColor: 'rgba(255, 255, 255, 0.15)', position: 'absolute', bottom: 0 },
-    progressIndicator: { height: '100%', backgroundColor: '#ffffffff' },
+    controlIcon: { padding: spacing.sm || 8 },
+    playPauseButton: { padding: spacing.xs || 4 },
+    progressContainer: { width: '100%', height: 2.5, backgroundColor: colors.overlayAlpha15, position: 'absolute', bottom: 0 },
+    progressIndicator: { height: '100%', backgroundColor: colors.text },
 });
 
 export default MiniPlayer;

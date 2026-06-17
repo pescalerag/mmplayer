@@ -6,7 +6,11 @@ import Constants from 'expo-constants';
 import { getChangelogForVersion } from '../constants/changelogs';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { navigationRef } from '../navigation/navigationRef';
+import { ScannerService } from '../services/ScannerService';
 import { useTranslation } from 'react-i18next';
+
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,6 +19,8 @@ const IMAGE_WIDTH = width * 0.75;
 const IMAGE_HEIGHT = IMAGE_WIDTH * (1920 / 1080);
 
 export default function UpdatedAppModal() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const [visible, setVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
   const { t } = useTranslation();
@@ -36,6 +42,9 @@ export default function UpdatedAppModal() {
 
   useEffect(() => {
     if (lastSeenVersion !== currentVersion) {
+      if (lastSeenVersion !== null) {
+        ScannerService.repairCorruptedData();
+      }
       setVisible(true);
     }
   }, [lastSeenVersion, currentVersion]);
@@ -118,7 +127,7 @@ export default function UpdatedAppModal() {
         {/* Botones fuera de la imagen */}
         <View style={styles.buttonsContainer}>
           <TouchableOpacity style={styles.primaryButton} onPress={handleSeeChanges} activeOpacity={0.8}>
-            <Ionicons name="sparkles" size={20} color="#FFF" style={styles.buttonIcon} />
+            <Ionicons name="sparkles" size={20} color={colors.text} style={styles.buttonIcon} />
             <Text style={styles.primaryButtonText}>{t('settings.view_changes')}</Text>
           </TouchableOpacity>
 
@@ -132,7 +141,7 @@ export default function UpdatedAppModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -145,7 +154,7 @@ const styles = StyleSheet.create({
   imageWrapper: {
     width: IMAGE_WIDTH,
     height: Math.min(IMAGE_HEIGHT, height * 0.65), // Limit height so it fits on small screens
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -154,7 +163,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.overlayAlpha10,
   },
   image: {
     width: '100%',
@@ -167,14 +176,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   primaryButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.accent,
     flexDirection: 'row',
     width: '100%',
     height: 52,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: colors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
@@ -184,9 +193,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
-    fontFamily: 'Montserrat',
+    fontFamily: fonts.regular,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -195,9 +204,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   secondaryButtonText: {
-    color: '#A0A0A0',
+    color: colors.textSecondary,
     fontSize: 14,
-    fontFamily: 'Montserrat',
+    fontFamily: fonts.regular,
     fontWeight: '700',
   },
 });

@@ -9,7 +9,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Colors } from '../theme/theme';
 import MarqueeText from './MarqueeText';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -47,9 +49,11 @@ const DetailHeaderLayout = ({
     isFavorites = false,
     renderCover,
 }: DetailHeaderLayoutProps) => {
-    const imageSource = React.useMemo(() => 
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+    const imageSource = React.useMemo(() =>
         imageUrl ? { uri: imageUrl } : null
-    , [imageUrl]);
+        , [imageUrl]);
 
     return (
         <View style={styles.headerContainer}>
@@ -62,7 +66,7 @@ const DetailHeaderLayout = ({
                     end={{ x: 1, y: 1 }}
                     style={[styles.headerImage, styles.headerPlaceholder]}
                 >
-                    <Ionicons name="heart" size={100} color="#FFFFFF" />
+                    <Ionicons name="heart" size={100} color={colors.text} />
                 </LinearGradient>
             ) : imageUrl ? (
                 <Image
@@ -80,35 +84,35 @@ const DetailHeaderLayout = ({
 
             {/* Gradient overlay */}
             <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)', '#121212'] as any}
+                colors={['transparent', 'rgba(0,0,0,0.8)', colors.background] as any}
                 style={styles.gradient}
             />
 
             {/* Botón atrás */}
             <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+                <Ionicons name="chevron-back" size={28} color={colors.text} />
             </TouchableOpacity>
 
             {/* Botones de Acción Derechos */}
             <View style={styles.actionButtonsContainer}>
                 {onPickPhoto && (
                     <TouchableOpacity style={styles.actionButton} onPress={onPickPhoto}>
-                        <Ionicons name="camera" size={22} color="#FFFFFF" />
+                        <Ionicons name="camera" size={22} color={colors.text} />
                     </TouchableOpacity>
                 )}
                 {onEdit && (
                     <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-                        <Ionicons name="pencil-outline" size={22} color="#FFFFFF" />
+                        <Ionicons name="pencil-outline" size={22} color={colors.text} />
                     </TouchableOpacity>
                 )}
                 {onDelete && (
                     <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-                        <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+                        <Ionicons name="trash-outline" size={22} color={colors.text} />
                     </TouchableOpacity>
                 )}
                 {onHome && (
                     <TouchableOpacity style={styles.actionButton} onPress={onHome}>
-                        <Ionicons name="home" size={22} color="#FFFFFF" />
+                        <Ionicons name="home" size={22} color={colors.text} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -125,7 +129,7 @@ const DetailHeaderLayout = ({
                         spacing={80}
                     />
                 </View>
-                
+
                 {subtitle && (
                     <View style={[styles.subtitleContainer, renderExtra ? { marginRight: 120 } : null]}>
                         {typeof subtitle === 'string' ? (
@@ -141,7 +145,7 @@ const DetailHeaderLayout = ({
                         )}
                     </View>
                 )}
-                
+
                 {metaInfo && (
                     <Text style={[styles.metaInfo, renderExtra ? { marginRight: 120 } : null]}>{metaInfo}</Text>
                 )}
@@ -155,7 +159,7 @@ const DetailHeaderLayout = ({
 
 export default memo(DetailHeaderLayout);
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     headerContainer: {
         width,
         height: HEADER_HEIGHT,
@@ -166,7 +170,7 @@ const styles = StyleSheet.create({
         height: HEADER_HEIGHT,
     },
     headerPlaceholder: {
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -212,9 +216,9 @@ const styles = StyleSheet.create({
         right: 20,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 28,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: 'bold',
         marginBottom: 4,
     },
@@ -222,15 +226,15 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     subtitleText: {
-        color: '#CCCCCC',
+        color: colors.textSecondary,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     metaInfo: {
-        color: '#CCCCCC',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
 });

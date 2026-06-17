@@ -24,10 +24,14 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function FolderMenuSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, selectedFolderPath, selectedFolderName, closeMenu } = useFolderMenuStore();
@@ -165,7 +169,7 @@ export default function FolderMenuSheet() {
                 
                 <View style={styles.header}>
                     <View style={[styles.thumbnail, styles.placeholder]}>
-                        <Ionicons name="folder" size={24} color="#8B5CF6" />
+                        <Ionicons name="folder" size={24} color={colors.accent} />
                     </View>
                     <View style={styles.headerText}>
                         <Text style={styles.title} numberOfLines={1}>{selectedFolderName}</Text>
@@ -179,13 +183,13 @@ export default function FolderMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast(t('toasts.folder_next'), 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.folder_next'), 'return-down-forward');
                             closeMenu();
                         }
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                        <Ionicons name="return-down-forward" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
@@ -202,7 +206,7 @@ export default function FolderMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color="#FFFFFF" />
+                        <Ionicons name="list" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
@@ -218,7 +222,7 @@ export default function FolderMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="add-circle-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
@@ -232,16 +236,16 @@ export default function FolderMenuSheet() {
                     onPress={handleExclude}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="eye-off-outline" size={24} color="#EF4444" />
+                        <Ionicons name="eye-off-outline" size={24} color={colors.heartIcon} />
                     </View>
-                    <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.exclude_scan')}</Text>
+                    <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.exclude_scan')}</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -255,7 +259,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -270,7 +274,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 20,
     },
     thumbnail: {
@@ -280,7 +284,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -288,15 +292,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 18,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
     },
     subtitle: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 4,
     },
@@ -313,14 +317,14 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     optionText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     separator: {
         height: 1,
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         marginVertical: 8,
     },
 });

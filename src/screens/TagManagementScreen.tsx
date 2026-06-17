@@ -10,7 +10,7 @@ import { useTagFormStore } from '../store/useTagFormStore';
 import Tag from '../database/models/Tag';
 import { TagService } from '../services/tagService';
 import { database } from '../database';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
 import { useTranslation } from 'react-i18next';
 
 interface TagManagementContentProps {
@@ -70,14 +70,7 @@ function TagManagementContent({ tags }: TagManagementContentProps) {
     const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
 
     return (
-        <View style={styles.container}>
-            {/* Fondo gradiente */}
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-            />
+        <View style={[styles.container, { backgroundColor: Colors.background }]}>
 
             {/* 1. CONTENIDO - LISTA */}
             <View style={StyleSheet.absoluteFill}>

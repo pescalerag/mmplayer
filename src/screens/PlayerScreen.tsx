@@ -32,6 +32,7 @@ import { useTagManagerStore } from '../store/useTagManagerStore';
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
+import { Colors } from '../theme/theme';
 import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
@@ -40,9 +41,11 @@ import { useToastStore } from '../store/useToastStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { getDynamicTagTextColor } from '../utils/color';
 import { formatTrackTime } from '../utils/time';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width } = Dimensions.get('window');
 
+const SKIP_PREVIOUS_THRESHOLD = 3;
 
 // --- UI DEL REPRODUCTOR (SINCRONIZADA) ---
 interface PlayerScreenUIProps {
@@ -98,6 +101,8 @@ const performToggleShuffle = async (
 const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
+    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const insets = useSafeAreaInsets();
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const openSleepTimer = useSleepTimerStore(state => state.openSheet);
@@ -229,14 +234,14 @@ const PlayerScreenUI = ({
                 key={`blur-${track.id}`}
                 imageUrl={album.coverUrl}
                 blurIntensity={10}
-                gradientColors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.7)', '#000000']}
+                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
             />
 
             <View style={styles.safeArea}>
                 {/* Header */}
                 <View style={[styles.header, { marginTop: insets.top }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.dismissButton}>
-                        <Ionicons name="chevron-down" size={32} color="#FFFFFF" />
+                        <Ionicons name="chevron-down" size={32} color={colors.text} />
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -256,7 +261,7 @@ const PlayerScreenUI = ({
                         onPress={handleMorePress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Ionicons name="ellipsis-horizontal" size={22} color="#FFFFFF" />
+                        <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
                     </TouchableOpacity>
                 </View>
 
@@ -274,7 +279,7 @@ const PlayerScreenUI = ({
                         />
                     ) : (
                         <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                            <Ionicons name="musical-notes" size={80} color="#666" />
+                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
                         </View>
                     )}
                 </View>
@@ -293,10 +298,10 @@ const PlayerScreenUI = ({
                                     {tags.map(t => (
                                         <TouchableOpacity
                                             key={t.id}
-                                            style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : 'rgba(255, 255, 255, 0.08)' }]}
+                                            style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : colors.overlayAlpha08 }]}
                                             onPress={handleOpenTagManager}
                                         >
-                                            <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : '#FFFFFF' }]}>{t.name}</Text>
+                                            <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : colors.text }]}>{t.name}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </ScrollView>
@@ -305,7 +310,7 @@ const PlayerScreenUI = ({
                                     style={styles.addTagButton}
                                     onPress={handleOpenTagManager}
                                 >
-                                    <Ionicons name="add-circle-outline" size={14} color="#B3B3B3" />
+                                    <Ionicons name="add-circle-outline" size={14} color={colors.textSecondary} />
                                     <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
                                 </TouchableOpacity>
                             )}
@@ -340,7 +345,7 @@ const PlayerScreenUI = ({
                                 <Ionicons
                                     name={track.isFavorite ? "heart" : "heart-outline"}
                                     size={28}
-                                    color={track.isFavorite ? "#EF4444" : "#FFFFFF"}
+                                    color={track.isFavorite ? colors.heartIcon : colors.text}
                                 />
                             </TouchableOpacity>
                         </Animated.View>
@@ -350,7 +355,7 @@ const PlayerScreenUI = ({
                             style={styles.actionButton}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
-                            <Ionicons name="add" size={28} color="#FFFFFF" />
+                            <Ionicons name="add" size={28} color={colors.text} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -362,9 +367,9 @@ const PlayerScreenUI = ({
                         minimumValue={0}
                         maximumValue={duration > 0 ? duration : 1}
                         value={isSeeking ? seekValue : position}
-                        minimumTrackTintColor="#FFFFFF"
-                        maximumTrackTintColor="rgba(255,255,255,0.2)"
-                        thumbTintColor="#FFFFFF"
+                        minimumTrackTintColor={colors.text}
+                        maximumTrackTintColor={colors.overlayAlpha20}
+                        thumbTintColor={colors.text}
                         onSlidingStart={(value) => {
                             setIsSeeking(true);
                             setSeekValue(value);
@@ -395,23 +400,23 @@ const PlayerScreenUI = ({
                         <Ionicons
                             name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
                             size={24}
-                            color={isShuffleEnabled ? '#A78BFA' : '#535353'}
+                            color={isShuffleEnabled ? colors.accentLight : colors.disabled}
                         />
                     </TouchableOpacity>
 
                     {/* ── ANTERIOR ── */}
                     <TouchableOpacity
                         onPress={() => {
-                            if (position > 3) {
+                            if (position > SKIP_PREVIOUS_THRESHOLD) {
                                 TrackPlayer.seekTo(0).catch(() => { });
                             } else {
                                 TrackPlayer.skipToPrevious().catch(() => { });
                             }
                         }}
                         style={styles.controlButton}
-                        disabled={!hasPrevious && position <= 3}
+                        disabled={!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD}
                     >
-                        <Ionicons name="play-back" size={38} color={(hasPrevious || position > 3) ? '#FFFFFF' : '#535353'} />
+                        <Ionicons name="play-back" size={38} color={(hasPrevious || position > SKIP_PREVIOUS_THRESHOLD) ? colors.text : colors.disabled} />
                     </TouchableOpacity>
 
                     <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
@@ -422,7 +427,7 @@ const PlayerScreenUI = ({
                         style={styles.controlButton}
                         disabled={!hasNext}
                     >
-                        <Ionicons name="play-forward" size={38} color={hasNext ? '#FFFFFF' : '#535353'} />
+                        <Ionicons name="play-forward" size={38} color={hasNext ? colors.text : colors.disabled} />
                     </TouchableOpacity>
 
                     {/* ── REPEAT ── */}
@@ -436,7 +441,7 @@ const PlayerScreenUI = ({
                                 name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
                                 size={24}
                                 color={
-                                    repeatMode === RepeatMode.Off ? '#535353' : '#A78BFA'
+                                    repeatMode === RepeatMode.Off ? colors.disabled : colors.accentLight
                                 }
                             />
                             {repeatMode === RepeatMode.Track && (
@@ -459,7 +464,7 @@ const PlayerScreenUI = ({
                             <Ionicons
                                 name="timer-outline"
                                 size={24}
-                                color={isSleepTimerActive ? '#A78BFA' : '#B3B3B3'}
+                                color={isSleepTimerActive ? colors.accentLight : colors.textSecondary}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -470,7 +475,7 @@ const PlayerScreenUI = ({
                             <Ionicons
                                 name="share-social-outline"
                                 size={24}
-                                color="#B3B3B3"
+                                color={colors.textSecondary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -481,7 +486,7 @@ const PlayerScreenUI = ({
                         style={styles.footerButton}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
-                        <Ionicons name="list" size={24} color="#B3B3B3" />
+                        <Ionicons name="list" size={24} color={colors.textSecondary} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -519,10 +524,10 @@ const PlayerScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}, shadows: any = {lg: {}}) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: colors.background,
     },
     safeArea: {
         flex: 1,
@@ -531,49 +536,45 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: spacing.md || 16,
         height: 60,
     },
     dismissButton: {
-        padding: 4,
+        padding: spacing.xs || 4,
     },
     headerTitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 13,
-        fontWeight: '700',
+        fontWeight: fontWeights.bold,
         textTransform: 'uppercase',
         letterSpacing: 1.2,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         textAlign: 'center',
     },
     headerTextContainer: {
         flex: 1,
         alignItems: 'center',
-        paddingHorizontal: 10,
+        paddingHorizontal: spacing.sm || 10,
     },
     artworkContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 32,
-        paddingTop: 16,
-        paddingBottom: 8,
+        paddingHorizontal: spacing.xl || 32,
+        paddingTop: spacing.md || 16,
+        paddingBottom: spacing.sm || 8,
     },
     artwork: {
         width: width - 64,
         height: width - 64,
-        borderRadius: 10,
-        backgroundColor: '#282828',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 20 },
-        shadowOpacity: 0.5,
-        shadowRadius: 30,
-        elevation: 10,
+        borderRadius: radii.md || 10,
+        backgroundColor: colors.cardBackground,
+        ...shadows.lg,
     },
     artworkPlaceholder: {
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
     },
     infoContainer: {
         flexDirection: 'row',
@@ -607,41 +608,42 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     tagBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
+        paddingHorizontal: spacing.sm || 8,
+        paddingVertical: spacing.xs || 3,
+        borderRadius: radii.sm || 6,
         alignItems: 'center',
         justifyContent: 'center',
     },
     tagText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 11,
-        fontFamily: 'Montserrat',
-        fontWeight: '800',
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
     },
     addTagButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        paddingVertical: 3,
+        gap: spacing.xs || 4,
+        paddingVertical: spacing.xs || 3,
     },
     addTagText: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 12,
-        fontFamily: 'Montserrat',
-        fontWeight: '700',
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 26,
-        fontWeight: 'bold',
-        fontFamily: 'Montserrat',
-        marginBottom: 4,
+        fontWeight: fontWeights.bold,
+        fontFamily: fonts.regular,
+        marginBottom: spacing.xs || 4,
     },
     artist: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 16,
-        fontFamily: 'Montserrat', fontWeight: '700',
+        fontFamily: fonts.regular, 
+        fontWeight: fontWeights.bold,
     },
     progressSection: {
         paddingHorizontal: 5,
@@ -659,9 +661,10 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     timeText: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 12,
-        fontFamily: 'Montserrat', fontWeight: '700',
+        fontFamily: fonts.regular, 
+        fontWeight: fontWeights.bold,
     },
     controlsContainer: {
         flexDirection: 'row',
@@ -706,10 +709,10 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: -4,
         right: -6,
-        color: '#A78BFA',
+        color: colors.accentLight,
         fontSize: 9,
-        fontFamily: 'Montserrat',
-        fontWeight: '800',
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
     },
 });
 

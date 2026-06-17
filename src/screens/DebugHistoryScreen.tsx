@@ -18,13 +18,16 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import PlaybackHistory from '../database/models/PlaybackHistory';
 import Track from '../database/models/Track';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface HistoryRowProps {
     historyItem: PlaybackHistory;
 }
 
 function HistoryRow({ historyItem }: HistoryRowProps) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [track, setTrack] = useState<Track | null>(null);
     const [album, setAlbum] = useState<Album | null>(null);
     const [artist, setArtist] = useState<Artist | null>(null);
@@ -110,6 +113,8 @@ interface DebugHistoryContentProps {
 }
 
 function DebugHistoryContent({ history }: DebugHistoryContentProps) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
 
@@ -142,22 +147,17 @@ function DebugHistoryContent({ history }: DebugHistoryContentProps) {
     };
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
 
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                    <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Debug Historial</Text>
                 {history.length > 0 && (
                     <TouchableOpacity onPress={handleClearHistory} style={styles.clearButton}>
-                        <Ionicons name="trash-outline" size={22} color="#EF4444" />
+                        <Ionicons name="trash-outline" size={22} color={colors.heartIcon} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -196,7 +196,7 @@ export default function DebugHistoryScreen() {
     return <ObservableDebugHistoryScreen />;
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#121212',
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
         paddingBottom: 15,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+        borderBottomColor: colors.overlayAlpha05,
         zIndex: 10,
     },
     backButton: {
@@ -217,9 +217,9 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '900',
-        color: '#FFFFFF',
+        color: colors.text,
         flex: 1,
         marginLeft: 15,
     },
@@ -245,27 +245,27 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: colors.text,
     },
     subtitle: {
         fontSize: 13,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         marginTop: 2,
     },
     metadataText: {
         fontSize: 11,
-        fontFamily: 'Montserrat', fontWeight: '600',
+        fontFamily: fonts.regular, fontWeight: '600',
         color: '#8A8A8A',
         marginTop: 6,
     },
     dateText: {
         fontSize: 11,
-        fontFamily: 'Montserrat', fontWeight: '600',
-        color: '#666666',
+        fontFamily: fonts.regular, fontWeight: '600',
+        color: colors.textSecondary,
         marginTop: 4,
     },
     badgeContainer: {
@@ -278,16 +278,16 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     badgeManual: {
-        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        backgroundColor: colors.accentAlpha15,
     },
     badgeQueue: {
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: colors.overlayAlpha08,
     },
     badgeText: {
         fontSize: 10,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
-        color: '#8B5CF6',
+        color: colors.accent,
     },
     emptyContainer: {
         alignItems: 'center',
@@ -296,9 +296,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 40,
     },
     emptyText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 16,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     emptySubtitle: {
         color: '#888888',
         fontSize: 13,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 8,

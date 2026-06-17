@@ -1,24 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
+    Alert,
     ScrollView,
     StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
     View,
-    Alert
+    Modal
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
-import { Layout } from '../theme/theme';
-import Constants from 'expo-constants';
-import { useTranslation } from 'react-i18next';
+import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
+import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
+import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
 interface SettingsProps {
@@ -31,17 +33,21 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume } = useSettingsStore();
+    const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume, swipeLeftAction, swipeRightAction } = useSettingsStore();
     const { t } = useTranslation();
+    const { openSheet } = useSwipeActionSheetStore();
+
+    const swipeOptions: { label: string, value: SwipeAction, icon: any }[] = [
+        { label: t('settings.swipe_action_add_next'), value: 'add_next', icon: 'return-down-forward' },
+        { label: t('settings.swipe_action_add_last'), value: 'add_last', icon: 'list' },
+        { label: t('actions.add_to_playlist'), value: 'add_to_playlist', icon: 'add-circle-outline' },
+        { label: t('settings.swipe_action_toggle_favorite'), value: 'toggle_favorite', icon: 'heart' },
+        { label: t('settings.swipe_action_none'), value: 'none', icon: 'close' },
+    ];
 
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#000000', '#22222221', '#000000']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={[styles.container, { backgroundColor: Colors.background }]}>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
             <LinearGradient
@@ -154,7 +160,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </View>
 
                     <View style={styles.separator} />
-                    
+
                     <View style={styles.settingRow}>
                         <View style={{ flex: 1, paddingRight: 15 }}>
                             <Text style={styles.settingLabel}>{t('settings.silent_sync')}</Text>
@@ -170,6 +176,40 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             ios_backgroundColor="#282828"
                         />
                     </View>
+                </View>
+
+                {/* --- SECCIÓN DE GESTOS --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>{t('settings.swipe_actions')}</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            openSheet('left');
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.swipe_left')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {swipeOptions.find(o => o.value === swipeLeftAction)?.label}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            openSheet('right');
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.swipe_right')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {swipeOptions.find(o => o.value === swipeRightAction)?.label}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* --- SECCIÓN DE EXCLUSIONES --- */}
@@ -220,9 +260,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 t('settings.repair_alert_desc'),
                                 [
                                     { text: t('actions.cancel'), style: "cancel" },
-                                    { 
-                                        text: t('actions.continue'), 
-                                        style: "default", 
+                                    {
+                                        text: t('actions.continue'),
+                                        style: "default",
                                         onPress: async () => {
                                             await ScannerService.repairCollaborators();
                                             Alert.alert(t('settings.success'), t('settings.repair_success'));
@@ -249,10 +289,10 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 t('settings.wipe_alert_desc'),
                                 [
                                     { text: t('actions.cancel'), style: "cancel" },
-                                    { 
-                                        text: t('settings.wipe_confirm'), 
-                                        style: "destructive", 
-                                        onPress: () => ScannerService.fullDataWipe() 
+                                    {
+                                        text: t('settings.wipe_confirm'),
+                                        style: "destructive",
+                                        onPress: () => ScannerService.fullDataWipe()
                                     }
                                 ]
                             );
@@ -292,6 +332,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>
+
         </View>
     );
 }

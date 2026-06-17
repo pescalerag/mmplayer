@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AlbumMenuSheet from "./src/components/AlbumMenuSheet";
 import ArtistMenuSheet from "./src/components/ArtistMenuSheet";
 import ArtistsListSheet from "./src/components/ArtistsListSheet";
@@ -23,6 +24,7 @@ import PlaylistMenuSheet from "./src/components/PlaylistMenuSheet";
 import PlaylistSelectorModal from "./src/components/PlaylistSelectorModal";
 import QueueSheet from "./src/components/QueueSheet";
 import SleepTimerSheet from "./src/components/SleepTimerSheet";
+import SwipeActionSheet from "./src/components/SwipeActionSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
@@ -99,7 +101,8 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: "#000000" }}>
         <TrackPlayerSync />
         <NavigationContainer
@@ -139,10 +142,12 @@ export default function App() {
           <UpdatedAppModal />
           <ArtistsListSheet />
           <SleepTimerSheet />
+          <SwipeActionSheet />
           <GlobalToast />
         </NavigationContainer>
       </View>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

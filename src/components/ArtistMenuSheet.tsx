@@ -22,10 +22,13 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { useTranslation } from 'react-i18next';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ArtistMenuSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, selectedArtist, closeMenu, navCallbacks } = useArtistMenuStore();
@@ -148,7 +151,7 @@ export default function ArtistMenuSheet() {
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="person" size={24} color="#666" />
+                            <Ionicons name="person" size={24} color={colors.textSecondary} />
                         </View>
                     )}
                     <View style={styles.headerText}>
@@ -172,7 +175,7 @@ export default function ArtistMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name={selectedArtist?.isPinned ? "pin" : "pin-outline"} size={24} color="#FFFFFF" />
+                        <Ionicons name={selectedArtist?.isPinned ? "pin" : "pin-outline"} size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{selectedArtist?.isPinned ? t('actions.unpin_library') : t('actions.pin_library')}</Text>
                 </TouchableOpacity>
@@ -183,13 +186,13 @@ export default function ArtistMenuSheet() {
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueNext(tracks);
-                            useToastStore.getState().showToast(t('toasts.artist_next'), 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.artist_next'), 'return-down-forward');
                             closeMenu();
                         }
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                        <Ionicons name="return-down-forward" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
@@ -206,7 +209,7 @@ export default function ArtistMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color="#FFFFFF" />
+                        <Ionicons name="list" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
@@ -244,7 +247,7 @@ export default function ArtistMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="person-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                 </TouchableOpacity>
@@ -253,7 +256,7 @@ export default function ArtistMenuSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -267,7 +270,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -282,7 +285,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 20,
     },
     thumbnail: {
@@ -292,7 +295,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -300,15 +303,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 18,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
     },
     subtitle: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 4,
     },
@@ -325,9 +328,9 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     optionText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
 });

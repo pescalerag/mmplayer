@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors } from '../theme/theme';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface LibraryCardProps {
     readonly title: string;
@@ -20,6 +22,8 @@ const { width } = Dimensions.get('window');
 const cardWidth = (width - 70) / 3;
 
 export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned }: Readonly<LibraryCardProps>) {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [imageError, setImageError] = useState(false);
 
     // Reiniciar error cuando cambie la URL de la imagen
@@ -44,13 +48,13 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
                     />
                 ) : (
                     <View style={styles.placeholder}>
-                        <Ionicons name={placeholderIcon} size={28} color="#b3b3b3" />
+                        <Ionicons name={placeholderIcon} size={28} color={colors.textSecondary} />
                     </View>
                 )}
             </View>
             <View style={styles.titleContainer}>
                 {isPinned && (
-                    <Ionicons name="pin" size={13} color="#8B5CF6" style={styles.pinIconInline} />
+                    <Ionicons name="pin" size={13} color={colors.accent} style={styles.pinIconInline} />
                 )}
                 <Text style={styles.title} numberOfLines={1}>{title}</Text>
             </View>
@@ -64,7 +68,7 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     card: {
         width: cardWidth,
         marginBottom: 20,
@@ -74,7 +78,7 @@ const styles = StyleSheet.create({
         height: cardWidth,
         borderRadius: 8,
         overflow: 'hidden',
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         marginBottom: 8,
     },
     image: {
@@ -98,17 +102,17 @@ const styles = StyleSheet.create({
         marginRight: 2,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 13,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textAlign: 'center',
         flexShrink: 1,
     },
     subtitle: {
-        color: '#CCCCCC',
+        color: colors.textSecondary,
         fontSize: 11,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 2,

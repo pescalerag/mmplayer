@@ -31,10 +31,13 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import * as Sharing from 'expo-sharing';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TrackMenuSheet() {
+    const { colors, fonts, layout } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { isVisible, selectedTrack, closeMenu, navCallbacks } = useTrackMenuStore();
@@ -206,7 +209,7 @@ export default function TrackMenuSheet() {
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
-                            <Ionicons name="musical-notes" size={24} color="#666" />
+                            <Ionicons name="musical-notes" size={24} color={colors.textSecondary} />
                         </View>
                     )}
                     <View style={styles.headerText}>
@@ -229,13 +232,13 @@ export default function TrackMenuSheet() {
                     onPress={() => {
                         if (selectedTrack) {
                             addToQueueNext(selectedTrack);
-                            useToastStore.getState().showToast(t('toasts.playing_next'), 'musical-notes');
+                            useToastStore.getState().showToast(t('toasts.playing_next'), 'return-down-forward');
                             closeMenu();
                         }
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color="#FFFFFF" />
+                        <Ionicons name="return-down-forward" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                 </TouchableOpacity>
@@ -252,7 +255,7 @@ export default function TrackMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color="#FFFFFF" />
+                        <Ionicons name="list" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                 </TouchableOpacity>
@@ -268,7 +271,7 @@ export default function TrackMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="pricetag-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="pricetag-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('tags.manage')}</Text>
                 </TouchableOpacity>
@@ -284,7 +287,7 @@ export default function TrackMenuSheet() {
                     }}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="add-circle-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
@@ -302,9 +305,9 @@ export default function TrackMenuSheet() {
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="trash-outline" size={24} color="#EF4444" />
+                            <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
                         </View>
-                        <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.remove_from_playlist')}</Text>
+                        <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.remove_from_playlist')}</Text>
                     </TouchableOpacity>
                 )}
 
@@ -314,7 +317,7 @@ export default function TrackMenuSheet() {
                     onPress={handleShare}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="share-social-outline" size={24} color="#FFFFFF" />
+                        <Ionicons name="share-social-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.share')}</Text>
                 </TouchableOpacity>
@@ -355,7 +358,7 @@ export default function TrackMenuSheet() {
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="disc-outline" size={24} color="#FFFFFF" />
+                            <Ionicons name="disc-outline" size={24} color={colors.text} />
                         </View>
                         <Text style={styles.optionText}>{t('actions.go_to_album')}</Text>
                     </TouchableOpacity>
@@ -396,7 +399,7 @@ export default function TrackMenuSheet() {
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="person-outline" size={24} color="#FFFFFF" />
+                            <Ionicons name="person-outline" size={24} color={colors.text} />
                         </View>
                         <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
                     </TouchableOpacity>
@@ -408,9 +411,9 @@ export default function TrackMenuSheet() {
                     onPress={handleExclude}
                 >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="eye-off-outline" size={24} color="#EF4444" />
+                        <Ionicons name="eye-off-outline" size={24} color={colors.heartIcon} />
                     </View>
-                    <Text style={[styles.optionText, { color: '#EF4444' }]}>{t('actions.exclude_song')}</Text>
+                    <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.exclude_song')}</Text>
                 </TouchableOpacity>
 
                 </ScrollView>
@@ -419,7 +422,7 @@ export default function TrackMenuSheet() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -435,7 +438,7 @@ const styles = StyleSheet.create({
         width: '100%',
         maxHeight: SCREEN_HEIGHT * 0.72,
         borderTopWidth: 1,
-        borderColor: '#282828',
+        borderColor: colors.cardBackground,
     },
     dragIndicator: {
         width: 36,
@@ -450,7 +453,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#282828',
+        borderBottomColor: colors.cardBackground,
         paddingBottom: 20,
     },
     thumbnail: {
@@ -460,7 +463,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -468,15 +471,15 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     title: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 18,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '800',
     },
     subtitle: {
-        color: '#B3B3B3',
+        color: colors.textSecondary,
         fontSize: 14,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
         marginTop: 4,
     },
@@ -493,14 +496,14 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     optionText: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
-        fontFamily: 'Montserrat',
+        fontFamily: fonts.regular,
         fontWeight: '700',
     },
     separator: {
         height: 1,
-        backgroundColor: '#282828',
+        backgroundColor: colors.cardBackground,
         marginVertical: 8,
     },
 });

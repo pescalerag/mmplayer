@@ -4,6 +4,7 @@ import withObservables from "@nozbe/with-observables";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
+import { Colors } from "../theme/theme";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { FlashList } from '@shopify/flash-list';
 import {
@@ -651,7 +652,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: Colors.background,
   },
   searchGradient: {
     paddingHorizontal: 20,
