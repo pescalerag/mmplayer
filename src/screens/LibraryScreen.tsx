@@ -4,6 +4,8 @@ import withObservables from '@nozbe/with-observables';
 import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { Colors } from '../theme/theme';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -45,7 +47,7 @@ const LibraryEmptyState = ({ icon, title, description }: { icon: string; title: 
 );
 
 // ----- TRACK ITEMS -----
-const TrackCard = ({ track, album, artists }: { track: Track, album: Album, artists: any }) => {
+const TrackCard = ({ track, album, artists }: { track: Track, album: Album | null, artists: any }) => {
     const { t } = useTranslation();
     const artistNames = (artists as Artist[]).length > 0
         ? (artists as Artist[]).map(a => a.name).join(', ')
@@ -71,7 +73,7 @@ const TrackCard = ({ track, album, artists }: { track: Track, album: Album, arti
 // Ahora solo escucha los cambios del modelo 'track'.
 const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe(),
 }))(TrackCard);
 
@@ -176,7 +178,7 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
 })(TrackList);
 
 // ----- ALBUM ITEMS -----
-const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, onPress?: () => void }) => {
+const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist | null, onPress?: () => void }) => {
     const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
 
@@ -200,7 +202,7 @@ const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist, o
 
 const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album }) => ({
     album: album.observe(),
-    artist: album.artist.observe(),
+    artist: album.artist.observe().pipe(catchError(() => of(null))),
 }))(AlbumCard);
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {

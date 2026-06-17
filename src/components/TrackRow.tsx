@@ -152,6 +152,7 @@ function TrackRow({
     switch (action) {
       case 'add_next': return 'return-down-forward';
       case 'add_last': return 'list';
+      case 'add_to_playlist': return 'add-circle-outline';
       case 'toggle_favorite': return 'heart';
       default: return 'close';
     }

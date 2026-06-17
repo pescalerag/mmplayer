@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { getChangelogForVersion } from '../constants/changelogs';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { navigationRef } from '../navigation/navigationRef';
+import { ScannerService } from '../services/ScannerService';
 import { useTranslation } from 'react-i18next';
 
 import { Colors } from '../theme/theme';
@@ -41,6 +42,9 @@ export default function UpdatedAppModal() {
 
   useEffect(() => {
     if (lastSeenVersion !== currentVersion) {
+      if (lastSeenVersion !== null) {
+        ScannerService.repairCorruptedData();
+      }
       setVisible(true);
     }
   }, [lastSeenVersion, currentVersion]);

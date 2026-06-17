@@ -135,6 +135,14 @@ const removeEmptyEntities = async (
                 activeEntityIds.add(collab.artist_id);
             }
         });
+
+        const albumsCollection = database.collections.get('albums');
+        const allAlbumsRaw = await albumsCollection.query().unsafeFetchRaw();
+        allAlbumsRaw.forEach((album: any) => {
+            if (album.artist_id) {
+                activeEntityIds.add(album.artist_id);
+            }
+        });
     }
 
     // 3. Filtramos los IDs de las entidades que no están en el Set
@@ -677,7 +685,8 @@ export const ScannerService = {
                     for (const artistId of options.targetArtistIds) {
                         const countTracks = await tracksCollection.query(Q.where('artist_id', artistId)).fetchCount();
                         const countCollabs = await collaboratorsCollection.query(Q.where('artist_id', artistId)).fetchCount();
-                        if (countTracks === 0 && countCollabs === 0) {
+                        const countAlbums = await albumsCollection.query(Q.where('artist_id', artistId)).fetchCount();
+                        if (countTracks === 0 && countCollabs === 0 && countAlbums === 0) {
                             try {
                                 const artistDoc = await artistsCollection.find(artistId);
                                 artistsToDelete.push(artistDoc);
