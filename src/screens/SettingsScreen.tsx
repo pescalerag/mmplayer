@@ -21,6 +21,7 @@ import { ScannerService } from '../services/ScannerService';
 import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
 import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
 import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
+import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
 import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
@@ -38,6 +39,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const { t } = useTranslation();
     const { openSheet } = useSwipeActionSheetStore();
     const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
+    const openAppTabsOrderSheet = useAppTabsOrderSheetStore(s => s.openSheet);
 
     const swipeOptions: { label: string, value: SwipeAction, icon: any }[] = [
         { label: t('settings.swipe_action_add_next'), value: 'add_next', icon: 'return-down-forward' },
@@ -192,6 +194,21 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             </Text>
                         </View>
                         <Ionicons name="list" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={openAppTabsOrderSheet}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.app_tabs_order') || 'Navegación principal'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.app_tabs_desc') || 'Personaliza la barra inferior'}
+                            </Text>
+                        </View>
+                        <Ionicons name="apps" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
                 </View>
 
