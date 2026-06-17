@@ -35,6 +35,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
+import { Colors } from '../theme/theme';
 import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
@@ -43,6 +44,7 @@ import { useToastStore } from '../store/useToastStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { getDynamicTagTextColor } from '../utils/color';
 import { formatTrackTime } from '../utils/time';
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width } = Dimensions.get('window');
 

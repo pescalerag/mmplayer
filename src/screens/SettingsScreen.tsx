@@ -246,6 +246,40 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </TouchableOpacity>
                 </View>
 
+                {/* --- SECCIÓN DE GESTOS --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>{t('settings.swipe_actions')}</Text>
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            openSheet('left');
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.swipe_left')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {swipeOptions.find(o => o.value === swipeLeftAction)?.label}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => {
+                            openSheet('right');
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.swipe_right')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {swipeOptions.find(o => o.value === swipeRightAction)?.label}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                </View>
+
                 {/* --- SECCIÓN DE EXCLUSIONES --- */}
                 <View style={styles.sectionCard}>
                     <Text style={styles.sectionTitle}>{t('settings.exclusions')}</Text>
