@@ -219,6 +219,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const { history, saveSearch, clearHistory, deleteHistoryItem } =
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+  const [headerHeight, setHeaderHeight] = useState(150);
 
   const getFilterLabel = (id: FilterOption) => {
     switch (id) {
@@ -505,9 +506,44 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
   return (
     <View style={styles.container}>
+      {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
+      <LinearGradient
+        colors={[
+          '#000000',
+          'rgba(0, 0, 0, 0.95)',
+          'rgba(0, 0, 0, 0.8)',
+          'transparent'
+        ]}
+        locations={[0, 0.45, 0.8, 1]}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: headerHeight + 30,
+          zIndex: 1,
+        }}
+        pointerEvents="none"
+      />
+
+      {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
       <LinearGradient
         colors={["#8B5CF633", "transparent"]}
-        style={[styles.searchGradient, { paddingTop: insets.top + 10 }]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
+        pointerEvents="none"
+      />
+
+      {/* 3. CAPA DE LA INTERFAZ (FRENTE) */}
+      <View
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        style={[styles.searchGradient, {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          paddingTop: insets.top + 10,
+          zIndex: 10,
+        }]}
       >
         <Text style={styles.title}>{t('search.title')}</Text>
         <View style={styles.searchBarContainer}>
@@ -577,8 +613,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             })}
           </ScrollView>
         )}
-      </LinearGradient>
+      </View>
 
+      {/* 1. CAPA DE CONTENIDO (AL FONDO) */}
       <FlashList
         ref={flatListRef}
         data={
@@ -608,6 +645,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           );
         }}
         contentContainerStyle={{
+          paddingTop: headerHeight + 10,
           paddingBottom:
             Layout.MINI_PLAYER_HEIGHT +
             Layout.TAB_BAR_HEIGHT +
