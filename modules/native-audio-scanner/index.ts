@@ -17,8 +17,13 @@ export type AudioTag = {
   year?: number | null; // Nuestro nuevo campo
   albumArtist?: string | null;
   lastModified: number;
+  replayGain?: number | null;
 };
 
-export async function getAudioFiles(): Promise<AudioTag[]> {
-  return await NativeAudioScannerModule.getAudioFiles();
+export async function getAudioFiles(scanReplayGain: boolean = false): Promise<AudioTag[]> {
+  return await NativeAudioScannerModule.getAudioFiles(scanReplayGain);
+}
+
+export async function getReplayGain(uri: string): Promise<number | null> {
+  return await NativeAudioScannerModule.getReplayGain(uri);
 }

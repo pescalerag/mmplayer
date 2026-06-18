@@ -12,9 +12,11 @@ import {
     Switch,
     Text,
     TouchableOpacity,
-    View,
-    Modal
+    View
 } from 'react-native';
+import Slider from '@react-native-community/slider';
+import TrackPlayer from 'react-native-track-player';
+import Track from '../database/models/Track';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { ScannerService } from '../services/ScannerService';
@@ -35,7 +37,22 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { showTagColors, setShowTagColors, language, setLanguage, hideSyncToastOnResume, setHideSyncToastOnResume, swipeLeftAction, swipeRightAction } = useSettingsStore();
+    const {
+        showTagColors,
+        setShowTagColors,
+        language,
+        setLanguage,
+        hideSyncToastOnResume,
+        setHideSyncToastOnResume,
+        swipeLeftAction,
+        swipeRightAction,
+        isNormalizationEnabled,
+        setNormalizationEnabled,
+        preampLevel,
+        setPreampLevel,
+        fallbackGainDB,
+        setFallbackGain
+    } = useSettingsStore();
     const { t } = useTranslation();
     const { openSheet } = useSwipeActionSheetStore();
     const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
@@ -210,6 +227,143 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         </View>
                         <Ionicons name="apps" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
+                </View>
+
+                {/* --- SECCIÓN DE AUDIO (NORMALIZACIÓN) --- */}
+                <View style={styles.sectionCard}>
+                    <Text style={styles.sectionTitle}>{t('settings.audio_section')}</Text>
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.normalization')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.normalization_desc')}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={isNormalizationEnabled}
+                            onValueChange={async (value) => {
+                                setNormalizationEnabled(value);
+                                try {
+                                    if (value) {
+                                        const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+                                        if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
+                                            const track = await TrackPlayer.getTrack(activeTrackIndex);
+                                            if (track && track.id) {
+                                                const cleanId = track.id.toString().split('-')[0];
+                                                const trackModel = await database.get<Track>('tracks').find(cleanId);
+                                                const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
+                                                const totalTargetDB = trackGainDB + preampLevel;
+                                                let linearVolume = Math.pow(10, totalTargetDB / 20);
+                                                linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
+                                                await TrackPlayer.setVolume(linearVolume);
+                                            }
+                                        }
+                                    } else {
+                                        await TrackPlayer.setVolume(1.0);
+                                    }
+                                } catch (err) {
+                                    console.error("Error actualizando volumen al activar/desactivar normalización:", err);
+                                }
+                            }}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={isNormalizationEnabled ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
+                    {isNormalizationEnabled && (
+                        <>
+                            <View style={styles.separator} />
+                            
+                            <View style={{ marginVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={styles.settingLabel}>{t('settings.preamp')}</Text>
+                                    <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                        {preampLevel >= 0 ? `+${preampLevel.toFixed(1)}` : preampLevel.toFixed(1)} dB
+                                    </Text>
+                                </View>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.preamp_desc')}
+                                </Text>
+                                <Slider
+                                    style={{ width: '100%', height: 40, marginTop: 8 }}
+                                    minimumValue={0}
+                                    maximumValue={6}
+                                    step={0.5}
+                                    value={preampLevel}
+                                    onValueChange={async (value) => {
+                                        setPreampLevel(value);
+                                        // Aplicar volumen en tiempo real
+                                        try {
+                                            const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+                                            if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
+                                                const track = await TrackPlayer.getTrack(activeTrackIndex);
+                                                if (track && track.id) {
+                                                    const cleanId = track.id.toString().split('-')[0];
+                                                    const trackModel = await database.get<Track>('tracks').find(cleanId);
+                                                    const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
+                                                    const totalTargetDB = trackGainDB + value;
+                                                    let linearVolume = Math.pow(10, totalTargetDB / 20);
+                                                    linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
+                                                    await TrackPlayer.setVolume(linearVolume);
+                                                }
+                                            }
+                                        } catch (err) {
+                                            console.error("Error actualizando volumen en tiempo real:", err);
+                                        }
+                                    }}
+                                    minimumTrackTintColor="#8B5CF6"
+                                    maximumTrackTintColor="#282828"
+                                    thumbTintColor="#FFFFFF"
+                                />
+                            </View>
+
+                            <View style={styles.separator} />
+
+                            <View style={{ marginVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={styles.settingLabel}>{t('settings.fallback_gain')}</Text>
+                                    <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                        {fallbackGainDB.toFixed(0)} dB
+                                    </Text>
+                                </View>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.fallback_gain_desc')}
+                                </Text>
+                                <Slider
+                                    style={{ width: '100%', height: 40, marginTop: 8 }}
+                                    minimumValue={-10}
+                                    maximumValue={0}
+                                    step={1}
+                                    value={fallbackGainDB}
+                                    onValueChange={async (value) => {
+                                        setFallbackGain(value);
+                                        try {
+                                            const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+                                            if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
+                                                const track = await TrackPlayer.getTrack(activeTrackIndex);
+                                                if (track && track.id) {
+                                                    const cleanId = track.id.toString().split('-')[0];
+                                                    const trackModel = await database.get<Track>('tracks').find(cleanId);
+                                                    if (trackModel.replayGain === null || trackModel.replayGain === undefined) {
+                                                        const totalTargetDB = value + preampLevel;
+                                                        let linearVolume = Math.pow(10, totalTargetDB / 20);
+                                                        linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
+                                                        await TrackPlayer.setVolume(linearVolume);
+                                                    }
+                                                }
+                                            }
+                                        } catch (err) {
+                                            console.error("Error actualizando volumen fallback en tiempo real:", err);
+                                        }
+                                    }}
+                                    minimumTrackTintColor="#8B5CF6"
+                                    maximumTrackTintColor="#282828"
+                                    thumbTintColor="#FFFFFF"
+                                />
+                            </View>
+                        </>
+                    )}
                 </View>
 
                 {/* --- SECCIÓN DE GESTOS --- */}

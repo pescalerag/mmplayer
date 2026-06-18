@@ -23,6 +23,12 @@ interface SettingsState {
     setSwipeLeftAction: (action: SwipeAction) => void;
     swipeRightAction: SwipeAction;
     setSwipeRightAction: (action: SwipeAction) => void;
+    isNormalizationEnabled: boolean;
+    preampLevel: number; // Ej: de 0 a +6 dB
+    fallbackGainDB: number; // Ej: 0, -3, -5 o -10 dB
+    setNormalizationEnabled: (enabled: boolean) => void;
+    setPreampLevel: (level: number) => void;
+    setFallbackGain: (level: number) => void;
     libraryTabsOrder: LibraryTabType[];
     setLibraryTabsOrder: (order: LibraryTabType[]) => void;
     appTabsOrder: AppTabType[];
@@ -40,6 +46,12 @@ export const useSettingsStore = create<SettingsState>()(
         (set) => ({
             showTagColors: true,
             setShowTagColors: (value) => set({ showTagColors: value }),
+            isNormalizationEnabled: true,
+            preampLevel: 0,
+            fallbackGainDB: -5,
+            setNormalizationEnabled: (enabled) => set({ isNormalizationEnabled: enabled }),
+            setPreampLevel: (level) => set({ preampLevel: level }),
+            setFallbackGain: (level) => set({ fallbackGainDB: level }),
             hideSyncToastOnResume: false,
             setHideSyncToastOnResume: (value) => set({ hideSyncToastOnResume: value }),
             swipeLeftAction: 'add_last',

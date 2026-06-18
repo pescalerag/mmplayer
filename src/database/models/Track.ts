@@ -20,6 +20,7 @@ export default class Track extends Model {
     @field('track_number') trackNumber: number | null;
     @field('disc_number') discNumber: number | null;
     @field('last_modified') lastModified: number;
+    @field('replay_gain') replayGain: number | null;
 
     @relation('albums', 'album_id') album: any;
     @relation('artists', 'artist_id') artist: any;

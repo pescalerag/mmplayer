@@ -122,5 +122,14 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 11,
+      steps: [
+        addColumns({
+          table: "tracks",
+          columns: [{ name: "replay_gain", type: "number", isOptional: true }],
+        }),
+      ],
+    },
   ],
 });
