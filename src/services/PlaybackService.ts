@@ -1,6 +1,9 @@
 import TrackPlayer, { Event, State } from "react-native-track-player";
 import { createMMKV } from "react-native-mmkv";
 import { HistoryService } from "./HistoryService";
+import { useSettingsStore } from "../store/useSettingsStore";
+import { database } from "../database";
+import Track from "../database/models/Track";
 
 const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -111,6 +114,39 @@ export const PlaybackService = async function () {
     async (event) => {
       const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
       const nextTrackId = event.track?.id?.toString();
+
+      // NUEVO: Lógica de Normalización de Volumen
+      if (nextTrackId) {
+        try {
+          const settings = useSettingsStore.getState();
+          
+          if (settings.isNormalizationEnabled) {
+            // Extraer ID real (WatermelonDB)
+            const cleanId = nextTrackId.split('-')[0];
+            const trackModel = await database.get<Track>('tracks').find(cleanId);
+            
+            // Lógica: Si tiene replayGain, úsalo. Si es null/undefined, usa el fallback de seguridad.
+            const trackGainDB = trackModel.replayGain ?? settings.fallbackGainDB;
+            
+            // Sumamos el pre-amp elegido por el usuario
+            const totalTargetDB = trackGainDB + settings.preampLevel;
+            
+            // Matemática de Audio: Convertir dB a factor lineal (0.0 a 1.0)
+            let linearVolume = Math.pow(10, totalTargetDB / 20);
+            
+            // Protección contra saturación (clipping digital)
+            linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
+            
+            await TrackPlayer.setVolume(linearVolume);
+          } else {
+            // Si el usuario apagó la función, volumen al 100% original
+            await TrackPlayer.setVolume(1.0);
+          }
+        } catch (error) {
+          console.error("Error aplicando volumen normalizado:", error);
+          await TrackPlayer.setVolume(1.0); // Fallback en caso de error
+        }
+      }
 
       // Reset position memory on track change
       lastKnownPosition = 0;

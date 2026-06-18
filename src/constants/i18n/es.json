@@ -141,7 +141,19 @@
     "app_tabs_desc": "Personaliza la barra inferior",
     "initial_route": "Pantalla de inicio",
     "drag_to_reorder_tabs": "Orden de la barra (Mantén presionado para mover)",
-    "confirm_restart": "Confirmar y Reiniciar"
+    "confirm_restart": "Confirmar y Reiniciar",
+    "audio_section": "Audio",
+    "normalization": "Normalización de volumen",
+    "normalization_desc": "Evita cambios bruscos de volumen entre canciones (ReplayGain)",
+    "preamp": "Pre-amplificación",
+    "preamp_desc": "Útil si notas que la música suena muy baja con la normalización activada",
+    "fallback_gain": "Ganancia fallback",
+    "fallback_gain_desc": "Volumen a aplicar si la canción no tiene datos de normalización",
+    "scan_replaygain": "Escanear ganancias de volumen",
+    "scan_replaygain_desc": "Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos",
+    "scan_replaygain_alert_title": "Analizar volumen de canciones",
+    "scan_replaygain_alert_desc": "Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?",
+    "scan_replaygain_success": "Se han analizado y guardado las ganancias de {{count}} canciones."
   },
   "queue": {
     "title": "Cola",
@@ -347,5 +359,14 @@
     "hour": "1 hora",
     "off": "Desactivado",
     "status_active": "La reproducción se pausará en:"
+  },
+  "audio_effects": {
+    "title": "Efectos de Audio",
+    "speed": "Velocidad",
+    "pitch": "Tono",
+    "reset": "Restablecer",
+    "vinyl_mode": "Modo Vinilo / Hi-Fi",
+    "vinyl_mode_desc": "Iguala el tono y la velocidad para un sonido analógico puro",
+    "pitch_locked": "Bloqueado"
   }
 }

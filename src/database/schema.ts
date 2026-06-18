@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 10,
+    version: 11,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -16,6 +16,7 @@ export const mySchema = appSchema({
                 { name: 'track_number', type: 'number', isOptional: true },
                 { name: 'disc_number', type: 'number', isOptional: true },
                 { name: 'last_modified', type: 'number', isOptional: true },
+                { name: 'replay_gain', type: 'number', isOptional: true },
             ],
         }),
         tableSchema({

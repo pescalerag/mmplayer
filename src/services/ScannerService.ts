@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Platform, Image as RNImage } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { getAudioFiles } from '../../modules/native-audio-scanner';
+import { getAudioFiles, getReplayGain } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -217,6 +217,7 @@ const extractFileMetadata = (file: any) => {
         year: file.year || null,
         albumArtist,
         lastModified: file.lastModified || 0,
+        replayGain: typeof file.replayGain === 'number' ? file.replayGain : (file.replayGain ? parseFloat(file.replayGain) : null),
     };
 };
 
@@ -366,6 +367,7 @@ const prepareTrackRecords = (
         t.album.set(album);
         t.artist.set(primaryArtist);
         t.lastModified = meta.lastModified;
+        t.replayGain = meta.replayGain;
     });
     ops.push(track);
 
@@ -576,7 +578,12 @@ export const ScannerService = {
 
             // Limpiar Tracks
             onProgress?.('Reparando canciones...');
+            let index = 0;
             for (const track of tracks) {
+                index++;
+                if (index % 100 === 0) {
+                    onProgress?.(`Reparando canciones y analizando volumen (${index}/${tracks.length})...`);
+                }
                 const cleanTitle = sanitizeDbString(track.title) || 'Unknown Title';
                 const normTitle = normalizeText(cleanTitle);
                 let urlChanged = false;
@@ -587,12 +594,27 @@ export const ScannerService = {
                     urlChanged = true;
                 }
 
-                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged) {
+                let replayGain = track.replayGain;
+                let replayGainChanged = false;
+                if (replayGain === null || replayGain === undefined) {
+                    try {
+                        const scannedGain = await getReplayGain(track.fileUrl);
+                        if (scannedGain !== null && scannedGain !== undefined) {
+                            replayGain = scannedGain;
+                            replayGainChanged = true;
+                        }
+                    } catch (err) {
+                        console.error("Error escaneando ReplayGain en reparación:", err);
+                    }
+                }
+
+                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged || replayGainChanged) {
                     batchOps.push(
                         track.prepareUpdate(t => {
                             t.title = cleanTitle;
                             t.normalizedTitle = normTitle;
                             if (urlChanged) t.fileUrl = cleanUrl;
+                            if (replayGainChanged) t.replayGain = replayGain;
                         })
                     );
                 }
@@ -888,7 +910,9 @@ export const ScannerService = {
         }
 
         onProgress?.(0, 0, 'Buscando archivos nuevos en el sistema...');
-        const audioFiles = await getAudioFiles();
+        const tracksCount = await database.get('tracks').query().fetchCount();
+        const isFirstScan = tracksCount === 0;
+        const audioFiles = await getAudioFiles(isFirstScan);
 
         if (!audioFiles || audioFiles.length === 0) {
             return { total: 0, added: 0, skipped: 0 };
@@ -1000,6 +1024,7 @@ export const ScannerService = {
                         t.trackNumber = file.trackNumber || 0;
                         t.discNumber = file.discNumber || 1;
                         t.lastModified = meta.lastModified;
+                        t.replayGain = meta.replayGain;
                         t.album.set(album);
                         t.artist.set(primaryArtist);
                     });
@@ -1144,6 +1169,66 @@ export const ScannerService = {
             console.log('[Migration] Migración de last_modified completada con éxito.');
         } catch (error) {
             console.error('[Migration] Error ejecutando migración de last_modified:', error);
+        }
+    },
+
+    runDeepReplayGainScan: async (
+        onProgress?: (current: number, total: number, phase: string) => void
+    ): Promise<number> => {
+        try {
+            const tracksCollection = database.collections.get<Track>('tracks');
+            // Buscamos solo canciones que no tengan replay_gain asignado
+            const tracksWithoutGain = await tracksCollection.query(
+                Q.where('replay_gain', Q.eq(null as any))
+            ).fetch();
+
+            if (tracksWithoutGain.length === 0) {
+                return 0;
+            }
+
+            console.log(`[ReplayGain Deep Scan] Encontradas ${tracksWithoutGain.length} canciones sin ReplayGain.`);
+
+            const CHUNK_SIZE = 10;
+            let processed = 0;
+
+            for (let i = 0; i < tracksWithoutGain.length; i += CHUNK_SIZE) {
+                const chunk = tracksWithoutGain.slice(i, i + CHUNK_SIZE);
+                
+                onProgress?.(processed, tracksWithoutGain.length, `Analizando volumen (${processed}/${tracksWithoutGain.length})...`);
+
+                const batchOps: any[] = [];
+
+                await Promise.all(chunk.map(async (track) => {
+                    try {
+                        const gain = await getReplayGain(track.fileUrl);
+                        if (gain !== null && gain !== undefined) {
+                            const parsedGain = typeof gain === 'number' ? gain : parseFloat(gain);
+                            const updateOp = track.prepareUpdate((t: any) => {
+                                t.replayGain = parsedGain;
+                            });
+                            batchOps.push(updateOp);
+                        }
+                    } catch (err) {
+                        console.error(`Error al obtener ReplayGain para ${track.fileUrl}:`, err);
+                    }
+                }));
+
+                if (batchOps.length > 0) {
+                    await database.write(async () => {
+                        await database.batch(batchOps);
+                    });
+                }
+
+                processed += chunk.length;
+                
+                // Dar respiro a la UI
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            return tracksWithoutGain.length;
+        } catch (error) {
+            console.error("Error en runDeepReplayGainScan:", error);
+            throw error;
         }
     }
 };

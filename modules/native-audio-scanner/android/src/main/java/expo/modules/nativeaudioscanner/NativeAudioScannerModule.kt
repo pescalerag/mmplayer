@@ -10,7 +10,8 @@ class NativeAudioScannerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("NativeAudioScanner")
 
-    AsyncFunction("getAudioFiles") { ->
+    AsyncFunction("getAudioFiles") { scanReplayGain: Boolean ->
+      val shouldScanReplay = scanReplayGain
       val context = appContext.reactContext ?: return@AsyncFunction emptyList<Map<String, Any?>>()
       
       val audioList = mutableListOf<Map<String, Any?>>()
@@ -89,6 +90,7 @@ class NativeAudioScannerModule : Module() {
           
           // Only add files with valid paths
           if (data != null) {
+            val replayGain = if (shouldScanReplay) ReplayGainReader.readReplayGain(data) else null
             val fileMap = mapOf(
               "id" to id.toString(),
               "uri" to "file://$data",
@@ -103,7 +105,8 @@ class NativeAudioScannerModule : Module() {
               "discNumber" to if (cursor.getInt(trackColumn) >= 1000) (cursor.getInt(trackColumn) / 1000) else 1,
               "year" to if (year > 0) year else null,
               "albumArtist" to albumArtist,
-              "lastModified" to (dateModifiedSec * 1000)
+              "lastModified" to (dateModifiedSec * 1000),
+              "replayGain" to replayGain
             )
             audioList.add(fileMap)
           }
@@ -111,6 +114,11 @@ class NativeAudioScannerModule : Module() {
       }
       
       return@AsyncFunction audioList
+    }
+
+    AsyncFunction("getReplayGain") { uri: String ->
+      val path = if (uri.startsWith("file://")) uri.substring(7) else uri
+      ReplayGainReader.readReplayGain(path)
     }
   }
 }
