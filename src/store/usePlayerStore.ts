@@ -37,6 +37,8 @@ interface PlayerState {
   isShuffleEnabled: boolean;
   shuffleOriginalQueue: TPTrack[];
   userQueueSize: number;
+  playbackSpeed: number;
+  setPlaybackSpeed: (speed: number) => Promise<void>;
   loadQueue: (
     tracks: Track[],
     index: number,
@@ -128,6 +130,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isShuffleEnabled: false,
   shuffleOriginalQueue: [],
   userQueueSize: 0,
+  playbackSpeed: 1.0,
   recentMedia: [],
   recentPlaylists: [],
 
@@ -144,6 +147,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
+      await TrackPlayer.setRate(get().playbackSpeed);
       await TrackPlayer.play();
 
       set({
@@ -216,6 +220,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
+      await TrackPlayer.setRate(get().playbackSpeed);
       await TrackPlayer.play();
 
       set({
@@ -273,6 +278,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       await TrackPlayer.add([tpTrack]);
+      await TrackPlayer.setRate(get().playbackSpeed);
       await TrackPlayer.play();
       set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
       await get().updateQueueStatus();
@@ -405,6 +411,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set((state) => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
   },
 
+  setPlaybackSpeed: async (speed) => {
+    try {
+      await TrackPlayer.setRate(speed);
+      set({ playbackSpeed: speed });
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error("Error setting playback speed:", e);
+    }
+  },
+
   clearUserQueue: async () => {
     try {
       const queue = await TrackPlayer.getQueue();
@@ -449,6 +465,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isShuffleEnabled,
         shuffleOriginalQueue,
         userQueueSize,
+        playbackSpeed,
       } = get();
 
       if (queue.length === 0) {
@@ -466,6 +483,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isShuffleEnabled,
         shuffleOriginalQueue,
         userQueueSize,
+        playbackSpeed,
       });
       storage.set(PERSISTENCE_KEY, payload);
 
@@ -508,6 +526,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isShuffleEnabled,
         shuffleOriginalQueue,
         userQueueSize,
+        playbackSpeed,
       } = JSON.parse(savedData);
 
       if (!queue || queue.length === 0) return;
@@ -519,6 +538,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // 1. Rehidratar el motor nativo de TrackPlayer
       await TrackPlayer.reset();
       await TrackPlayer.add(queue);
+      await TrackPlayer.setRate(playbackSpeed ?? 1.0);
 
       const safeIndex =
         index !== undefined && index !== null && index < queue.length
@@ -564,6 +584,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isShuffleEnabled: isShuffleEnabled ?? false,
         shuffleOriginalQueue: shuffleOriginalQueue ?? [],
         userQueueSize: userQueueSize ?? 0,
+        playbackSpeed: playbackSpeed ?? 1.0,
       });
 
       // 4. Actualizar hasPrevious / hasNext

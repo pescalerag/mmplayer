@@ -354,5 +354,11 @@
     "hour": "1 hour",
     "off": "Deactivated",
     "status_active": "Playback will pause in:"
+  },
+  "audio_effects": {
+    "title": "Audio Effects",
+    "speed": "Speed",
+    "pitch": "Pitch",
+    "reset": "Reset"
   }
 }

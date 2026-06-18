@@ -30,12 +30,12 @@ import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
+import { useAudioSpeedPitchSheetStore } from '../store/useAudioSpeedPitchSheetStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
-import { Colors } from '../theme/theme';
 import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
@@ -109,6 +109,9 @@ const PlayerScreenUI = ({
     const openQueue = useQueueSheetStore(state => state.openQueue);
     const openSleepTimer = useSleepTimerStore(state => state.openSheet);
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
+    const openSpeedPitch = useAudioSpeedPitchSheetStore(state => state.openSheet);
+    const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
+    const isSpeedActive = playbackSpeed !== 1.0;
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
 
@@ -509,6 +512,17 @@ const PlayerScreenUI = ({
                                 name="timer-outline"
                                 size={24}
                                 color={isSleepTimerActive ? colors.accentLight : colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={openSpeedPitch}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name="speedometer-outline"
+                                size={24}
+                                color={isSpeedActive ? colors.accentLight : colors.textSecondary}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
