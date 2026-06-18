@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import {
     Dimensions,
     ScrollView,
@@ -129,6 +130,29 @@ function TagDetailScreen({
         }
     }, [tracks, tag]);
 
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const isCurrentTag = usePlayerStore(state => state.playbackContext) === `tag-${tag.id}`;
+    const isCurrentTagPlaying = isCurrentTag && isPlaying;
+
+    const handleFabPress = useCallback(async () => {
+        if (!tracks || tracks.length === 0) return;
+        if (isCurrentTag) {
+            if (isPlaying) {
+                await TrackPlayer.pause();
+            } else {
+                await TrackPlayer.play();
+            }
+        } else {
+            usePlayerStore.getState().loadQueue(tracks, 0, `tag-${tag.id}`);
+        }
+    }, [tracks, isCurrentTag, isPlaying, tag.id]);
+
+    const handleShuffleFabPress = useCallback(() => {
+        if (!tracks || tracks.length === 0) return;
+        usePlayerStore.getState().startShuffled(tracks, `tag-${tag.id}`);
+    }, [tracks, tag.id]);
+
     const renderItem = useCallback((info: { item: Track; index: number }) => {
         const { item, index } = info;
         return (
@@ -176,6 +200,24 @@ function TagDetailScreen({
                             {albums.length} {albums.length === 1 ? t('library.album_singular') : t('library.album_plural')} · {tracks.length} {tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}
                         </Text>
                     </View>
+
+                    {/* Botones de reproducción (solo si hay canciones) */}
+                    {tracks.length > 0 && (
+                        <>
+                            <TouchableOpacity style={styles.shuffleFab} onPress={handleShuffleFabPress}>
+                                <Ionicons name="shuffle" size={22} color="#FFFFFF" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.playFab} onPress={handleFabPress}>
+                                <Ionicons
+                                    name={isCurrentTagPlaying ? "pause" : "play"}
+                                    size={28}
+                                    color="#FFFFFF"
+                                    style={!isCurrentTagPlaying ? { marginLeft: 4 } : {}}
+                                />
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
 
                 {/* Sección Álbumes */}
@@ -208,7 +250,7 @@ function TagDetailScreen({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t]);
+    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying]);
 
     return (
         <View style={styles.container}>
@@ -290,6 +332,33 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
+    },
+    playFab: {
+        position: "absolute",
+        bottom: 20,
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#8B5CF6',
+        justifyContent: "center",
+        alignItems: "center",
+        elevation: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+    },
+    shuffleFab: {
+        position: "absolute",
+        bottom: 20,
+        right: 86,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
     },
     albumsScroll: {
         paddingHorizontal: 20,

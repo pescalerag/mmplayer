@@ -81,6 +81,7 @@ export default function HomeScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
+    const [headerHeight, setHeaderHeight] = React.useState(100);
 
     const getGreetingKey = () => {
         const hour = new Date().getHours();
@@ -155,17 +156,55 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
+            {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
+            <LinearGradient
+                colors={[
+                    '#000000',
+                    'rgba(0, 0, 0, 0.95)',
+                    'rgba(0, 0, 0, 0.8)',
+                    'transparent'
+                ]}
+                locations={[0, 0.45, 0.8, 1]}
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: headerHeight + 30,
+                    zIndex: 1,
+                }}
+                pointerEvents="none"
+            />
+
+            {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
             <LinearGradient
                 colors={[colors.accentAlpha20, "transparent"]}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
+                pointerEvents="none"
             />
+
+            {/* 3. CAPA DE LA INTERFAZ (FRENTE) */}
+            <View
+                onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    paddingTop: insets.top + 10,
+                    paddingBottom: 10,
+                    zIndex: 10,
+                }}
+            >
+                <Text style={[styles.welcomeText, { marginBottom: 0 }]}>{t(getGreetingKey())}</Text>
+            </View>
+
+            {/* 1. CAPA DE CONTENIDO (AL FONDO) */}
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 120 }}
+                contentContainerStyle={{ paddingTop: headerHeight + 20, paddingBottom: 120 }}
                 showsVerticalScrollIndicator={false}
             >
-            {/* Saludo Principal */}
-            <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
 
             {/* SECCIÓN 1: Grid 2x3 de Recientes (Canciones y Álbumes) */}
             {recentMedia.length > 0 ? (

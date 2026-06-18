@@ -12,7 +12,7 @@ import { Colors } from "../theme/theme";
 
 import MiniPlayer from "../components/MiniPlayer";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
-import TagManagementScreen from "../screens/TagManagementScreen";
+import TagsNavigator from "./TagsNavigator";
 import HomeNavigator from "./HomeNavigator";
 import LibraryNavigator from "./LibraryNavigator";
 import PlayerNavigator from "./PlayerNavigator";
@@ -170,9 +170,9 @@ function MainTabs() {
               IconComp = SearchIcon;
               break;
             case 'Etiquetas':
-              Component = TagManagementScreen;
+              Component = TagsNavigator;
               IconComp = TagsIcon;
-              useListener = false; // Etiquetas no usa createTabListener
+              useListener = true; // Ahora TagsNavigator sí usa listener
               break;
             case 'Configuración':
               Component = SettingsNavigator;

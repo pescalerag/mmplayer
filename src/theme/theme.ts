@@ -12,7 +12,7 @@ export const Colors = {
   text: '#ECEDEE',
   textSecondary: '#9BA1A6',
   disabled: '#535353',
-  background: '#000000',
+  background: '#0F0F0F', // Un negro ligeramente grisáceo para mejorar la legibilidad
   cardBackground: '#1E1E1E',
   heartIcon: '#EF4444',
   tint: tintColorDark,

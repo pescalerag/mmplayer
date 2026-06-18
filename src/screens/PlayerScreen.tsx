@@ -44,7 +44,6 @@ import { useToastStore } from '../store/useToastStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { getDynamicTagTextColor } from '../utils/color';
 import { formatTrackTime } from '../utils/time';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width } = Dimensions.get('window');
 

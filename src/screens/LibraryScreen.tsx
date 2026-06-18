@@ -4,15 +4,14 @@ import withObservables from '@nozbe/with-observables';
 import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TabView } from 'react-native-tab-view';
-import { of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { Colors } from '../theme/theme';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import LibraryCard from '../components/LibraryCard';
 import PlaylistCover from '../components/PlaylistCover';
 import TrackRow from '../components/TrackRow';
@@ -27,12 +26,13 @@ import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { useFolderMenuStore } from '../store/useFolderMenuStore';
 import { SortOption, useLibraryStore } from '../store/useLibraryStore';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { useSortModalStore } from '../store/useSortModalStore';
-import { Layout } from '../theme/theme';
+import { Colors, Layout } from '../theme/theme';
+
 import { getSafeFileName, safeDecodeURIComponent } from '../utils/safeDecode';
 
 
@@ -698,7 +698,7 @@ export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const libraryTabsOrder = useSettingsStore(state => state.libraryTabsOrder);
-    
+
     // Convertir el order del store a rutas
     const [index, setIndex] = useState(0);
     const routes = React.useMemo(() => {
@@ -806,7 +806,7 @@ export default function LibraryScreen() {
 
             {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
             <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
+                colors={[Colors.accentAlpha20, "transparent"]}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />

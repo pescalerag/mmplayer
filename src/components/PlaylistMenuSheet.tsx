@@ -4,7 +4,7 @@ import {
     Animated, 
     BackHandler, 
     Dimensions, 
-    Platform, 
+    Platform,
     StyleSheet, 
     Text, 
     TouchableOpacity, 
@@ -15,6 +15,9 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useToastStore } from '../store/useToastStore';
+import { Q } from '@nozbe/watermelondb';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import PlaylistCover from './PlaylistCover';
 import { useTranslation } from 'react-i18next';
@@ -145,6 +148,44 @@ export default function PlaylistMenuSheet() {
                             <Ionicons name={selectedPlaylist?.isPinned ? "pin" : "pin-outline"} size={24} color={colors.text} />
                         </View>
                         <Text style={styles.optionText}>{selectedPlaylist?.isPinned ? t('actions.unpin_library') : t('actions.pin_library')}</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* OPCIÓN: Añadir a Playlist */}
+                {selectedPlaylist && (
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={async () => {
+                            if (selectedPlaylist) {
+                                try {
+                                    const playlistTracks = await database.collections.get<any>('playlist_tracks')
+                                        .query(Q.where('playlist_id', selectedPlaylist.id))
+                                        .fetch();
+                                    
+                                    const trackIds = playlistTracks.map((pt: any) => pt.track.id);
+
+                                    if (trackIds.length === 0) {
+                                        useToastStore.getState().showToast('La Playlist no tiene canciones', 'close-circle', '#EF4444');
+                                        closeMenu();
+                                        return;
+                                    }
+
+                                    const validTracks = await database.collections.get<any>('tracks')
+                                        .query(Q.where('id', Q.oneOf(trackIds)))
+                                        .fetch();
+
+                                    closeMenu();
+                                    usePlaylistSelectorStore.getState().openSelector(validTracks);
+                                } catch (e) {
+                                    console.error('Error fetching playlist tracks', e);
+                                }
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="add-circle-outline" size={24} color={colors.text} />
+                        </View>
+                        <Text style={styles.optionText}>{t('actions.add_to_playlist') || 'Añadir a playlist'}</Text>
                     </TouchableOpacity>
                 )}
 

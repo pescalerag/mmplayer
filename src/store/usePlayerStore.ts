@@ -19,7 +19,7 @@ async function mapToTPTrack(track: Track): Promise<TPTrack> {
       : "Artista desconocido";
 
   return {
-    id: track.id,
+    id: `${track.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     url: track.fileUrl,
     title: track.title,
     artist: artistNames,
@@ -87,7 +87,6 @@ export type RecentPlaylist = {
 
 async function flushCurrentTrackToHistory() {
   try {
-    // Importación dinámica para evitar ciclo de dependencias (HistoryService <-> usePlayerStore)
     const { HistoryService } = require("../services/HistoryService");
     const { PlaybackTimeTracker } = require("../services/PlaybackService");
 
@@ -97,7 +96,13 @@ async function flushCurrentTrackToHistory() {
     if (activeTrack && activeTrack.id) {
       PlaybackTimeTracker.onStateNotPlaying();
 
-      const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(activeTrack.id.toString());
+      const activeIndex = await TrackPlayer.getActiveTrackIndex();
+      const queue = await TrackPlayer.getQueue();
+      const activeTPTrack = activeIndex !== undefined && activeIndex !== null ? queue[activeIndex] : null;
+
+      const trackingId = activeTPTrack?.id ? activeTPTrack.id.toString() : activeTrack.id.toString();
+
+      const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackingId);
 
       if (durationPlayed >= 20) {
         console.log(`[Historial] Guardando en historial. Canción: ${activeTrack.id.toString()}, Duración: ${Math.floor(durationPlayed)}s.`);
@@ -106,7 +111,7 @@ async function flushCurrentTrackToHistory() {
         console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
       }
 
-      PlaybackTimeTracker.clearAccumulated(activeTrack.id.toString());
+      PlaybackTimeTracker.clearAccumulated(trackingId);
     }
   } catch (e) {
     console.error("Error flushing history before reset:", e);
@@ -279,7 +284,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setActiveTrackById: async (trackId) => {
     try {
-      const track = await database.get<Track>("tracks").find(trackId);
+      const cleanId = trackId.split('-')[0];
+      const track = await database.get<Track>("tracks").find(cleanId);
       set({ activeTrack: track });
     } catch (error) {
       console.error("Error setting active track by ID:", error);
@@ -533,11 +539,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       let trackModel: Track | null = null;
       if (activeTPTrack?.id) {
         try {
+          const cleanId = activeTPTrack.id.split('-')[0];
           trackModel = await database
             .get<Track>("tracks")
-            .find(activeTPTrack.id);
+            .find(cleanId);
 
-          // 2.5 Rehidratar el PlaybackTimeTracker con el tiempo acumulado guardado
           if (accumulatedTime > 0) {
             const { PlaybackTimeTracker } = require("../services/PlaybackService");
             PlaybackTimeTracker.setAccumulatedSeconds(activeTPTrack.id.toString(), accumulatedTime);
@@ -707,12 +713,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         // Current track deleted -> clear queue and stop
         await get().clearPlayer();
       } else if (trackIds.length > 0) {
-        // Check if any deleted track is in the queue
         const queue = await TrackPlayer.getQueue();
         const indicesToRemove: number[] = [];
         queue.forEach((track, index) => {
-          if (track.id && trackIds.includes(track.id as string)) {
-            indicesToRemove.push(index);
+          if (track.id) {
+            const originalId = (track.id as string).split('-')[0];
+            if (trackIds.includes(originalId)) {
+              indicesToRemove.push(index);
+            }
           }
         });
 
