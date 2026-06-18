@@ -28,7 +28,8 @@ export const HistoryService = {
 
     if (item.type === "track") {
       try {
-        const track = await database.get<Track>('tracks').find(item.id);
+        const cleanId = item.id.split('-')[0];
+        const track = await database.get<Track>('tracks').find(cleanId);
         finalTitle = track.title;
         
         if (!finalImageUrl || finalImageUrl === 'null') {
@@ -54,7 +55,7 @@ export const HistoryService = {
       });
     } else {
       usePlayerStore.getState().addMediaToRecents({
-        id: item.id,
+        id: item.id.split('-')[0],
         type: item.type as "track" | "album" | "artist",
         title: finalTitle || "Sin título",
         subtitle: finalSubtitle || "Artista desconocido",
@@ -73,14 +74,15 @@ export const HistoryService = {
     context: "manual" | "queue" = "queue",
   ) {
     try {
-      //No guardar si la escuchó menos de 10 segundos
       if (durationPlayed < 10) return;
+
+      const cleanId = trackId.split('-')[0];
 
       await database.write(async () => {
         await database.collections
           .get<PlaybackHistory>("playback_history")
           .create((record) => {
-            record.itemId = trackId;
+            record.itemId = cleanId;
             record.itemType = "track";
             record.playContext = context;
             record.durationPlayed = Math.floor(durationPlayed);
@@ -88,7 +90,7 @@ export const HistoryService = {
           });
       });
       console.log(
-        `[Historial] Canción ${trackId} guardada. Tiempo: ${Math.floor(durationPlayed)}s`,
+        `[Historial] Canción ${cleanId} guardada. Tiempo: ${Math.floor(durationPlayed)}s`,
       );
     } catch (error) {
       console.error("Error guardando en base de datos:", error);

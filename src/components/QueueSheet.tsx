@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
+import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
     Alert,
     Animated,
@@ -24,9 +26,10 @@ import TrackPlayer, {
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { PlayingIndicator } from './PlayingIndicator';
+import { Colors } from '../theme/theme';
 
 const { height, width } = Dimensions.get('window');
-const TAB_WIDTH = (width - 48 - 44) / 2; // Subtracting 44 for the trash icon
+const TAB_WIDTH = (width - 48 - 44) / 2;
 
 type ActiveTab = 'queue' | 'recent';
 
@@ -38,7 +41,6 @@ export default function QueueSheet() {
     const clearPlayer = usePlayerStore(state => state.clearPlayer);
     const clearUserQueue = usePlayerStore(state => state.clearUserQueue);
 
-    // ── Hooks reactivos de RNTP ──
     const playbackState = usePlaybackState();
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
@@ -49,21 +51,34 @@ export default function QueueSheet() {
     const slideAnim = useRef(new Animated.Value(height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
+    
+    const isReordering = useRef(false);
 
-    // Secciones derivadas del índice activo
     const recentTracks = queue.slice(0, activeIndex).reverse();
-    const upcomingTracks = queue.slice(activeIndex + 1);
+    const upcomingTracks = queue.slice(activeIndex + 1, activeIndex + 1 + 50);
     const currentTrack = queue[activeIndex] ?? null;
 
-    // ── Recarga la cola cuando cambia el track activo ──
-    useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async (event) => {
-        const idx = event.index;
-        const fullQueue = await TrackPlayer.getQueue();
-        setQueue(fullQueue);
-        if (idx !== undefined && idx !== null) setActiveIndex(idx);
+    const totalUpcomingCount = Math.max(0, queue.length - (activeIndex + 1));
+    const hiddenUpcomingCount = Math.max(0, totalUpcomingCount - 50);
+
+    useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async () => {
+        if (isReordering.current) return;
+
+        try {
+            const [fullQueue, realIdx] = await Promise.all([
+                TrackPlayer.getQueue(),
+                TrackPlayer.getActiveTrackIndex(),
+            ]);
+            
+            setQueue(fullQueue);
+            if (realIdx !== undefined && realIdx !== null) {
+                setActiveIndex(realIdx);
+            }
+        } catch (e) {
+            console.error('QueueSheet: error sincronizando cola post-evento', e);
+        }
     });
 
-    // ── Carga inicial al abrir el sheet ──
     useEffect(() => {
         if (isVisible) {
             (async () => {
@@ -81,7 +96,6 @@ export default function QueueSheet() {
         }
     }, [isVisible]);
 
-    // --- ANIMACIONES DE SHEET ---
     useEffect(() => {
         if (isVisible) {
             Animated.parallel([
@@ -96,7 +110,6 @@ export default function QueueSheet() {
         }
     }, [isVisible, fadeAnim, slideAnim]);
 
-    // --- BACKHANDLER ---
     useEffect(() => {
         if (!isVisible) return;
         const onBackPress = () => { closeQueue(); return true; };
@@ -104,7 +117,6 @@ export default function QueueSheet() {
         return () => subscription.remove();
     }, [isVisible, closeQueue]);
 
-    // --- ANIMACIÓN DEL INDICADOR DE TAB ---
     const switchTab = (tab: ActiveTab) => {
         setActiveTab(tab);
         Animated.spring(tabIndicatorAnim, {
@@ -114,6 +126,51 @@ export default function QueueSheet() {
             useNativeDriver: true,
         }).start();
     };
+
+    const handleDragEnd = React.useCallback(async ({ data, from, to }: { data: TPTrack[], from: number, to: number }) => {
+        if (from === to) return;
+
+        isReordering.current = true;
+
+        const globalFrom = activeIndex + 1 + from;
+        const globalTo = activeIndex + 1 + to;
+        
+        const trackToMove = queue[globalFrom];
+        if (!trackToMove) {
+            isReordering.current = false;
+            return;
+        }
+
+        const newQueue = [
+            ...queue.slice(0, activeIndex + 1),
+            ...data,
+            ...queue.slice(activeIndex + 1 + data.length)
+        ];
+        setQueue(newQueue);
+
+        try {
+            await TrackPlayer.remove(globalFrom);
+            await TrackPlayer.add([trackToMove], globalTo);
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const [fullQueue, currentIdx] = await Promise.all([
+                TrackPlayer.getQueue(),
+                TrackPlayer.getActiveTrackIndex(),
+            ]);
+            
+            setQueue(fullQueue);
+            if (currentIdx !== undefined && currentIdx !== null) setActiveIndex(currentIdx);
+            
+            await usePlayerStore.getState().savePlaybackState();
+        } catch (error) {
+            console.error('Error reordering track:', error);
+            const fullQueue = await TrackPlayer.getQueue();
+            setQueue(fullQueue);
+        } finally {
+            isReordering.current = false;
+        }
+    }, [activeIndex, queue, setQueue]);
 
     const handleSkipTo = React.useCallback(async (globalIndex: number) => {
         try {
@@ -128,7 +185,6 @@ export default function QueueSheet() {
     const handleRemove = React.useCallback(async (globalIndex: number, isUserQueued: boolean) => {
         try {
             await TrackPlayer.remove(globalIndex);
-            // Si era un track de la user queue, decrementamos el contador
             if (isUserQueued) decrementUserQueue();
             const [fullQueue, idx] = await Promise.all([
                 TrackPlayer.getQueue(),
@@ -137,7 +193,6 @@ export default function QueueSheet() {
             setQueue(fullQueue);
             if (idx !== undefined && idx !== null) setActiveIndex(idx);
             
-            // Actualizar estado en el store global y persistir en disco
             await usePlayerStore.getState().updateQueueStatus(idx ?? undefined);
             await usePlayerStore.getState().savePlaybackState();
         } catch (error) {
@@ -175,26 +230,28 @@ export default function QueueSheet() {
         );
     };
 
-    // --- RENDER: CANCIÓN ACTUAL (siempre visible en la tab Queue) ---
     const listHeader = React.useMemo(() => (
         <CurrentTrackHeader currentTrack={currentTrack} isPlayingGlobal={isPlayingGlobal} />
     ), [currentTrack, isPlayingGlobal]);
 
-    // --- RENDER: FILA DE COLA (próximas) ---
-    const renderQueueItem = React.useCallback(({ item, index }: { item: any; index: number }) => {
+    const renderQueueItem = React.useCallback(({ item, getIndex, drag, isActive }: RenderItemParams<TPTrack>) => {
+        const index = getIndex() || 0;
         return (
-            <QueueTrackRow
-                item={item}
-                index={index}
-                activeIndex={activeIndex}
-                userQueueSize={userQueueSize}
-                onSkip={handleSkipTo}
-                onRemove={handleRemove}
-            />
+            <ScaleDecorator>
+                <QueueTrackRow
+                    item={item}
+                    index={index}
+                    activeIndex={activeIndex}
+                    userQueueSize={userQueueSize}
+                    onSkip={handleSkipTo}
+                    onRemove={handleRemove}
+                    drag={drag}
+                    isActive={isActive}
+                />
+            </ScaleDecorator>
         );
     }, [activeIndex, userQueueSize, handleSkipTo, handleRemove]);
 
-    // --- RENDER: FILA DE HISTORIAL ---
     const renderRecentItem = React.useCallback(({ item, index }: { item: TPTrack; index: number }) => {
         return (
             <RecentTrackRow
@@ -206,7 +263,6 @@ export default function QueueSheet() {
         );
     }, [activeIndex, handleSkipTo]);
 
-    // Render/unmount controlado
     const [shouldRender, setShouldRender] = useState(isVisible);
     useEffect(() => {
         if (isVisible) {
@@ -238,10 +294,8 @@ export default function QueueSheet() {
             ]}>
                 <View style={styles.dragIndicator} />
 
-                {/* ── TAB BAR & TRASH ── */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24, marginBottom: 16 }}>
                     <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
-                        {/* Indicador deslizante */}
                         <Animated.View
                             style={[
                                 styles.tabIndicator,
@@ -257,15 +311,15 @@ export default function QueueSheet() {
                             <Ionicons
                                 name="list"
                                 size={15}
-                                color={activeTab === 'queue' ? '#FFFFFF' : '#555'}
+                                color={activeTab === 'queue' ? Colors.tint : Colors.disabled}
                                 style={{ marginRight: 6 }}
                             />
                             <Text style={[styles.tabLabel, activeTab === 'queue' && styles.tabLabelActive]}>
                                 Cola
                             </Text>
-                            {upcomingTracks.length > 0 && (
+                            {totalUpcomingCount > 0 && (
                                 <View style={[styles.badge, activeTab === 'queue' && styles.badgeActive]}>
-                                    <Text style={styles.badgeText}>{upcomingTracks.length}</Text>
+                                    <Text style={styles.badgeText}>{totalUpcomingCount}</Text>
                                 </View>
                             )}
                         </TouchableOpacity>
@@ -278,7 +332,7 @@ export default function QueueSheet() {
                             <Ionicons
                                 name="time-outline"
                                 size={15}
-                                color={activeTab === 'recent' ? '#FFFFFF' : '#555'}
+                                color={activeTab === 'recent' ? Colors.tint : Colors.disabled}
                                 style={{ marginRight: 6 }}
                             />
                             <Text style={[styles.tabLabel, activeTab === 'recent' && styles.tabLabelActive]}>
@@ -296,34 +350,46 @@ export default function QueueSheet() {
                         onPress={handleTrashPress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Ionicons name="trash-outline" size={24} color="#EF4444" />
+                        <Ionicons name="trash-outline" size={24} color={Colors.heartIcon} />
                     </TouchableOpacity>
                 </View>
 
-                {/* ── CONTENIDO DE TABS ── */}
                 {activeTab === 'queue' ? (
-                    <FlashList
-                        data={upcomingTracks}
-                        keyExtractor={(item, index) => `q-${item.id}-${index}`}
-                        renderItem={renderQueueItem}
-                        ListHeaderComponent={listHeader}
-                        ListEmptyComponent={
-                            <View style={styles.emptyState}>
-                                <Ionicons name="musical-notes-outline" size={40} color="#252525" />
-                                <Text style={styles.emptyText}>No hay canciones en la cola</Text>
-                            </View>
-                        }
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                    />
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        {listHeader}
+                        <View style={styles.separator} />
+                        <DraggableFlatList
+                            data={upcomingTracks}
+                            keyExtractor={(item) => `q-${item.id}`}
+                            renderItem={renderQueueItem}
+                            onDragEnd={handleDragEnd}
+                            ListEmptyComponent={
+                                <View style={styles.emptyState}>
+                                    <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
+                                    <Text style={styles.emptyText}>No hay canciones en la cola</Text>
+                                </View>
+                            }
+                            ListFooterComponent={
+                                hiddenUpcomingCount > 0 ? (
+                                    <View style={styles.footerContainer}>
+                                        <Text style={styles.footerText}>
+                                            y {hiddenUpcomingCount} {hiddenUpcomingCount === 1 ? 'canción más' : 'canciones más'} en la cola
+                                        </Text>
+                                    </View>
+                                ) : null
+                            }
+                            contentContainerStyle={styles.listContent}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    </GestureHandlerRootView>
                 ) : (
                     <FlashList
                         data={recentTracks}
-                        keyExtractor={(item, index) => `r-${item.id}-${index}`}
+                        keyExtractor={(item) => `r-${item.id}`}
                         renderItem={renderRecentItem}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Ionicons name="time-outline" size={40} color="#252525" />
+                                <Ionicons name="time-outline" size={40} color={Colors.disabled} />
                                 <Text style={styles.emptyText}>Aún no hay historial</Text>
                             </View>
                         }
@@ -335,8 +401,6 @@ export default function QueueSheet() {
         </View>
     );
 }
-
-// ── SUB-COMPONENTES MEMOIZADOS PARA PREVENIR FLICKERING ──
 
 interface CurrentTrackHeaderProps {
     currentTrack: TPTrack | null;
@@ -361,7 +425,7 @@ const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal }: Curren
                 />
             ) : (
                 <View style={[styles.thumbnail, styles.placeholder]}>
-                    <Ionicons name="musical-notes" size={20} color="#666" />
+                    <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
                 </View>
             )}
             <View style={styles.trackInfo}>
@@ -387,9 +451,11 @@ interface QueueTrackRowProps {
     userQueueSize: number;
     onSkip: (globalIndex: number) => void;
     onRemove: (globalIndex: number, isUserQueued: boolean) => void;
+    drag?: () => void;
+    isActive?: boolean;
 }
 
-const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onSkip, onRemove }: QueueTrackRowProps) => {
+const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onSkip, onRemove, drag, isActive }: QueueTrackRowProps) => {
     const globalIndex = activeIndex + 1 + index;
     const isUserQueued = index < userQueueSize;
     const isManual = item.isManual === true || isUserQueued;
@@ -399,9 +465,18 @@ const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onS
 
     return (
         <TouchableOpacity
-            style={styles.trackRow}
+            style={[styles.trackRow, isActive && { backgroundColor: Colors.accentAlpha10 }]}
             onPress={() => onSkip(globalIndex)}
+            onLongPress={drag}
+            delayLongPress={200}
         >
+            <TouchableOpacity
+                onPressIn={drag}
+                style={{ paddingVertical: 8, paddingRight: 12 }}
+                hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+            >
+                <Ionicons name="reorder-two" size={24} color={Colors.disabled} />
+            </TouchableOpacity>
             {imageSource ? (
                 <Image
                     source={imageSource}
@@ -411,7 +486,7 @@ const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onS
                 />
             ) : (
                 <View style={[styles.thumbnail, styles.placeholder]}>
-                    <Ionicons name="musical-notes" size={20} color="#666" />
+                    <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
                 </View>
             )}
             <View style={styles.trackInfo}>
@@ -419,7 +494,7 @@ const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onS
                     <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
                     {isManual && (
                         <View style={styles.userQueueBadge}>
-                            <Ionicons name="menu" size={12} color="#A78BFA" />
+                            <Ionicons name="menu" size={12} color={Colors.accentLight} />
                         </View>
                     )}
                 </View>
@@ -430,7 +505,7 @@ const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onS
                 onPress={() => onRemove(globalIndex, isUserQueued)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
-                <Ionicons name="close-outline" size={24} color="#555" />
+                <Ionicons name="close-outline" size={24} color={Colors.disabled} />
             </TouchableOpacity>
         </TouchableOpacity>
     );
@@ -465,7 +540,7 @@ const RecentTrackRow = React.memo(({ item, index, activeIndex, onSkip }: RecentT
                 />
             ) : (
                 <View style={[styles.thumbnail, styles.placeholder, { opacity: 0.55 }]}>
-                    <Ionicons name="musical-notes" size={20} color="#555" />
+                    <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
                 </View>
             )}
             <View style={styles.trackInfo}>
@@ -474,7 +549,7 @@ const RecentTrackRow = React.memo(({ item, index, activeIndex, onSkip }: RecentT
                     {item.artist || 'Desconocido'}
                 </Text>
             </View>
-            <Ionicons name="play-back-outline" size={18} color="#3A3A3A" />
+            <Ionicons name="play-back-outline" size={18} color={Colors.disabled} />
         </TouchableOpacity>
     );
 });
@@ -486,31 +561,29 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.7)',
     },
     sheetContainer: {
-        backgroundColor: '#0E0E0E',
+        backgroundColor: Colors.background,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         position: 'absolute',
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: '#1E1E1E',
+        borderColor: Colors.cardBackground,
         overflow: 'hidden',
     },
     dragIndicator: {
         width: 40,
         height: 4,
-        backgroundColor: '#2E2E2E',
+        backgroundColor: Colors.disabled,
         borderRadius: 2,
         alignSelf: 'center',
         marginTop: 14,
         marginBottom: 16,
     },
-
-    // ── Tab bar ──
     tabBar: {
         flexDirection: 'row',
         marginHorizontal: 24,
-        backgroundColor: '#181818',
+        backgroundColor: Colors.cardBackground,
         borderRadius: 14,
         padding: 4,
         marginBottom: 16,
@@ -522,7 +595,7 @@ const styles = StyleSheet.create({
         top: 4,
         left: 4,
         bottom: 4,
-        backgroundColor: '#2A2A2A',
+        backgroundColor: Colors.disabled,
         borderRadius: 10,
     },
     tabButton: {
@@ -533,57 +606,57 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     tabLabel: {
-        color: '#555',
+        color: Colors.disabled,
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
     },
     tabLabelActive: {
-        color: '#FFFFFF',
+        color: Colors.tint,
     },
     badge: {
-        backgroundColor: '#2E2E2E',
+        backgroundColor: Colors.disabled,
         borderRadius: 8,
         paddingHorizontal: 6,
         paddingVertical: 2,
         marginLeft: 6,
     },
     badgeActive: {
-        backgroundColor: '#3E3E3E',
+        backgroundColor: Colors.disabled,
     },
     badgeText: {
-        color: '#888',
+        color: Colors.textSecondary,
         fontSize: 11,
         fontFamily: 'Montserrat',
         fontWeight: '700',
     },
-
-    // ── Fila canción actual ──
     currentTrackRow: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 14,
         paddingHorizontal: 20,
-        backgroundColor: 'rgba(139, 92, 246, 0.08)',
-        borderBottomWidth: 1,
-        borderBottomColor: '#1A1A1A',
-        marginBottom: 4,
+        backgroundColor: Colors.accentAlpha8,
+    },
+    separator: {
+        height: 1,
+        backgroundColor: Colors.overlayAlpha10,
+        marginHorizontal: 20,
+        marginTop: 12,
+        marginBottom: 8,
     },
     nowPlayingBadge: {
-        backgroundColor: 'rgba(139, 92, 246, 0.25)',
+        backgroundColor: Colors.accentAlpha20,
         borderRadius: 6,
         paddingHorizontal: 7,
         paddingVertical: 3,
     },
     nowPlayingText: {
-        color: '#A78BFA',
+        color: Colors.accentLight,
         fontSize: 10,
         fontFamily: 'Montserrat',
         fontWeight: '800',
         letterSpacing: 0.8,
     },
-
-    // ── Filas de track ──
     trackRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -597,7 +670,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: '#1E1E1E',
+        backgroundColor: Colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -613,9 +686,9 @@ const styles = StyleSheet.create({
     userQueueBadge: {
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(167, 139, 250, 0.12)',
+        backgroundColor: Colors.accentLightAlpha12,
         borderWidth: 1,
-        borderColor: 'rgba(167, 139, 250, 0.3)',
+        borderColor: Colors.accentLightAlpha30,
         borderRadius: 5,
         padding: 3,
     },
@@ -625,45 +698,58 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     title: {
-        color: '#FFFFFF',
+        color: Colors.text,
         fontSize: 15,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         flexShrink: 1,
     },
     textActive: {
-        color: '#A78BFA',
+        color: Colors.accentLight,
     },
     textDimmed: {
-        color: '#444',
+        color: Colors.disabled,
     },
     subtitle: {
-        color: '#6B7280',
+        color: Colors.textSecondary,
         fontSize: 13,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         marginTop: 3,
     },
     subtitleDimmed: {
-        color: '#2E2E2E',
+        color: Colors.disabled,
     },
     removeButton: {
         padding: 8,
     },
     listContent: {
-        paddingBottom: 40,
+        paddingBottom: 120,
     },
-
-    // ── Estado vacío ──
     emptyState: {
         alignItems: 'center',
         paddingTop: 60,
         gap: 12,
     },
     emptyText: {
-        color: '#333',
+        color: Colors.disabled,
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
+    },
+    footerContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 24,
+        borderTopWidth: 1,
+        borderColor: Colors.cardBackground,
+        marginTop: 12,
+    },
+    footerText: {
+        color: Colors.accentLight,
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
 });
