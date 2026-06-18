@@ -40,11 +40,20 @@ const sliderValueToSpeed = (val: number): number => {
     return Math.round(rawSpeed / 0.05) * 0.05;
 };
 
+// Pitch helpers: Convert between semitones [-2, 2] and playback pitch factor
+const semitonesToPitch = (semitones: number): number => {
+    return Math.pow(2, semitones / 12);
+};
+
+const pitchToSemitones = (pitch: number): number => {
+    return Math.round(12 * Math.log2(pitch));
+};
+
 export default function SpeedPitchSheet() {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { isVisible, closeSheet } = useAudioSpeedPitchSheetStore();
-    const { playbackSpeed, setPlaybackSpeed } = usePlayerStore();
+    const { playbackSpeed, setPlaybackSpeed, playbackPitch, setPlaybackPitch } = usePlayerStore();
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
 
@@ -53,11 +62,13 @@ export default function SpeedPitchSheet() {
 
     // Local state to track/smooth layout updates
     const [localSpeed, setLocalSpeed] = useState(playbackSpeed);
+    const [localPitch, setLocalPitch] = useState(playbackPitch || 1.0);
 
     // Sync local state when store values change (e.g. on mount/hydrate)
     useEffect(() => {
         setLocalSpeed(playbackSpeed);
-    }, [playbackSpeed]);
+        setLocalPitch(playbackPitch || 1.0);
+    }, [playbackSpeed, playbackPitch]);
 
     // --- ANIMACIONES DE SHEET ---
     useEffect(() => {
@@ -100,13 +111,31 @@ export default function SpeedPitchSheet() {
         setPlaybackSpeed(1.0);
     };
 
-    const handleSliderChange = (val: number) => {
+    const handleSpeedSliderChange = (val: number) => {
         const newSpeed = sliderValueToSpeed(val);
         if (newSpeed !== localSpeed) {
             setLocalSpeed(newSpeed);
-            setPlaybackSpeed(newSpeed); // Updates track player in real-time
+            setPlaybackSpeed(newSpeed);
         }
     };
+
+    const handleResetPitch = () => {
+        setLocalPitch(1.0);
+        setPlaybackPitch(1.0);
+    };
+
+    const handlePitchSliderChange = (val: number) => {
+        const newPitch = semitonesToPitch(val);
+        if (newPitch !== localPitch) {
+            setLocalPitch(newPitch);
+            setPlaybackPitch(newPitch);
+        }
+    };
+
+    const currentSemitones = pitchToSemitones(localPitch);
+    const semitonesText = currentSemitones === 0 
+        ? "Normal" 
+        : currentSemitones > 0 ? `+${currentSemitones} st` : `${currentSemitones} st`;
 
     return (
         <View
@@ -152,7 +181,36 @@ export default function SpeedPitchSheet() {
                         maximumValue={1.0}
                         step={0.01}
                         value={speedToSliderValue(localSpeed)}
-                        onValueChange={handleSliderChange}
+                        onValueChange={handleSpeedSliderChange}
+                        minimumTrackTintColor={colors.accent}
+                        maximumTrackTintColor="#282828"
+                        thumbTintColor="#FFFFFF"
+                    />
+                </View>
+
+                {/* Pitch Controls */}
+                <View style={styles.controlSection}>
+                    <View style={styles.labelRow}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="musical-notes-outline" size={18} color={colors.textSecondary} />
+                            <Text style={styles.controlLabel}>{t('audio_effects.pitch') || 'Tono'}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Text style={styles.valueText}>{semitonesText}</Text>
+                            {localPitch !== 1.0 && (
+                                <TouchableOpacity onPress={handleResetPitch} style={styles.resetButton}>
+                                    <Text style={styles.resetButtonText}>{t('audio_effects.reset') || 'Restablecer'}</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                    <Slider
+                        style={styles.slider}
+                        minimumValue={-2}
+                        maximumValue={2}
+                        step={1}
+                        value={currentSemitones}
+                        onValueChange={handlePitchSliderChange}
                         minimumTrackTintColor={colors.accent}
                         maximumTrackTintColor="#282828"
                         thumbTintColor="#FFFFFF"

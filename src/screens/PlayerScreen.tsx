@@ -111,7 +111,8 @@ const PlayerScreenUI = ({
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
     const openSpeedPitch = useAudioSpeedPitchSheetStore(state => state.openSheet);
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
-    const isSpeedActive = playbackSpeed !== 1.0;
+    const playbackPitch = usePlayerStore(state => state.playbackPitch);
+    const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
 
@@ -522,7 +523,7 @@ const PlayerScreenUI = ({
                             <Ionicons
                                 name="speedometer-outline"
                                 size={24}
-                                color={isSpeedActive ? colors.accentLight : colors.textSecondary}
+                                color={isSpeedPitchActive ? colors.accentLight : colors.textSecondary}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity

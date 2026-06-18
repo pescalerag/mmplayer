@@ -39,6 +39,8 @@ interface PlayerState {
   userQueueSize: number;
   playbackSpeed: number;
   setPlaybackSpeed: (speed: number) => Promise<void>;
+  playbackPitch: number;
+  setPlaybackPitch: (pitch: number) => Promise<void>;
   loadQueue: (
     tracks: Track[],
     index: number,
@@ -131,6 +133,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffleOriginalQueue: [],
   userQueueSize: 0,
   playbackSpeed: 1.0,
+  playbackPitch: 1.0,
   recentMedia: [],
   recentPlaylists: [],
 
@@ -421,6 +424,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  setPlaybackPitch: async (pitch) => {
+    try {
+      await (TrackPlayer as any).setPitch(pitch);
+      set({ playbackPitch: pitch });
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error("Error setting playback pitch:", e);
+    }
+  },
+
   clearUserQueue: async () => {
     try {
       const queue = await TrackPlayer.getQueue();
@@ -466,6 +479,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue,
         userQueueSize,
         playbackSpeed,
+        playbackPitch,
       } = get();
 
       if (queue.length === 0) {
@@ -484,6 +498,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue,
         userQueueSize,
         playbackSpeed,
+        playbackPitch,
       });
       storage.set(PERSISTENCE_KEY, payload);
 
@@ -527,6 +542,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue,
         userQueueSize,
         playbackSpeed,
+        playbackPitch,
       } = JSON.parse(savedData);
 
       if (!queue || queue.length === 0) return;
@@ -539,6 +555,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await TrackPlayer.add(queue);
       await TrackPlayer.setRate(playbackSpeed ?? 1.0);
+      if (playbackPitch !== undefined && playbackPitch !== 1.0) {
+        await (TrackPlayer as any).setPitch(playbackPitch);
+      }
 
       const safeIndex =
         index !== undefined && index !== null && index < queue.length
@@ -585,6 +604,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue: shuffleOriginalQueue ?? [],
         userQueueSize: userQueueSize ?? 0,
         playbackSpeed: playbackSpeed ?? 1.0,
+        playbackPitch: playbackPitch ?? 1.0,
       });
 
       // 4. Actualizar hasPrevious / hasNext
