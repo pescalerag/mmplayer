@@ -24,6 +24,7 @@ import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
 import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
 import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
 import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
+import { useSyncStore } from '../store/useSyncStore';
 import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
@@ -37,6 +38,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [headerHeight, setHeaderHeight] = useState(100);
+    const isScanning = useSyncStore(state => state.isScanning);
     const {
         showTagColors,
         setShowTagColors,
@@ -364,6 +366,50 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             </View>
                         </>
                     )}
+
+                    <View style={styles.separator} />
+                    
+                    <TouchableOpacity
+                        style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
+                        disabled={isScanning}
+                        onPress={() => {
+                            Alert.alert(
+                                t('settings.scan_replaygain_alert_title') || 'Analizar volumen de canciones',
+                                t('settings.scan_replaygain_alert_desc') || 'Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?',
+                                [
+                                    { text: t('actions.cancel'), style: "cancel" },
+                                    {
+                                        text: t('actions.continue'),
+                                        style: "default",
+                                        onPress: async () => {
+                                            if (useSyncStore.getState().isScanning) return;
+                                            try {
+                                                useSyncStore.getState().setIsScanning(true, false);
+                                                const scannedCount = await ScannerService.runDeepReplayGainScan();
+                                                Alert.alert(
+                                                    t('settings.success'),
+                                                    t('settings.scan_replaygain_success', { count: scannedCount }) || `Se han analizado y guardado las ganancias de ${scannedCount} canciones.`
+                                                );
+                                            } catch (err) {
+                                                console.error("Error al escanear ReplayGain:", err);
+                                                Alert.alert(t('actions.error'), 'No se pudo completar el análisis.');
+                                            } finally {
+                                                useSyncStore.getState().setIsScanning(false, false);
+                                            }
+                                        }
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.scan_replaygain') || 'Escanear ganancias de volumen'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.scan_replaygain_desc') || 'Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos'}
+                            </Text>
+                        </View>
+                        <Ionicons name="volume-high" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* --- SECCIÓN DE GESTOS --- */}

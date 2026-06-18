@@ -984,13 +984,6 @@ export const ScannerService = {
 
                     // Se ha modificado el archivo: actualizamos metadatos
                     const meta = extractFileMetadata(file);
-                    if (meta.replayGain === null || meta.replayGain === undefined) {
-                        try {
-                            meta.replayGain = await getReplayGain(file.uri);
-                        } catch (err) {
-                            console.error("Error al obtener replayGain individual para canción modificada:", err);
-                        }
-                    }
 
                     // Resolve Artists
                     const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
@@ -1059,13 +1052,6 @@ export const ScannerService = {
                 } else {
                     // 1. Parse Metadata
                     const meta = extractFileMetadata(file);
-                    if (meta.replayGain === null || meta.replayGain === undefined) {
-                        try {
-                            meta.replayGain = await getReplayGain(file.uri);
-                        } catch (err) {
-                            console.error("Error al obtener replayGain individual para canción nueva:", err);
-                        }
-                    }
 
                     // 2. Resolve Artists
                     const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
@@ -1183,6 +1169,66 @@ export const ScannerService = {
             console.log('[Migration] Migración de last_modified completada con éxito.');
         } catch (error) {
             console.error('[Migration] Error ejecutando migración de last_modified:', error);
+        }
+    },
+
+    runDeepReplayGainScan: async (
+        onProgress?: (current: number, total: number, phase: string) => void
+    ): Promise<number> => {
+        try {
+            const tracksCollection = database.collections.get<Track>('tracks');
+            // Buscamos solo canciones que no tengan replay_gain asignado
+            const tracksWithoutGain = await tracksCollection.query(
+                Q.where('replay_gain', Q.eq(null as any))
+            ).fetch();
+
+            if (tracksWithoutGain.length === 0) {
+                return 0;
+            }
+
+            console.log(`[ReplayGain Deep Scan] Encontradas ${tracksWithoutGain.length} canciones sin ReplayGain.`);
+
+            const CHUNK_SIZE = 10;
+            let processed = 0;
+
+            for (let i = 0; i < tracksWithoutGain.length; i += CHUNK_SIZE) {
+                const chunk = tracksWithoutGain.slice(i, i + CHUNK_SIZE);
+                
+                onProgress?.(processed, tracksWithoutGain.length, `Analizando volumen (${processed}/${tracksWithoutGain.length})...`);
+
+                const batchOps: any[] = [];
+
+                await Promise.all(chunk.map(async (track) => {
+                    try {
+                        const gain = await getReplayGain(track.fileUrl);
+                        if (gain !== null && gain !== undefined) {
+                            const parsedGain = typeof gain === 'number' ? gain : parseFloat(gain);
+                            const updateOp = track.prepareUpdate((t: any) => {
+                                t.replayGain = parsedGain;
+                            });
+                            batchOps.push(updateOp);
+                        }
+                    } catch (err) {
+                        console.error(`Error al obtener ReplayGain para ${track.fileUrl}:`, err);
+                    }
+                }));
+
+                if (batchOps.length > 0) {
+                    await database.write(async () => {
+                        await database.batch(batchOps);
+                    });
+                }
+
+                processed += chunk.length;
+                
+                // Dar respiro a la UI
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            return tracksWithoutGain.length;
+        } catch (error) {
+            console.error("Error en runDeepReplayGainScan:", error);
+            throw error;
         }
     }
 };

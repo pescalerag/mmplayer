@@ -41,6 +41,8 @@ interface PlayerState {
   setPlaybackSpeed: (speed: number) => Promise<void>;
   playbackPitch: number;
   setPlaybackPitch: (pitch: number) => Promise<void>;
+  isVinylModeEnabled: boolean;
+  setVinylModeEnabled: (enabled: boolean) => Promise<void>;
   loadQueue: (
     tracks: Track[],
     index: number,
@@ -134,6 +136,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   userQueueSize: 0,
   playbackSpeed: 1.0,
   playbackPitch: 1.0,
+  isVinylModeEnabled: true,
   recentMedia: [],
   recentPlaylists: [],
 
@@ -151,6 +154,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.setRate(get().playbackSpeed);
+      const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
+      if (targetPitch !== 1.0) {
+        await (TrackPlayer as any).setPitch(targetPitch);
+      }
       await TrackPlayer.play();
 
       set({
@@ -224,6 +231,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.setRate(get().playbackSpeed);
+      const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
+      if (targetPitch !== 1.0) {
+        await (TrackPlayer as any).setPitch(targetPitch);
+      }
       await TrackPlayer.play();
 
       set({
@@ -282,6 +293,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await TrackPlayer.add([tpTrack]);
       await TrackPlayer.setRate(get().playbackSpeed);
+      const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
+      if (targetPitch !== 1.0) {
+        await (TrackPlayer as any).setPitch(targetPitch);
+      }
       await TrackPlayer.play();
       set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
       await get().updateQueueStatus();
@@ -418,6 +433,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       await TrackPlayer.setRate(speed);
       set({ playbackSpeed: speed });
+      if (get().isVinylModeEnabled) {
+        await (TrackPlayer as any).setPitch(speed);
+        set({ playbackPitch: speed });
+      }
       await get().savePlaybackState();
     } catch (e) {
       console.error("Error setting playback speed:", e);
@@ -431,6 +450,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().savePlaybackState();
     } catch (e) {
       console.error("Error setting playback pitch:", e);
+    }
+  },
+
+  setVinylModeEnabled: async (enabled) => {
+    try {
+      set({ isVinylModeEnabled: enabled });
+      if (enabled) {
+        const speed = get().playbackSpeed;
+        await (TrackPlayer as any).setPitch(speed);
+        set({ playbackPitch: speed });
+      } else {
+        await (TrackPlayer as any).setPitch(1.0);
+        set({ playbackPitch: 1.0 });
+      }
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error("Error setting vinyl mode:", e);
     }
   },
 
@@ -480,6 +516,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         userQueueSize,
         playbackSpeed,
         playbackPitch,
+        isVinylModeEnabled,
       } = get();
 
       if (queue.length === 0) {
@@ -499,6 +536,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         userQueueSize,
         playbackSpeed,
         playbackPitch,
+        isVinylModeEnabled,
       });
       storage.set(PERSISTENCE_KEY, payload);
 
@@ -543,6 +581,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         userQueueSize,
         playbackSpeed,
         playbackPitch,
+        isVinylModeEnabled,
       } = JSON.parse(savedData);
 
       if (!queue || queue.length === 0) return;
@@ -555,8 +594,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await TrackPlayer.add(queue);
       await TrackPlayer.setRate(playbackSpeed ?? 1.0);
-      if (playbackPitch !== undefined && playbackPitch !== 1.0) {
-        await (TrackPlayer as any).setPitch(playbackPitch);
+      const targetPitch = isVinylModeEnabled ? (playbackSpeed ?? 1.0) : (playbackPitch ?? 1.0);
+      if (targetPitch !== 1.0) {
+        await (TrackPlayer as any).setPitch(targetPitch);
       }
 
       const safeIndex =
@@ -605,6 +645,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         userQueueSize: userQueueSize ?? 0,
         playbackSpeed: playbackSpeed ?? 1.0,
         playbackPitch: playbackPitch ?? 1.0,
+        isVinylModeEnabled: isVinylModeEnabled ?? true,
       });
 
       // 4. Actualizar hasPrevious / hasNext

@@ -148,7 +148,12 @@
     "preamp": "Pre-amplification",
     "preamp_desc": "Useful if you notice music sounds too quiet with normalization active",
     "fallback_gain": "Fallback gain",
-    "fallback_gain_desc": "Volume to apply if the song does not have normalization data"
+    "fallback_gain_desc": "Volume to apply if the song does not have normalization data",
+    "scan_replaygain": "Scan volume gains",
+    "scan_replaygain_desc": "Scan and analyze the volume (ReplayGain) of your audio files to level them",
+    "scan_replaygain_alert_title": "Analyze Track Volume",
+    "scan_replaygain_alert_desc": "This process will scan and analyze tracks in your library that do not have volume gain assigned. This might take a few minutes for larger libraries. Do you wish to continue?",
+    "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks."
   },
   "queue": {
     "title": "Queue",
@@ -359,6 +364,9 @@
     "title": "Audio Effects",
     "speed": "Speed",
     "pitch": "Pitch",
-    "reset": "Reset"
+    "reset": "Reset",
+    "vinyl_mode": "Vinyl Mode / Hi-Fi",
+    "vinyl_mode_desc": "Matches pitch and speed for pure analog sound",
+    "pitch_locked": "Locked"
   }
 }

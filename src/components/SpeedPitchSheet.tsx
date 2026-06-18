@@ -5,6 +5,7 @@ import {
     BackHandler,
     Dimensions,
     StyleSheet,
+    Switch,
     Text,
     TouchableOpacity,
     TouchableWithoutFeedback,
@@ -53,7 +54,14 @@ export default function SpeedPitchSheet() {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { isVisible, closeSheet } = useAudioSpeedPitchSheetStore();
-    const { playbackSpeed, setPlaybackSpeed, playbackPitch, setPlaybackPitch } = usePlayerStore();
+    const {
+        playbackSpeed,
+        setPlaybackSpeed,
+        playbackPitch,
+        setPlaybackPitch,
+        isVinylModeEnabled,
+        setVinylModeEnabled
+    } = usePlayerStore();
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
 
@@ -67,8 +75,8 @@ export default function SpeedPitchSheet() {
     // Sync local state when store values change (e.g. on mount/hydrate)
     useEffect(() => {
         setLocalSpeed(playbackSpeed);
-        setLocalPitch(playbackPitch || 1.0);
-    }, [playbackSpeed, playbackPitch]);
+        setLocalPitch(isVinylModeEnabled ? playbackSpeed : (playbackPitch || 1.0));
+    }, [playbackSpeed, playbackPitch, isVinylModeEnabled]);
 
     // --- ANIMACIONES DE SHEET ---
     useEffect(() => {
@@ -109,6 +117,9 @@ export default function SpeedPitchSheet() {
     const handleResetSpeed = () => {
         setLocalSpeed(1.0);
         setPlaybackSpeed(1.0);
+        if (isVinylModeEnabled) {
+            setLocalPitch(1.0);
+        }
     };
 
     const handleSpeedSliderChange = (val: number) => {
@@ -116,15 +127,20 @@ export default function SpeedPitchSheet() {
         if (newSpeed !== localSpeed) {
             setLocalSpeed(newSpeed);
             setPlaybackSpeed(newSpeed);
+            if (isVinylModeEnabled) {
+                setLocalPitch(newSpeed);
+            }
         }
     };
 
     const handleResetPitch = () => {
+        if (isVinylModeEnabled) return;
         setLocalPitch(1.0);
         setPlaybackPitch(1.0);
     };
 
     const handlePitchSliderChange = (val: number) => {
+        if (isVinylModeEnabled) return;
         const newPitch = semitonesToPitch(val);
         if (newPitch !== localPitch) {
             setLocalPitch(newPitch);
@@ -133,9 +149,11 @@ export default function SpeedPitchSheet() {
     };
 
     const currentSemitones = pitchToSemitones(localPitch);
-    const semitonesText = currentSemitones === 0 
-        ? "Normal" 
-        : currentSemitones > 0 ? `+${currentSemitones} st` : `${currentSemitones} st`;
+    const semitonesText = isVinylModeEnabled
+        ? (t('audio_effects.pitch_locked') || 'Bloqueado')
+        : (currentSemitones === 0 
+            ? "Normal" 
+            : currentSemitones > 0 ? `+${currentSemitones} st` : `${currentSemitones} st`);
 
     return (
         <View
@@ -188,8 +206,28 @@ export default function SpeedPitchSheet() {
                     />
                 </View>
 
+                {/* Vinyl Mode Toggle */}
+                <View style={styles.toggleRow}>
+                    <View style={{ flex: 1, paddingRight: 15 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <Ionicons name="disc-outline" size={18} color={colors.textSecondary} />
+                            <Text style={styles.controlLabel}>{t('audio_effects.vinyl_mode') || 'Modo Vinilo / Hi-Fi'}</Text>
+                        </View>
+                        <Text style={styles.toggleDesc}>
+                            {t('audio_effects.vinyl_mode_desc') || 'Ajusta el tono con la velocidad (analógico puro)'}
+                        </Text>
+                    </View>
+                    <Switch
+                        value={isVinylModeEnabled}
+                        onValueChange={setVinylModeEnabled}
+                        trackColor={{ false: '#282828', true: colors.accent }}
+                        thumbColor={isVinylModeEnabled ? '#FFFFFF' : '#888888'}
+                        ios_backgroundColor="#282828"
+                    />
+                </View>
+
                 {/* Pitch Controls */}
-                <View style={styles.controlSection}>
+                <View style={[styles.controlSection, isVinylModeEnabled && { opacity: 0.4 }]}>
                     <View style={styles.labelRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <Ionicons name="musical-notes-outline" size={18} color={colors.textSecondary} />
@@ -197,7 +235,7 @@ export default function SpeedPitchSheet() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                             <Text style={styles.valueText}>{semitonesText}</Text>
-                            {localPitch !== 1.0 && (
+                            {!isVinylModeEnabled && localPitch !== 1.0 && (
                                 <TouchableOpacity onPress={handleResetPitch} style={styles.resetButton}>
                                     <Text style={styles.resetButtonText}>{t('audio_effects.reset') || 'Restablecer'}</Text>
                                 </TouchableOpacity>
@@ -214,6 +252,7 @@ export default function SpeedPitchSheet() {
                         minimumTrackTintColor={colors.accent}
                         maximumTrackTintColor="#282828"
                         thumbTintColor="#FFFFFF"
+                        disabled={isVinylModeEnabled}
                     />
                 </View>
             </Animated.View>
@@ -297,5 +336,21 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     slider: {
         width: '100%',
         height: 40,
+    },
+    toggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#1C1C1E',
+        paddingVertical: 14,
+        marginBottom: 24,
+    },
+    toggleDesc: {
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontFamily: fonts.regular,
+        marginTop: 2,
     },
 });

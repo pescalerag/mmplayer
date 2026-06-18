@@ -52,7 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
             setNormalizationEnabled: (enabled) => set({ isNormalizationEnabled: enabled }),
             setPreampLevel: (level) => set({ preampLevel: level }),
             setFallbackGain: (level) => set({ fallbackGainDB: level }),
-            hideSyncToastOnResume: false,
+            hideSyncToastOnResume: true,
             setHideSyncToastOnResume: (value) => set({ hideSyncToastOnResume: value }),
             swipeLeftAction: 'add_last',
             setSwipeLeftAction: (action) => set({ swipeLeftAction: action }),
