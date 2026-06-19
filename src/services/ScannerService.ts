@@ -893,9 +893,7 @@ export const ScannerService = {
         }
 
         onProgress?.(0, 0, 'Buscando archivos nuevos en el sistema...');
-        const tracksCount = await database.get('tracks').query().fetchCount();
-        const isFirstScan = tracksCount === 0;
-        const audioFiles = await getAudioFiles(isFirstScan);
+        const audioFiles = await getAudioFiles(false);
 
         if (!audioFiles || audioFiles.length === 0) {
             return { total: 0, added: 0, skipped: 0 };
