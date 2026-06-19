@@ -4,6 +4,7 @@ import { HistoryService } from "./HistoryService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { database } from "../database";
 import Track from "../database/models/Track";
+import { LyricsSyncService } from "./LyricsSyncService";
 
 const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -180,6 +181,17 @@ export const PlaybackService = async function () {
       if (wasPlaying && nextTrackId) {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
+
+      setTimeout(async () => {
+        try {
+          const queue = await TrackPlayer.getQueue();
+          const currentIndex = await TrackPlayer.getActiveTrackIndex();
+          if (currentIndex !== undefined && currentIndex !== null) {
+            const ids = queue.map(q => q.id?.toString() ?? '');
+            await LyricsSyncService.prefetchForQueue(currentIndex, ids);
+          }
+        } catch { }
+      }, 2000);
     },
   );
 

@@ -29,7 +29,8 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
         <BlurredBackground
             imageUrl={album.coverUrl}
             blurIntensity={Platform.OS === 'ios' ? 40 : 70}
-            gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)', colors.background]}
+            gradientColors={['rgba(18,18,18,0.6)', 'rgba(18,18,18,0.6)']}
+            placeholderColors={[colors.cardBackground, colors.cardBackground]}
         />
     );
 });

@@ -217,7 +217,6 @@ const extractFileMetadata = (file: any) => {
         year: file.year || null,
         albumArtist,
         lastModified: file.lastModified || 0,
-        replayGain: typeof file.replayGain === 'number' ? file.replayGain : (file.replayGain ? parseFloat(file.replayGain) : null),
     };
 };
 
@@ -367,7 +366,6 @@ const prepareTrackRecords = (
         t.album.set(album);
         t.artist.set(primaryArtist);
         t.lastModified = meta.lastModified;
-        t.replayGain = meta.replayGain;
     });
     ops.push(track);
 
@@ -582,7 +580,7 @@ export const ScannerService = {
             for (const track of tracks) {
                 index++;
                 if (index % 100 === 0) {
-                    onProgress?.(`Reparando canciones y analizando volumen (${index}/${tracks.length})...`);
+                    onProgress?.(`Reparando canciones (${index}/${tracks.length})...`);
                 }
                 const cleanTitle = sanitizeDbString(track.title) || 'Unknown Title';
                 const normTitle = normalizeText(cleanTitle);
@@ -594,27 +592,12 @@ export const ScannerService = {
                     urlChanged = true;
                 }
 
-                let replayGain = track.replayGain;
-                let replayGainChanged = false;
-                if (replayGain === null || replayGain === undefined) {
-                    try {
-                        const scannedGain = await getReplayGain(track.fileUrl);
-                        if (scannedGain !== null && scannedGain !== undefined) {
-                            replayGain = scannedGain;
-                            replayGainChanged = true;
-                        }
-                    } catch (err) {
-                        console.error("Error escaneando ReplayGain en reparación:", err);
-                    }
-                }
-
-                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged || replayGainChanged) {
+                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged) {
                     batchOps.push(
                         track.prepareUpdate(t => {
                             t.title = cleanTitle;
                             t.normalizedTitle = normTitle;
                             if (urlChanged) t.fileUrl = cleanUrl;
-                            if (replayGainChanged) t.replayGain = replayGain;
                         })
                     );
                 }
@@ -1024,7 +1007,6 @@ export const ScannerService = {
                         t.trackNumber = file.trackNumber || 0;
                         t.discNumber = file.discNumber || 1;
                         t.lastModified = meta.lastModified;
-                        t.replayGain = meta.replayGain;
                         t.album.set(album);
                         t.artist.set(primaryArtist);
                     });

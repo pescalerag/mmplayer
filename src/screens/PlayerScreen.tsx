@@ -537,6 +537,17 @@ const PlayerScreenUI = ({
                                 color={colors.textSecondary}
                             />
                         </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Lyrics')}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name="mic-outline"
+                                size={24}
+                                color={colors.textSecondary}
+                            />
+                        </TouchableOpacity>
                     </View>
 
                     {/* Right: Queue */}

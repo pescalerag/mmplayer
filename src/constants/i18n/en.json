@@ -153,7 +153,11 @@
     "scan_replaygain_desc": "Scan and analyze the volume (ReplayGain) of your audio files to level them",
     "scan_replaygain_alert_title": "Analyze Track Volume",
     "scan_replaygain_alert_desc": "This process will scan and analyze tracks in your library that do not have volume gain assigned. This might take a few minutes for larger libraries. Do you wish to continue?",
-    "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks."
+    "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks.",
+    "lyrics_sync": "Lyrics Sync",
+    "lyrics_sync_desc": "Download lyrics for your entire library in the background. Wi-Fi recommended.",
+    "lyrics_sync_start": "Download missing lyrics",
+    "lyrics_downloading": "Downloading... {{current}} of {{total}}"
   },
   "queue": {
     "title": "Queue",
@@ -226,6 +230,7 @@
     "exclude_song_title": "Exclude song",
     "exclude_song_confirm": "Are you sure you want to exclude this song from scanning? It will be deleted from your library.",
     "share": "Share",
+    "more_info": "More info",
     "add": "Add",
     "only_new": "Only new ones",
     "add_all": "Add all",
@@ -367,6 +372,10 @@
     "reset": "Reset",
     "vinyl_mode": "Vinyl Mode / Hi-Fi",
     "vinyl_mode_desc": "Matches pitch and speed for pure analog sound",
-    "pitch_locked": "Locked"
+    "pitch_locked": "Locked",
+    "lyrics": "Lyrics",
+    "lyrics_not_found": "No lyrics found",
+    "lyrics_import": "Import .LRC file",
+    "lyrics_searching": "Searching lyrics..."
   }
 }

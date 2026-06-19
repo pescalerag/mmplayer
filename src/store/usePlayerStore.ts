@@ -43,6 +43,8 @@ interface PlayerState {
   setPlaybackPitch: (pitch: number) => Promise<void>;
   isVinylModeEnabled: boolean;
   setVinylModeEnabled: (enabled: boolean) => Promise<void>;
+  isLyricsVisible: boolean;
+  setLyricsVisible: (visible: boolean) => void;
   loadQueue: (
     tracks: Track[],
     index: number,
@@ -137,6 +139,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playbackSpeed: 1.0,
   playbackPitch: 1.0,
   isVinylModeEnabled: true,
+  isLyricsVisible: false,
   recentMedia: [],
   recentPlaylists: [],
 
@@ -468,6 +471,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch (e) {
       console.error("Error setting vinyl mode:", e);
     }
+  },
+
+  setLyricsVisible: (visible) => {
+    set({ isLyricsVisible: visible });
   },
 
   clearUserQueue: async () => {

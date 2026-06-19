@@ -32,6 +32,7 @@ import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
+import LyricsMenuSheet from "./src/components/LyricsMenuSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
 import "./src/constants/i18n";
@@ -133,6 +134,7 @@ export default function App() {
           {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
           <TrackMenuSheet />
+          <LyricsMenuSheet />
           <AlbumMenuSheet />
           <ArtistMenuSheet />
           <SortModalSheet />
