@@ -1,5 +1,7 @@
 import { createMMKV } from "react-native-mmkv";
 import TrackPlayer, { RepeatMode, Track as TPTrack } from "react-native-track-player";
+import { useCastStore } from "./useCastStore";
+import { LocalCastService } from "../services/LocalCastService";
 import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
@@ -161,7 +163,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (targetPitch !== 1.0) {
         await (TrackPlayer as any).setPitch(targetPitch);
       }
-      await TrackPlayer.play();
+      if (useCastStore.getState().isServerRunning) {
+        LocalCastService.setPlayIntent(true);
+        await TrackPlayer.pause();
+      } else {
+        await TrackPlayer.play();
+      }
 
       set({
         activeTrack: tracks[index],
@@ -238,7 +245,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (targetPitch !== 1.0) {
         await (TrackPlayer as any).setPitch(targetPitch);
       }
-      await TrackPlayer.play();
+      if (useCastStore.getState().isServerRunning) {
+        LocalCastService.setPlayIntent(true);
+        await TrackPlayer.pause();
+      } else {
+        await TrackPlayer.play();
+      }
 
       set({
         activeTrack: initialChunk[0],
@@ -300,7 +312,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (targetPitch !== 1.0) {
         await (TrackPlayer as any).setPitch(targetPitch);
       }
-      await TrackPlayer.play();
+      if (useCastStore.getState().isServerRunning) {
+        LocalCastService.setPlayIntent(true);
+        await TrackPlayer.pause();
+      } else {
+        await TrackPlayer.play();
+      }
       set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
       await get().updateQueueStatus();
       await get().savePlaybackState();

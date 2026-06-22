@@ -24,7 +24,9 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.ACCESS_NETWORK_STATE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/android-icon-foreground.png",
@@ -51,7 +53,16 @@
           "photosPermission": "The app accesses your photos to allow you to set artist and album covers."
         }
       ],
-      "expo-media-library"
+      "expo-media-library",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "./plugins/withJetifier"
     ],
     "web": {
       "output": "static"

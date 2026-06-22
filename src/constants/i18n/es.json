@@ -157,7 +157,9 @@
     "lyrics_sync": "Sincronización de Letras",
     "lyrics_sync_desc": "Descarga las letras de toda tu biblioteca en segundo plano. Se recomienda usar Wi-Fi.",
     "lyrics_sync_start": "Descargar letras faltantes",
-    "lyrics_downloading": "Descargando... {{current}} de {{total}}"
+    "lyrics_downloading": "Descargando... {{current}} de {{total}}",
+    "cast_title": "Casteo local activo",
+    "cast_desc": "Abre esta dirección en tu PC para escuchar:"
   },
   "queue": {
     "title": "Cola",
@@ -259,7 +261,8 @@
     "added_to_playlist_plural": "{{count}} añadidas a la playlist",
     "added_to_new_playlist_plural": "{{count}} añadidas a la nueva playlist",
     "playlist_created": "Playlist creada",
-    "tag_already_exists": "Ya existe una etiqueta con ese nombre"
+    "tag_already_exists": "Ya existe una etiqueta con ese nombre",
+    "cast_stopped": "Casteo detenido"
   },
   "changelog": {
     "history_title": "Historial de versiones",
@@ -364,6 +367,19 @@
     "hour": "1 hora",
     "off": "Desactivado",
     "status_active": "La reproducción se pausará en:"
+  },
+  "cast": {
+    "title": "Local Cast",
+    "status_active": "Transmitiendo",
+    "status_idle": "Sin transmitir",
+    "open_in_browser": "Abre esta dirección en tu navegador:",
+    "idle_desc": "Conecta tu PC a la misma red Wi-Fi y pulsa el botón para empezar.",
+    "start": "Empezar a transmitir",
+    "stop": "Detener transmisión",
+    "starting": "Iniciando...",
+    "stopping": "Deteniendo...",
+    "banner_label": "Casteando a tu PC",
+    "banner_tap": "Toca para gestionar"
   },
   "audio_effects": {
     "title": "Efectos de Audio",

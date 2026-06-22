@@ -26,6 +26,7 @@ import QueueSheet from "./src/components/QueueSheet";
 import LibraryTabsOrderSheet from "./src/components/LibraryTabsOrderSheet";
 import AppTabsOrderSheet from "./src/components/AppTabsOrderSheet";
 import SleepTimerSheet from "./src/components/SleepTimerSheet";
+import LocalCastSheet from "./src/components/LocalCastSheet";
 import SpeedPitchSheet from "./src/components/SpeedPitchSheet";
 import SwipeActionSheet from "./src/components/SwipeActionSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
@@ -147,6 +148,7 @@ export default function App() {
           <UpdatedAppModal />
           <ArtistsListSheet />
           <SleepTimerSheet />
+          <LocalCastSheet />
           <SpeedPitchSheet />
           <LibraryTabsOrderSheet />
           <AppTabsOrderSheet />

@@ -3,8 +3,11 @@ package expo.modules.nativeaudioscanner
 import android.content.ContentUris
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Base64
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.io.File
+import java.io.RandomAccessFile
 
 class NativeAudioScannerModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -119,6 +122,31 @@ class NativeAudioScannerModule : Module() {
     AsyncFunction("getReplayGain") { uri: String ->
       val path = if (uri.startsWith("file://")) uri.substring(7) else uri
       ReplayGainReader.readReplayGain(path)
+    }
+
+    // Reads `length` bytes from `filePath` starting at byte `offset` and returns them as a
+    // Base64-encoded string. Uses RandomAccessFile for true byte-accurate seeking, which
+    // expo-file-system's readAsStringAsync does NOT provide (its position/length params
+    // operate on base64 character indices, not raw byte positions).
+    AsyncFunction("readFileChunk") { filePath: String, offset: Double, length: Double ->
+      val path = if (filePath.startsWith("file://")) filePath.substring(7) else filePath
+      val byteOffset = offset.toLong()
+      val byteLength = length.toInt()
+
+      val file = File(path)
+      if (!file.exists()) throw Exception("File not found: $path")
+
+      val remaining = (file.length() - byteOffset).coerceAtLeast(0L)
+      val actualLength = minOf(byteLength.toLong(), remaining).toInt()
+      if (actualLength <= 0) return@AsyncFunction ""
+
+      val buffer = ByteArray(actualLength)
+      RandomAccessFile(file, "r").use { raf ->
+        raf.seek(byteOffset)
+        raf.readFully(buffer)
+      }
+
+      Base64.encodeToString(buffer, Base64.NO_WRAP)
     }
   }
 }
