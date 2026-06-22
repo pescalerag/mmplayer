@@ -21,9 +21,9 @@ const IMAGE_HEIGHT = IMAGE_WIDTH * (1920 / 1080);
 export default function UpdatedAppModal() {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
-  const [visible, setVisible] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-  const { t } = useTranslation();
+    const [visible, setVisible] = useState(false);
+    const [shouldRender, setShouldRender] = useState(false);
+    const { t } = useTranslation();
   
   const { lastSeenVersion, setLastSeenVersion } = useSettingsStore();
   const currentVersion = Constants.expoConfig?.version || '1.1.0';
@@ -41,12 +41,7 @@ export default function UpdatedAppModal() {
   }, [visible]);
 
   useEffect(() => {
-    if (lastSeenVersion !== currentVersion) {
-      if (lastSeenVersion !== null) {
-        ScannerService.repairCorruptedData();
-      }
-      setVisible(true);
-    }
+    // Modal disabled. Logic moved to WelcomeModal.
   }, [lastSeenVersion, currentVersion]);
 
   useEffect(() => {
@@ -103,42 +98,7 @@ export default function UpdatedAppModal() {
 
   if (!shouldRender && !visible) return null;
 
-  const versionData = getChangelogForVersion(currentVersion);
-
-  return (
-    <View 
-      style={[StyleSheet.absoluteFill, { zIndex: 10000, justifyContent: 'center', alignItems: 'center' }]} 
-      pointerEvents={visible ? 'auto' : 'none'}
-    >
-      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
-      
-      <Animated.View style={[styles.modalContent, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        
-        {/* Imagen del Changelog */}
-        <View style={styles.imageWrapper}>
-          <Image
-            source={versionData.image}
-            style={styles.image}
-            contentFit="cover"
-            transition={300}
-          />
-        </View>
-
-        {/* Botones fuera de la imagen */}
-        <View style={styles.buttonsContainer}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSeeChanges} activeOpacity={0.8}>
-            <Ionicons name="sparkles" size={20} color={colors.text} style={styles.buttonIcon} />
-            <Text style={styles.primaryButtonText}>{t('settings.view_changes')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleClose} activeOpacity={0.6}>
-            <Text style={styles.secondaryButtonText}>{t('settings.now_no')}</Text>
-          </TouchableOpacity>
-        </View>
-
-      </Animated.View>
-    </View>
-  );
+  return null; // Feature disabled. Replaced by WelcomeModal.
 }
 
 const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({

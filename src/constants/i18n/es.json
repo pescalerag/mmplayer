@@ -12,6 +12,12 @@
     "empty_playlists": "Aún no has escuchado ninguna playlist.",
     "special_playlist": "Lista de reproducción especial"
   },
+  "welcome": {
+    "title": "¡Bienvenido a MMPlayer!",
+    "subtitle": "¿Cómo te llamas?",
+    "placeholder": "Tu alias...",
+    "continue": "Continuar"
+  },
   "navigation": {
     "home": "Inicio",
     "library": "Biblioteca",

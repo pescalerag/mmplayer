@@ -37,6 +37,7 @@ import TagMenuSheet from "./src/components/TagMenuSheet";
 import LyricsMenuSheet from "./src/components/LyricsMenuSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
+import WelcomeModal from "./src/components/WelcomeModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -148,6 +149,7 @@ export default function App() {
           <PlaylistMenuSheet />
           <FolderMenuSheet />
           <UpdatedAppModal />
+          <WelcomeModal />
           <ArtistsListSheet />
           <SleepTimerSheet />
           <LocalCastSheet />

@@ -56,7 +56,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
         preampLevel,
         setPreampLevel,
         fallbackGainDB,
-        setFallbackGain
+        setFallbackGain,
+        userAlias,
+        setForceWelcomeModal
     } = useSettingsStore();
     const { t } = useTranslation();
     const { openSheet } = useSwipeActionSheetStore();
@@ -169,7 +171,23 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE AJUSTES --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>{t('settings.visualization')}</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.visualization') || 'Visualización y Apariencia'}</Text>
+                    
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => setForceWelcomeModal(true)}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('welcome.subtitle') || 'Cambiar alias'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {userAlias ? `Actual: ${userAlias}` : 'No tienes alias configurado'}
+                            </Text>
+                        </View>
+                        <Ionicons name="person" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
                     <View style={styles.settingRow}>
                         <View style={{ flex: 1, paddingRight: 15 }}>
                             <Text style={styles.settingLabel}>{t('settings.tag_colors')}</Text>
