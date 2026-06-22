@@ -26,8 +26,6 @@ import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
 import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
 import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
 import { useSyncStore } from '../store/useSyncStore';
-import { useLyricsSyncStore } from '../store/useLyricsSyncStore';
-import { LyricsSyncService } from '../services/LyricsSyncService';
 import { Colors, Layout } from '../theme/theme';
 
 // Tipos para los observables
@@ -64,7 +62,6 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const { openSheet } = useSwipeActionSheetStore();
     const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
     const openAppTabsOrderSheet = useAppTabsOrderSheetStore(s => s.openSheet);
-    const { isSyncing: isLyricsSyncing, currentProgress: lyricsProgress, totalToFetch: lyricsTotalToFetch } = useLyricsSyncStore();
 
     const swipeOptions: { label: string, value: SwipeAction, icon: any }[] = [
         { label: t('settings.swipe_action_add_next'), value: 'add_next', icon: 'return-down-forward' },
@@ -434,35 +431,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </TouchableOpacity>
                 </View>
 
-                {/* --- SECCIÓN DE LETRAS --- */}
-                <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>{t('settings.lyrics_sync') || 'Sincronización de Letras'}</Text>
-                    <Text style={[styles.settingDescription, { paddingHorizontal: 4, marginBottom: 12 }]}>
-                        {t('settings.lyrics_sync_desc') || 'Descarga las letras de toda tu biblioteca en segundo plano. Se recomienda usar Wi-Fi.'}
-                    </Text>
-                    {isLyricsSyncing ? (
-                        <View style={styles.lyricsSyncProgress}>
-                            <ActivityIndicator size="small" color="#8B5CF6" />
-                            <Text style={styles.lyricsSyncText}>
-                                {t('settings.lyrics_downloading', { current: lyricsProgress, total: lyricsTotalToFetch }) ||
-                                    `Descargando... ${lyricsProgress} de ${lyricsTotalToFetch}`}
-                            </Text>
-                            <TouchableOpacity onPress={() => LyricsSyncService.cancelSync()}>
-                                <Text style={styles.lyricsCancelText}>{t('actions.cancel') || 'Cancelar'}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.lyricsStartButton}
-                            onPress={() => LyricsSyncService.startMassiveFetch()}
-                        >
-                            <Ionicons name="cloud-download-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                            <Text style={styles.lyricsStartButtonText}>
-                                {t('settings.lyrics_sync_start') || 'Descargar letras faltantes'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+
 
                 {/* --- SECCIÓN DE GESTOS --- */}
                 <View style={styles.sectionCard}>
