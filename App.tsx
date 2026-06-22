@@ -33,6 +33,7 @@ import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
+import TagMenuSheet from "./src/components/TagMenuSheet";
 import LyricsMenuSheet from "./src/components/LyricsMenuSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
@@ -142,6 +143,7 @@ export default function App() {
           <QueueSheet />
           <TagManagerModal />
           <TagFormModal />
+          <TagMenuSheet />
           <PlaylistSelectorModal />
           <PlaylistMenuSheet />
           <FolderMenuSheet />

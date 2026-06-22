@@ -22,6 +22,7 @@ import PlayerNavigator from "./PlayerNavigator";
 import SearchNavigator from "./SearchNavigator";
 import SettingsNavigator from "./SettingsNavigator";
 import { RootStackParamList } from "./types";
+import MultiSelectActionBar from "../components/MultiSelectActionBar";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -286,6 +287,8 @@ function MainTabs() {
         <CastingBanner />
         <MiniPlayer />
       </View>
+
+      <MultiSelectActionBar />
     </View>
   );
 }

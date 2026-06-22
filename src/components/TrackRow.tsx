@@ -19,7 +19,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { useToastStore } from "../store/useToastStore";
 import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
 import i18n from "../constants/i18n";
-
+import { useMultiSelectStore } from "../store/useMultiSelectStore";
 interface TrackRowProps {
   readonly track: Track;
   readonly contextId: string;
@@ -53,6 +53,9 @@ function TrackRow({
 
   const excludedSongs = useSettingsStore((state) => state.excludedSongs) || [];
   const isExcluded = excludedSongs.includes(track.fileUrl);
+
+  const isSelectionMode = useMultiSelectStore(state => state.isSelectionMode);
+  const isSelected = useMultiSelectStore(state => state.selectedTracks.some(t => t.id === track.id));
 
   const isCurrentTrack = activeTrack?.id === track.id && 
                         (playbackContext === contextId || contextId === 'queue');
@@ -97,6 +100,7 @@ function TrackRow({
   }, [track]);
 
   const panGesture = Gesture.Pan()
+    .enabled(!isSelectionMode)
     .activeOffsetX([-20, 20])
     .onUpdate((event) => {
       const canSwipeRight = swipeRightAction !== 'none';
@@ -181,8 +185,12 @@ function TrackRow({
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[animatedStyle, { backgroundColor: colors.background }]}>
           <TouchableOpacity
-            style={[styles.row, isCurrentTrack && styles.rowActive]}
+            style={[styles.row, isCurrentTrack && !isSelectionMode && styles.rowActive]}
             onPress={() => {
+              if (isSelectionMode) {
+                useMultiSelectStore.getState().toggleTrack(track);
+                return;
+              }
               if (!preventAutoHistory) {
                 HistoryService.updateUIRecents({
                   id: track.id,
@@ -196,12 +204,23 @@ function TrackRow({
               onPress?.(track.id);
             }}
             onLongPress={() => {
+              if (isSelectionMode) return;
               Keyboard.dismiss();
               openMenu(track, {}, playlistId);
             }}
             delayLongPress={300}
             activeOpacity={0.6}
           >
+            {isSelectionMode && (
+              <View style={{ marginRight: 12 }}>
+                <Ionicons 
+                  name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
+                  size={24} 
+                  color={isSelected ? colors.accent : colors.textSecondary} 
+                />
+              </View>
+            )}
+
             {/* Imagen o número de pista */}
             <View style={styles.leftCol}>
               {coverUrl && !imageError ? (

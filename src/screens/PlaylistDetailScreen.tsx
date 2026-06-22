@@ -34,6 +34,7 @@ import { HistoryService } from "../services/HistoryService";
 import { PlaylistService } from "../services/PlaylistService";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
+import { usePlaylistMenuStore } from "../store/usePlaylistMenuStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors, Layout } from "../theme/theme";
 import { formatAlbumDuration } from "../utils/time";
@@ -226,6 +227,10 @@ function PlaylistDetailContent({
     usePlaylistSelectorStore.getState().openEdit(playlist);
   };
 
+  const handleOpenPlaylistMenu = useCallback(() => {
+    usePlaylistMenuStore.getState().openMenu(playlist);
+  }, [playlist]);
+
   const handleTrackPress = useCallback(
     (trackId: string) => {
       HistoryService.updateUIRecents({
@@ -361,6 +366,7 @@ function PlaylistDetailContent({
         onDelete={handleDelete}
         onEdit={handleEdit}
         onPickPhoto={handlePickPhoto}
+        onMore={handleOpenPlaylistMenu}
         renderExtra={() =>
           tracks.length > 0 && (
             <>

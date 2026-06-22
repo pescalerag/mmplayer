@@ -6,11 +6,11 @@ import React, { useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import { TagsNavigationProp } from '../navigation/types';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTagFormStore } from '../store/useTagFormStore';
+import { useTagMenuStore } from '../store/useTagMenuStore';
 import Tag from '../database/models/Tag';
-import { TagService } from '../services/tagService';
 import { database } from '../database';
 import { Colors, Layout } from '../theme/theme';
 import { useTranslation } from 'react-i18next';
@@ -21,55 +21,26 @@ interface TagManagementContentProps {
 
 function TagManagementContent({ tags }: TagManagementContentProps) {
     const insets = useSafeAreaInsets();
-    const { openForCreate, openForEdit } = useTagFormStore();
+    const { openForCreate } = useTagFormStore();
     const { t } = useTranslation();
     const navigation = useNavigation<TagsNavigationProp>();
 
     // Altura dinámica del header para el smoke y padding del contenido
     const [headerHeight, setHeaderHeight] = useState(100);
 
-    const handleDelete = (tag: Tag) => {
-        Alert.alert(
-            t('tags.delete_tag_title'),
-            t('tags.delete_tag_confirm', { name: tag.name }),
-            [
-                { text: t('actions.cancel'), style: "cancel" },
-                {
-                    text: t('actions.delete'),
-                    style: "destructive",
-                    onPress: async () => {
-                        await TagService.deleteTag(tag.id);
-                    }
-                }
-            ]
-        );
-    };
-
     const renderItem = ({ item }: { item: Tag }) => {
         return (
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={styles.tagCard}
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color })}
+                onLongPress={() => {
+                    useTagMenuStore.getState().openMenu(item);
+                }}
             >
                 <View style={[styles.colorDot, { backgroundColor: item.color }]} />
                 <Text style={styles.tagName}>{item.name}</Text>
-
-                <TouchableOpacity
-                    onPress={() => {
-                        openForEdit(item);
-                    }}
-                    style={styles.iconButton}
-                >
-                    <Ionicons name="pencil" size={20} color="#888" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={() => handleDelete(item)}
-                    style={styles.iconButton}
-                >
-                    <Ionicons name="trash" size={20} color="#EF4444" />
-                </TouchableOpacity>
+                <Ionicons name="ellipsis-vertical" size={20} color="#888" />
             </TouchableOpacity>
         );
     };

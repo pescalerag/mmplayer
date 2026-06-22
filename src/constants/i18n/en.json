@@ -202,6 +202,7 @@
     "clear_all": "Clear all",
     "all": "All",
     "add_tag": "Add Tag",
+    "select": "Select",
     "delete": "Delete",
     "loading_content": "Loading content...",
     "success": "Success!",

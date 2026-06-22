@@ -23,6 +23,7 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
 import PlaylistCover from './PlaylistCover';
 import { useTranslation } from 'react-i18next';
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { Colors } from '../theme/theme';
 import { useAppTheme } from "@/hooks/useAppTheme";
 
@@ -176,7 +177,7 @@ export default function PlaylistSelectorModal() {
                 t('actions.duplicate_song_confirm', { title: singleTrack.title }),
                 [
                     { text: t('actions.cancel'), style: "cancel" },
-                    { text: t('actions.add'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); showToast(1); closeSelector(); } }
+                    { text: t('actions.add'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); showToast(1); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } }
                 ]
             );
             return;
@@ -186,9 +187,9 @@ export default function PlaylistSelectorModal() {
         const buttons: AlertButton[] = [{ text: t('actions.cancel'), style: "cancel" }];
 
         if (newTracks.length > 0) {
-            buttons.push({ text: t('actions.only_new'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); showToast(newTracks.length); closeSelector(); } });
+            buttons.push({ text: t('actions.only_new'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); showToast(newTracks.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
         }
-        buttons.push({ text: t('actions.add_all'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); showToast(tracksToAssociate.length); closeSelector(); } });
+        buttons.push({ text: t('actions.add_all'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); showToast(tracksToAssociate.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
 
         const message = newTracks.length > 0
             ? t('actions.duplicate_songs_partial', { duplicateCount: duplicateTracks.length, totalCount: tracksToAssociate.length })
@@ -210,6 +211,7 @@ export default function PlaylistSelectorModal() {
                 const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_playlist') : t('toasts.added_to_playlist_plural', { count: tracksToAssociate.length });
                 useToastStore.getState().showToast(msg, 'list-circle');
                 closeSelector();
+                useMultiSelectStore.getState().exitSelectionMode();
             }
         } catch (e) {
             console.error('Error añadiendo canciones a playlist:', e);
@@ -228,6 +230,7 @@ export default function PlaylistSelectorModal() {
                     await PlaylistService.addMultipleTracksToPlaylist(playlist.id, trackIds);
                     const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_new_playlist') : t('toasts.added_to_new_playlist_plural', { count: tracksToAssociate.length });
                     useToastStore.getState().showToast(msg, 'list-circle');
+                    useMultiSelectStore.getState().exitSelectionMode();
                 } else {
                     useToastStore.getState().showToast(t('toasts.playlist_created'), 'list-circle');
                 }

@@ -31,6 +31,7 @@ import Track from '../database/models/Track';
 import { ArtistDetailRouteProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { Colors, Layout } from '../theme/theme';
 import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import { HistoryService } from '../services/HistoryService';
@@ -116,7 +117,8 @@ const ArtistHeader = memo(function ArtistHeader({
     setImageError,
     fromPlayer,
     showAllTracks,
-    setShowAllTracks
+    setShowAllTracks,
+    onMore,
 }: any) {
     const handleBack = () => {
         navigation.goBack();
@@ -196,11 +198,10 @@ const ArtistHeader = memo(function ArtistHeader({
                 placeholderIcon="person"
                 metaInfo={metaInfo}
                 onBack={handleBack}
+                onMore={onMore}
+                onPickPhoto={handlePickPhoto}
                 renderExtra={() => (
                     <>
-                        <TouchableOpacity style={styles.photoButton} onPress={handlePickPhoto}>
-                            <Ionicons name="camera" size={20} color="#FFFFFF" />
-                        </TouchableOpacity>
                         {tracks && tracks.length > 0 && (
                             <>
                                 <TouchableOpacity style={styles.shuffleFab} onPress={handleShufflePress}>
@@ -370,6 +371,10 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
         }
     }, [artist, t]);
 
+    const handleOpenArtistMenu = useCallback(() => {
+        useArtistMenuStore.getState().openMenu(artist);
+    }, [artist]);
+
     const handleTrackPress = useCallback((trackId: string) => {
         const trackIndex = tracks.findIndex(t => t.id === trackId);
         if (trackIndex !== -1) {
@@ -408,8 +413,9 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
             navigation={navigation}
             showHeaderImage={showHeaderImage}
             setImageError={setImageError}
+            onMore={handleOpenArtistMenu}
         />
-    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage]);
+    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, handleOpenArtistMenu]);
 
     return (
         <View style={styles.container}>
@@ -498,17 +504,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    photoButton: {
-        position: 'absolute',
-        top: 50,
-        right: 16,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+
     playFab: {
         position: 'absolute',
         bottom: 20,
