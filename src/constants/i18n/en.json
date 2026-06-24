@@ -12,6 +12,12 @@
     "empty_playlists": "You haven't listened to any playlists yet.",
     "special_playlist": "Special Playlist"
   },
+  "welcome": {
+    "title": "Welcome to MMPlayer!",
+    "subtitle": "What should we call you?",
+    "placeholder": "Your alias...",
+    "continue": "Continue"
+  },
   "navigation": {
     "home": "Home",
     "library": "Library",
@@ -153,7 +159,13 @@
     "scan_replaygain_desc": "Scan and analyze the volume (ReplayGain) of your audio files to level them",
     "scan_replaygain_alert_title": "Analyze Track Volume",
     "scan_replaygain_alert_desc": "This process will scan and analyze tracks in your library that do not have volume gain assigned. This might take a few minutes for larger libraries. Do you wish to continue?",
-    "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks."
+    "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks.",
+    "lyrics_sync": "Lyrics Sync",
+    "lyrics_sync_desc": "Download lyrics for your entire library in the background. Wi-Fi recommended.",
+    "lyrics_sync_start": "Download missing lyrics",
+    "lyrics_downloading": "Downloading... {{current}} of {{total}}",
+    "cast_title": "Local cast active",
+    "cast_desc": "Open this address on your PC to listen:"
   },
   "queue": {
     "title": "Queue",
@@ -196,6 +208,7 @@
     "clear_all": "Clear all",
     "all": "All",
     "add_tag": "Add Tag",
+    "select": "Select",
     "delete": "Delete",
     "loading_content": "Loading content...",
     "success": "Success!",
@@ -226,6 +239,7 @@
     "exclude_song_title": "Exclude song",
     "exclude_song_confirm": "Are you sure you want to exclude this song from scanning? It will be deleted from your library.",
     "share": "Share",
+    "more_info": "More info",
     "add": "Add",
     "only_new": "Only new ones",
     "add_all": "Add all",
@@ -254,7 +268,8 @@
     "added_to_playlist_plural": "{{count}} songs added to playlist",
     "added_to_new_playlist_plural": "{{count}} songs added to new playlist",
     "playlist_created": "Playlist created",
-    "tag_already_exists": "Tag name already exists"
+    "tag_already_exists": "Tag name already exists",
+    "cast_stopped": "Casting stopped"
   },
   "changelog": {
     "history_title": "Version History",
@@ -264,6 +279,32 @@
     "default_title": "MMPlayer has been updated",
     "default_date": "New Update",
     "default_changes": ["Performance improvements and minor bug fixes."],
+    "v_2_0_0_beta": {
+      "title": "Welcome to MMPlayer v2!",
+      "date": "June 22, 2026",
+      "changes": [
+        "unified app backgrounds",
+        "unified app theme (global theme definition)",
+        "implemented swipe gestures on TrackRow",
+        "database sanitazion",
+        "fix(library): prevent crashes on orphaned or missing database relations",
+        "added swipe gestures to TopMatchCard",
+        "feat: add tag management system with navigation integration and player screen structure",
+        "play/pause button on TagDetailScreen",
+        "\"add to playlist\" option in PlaylistSheet and ArtistSheet",
+        "removed duplicated swipe options in setting screen",
+        "fixed header styles in SearchScreen and HomeScreen",
+        "feat: draggable queue",
+        "feat: implemented volume normalization",
+        "added speed changer on PlayerScreen",
+        "implemented pitch changer",
+        "implemented hi-fi mode for speed setting and optimized scanning",
+        "implemented LyricsScreen",
+        "implemented local cast system",
+        "implemented TrackRow multiselection and TagMenuSheet",
+        "added welcome screen"
+      ]
+    },
     "v_1_3_1": {
       "title": "Version 1.3.1 (Hotfix)",
       "date": "09/06/2026",
@@ -360,6 +401,19 @@
     "off": "Deactivated",
     "status_active": "Playback will pause in:"
   },
+  "cast": {
+    "title": "Local Cast",
+    "status_active": "Casting",
+    "status_idle": "Not casting",
+    "open_in_browser": "Open this address in your browser:",
+    "idle_desc": "Connect your PC to the same Wi-Fi network and tap the button to start.",
+    "start": "Start casting",
+    "stop": "Stop casting",
+    "starting": "Starting...",
+    "stopping": "Stopping...",
+    "banner_label": "Casting to your PC",
+    "banner_tap": "Tap to manage"
+  },
   "audio_effects": {
     "title": "Audio Effects",
     "speed": "Speed",
@@ -367,6 +421,10 @@
     "reset": "Reset",
     "vinyl_mode": "Vinyl Mode / Hi-Fi",
     "vinyl_mode_desc": "Matches pitch and speed for pure analog sound",
-    "pitch_locked": "Locked"
+    "pitch_locked": "Locked",
+    "lyrics": "Lyrics",
+    "lyrics_not_found": "No lyrics found",
+    "lyrics_import": "Import .LRC file",
+    "lyrics_searching": "Searching lyrics..."
   }
 }

@@ -32,6 +32,7 @@ import { ScannerService } from '../services/ScannerService';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import * as Sharing from 'expo-sharing';
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -258,6 +259,22 @@ export default function TrackMenuSheet() {
                         <Ionicons name="list" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Seleccionar */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (selectedTrack) {
+                            closeMenu();
+                            useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
+                    </View>
+                    <Text style={styles.optionText}>{t('actions.select') || 'Seleccionar'}</Text>
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Gestionar Etiquetas */}

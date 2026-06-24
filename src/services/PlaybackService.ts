@@ -4,6 +4,8 @@ import { HistoryService } from "./HistoryService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { database } from "../database";
 import Track from "../database/models/Track";
+import { LyricsSyncService } from "./LyricsSyncService";
+import { useCastStore } from "../store/useCastStore";
 
 const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -115,36 +117,35 @@ export const PlaybackService = async function () {
       const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
       const nextTrackId = event.track?.id?.toString();
 
-      // NUEVO: Lógica de Normalización de Volumen
+      // NUEVO: Lógica de Normalización de Volumen Segura (Compatible con Cast)
       if (nextTrackId) {
         try {
-          const settings = useSettingsStore.getState();
+          const isCasting = useCastStore.getState().isServerRunning;
           
-          if (settings.isNormalizationEnabled) {
-            // Extraer ID real (WatermelonDB)
-            const cleanId = nextTrackId.split('-')[0];
-            const trackModel = await database.get<Track>('tracks').find(cleanId);
-            
-            // Lógica: Si tiene replayGain, úsalo. Si es null/undefined, usa el fallback de seguridad.
-            const trackGainDB = trackModel.replayGain ?? settings.fallbackGainDB;
-            
-            // Sumamos el pre-amp elegido por el usuario
-            const totalTargetDB = trackGainDB + settings.preampLevel;
-            
-            // Matemática de Audio: Convertir dB a factor lineal (0.0 a 1.0)
-            let linearVolume = Math.pow(10, totalTargetDB / 20);
-            
-            // Protección contra saturación (clipping digital)
-            linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
-            
-            await TrackPlayer.setVolume(linearVolume);
+          if (isCasting) {
+             // Si el servidor de Cast está activo, MANTENEMOS el móvil silenciado (volumen 0)
+             await TrackPlayer.setVolume(0);
           } else {
-            // Si el usuario apagó la función, volumen al 100% original
-            await TrackPlayer.setVolume(1.0);
+             // Flujo normal: Aplicamos la normalización de volumen o lo restauramos a 1.0
+             const settings = useSettingsStore.getState();
+             
+             if (settings.isNormalizationEnabled) {
+                const cleanId = nextTrackId.split('-')[0];
+                const trackModel = await database.get<Track>('tracks').find(cleanId);
+                const trackGainDB = trackModel.replayGain ?? settings.fallbackGainDB;
+                const totalTargetDB = trackGainDB + settings.preampLevel;
+                
+                let linearVolume = Math.pow(10, totalTargetDB / 20);
+                linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
+                
+                await TrackPlayer.setVolume(linearVolume);
+             } else {
+                await TrackPlayer.setVolume(1.0);
+             }
           }
         } catch (error) {
-          console.error("Error aplicando volumen normalizado:", error);
-          await TrackPlayer.setVolume(1.0); // Fallback en caso de error
+          console.error("Error aplicando volumen:", error);
+          await TrackPlayer.setVolume(1.0); // Fallback
         }
       }
 
@@ -180,6 +181,17 @@ export const PlaybackService = async function () {
       if (wasPlaying && nextTrackId) {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
+
+      setTimeout(async () => {
+        try {
+          const queue = await TrackPlayer.getQueue();
+          const currentIndex = await TrackPlayer.getActiveTrackIndex();
+          if (currentIndex !== undefined && currentIndex !== null) {
+            const ids = queue.map(q => q.id?.toString() ?? '');
+            await LyricsSyncService.prefetchForQueue(currentIndex, ids);
+          }
+        } catch { }
+      }, 2000);
     },
   );
 

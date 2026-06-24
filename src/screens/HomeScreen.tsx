@@ -20,6 +20,7 @@ import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
@@ -95,6 +96,7 @@ export default function HomeScreen() {
     const recentPlaylistsRaw = usePlayerStore(state => state.recentPlaylists);
     const recentPlaylists = React.useMemo(() => recentPlaylistsRaw || [], [recentPlaylistsRaw]);
     const activeTrack = usePlayerStore(state => state.activeTrack);
+    const userAlias = useSettingsStore(state => state.userAlias);
 
     // Modal logic moved to App.tsx
     useEffect(() => {
@@ -196,7 +198,9 @@ export default function HomeScreen() {
                     zIndex: 10,
                 }}
             >
-                <Text style={[styles.welcomeText, { marginBottom: 0 }]}>{t(getGreetingKey())}</Text>
+                <Text style={[styles.welcomeText, { marginBottom: 0 }]}>
+                    {t(getGreetingKey())}{userAlias ? `, ${userAlias}` : ''}
+                </Text>
             </View>
 
             {/* 1. CAPA DE CONTENIDO (AL FONDO) */}

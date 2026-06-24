@@ -31,6 +31,8 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { useAudioSpeedPitchSheetStore } from '../store/useAudioSpeedPitchSheetStore';
+import { useCastStore } from '../store/useCastStore';
+import { useCastSheetStore } from '../store/useCastSheetStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
@@ -182,6 +184,10 @@ const PlayerScreenUI = ({
     });
 
     const { t } = useTranslation();
+
+    const isServerRunning = useCastStore(state => state.isServerRunning);
+    const openCastSheet = useCastSheetStore(state => state.openSheet);
+
     const handleLikePress = async () => {
         heartScale.value = withSequence(
             withSpring(1.2, { damping: 15, stiffness: 300 }),
@@ -502,7 +508,7 @@ const PlayerScreenUI = ({
 
                 {/* Footer / Secondary Actions */}
                 <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
-                    {/* Left group: Sleep Timer + Share */}
+                    {/* Left group: Sleep Timer + Speedometer + Lyrics + Cast */}
                     <View style={styles.footerLeftGroup}>
                         <TouchableOpacity
                             onPress={openSleepTimer}
@@ -527,6 +533,32 @@ const PlayerScreenUI = ({
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
+                            onPress={() => navigation.navigate('Lyrics')}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name="mic-outline"
+                                size={24}
+                                color={colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={openCastSheet}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name={isServerRunning ? "desktop" : "desktop-outline"}
+                                size={24}
+                                color={isServerRunning ? colors.accentLight : colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Right group: Share + Queue */}
+                    <View style={styles.footerRightGroup}>
+                        <TouchableOpacity
                             onPress={handleShare}
                             style={styles.footerButton}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -537,16 +569,14 @@ const PlayerScreenUI = ({
                                 color={colors.textSecondary}
                             />
                         </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={openQueue}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons name="list" size={24} color={colors.textSecondary} />
+                        </TouchableOpacity>
                     </View>
-
-                    {/* Right: Queue */}
-                    <TouchableOpacity
-                        onPress={openQueue}
-                        style={styles.footerButton}
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                    >
-                        <Ionicons name="list" size={24} color={colors.textSecondary} />
-                    </TouchableOpacity>
                 </View>
             </View>
         </View>
@@ -745,6 +775,11 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
         paddingHorizontal: 13,
     },
     footerLeftGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+    },
+    footerRightGroup: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,

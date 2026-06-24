@@ -36,6 +36,7 @@ export type PlayerStackParamList = {
     PlayerHome: undefined;
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
+    Lyrics: undefined;
 };
 
 export type RootStackParamList = {

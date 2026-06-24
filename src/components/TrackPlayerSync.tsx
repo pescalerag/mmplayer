@@ -1,8 +1,11 @@
 import { 
     Event, 
-    useTrackPlayerEvents 
+    useTrackPlayerEvents,
+    default as TrackPlayer
 } from 'react-native-track-player';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useCastStore } from '../store/useCastStore';
+import { LocalCastService } from '../services/LocalCastService';
 
 export const TrackPlayerSync = () => {
 
@@ -22,6 +25,14 @@ export const TrackPlayerSync = () => {
         if (event.type === Event.PlaybackActiveTrackChanged) {
             const { index, lastIndex, track } = event;
             
+            if (useCastStore.getState().isServerRunning) {
+                const playState = await TrackPlayer.getPlaybackState();
+                if (playState.state === 'playing') {
+                    LocalCastService.setPlayIntent(true);
+                }
+                await TrackPlayer.pause();
+            }
+
             if (track?.id) {
                 await usePlayerStore.getState().setActiveTrackById(track.id);
             }

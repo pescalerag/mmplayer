@@ -217,7 +217,6 @@ const extractFileMetadata = (file: any) => {
         year: file.year || null,
         albumArtist,
         lastModified: file.lastModified || 0,
-        replayGain: typeof file.replayGain === 'number' ? file.replayGain : (file.replayGain ? parseFloat(file.replayGain) : null),
     };
 };
 
@@ -308,21 +307,26 @@ const resolveAlbum = async (
         }
 
         if (nextArtist || newCover) {
-            if ((album as any)._status === 'created') {
-                if (nextArtist) album.artist.set(nextArtist);
-                if (newCover) album.coverUrl = newCover;
-            } else if ((album as any)._preparedState === 'update') {
-                if (newCover) (album._raw as any).cover_url = newCover;
-                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
-            } else {
-                const updateOp = album.prepareUpdate((a: any) => {
-                    if (nextArtist) a.artist.set(nextArtist);
-                    if (newCover) a.coverUrl = newCover;
-                });
-                newAlbumOps.push(updateOp);
-
-                if (newCover) (album._raw as any).cover_url = newCover;
-                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+            try {
+                if ((album as any)._status === 'created') {
+                    if (nextArtist) album.artist.set(nextArtist);
+                    if (newCover) album.coverUrl = newCover;
+                } else {
+                    const updateOp = album.prepareUpdate((a: any) => {
+                        if (nextArtist) a.artist.set(nextArtist);
+                        if (newCover) a.coverUrl = newCover;
+                    });
+                    newAlbumOps.push(updateOp);
+                    if (newCover) (album._raw as any).cover_url = newCover;
+                    if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+                }
+            } catch (error: any) {
+                if (error.message && error.message.includes('pending changes')) {
+                    if (newCover) (album._raw as any).cover_url = newCover;
+                    if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+                } else {
+                    throw error;
+                }
             }
         }
     } else {
@@ -367,7 +371,6 @@ const prepareTrackRecords = (
         t.album.set(album);
         t.artist.set(primaryArtist);
         t.lastModified = meta.lastModified;
-        t.replayGain = meta.replayGain;
     });
     ops.push(track);
 
@@ -417,8 +420,13 @@ export const ScannerService = {
             useSyncStore.getState().setIsScanning(true, isSilent);
             await ScannerService.cleanDeletedFiles((phase) => onProgress?.(0, 0, phase));
             await ScannerService.autoScanAndroid(onProgress);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error en syncLibrary:", error);
+            if (!isSilent) {
+                import('react-native').then(({ Alert }) => {
+                    Alert.alert('Error al escanear', error?.message || String(error));
+                });
+            }
         } finally {
             useSyncStore.getState().setIsScanning(false, false);
         }
@@ -455,8 +463,11 @@ export const ScannerService = {
             });
 
             await ScannerService.autoScanAndroid(onProgress);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error en fullDataWipe:', error);
+            import('react-native').then(({ Alert }) => {
+                Alert.alert('Error al borrar/escanear', error?.message || String(error));
+            });
         } finally {
             useSyncStore.getState().setIsScanning(false);
         }
@@ -582,7 +593,7 @@ export const ScannerService = {
             for (const track of tracks) {
                 index++;
                 if (index % 100 === 0) {
-                    onProgress?.(`Reparando canciones y analizando volumen (${index}/${tracks.length})...`);
+                    onProgress?.(`Reparando canciones (${index}/${tracks.length})...`);
                 }
                 const cleanTitle = sanitizeDbString(track.title) || 'Unknown Title';
                 const normTitle = normalizeText(cleanTitle);
@@ -594,27 +605,12 @@ export const ScannerService = {
                     urlChanged = true;
                 }
 
-                let replayGain = track.replayGain;
-                let replayGainChanged = false;
-                if (replayGain === null || replayGain === undefined) {
-                    try {
-                        const scannedGain = await getReplayGain(track.fileUrl);
-                        if (scannedGain !== null && scannedGain !== undefined) {
-                            replayGain = scannedGain;
-                            replayGainChanged = true;
-                        }
-                    } catch (err) {
-                        console.error("Error escaneando ReplayGain en reparación:", err);
-                    }
-                }
-
-                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged || replayGainChanged) {
+                if (track.title !== cleanTitle || track.normalizedTitle !== normTitle || urlChanged) {
                     batchOps.push(
                         track.prepareUpdate(t => {
                             t.title = cleanTitle;
                             t.normalizedTitle = normTitle;
                             if (urlChanged) t.fileUrl = cleanUrl;
-                            if (replayGainChanged) t.replayGain = replayGain;
                         })
                     );
                 }
@@ -910,9 +906,7 @@ export const ScannerService = {
         }
 
         onProgress?.(0, 0, 'Buscando archivos nuevos en el sistema...');
-        const tracksCount = await database.get('tracks').query().fetchCount();
-        const isFirstScan = tracksCount === 0;
-        const audioFiles = await getAudioFiles(isFirstScan);
+        const audioFiles = await getAudioFiles(false);
 
         if (!audioFiles || audioFiles.length === 0) {
             return { total: 0, added: 0, skipped: 0 };
@@ -1017,18 +1011,33 @@ export const ScannerService = {
                     batchOps.push(...newAlbumOps);
 
                     // Update Track metadata
-                    const updateOp = existingTrack.prepareUpdate((t: any) => {
-                        t.title = meta.title;
-                        t.normalizedTitle = normalizeText(meta.title);
-                        t.duration = meta.durationInSeconds;
-                        t.trackNumber = file.trackNumber || 0;
-                        t.discNumber = file.discNumber || 1;
-                        t.lastModified = meta.lastModified;
-                        t.replayGain = meta.replayGain;
-                        t.album.set(album);
-                        t.artist.set(primaryArtist);
-                    });
-                    batchOps.push(updateOp);
+                    try {
+                        const updateOp = existingTrack.prepareUpdate((t: any) => {
+                            t.title = meta.title;
+                            t.normalizedTitle = normalizeText(meta.title);
+                            t.duration = meta.durationInSeconds;
+                            t.trackNumber = file.trackNumber || 0;
+                            t.discNumber = file.discNumber || 1;
+                            t.lastModified = meta.lastModified;
+                            t.album.set(album);
+                            t.artist.set(primaryArtist);
+                        });
+                        batchOps.push(updateOp);
+                    } catch (error: any) {
+                        if (error.message && error.message.includes('pending changes')) {
+                            const raw = existingTrack._raw as any;
+                            raw.title = meta.title;
+                            raw.normalizedTitle = normalizeText(meta.title);
+                            raw.duration = meta.durationInSeconds;
+                            raw.trackNumber = file.trackNumber || 0;
+                            raw.discNumber = file.discNumber || 1;
+                            raw.lastModified = meta.lastModified;
+                            raw.album_id = album?.id;
+                            raw.artist_id = primaryArtist?.id;
+                        } else {
+                            throw error;
+                        }
+                    }
 
                     // Re-associate collaborators
                     const collaboratorsCollection = database.collections.get('track_collaborators');

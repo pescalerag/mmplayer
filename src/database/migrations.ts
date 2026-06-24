@@ -131,5 +131,23 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 12,
+      steps: [
+        addColumns({
+          table: "tracks",
+          columns: [{ name: "lyrics_lrc", type: "string", isOptional: true }],
+        }),
+      ],
+    },
+    {
+      toVersion: 13,
+      steps: [
+        addColumns({
+          table: "tracks",
+          columns: [{ name: "lyrics_fetch_failed", type: "boolean", isOptional: true }],
+        }),
+      ],
+    },
   ],
 });

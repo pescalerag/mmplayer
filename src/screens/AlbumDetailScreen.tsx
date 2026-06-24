@@ -35,6 +35,7 @@ import { HistoryService } from "../services/HistoryService";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useTagManagerStore } from "../store/useTagManagerStore";
+import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { Colors, Layout } from "../theme/theme";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "@/hooks/useAppTheme";
@@ -120,6 +121,10 @@ function AlbumDetailContent({
 
   const handleOpenTagManager = React.useCallback(() => {
     useTagManagerStore.getState().openForAlbum(album);
+  }, [album]);
+
+  const handleOpenAlbumMenu = React.useCallback(() => {
+    useAlbumMenuStore.getState().openMenu(album);
   }, [album]);
 
   const totalDuration = tracks.reduce(
@@ -273,6 +278,7 @@ function AlbumDetailContent({
           .filter(Boolean)
           .join(" · ")}
         onBack={handleBack}
+        onMore={handleOpenAlbumMenu}
         renderExtra={() =>
           tracks.length > 0 && (
             <>

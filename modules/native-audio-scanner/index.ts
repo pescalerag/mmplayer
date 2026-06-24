@@ -27,3 +27,12 @@ export async function getAudioFiles(scanReplayGain: boolean = false): Promise<Au
 export async function getReplayGain(uri: string): Promise<number | null> {
   return await NativeAudioScannerModule.getReplayGain(uri);
 }
+
+/**
+ * Reads `length` bytes from `filePath` starting at byte `offset`.
+ * Returns the data as a Base64-encoded string (no padding newlines).
+ * Uses RandomAccessFile on the native side for true byte-accurate seeking.
+ */
+export async function readFileChunk(filePath: string, offset: number, length: number): Promise<string> {
+  return await NativeAudioScannerModule.readFileChunk(filePath, offset, length);
+}

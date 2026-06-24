@@ -15,6 +15,10 @@ interface SettingsState {
     includeSong: (songPath: string) => void;
     lastSeenVersion: string | null;
     setLastSeenVersion: (version: string) => void;
+    userAlias: string | null;
+    setUserAlias: (alias: string) => void;
+    forceWelcomeModal: boolean;
+    setForceWelcomeModal: (value: boolean) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
     hideSyncToastOnResume: boolean;
@@ -83,6 +87,10 @@ export const useSettingsStore = create<SettingsState>()(
             })),
             lastSeenVersion: null,
             setLastSeenVersion: (version) => set({ lastSeenVersion: version }),
+            userAlias: null,
+            setUserAlias: (alias) => set({ userAlias: alias }),
+            forceWelcomeModal: false,
+            setForceWelcomeModal: (value) => set({ forceWelcomeModal: value }),
             language: null,
             setLanguage: (lang) => {
                 set({ language: lang });

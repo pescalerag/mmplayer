@@ -26,14 +26,18 @@ import QueueSheet from "./src/components/QueueSheet";
 import LibraryTabsOrderSheet from "./src/components/LibraryTabsOrderSheet";
 import AppTabsOrderSheet from "./src/components/AppTabsOrderSheet";
 import SleepTimerSheet from "./src/components/SleepTimerSheet";
+import LocalCastSheet from "./src/components/LocalCastSheet";
 import SpeedPitchSheet from "./src/components/SpeedPitchSheet";
 import SwipeActionSheet from "./src/components/SwipeActionSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
+import TagMenuSheet from "./src/components/TagMenuSheet";
+import LyricsMenuSheet from "./src/components/LyricsMenuSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
+import WelcomeModal from "./src/components/WelcomeModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -133,18 +137,22 @@ export default function App() {
           {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
           <TrackMenuSheet />
+          <LyricsMenuSheet />
           <AlbumMenuSheet />
           <ArtistMenuSheet />
           <SortModalSheet />
           <QueueSheet />
           <TagManagerModal />
           <TagFormModal />
+          <TagMenuSheet />
           <PlaylistSelectorModal />
           <PlaylistMenuSheet />
           <FolderMenuSheet />
           <UpdatedAppModal />
+          <WelcomeModal />
           <ArtistsListSheet />
           <SleepTimerSheet />
+          <LocalCastSheet />
           <SpeedPitchSheet />
           <LibraryTabsOrderSheet />
           <AppTabsOrderSheet />

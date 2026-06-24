@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { AppState, AppStateStatus, StyleSheet, View } from "react-native";
+import { AppState, AppStateStatus, Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
 import { ScannerService } from "../services/ScannerService";
@@ -11,6 +11,9 @@ import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors } from "../theme/theme";
 
 import MiniPlayer from "../components/MiniPlayer";
+import { useCastStore } from "../store/useCastStore";
+import { useCastSheetStore } from "../store/useCastSheetStore";
+import { useTranslation } from "react-i18next";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
 import TagsNavigator from "./TagsNavigator";
 import HomeNavigator from "./HomeNavigator";
@@ -19,9 +22,88 @@ import PlayerNavigator from "./PlayerNavigator";
 import SearchNavigator from "./SearchNavigator";
 import SettingsNavigator from "./SettingsNavigator";
 import { RootStackParamList } from "./types";
+import MultiSelectActionBar from "../components/MultiSelectActionBar";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+// --- BANNER DE CASTEO ---
+const CastingBanner = () => {
+  const isServerRunning = useCastStore(state => state.isServerRunning);
+  const openCastSheet = useCastSheetStore(state => state.openSheet);
+  const { t } = useTranslation();
+  const opacity = React.useRef(new Animated.Value(0)).current;
+  const translateY = React.useRef(new Animated.Value(12)).current;
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: isServerRunning ? 1 : 0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: isServerRunning ? 0 : 12,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isServerRunning]);
+
+  if (!isServerRunning) return null;
+
+  return (
+    <Animated.View style={[castBannerStyles.wrapper, { opacity, transform: [{ translateY }] }]}>
+      <TouchableOpacity
+        style={castBannerStyles.banner}
+        onPress={openCastSheet}
+        activeOpacity={0.8}
+      >
+        {/* Dot de estado activo */}
+        <View style={castBannerStyles.dot} />
+        <Ionicons name="desktop" size={13} color="#fff" style={{ marginRight: 5 }} />
+        <Text style={castBannerStyles.label}>{t('cast.banner_label')}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const castBannerStyles = StyleSheet.create({
+  wrapper: {
+    width: '100%',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 20, 20, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DDD6FE',
+    marginRight: 4,
+  },
+  label: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  tapHint: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 10,
+    marginLeft: 6,
+  },
+});
 
 type TabBarIconProps = {
   routeName: string;
@@ -202,8 +284,11 @@ function MainTabs() {
           zIndex: 100,
         }}
       >
+        <CastingBanner />
         <MiniPlayer />
       </View>
+
+      <MultiSelectActionBar />
     </View>
   );
 }

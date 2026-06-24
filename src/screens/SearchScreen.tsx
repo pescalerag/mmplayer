@@ -33,6 +33,7 @@ import { SearchStackParamList } from "../navigation/types";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { useArtistMenuStore } from "../store/useArtistMenuStore";
+import { useTagMenuStore } from "../store/useTagMenuStore";
 import { Layout } from "../theme/theme";
 import { HistoryService } from "../services/HistoryService";
 import { useTranslation } from "react-i18next";
@@ -189,6 +190,10 @@ const SearchTagCardBase = ({ tag, onPress }: { tag: Tag; onPress: () => void }) 
     <TouchableOpacity
       style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
       onPress={onPress}
+      onLongPress={() => {
+        Keyboard.dismiss();
+        useTagMenuStore.getState().openMenu(tag);
+      }}
     >
       <Ionicons name="pricetag" size={14} color={textColor} style={styles.tagCardIcon} />
       <Text style={[styles.tagCardText, { color: textColor }]} numberOfLines={1}>{tag.name}</Text>

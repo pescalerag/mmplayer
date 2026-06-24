@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
+    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Switch,
@@ -53,7 +54,9 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
         preampLevel,
         setPreampLevel,
         fallbackGainDB,
-        setFallbackGain
+        setFallbackGain,
+        userAlias,
+        setForceWelcomeModal
     } = useSettingsStore();
     const { t } = useTranslation();
     const { openSheet } = useSwipeActionSheetStore();
@@ -165,7 +168,23 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE AJUSTES --- */}
                 <View style={styles.sectionCard}>
-                    <Text style={styles.sectionTitle}>{t('settings.visualization')}</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.visualization') || 'Visualización y Apariencia'}</Text>
+                    
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={() => setForceWelcomeModal(true)}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('welcome.subtitle') || 'Cambiar alias'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {userAlias ? `Actual: ${userAlias}` : 'No tienes alias configurado'}
+                            </Text>
+                        </View>
+                        <Ionicons name="person" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
                     <View style={styles.settingRow}>
                         <View style={{ flex: 1, paddingRight: 15 }}>
                             <Text style={styles.settingLabel}>{t('settings.tag_colors')}</Text>
@@ -411,6 +430,8 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         <Ionicons name="volume-high" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
                 </View>
+
+
 
                 {/* --- SECCIÓN DE GESTOS --- */}
                 <View style={styles.sectionCard}>
@@ -758,6 +779,41 @@ const styles = StyleSheet.create({
     },
     languageTextActive: {
         color: '#FFFFFF',
+    },
+    lyricsSyncProgress: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 4,
+    },
+    lyricsSyncText: {
+        flex: 1,
+        color: '#CCCCCC',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '600',
+    },
+    lyricsCancelText: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    lyricsStartButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#8B5CF6',
+        borderRadius: 12,
+        paddingVertical: 13,
+        paddingHorizontal: 20,
+        marginTop: 4,
+    },
+    lyricsStartButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
     },
 });
 

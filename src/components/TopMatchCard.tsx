@@ -19,6 +19,7 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import i18n from '../constants/i18n';
 import BlurredBackground from './BlurredBackground';
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
 
 interface TopMatchCardProps {
     match: TopMatch;
@@ -33,10 +34,12 @@ interface LayoutProps {
     onPress: () => void;
     onLongPress?: () => void;
     containerStyle?: any;
+    isSelectionMode?: boolean;
+    isSelected?: boolean;
 }
 
 // --- SHARED LAYOUT ---
-const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPress, containerStyle }: LayoutProps) => {
+const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPress, containerStyle, isSelectionMode, isSelected }: LayoutProps) => {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     return (
@@ -56,6 +59,15 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
 
             <View style={styles.content}>
                 <View style={styles.mainInfo}>
+                    {isSelectionMode && type === 'track' && (
+                        <View style={{ marginRight: 12 }}>
+                            <Ionicons 
+                                name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
+                                size={24} 
+                                color={isSelected ? colors.accent : colors.textSecondary} 
+                            />
+                        </View>
+                    )}
                     {/* Miniatura cuadrada o redonda según el tipo */}
                     {imageUrl ? (
                         <Image 
@@ -142,6 +154,9 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
     const SWIPE_LIMIT = 80;
     const SWIPE_THRESHOLD = 55;
 
+    const isSelectionMode = useMultiSelectStore(state => state.isSelectionMode);
+    const isSelected = useMultiSelectStore(state => state.selectedTracks.some(t => t.id === track.id));
+
     const triggerHaptic = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
@@ -168,6 +183,7 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
     }, [track]);
 
     const panGesture = Gesture.Pan()
+        .enabled(!isSelectionMode)
         .activeOffsetX([-20, 20])
         .onUpdate((event) => {
             const canSwipeRight = swipeRightAction !== 'none';
@@ -259,8 +275,17 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
                         subtitle={`Canción • ${artistNames}`}
                         imageUrl={album?.coverUrl || null}
                         type="track"
-                        onPress={onPress}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={isSelected}
+                        onPress={() => {
+                            if (isSelectionMode) {
+                                useMultiSelectStore.getState().toggleTrack(track);
+                                return;
+                            }
+                            onPress();
+                        }}
                         onLongPress={() => {
+                            if (isSelectionMode) return;
                             Keyboard.dismiss();
                             openMenu(track);
                         }}

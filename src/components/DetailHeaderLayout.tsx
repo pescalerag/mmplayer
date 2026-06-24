@@ -27,6 +27,7 @@ interface DetailHeaderLayoutProps {
     onDelete?: () => void;
     onEdit?: () => void;
     onPickPhoto?: () => void;
+    onMore?: () => void;
     renderExtra?: () => React.ReactNode;
     renderHeaderPrefix?: () => React.ReactNode;
     isFavorites?: boolean;
@@ -44,6 +45,7 @@ const DetailHeaderLayout = ({
     onDelete,
     onEdit,
     onPickPhoto,
+    onMore,
     renderExtra,
     renderHeaderPrefix,
     isFavorites = false,
@@ -113,6 +115,11 @@ const DetailHeaderLayout = ({
                 {onHome && (
                     <TouchableOpacity style={styles.actionButton} onPress={onHome}>
                         <Ionicons name="home" size={22} color={colors.text} />
+                    </TouchableOpacity>
+                )}
+                {onMore && (
+                    <TouchableOpacity style={styles.actionButton} onPress={onMore}>
+                        <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
                     </TouchableOpacity>
                 )}
             </View>
