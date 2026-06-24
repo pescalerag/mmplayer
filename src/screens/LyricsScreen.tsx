@@ -383,7 +383,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
                 {/* Footer / Secondary Actions */}
                 <View style={styles.footer}>
-                    {/* Left group: Sleep Timer + Speedometer + Share */}
+                    {/* Left group: Sleep Timer + Speedometer + Microphone */}
                     <View style={styles.footerLeftGroup}>
                         <TouchableOpacity
                             onPress={openSleepTimer}
@@ -408,6 +408,21 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
+                            onPress={() => navigation.goBack()}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name="mic"
+                                size={24}
+                                color="#A855F7"
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Right group: Share + Queue */}
+                    <View style={styles.footerRightGroup}>
+                        <TouchableOpacity
                             onPress={handleShare}
                             style={styles.footerButton}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -418,16 +433,14 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                                 color={colors.textSecondary}
                             />
                         </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={openQueue}
+                            style={styles.footerButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons name="list" size={24} color={colors.textSecondary} />
+                        </TouchableOpacity>
                     </View>
-
-                    {/* Right: Queue */}
-                    <TouchableOpacity
-                        onPress={openQueue}
-                        style={styles.footerButton}
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                    >
-                        <Ionicons name="list" size={24} color={colors.textSecondary} />
-                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -540,6 +553,11 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
         paddingHorizontal: 13,
     },
     footerLeftGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+    },
+    footerRightGroup: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,

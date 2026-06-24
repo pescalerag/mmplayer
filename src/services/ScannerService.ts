@@ -307,21 +307,26 @@ const resolveAlbum = async (
         }
 
         if (nextArtist || newCover) {
-            if ((album as any)._status === 'created') {
-                if (nextArtist) album.artist.set(nextArtist);
-                if (newCover) album.coverUrl = newCover;
-            } else if ((album as any)._preparedState === 'update') {
-                if (newCover) (album._raw as any).cover_url = newCover;
-                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
-            } else {
-                const updateOp = album.prepareUpdate((a: any) => {
-                    if (nextArtist) a.artist.set(nextArtist);
-                    if (newCover) a.coverUrl = newCover;
-                });
-                newAlbumOps.push(updateOp);
-
-                if (newCover) (album._raw as any).cover_url = newCover;
-                if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+            try {
+                if ((album as any)._status === 'created') {
+                    if (nextArtist) album.artist.set(nextArtist);
+                    if (newCover) album.coverUrl = newCover;
+                } else {
+                    const updateOp = album.prepareUpdate((a: any) => {
+                        if (nextArtist) a.artist.set(nextArtist);
+                        if (newCover) a.coverUrl = newCover;
+                    });
+                    newAlbumOps.push(updateOp);
+                    if (newCover) (album._raw as any).cover_url = newCover;
+                    if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+                }
+            } catch (error: any) {
+                if (error.message && error.message.includes('pending changes')) {
+                    if (newCover) (album._raw as any).cover_url = newCover;
+                    if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+                } else {
+                    throw error;
+                }
             }
         }
     } else {
@@ -415,8 +420,13 @@ export const ScannerService = {
             useSyncStore.getState().setIsScanning(true, isSilent);
             await ScannerService.cleanDeletedFiles((phase) => onProgress?.(0, 0, phase));
             await ScannerService.autoScanAndroid(onProgress);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error en syncLibrary:", error);
+            if (!isSilent) {
+                import('react-native').then(({ Alert }) => {
+                    Alert.alert('Error al escanear', error?.message || String(error));
+                });
+            }
         } finally {
             useSyncStore.getState().setIsScanning(false, false);
         }
@@ -453,8 +463,11 @@ export const ScannerService = {
             });
 
             await ScannerService.autoScanAndroid(onProgress);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error en fullDataWipe:', error);
+            import('react-native').then(({ Alert }) => {
+                Alert.alert('Error al borrar/escanear', error?.message || String(error));
+            });
         } finally {
             useSyncStore.getState().setIsScanning(false);
         }
@@ -998,17 +1011,33 @@ export const ScannerService = {
                     batchOps.push(...newAlbumOps);
 
                     // Update Track metadata
-                    const updateOp = existingTrack.prepareUpdate((t: any) => {
-                        t.title = meta.title;
-                        t.normalizedTitle = normalizeText(meta.title);
-                        t.duration = meta.durationInSeconds;
-                        t.trackNumber = file.trackNumber || 0;
-                        t.discNumber = file.discNumber || 1;
-                        t.lastModified = meta.lastModified;
-                        t.album.set(album);
-                        t.artist.set(primaryArtist);
-                    });
-                    batchOps.push(updateOp);
+                    try {
+                        const updateOp = existingTrack.prepareUpdate((t: any) => {
+                            t.title = meta.title;
+                            t.normalizedTitle = normalizeText(meta.title);
+                            t.duration = meta.durationInSeconds;
+                            t.trackNumber = file.trackNumber || 0;
+                            t.discNumber = file.discNumber || 1;
+                            t.lastModified = meta.lastModified;
+                            t.album.set(album);
+                            t.artist.set(primaryArtist);
+                        });
+                        batchOps.push(updateOp);
+                    } catch (error: any) {
+                        if (error.message && error.message.includes('pending changes')) {
+                            const raw = existingTrack._raw as any;
+                            raw.title = meta.title;
+                            raw.normalizedTitle = normalizeText(meta.title);
+                            raw.duration = meta.durationInSeconds;
+                            raw.trackNumber = file.trackNumber || 0;
+                            raw.discNumber = file.discNumber || 1;
+                            raw.lastModified = meta.lastModified;
+                            raw.album_id = album?.id;
+                            raw.artist_id = primaryArtist?.id;
+                        } else {
+                            throw error;
+                        }
+                    }
 
                     // Re-associate collaborators
                     const collaboratorsCollection = database.collections.get('track_collaborators');

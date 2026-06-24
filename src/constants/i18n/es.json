@@ -279,6 +279,32 @@
     "default_title": "MMPlayer se ha actualizado",
     "default_date": "Nueva Actualización",
     "default_changes": ["Mejoras de rendimiento y corrección de errores menores."],
+    "v_2_0_0_beta": {
+      "title": "¡Bienvenido a MMPlayer v2!",
+      "date": "22 de Junio, 2026",
+      "changes": [
+        "Fondos de la app unificados",
+        "Tema de la app unificado (definición global)",
+        "Implementados gestos de deslizamiento en TrackRow",
+        "Saneamiento de base de datos",
+        "fix(biblioteca): prevención de cuelgues por relaciones de base de datos huérfanas o perdidas",
+        "Añadidos gestos de deslizamiento a TopMatchCard",
+        "feat: añadido sistema de gestión de etiquetas con integración de navegación y estructura en pantalla de reproducción",
+        "Botón de reproducir/pausar en TagDetailScreen",
+        "Opción de \"añadir a playlist\" en PlaylistSheet y ArtistSheet",
+        "Eliminadas opciones de deslizamiento duplicadas en la pantalla de ajustes",
+        "Corregidos estilos de cabecera en SearchScreen y HomeScreen",
+        "feat: cola de reproducción reordenable (draggable queue)",
+        "feat: implementada normalización de volumen",
+        "Añadido cambiador de velocidad en PlayerScreen",
+        "Implementado cambiador de tono (pitch)",
+        "Implementado modo hi-fi para ajustes de velocidad y escaneo optimizado",
+        "Implementada pantalla de letras (LyricsScreen)",
+        "Implementado sistema de transmisión local (local cast)",
+        "Implementada multiselección en TrackRow y TagMenuSheet",
+        "Añadida pantalla de bienvenida"
+      ]
+    },
     "v_1_3_1": {
       "title": "Versión 1.3.1 (Hotfix)",
       "date": "09/06/2026",

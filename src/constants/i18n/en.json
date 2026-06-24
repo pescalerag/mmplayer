@@ -279,6 +279,32 @@
     "default_title": "MMPlayer has been updated",
     "default_date": "New Update",
     "default_changes": ["Performance improvements and minor bug fixes."],
+    "v_2_0_0_beta": {
+      "title": "Welcome to MMPlayer v2!",
+      "date": "June 22, 2026",
+      "changes": [
+        "unified app backgrounds",
+        "unified app theme (global theme definition)",
+        "implemented swipe gestures on TrackRow",
+        "database sanitazion",
+        "fix(library): prevent crashes on orphaned or missing database relations",
+        "added swipe gestures to TopMatchCard",
+        "feat: add tag management system with navigation integration and player screen structure",
+        "play/pause button on TagDetailScreen",
+        "\"add to playlist\" option in PlaylistSheet and ArtistSheet",
+        "removed duplicated swipe options in setting screen",
+        "fixed header styles in SearchScreen and HomeScreen",
+        "feat: draggable queue",
+        "feat: implemented volume normalization",
+        "added speed changer on PlayerScreen",
+        "implemented pitch changer",
+        "implemented hi-fi mode for speed setting and optimized scanning",
+        "implemented LyricsScreen",
+        "implemented local cast system",
+        "implemented TrackRow multiselection and TagMenuSheet",
+        "added welcome screen"
+      ]
+    },
     "v_1_3_1": {
       "title": "Version 1.3.1 (Hotfix)",
       "date": "09/06/2026",
