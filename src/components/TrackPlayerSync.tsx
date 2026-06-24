@@ -1,11 +1,28 @@
 import { 
     Event, 
     useTrackPlayerEvents,
-    default as TrackPlayer
+    default as TrackPlayer,
+    State
 } from 'react-native-track-player';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useCastStore } from '../store/useCastStore';
 import { LocalCastService } from '../services/LocalCastService';
+
+// Module-level variable to track if the player was playing before a track transition.
+// Since transitions (loading/buffering) are non-playing states, we preserve the last known
+// active state (playing vs paused/stopped/etc.).
+let wasPlayingBeforeTransition = false;
+
+const isPlayingState = (state: any) => {
+    return state === 'playing' || state === State.Playing;
+};
+
+const isPausedOrStoppedState = (state: any) => {
+    return state === 'paused' || state === State.Paused ||
+           state === 'stopped' || state === State.Stopped ||
+           state === 'none' || state === State.None ||
+           state === 'ended' || state === State.Ended;
+};
 
 export const TrackPlayerSync = () => {
 
@@ -19,18 +36,45 @@ export const TrackPlayerSync = () => {
     ], async (event) => {
 
         if (event.type === Event.PlaybackState) {
-            // Se puede mantener vacío o remover la lógica si no hace nada más, pero como declara variables sin uso, podemos removerlo o dejar la lógica de asignación si es necesaria. Sin embargo, no hace nada más en este bloque, por lo que podemos eliminarlo por completo.
+            const state = event.state;
+            if (isPlayingState(state)) {
+                wasPlayingBeforeTransition = true;
+            } else if (isPausedOrStoppedState(state)) {
+                wasPlayingBeforeTransition = false;
+            }
         }
 
         if (event.type === Event.PlaybackActiveTrackChanged) {
             const { index, lastIndex, track } = event;
+
+            // Evitar procesar eventos de cambio de track temporales causados por la inserción
+            // en segundo plano de las pistas previas al inicio de la cola.
+            if (track?.id) {
+                const cleanEventId = track.id.split('-')[0];
+                const playerState = usePlayerStore.getState();
+                if (playerState.isQueueLoading && playerState.activeTrack) {
+                    const cleanActiveId = playerState.activeTrack.id.toString();
+                    if (cleanEventId !== cleanActiveId) {
+                        console.log(`[Sync] Ignorando cambio de track temporal a "${track.title}" durante carga de cola.`);
+                        return;
+                    }
+                }
+            }
             
             if (useCastStore.getState().isServerRunning) {
                 const playState = await TrackPlayer.getPlaybackState();
-                if (playState.state === 'playing') {
+                const playWhenReady = await TrackPlayer.getPlayWhenReady().catch(() => false);
+                const shouldPlay = isPlayingState(playState.state) || wasPlayingBeforeTransition || playWhenReady;
+                
+                if (shouldPlay) {
                     LocalCastService.setPlayIntent(true);
                 }
                 await TrackPlayer.pause();
+            } else {
+                const isRestoring = usePlayerStore.getState().isRestoring;
+                if (!isRestoring && track?.id) {
+                    await TrackPlayer.play();
+                }
             }
 
             if (track?.id) {

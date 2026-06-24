@@ -185,7 +185,27 @@ export const LocalCastService = {
                     return;
                 }
 
-                const track    = await TrackPlayer.getTrack(activeIndex);
+                let track = await TrackPlayer.getTrack(activeIndex);
+                
+                try {
+                    const { usePlayerStore } = require('../store/usePlayerStore');
+                    const playerState = usePlayerStore.getState();
+                    if (playerState.isQueueLoading && playerState.activeTrack) {
+                        const expectedId = playerState.activeTrack.id.toString().split('-')[0];
+                        const currentId = track?.id ? track.id.toString().split('-')[0] : '';
+                        if (expectedId !== currentId) {
+                            const queue = await TrackPlayer.getQueue();
+                            const foundTrack = queue.find(t => t.id?.toString().split('-')[0] === expectedId);
+                            if (foundTrack) {
+                                track = foundTrack;
+                                console.log(`[LocalCastService] /api/state: Overriding temporary active track "${track.title}" with expected "${foundTrack.title}" during queue load.`);
+                            }
+                        }
+                    }
+                } catch (loadErr) {
+                    console.error('[LocalCastService] Error resolving expected track during load:', loadErr);
+                }
+
                 const progress = await TrackPlayer.getProgress();
                 const state    = await TrackPlayer.getPlaybackState();
                 const isPlaying = state.state === 'playing';

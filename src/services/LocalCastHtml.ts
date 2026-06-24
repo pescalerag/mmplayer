@@ -388,6 +388,7 @@ export function getClientHtml(): string {
 
         function renderLyrics(lrcText) {
             lyricsScroller.innerHTML = "";
+            lyricsScroller.scrollTop = 0;
             lyrics = parseLRC(lrcText);
             if (lyrics.length === 0) {
                 const lines = lrcText ? lrcText.split('\\n') : ["No hay letras sincronizadas disponibles"];
@@ -409,6 +410,7 @@ export function getClientHtml(): string {
                 div.innerText = line.text;
                 lyricsScroller.appendChild(div);
             });
+            lyricsScroller.scrollTop = 0;
         }
 
         function syncLyrics(currentTime) {
