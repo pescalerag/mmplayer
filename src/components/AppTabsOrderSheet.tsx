@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Animated,
     BackHandler,
     Dimensions,
@@ -18,6 +19,7 @@ import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
 import { AppTabType, useSettingsStore } from '../store/useSettingsStore';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNRestart from 'react-native-restart';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { height } = Dimensions.get('window');
 
@@ -39,6 +41,7 @@ export default function AppTabsOrderSheet() {
     // Estados temporales en el sheet antes de confirmar
     const [data, setData] = useState(ALL_TABS);
     const [selectedInitial, setSelectedInitial] = useState<AppTabType>(initialAppRoute);
+    const [isRestarting, setIsRestarting] = useState(false);
 
     const slideAnim = useRef(new Animated.Value(height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -90,23 +93,43 @@ export default function AppTabsOrderSheet() {
         setData(data);
     };
 
-    const handleConfirmAndRestart = () => {
+    const handleConfirmAndRestart = async () => {
+        if (isRestarting) return;
+        setIsRestarting(true);
+
         setAppTabsOrder(data.map(t => t.id));
         setInitialAppRoute(selectedInitial);
-        closeSheet();
+        
+        try {
+            const state = useSettingsStore.getState();
+            const rawState: any = {};
+            for (const key of Object.keys(state)) {
+                if (typeof (state as any)[key] !== 'function') {
+                    rawState[key] = (state as any)[key];
+                }
+            }
+            // Ensure the newly selected values are included
+            rawState.appTabsOrder = data.map(t => t.id);
+            rawState.initialAppRoute = selectedInitial;
+
+            await AsyncStorage.setItem('mmplayer-settings', JSON.stringify({
+                state: rawState,
+                version: 0
+            }));
+        } catch (e) {
+            console.error("Error persisting settings before restart:", e);
+        }
+
         setTimeout(() => {
+            closeSheet();
             RNRestart.restart();
-        }, 300);
+        }, 800);
     };
 
     const renderItem = ({ item, drag, isActive }: RenderItemParams<typeof ALL_TABS[0]>) => {
         return (
             <ScaleDecorator>
-                <TouchableOpacity
-                    activeOpacity={1}
-                    onLongPress={drag}
-                    delayLongPress={150}
-                    disabled={isActive}
+                <View
                     style={[
                         styles.itemContainer,
                         { backgroundColor: isActive ? '#252525' : 'transparent' }
@@ -116,8 +139,15 @@ export default function AppTabsOrderSheet() {
                         <Ionicons name={item.icon} size={24} color="#8B5CF6" style={styles.itemIcon} />
                         <Text style={styles.itemText}>{t(item.labelKey) || item.id}</Text>
                     </View>
-                    <Ionicons name="menu" size={24} color="#666" />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        onLongPress={drag}
+                        delayLongPress={350}
+                        style={{ paddingLeft: 16, paddingVertical: 8 }}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <Ionicons name="menu" size={24} color="#666" />
+                    </TouchableOpacity>
+                </View>
             </ScaleDecorator>
         );
     };
@@ -183,9 +213,21 @@ export default function AppTabsOrderSheet() {
                 </GestureHandlerRootView>
 
                 <View style={styles.footer}>
-                    <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmAndRestart}>
-                        <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.confirmButtonText}>{t('settings.confirm_restart') || 'Confirmar y Reiniciar'}</Text>
+                    <TouchableOpacity 
+                        style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]} 
+                        onPress={handleConfirmAndRestart}
+                        disabled={isRestarting}
+                    >
+                        {isRestarting ? (
+                            <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
+                        ) : (
+                            <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                        )}
+                        <Text style={styles.confirmButtonText}>
+                            {isRestarting 
+                                ? (t('settings.restarting') || 'Reiniciando...') 
+                                : (t('settings.confirm_restart') || 'Confirmar y Reiniciar')}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </Animated.View>
@@ -231,11 +273,11 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     subtitle: {
-        fontSize: 13,
+        fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
-        color: '#888',
-        marginTop: 4,
+        fontWeight: '700',
+        color: '#CCCCCC',
+        marginTop: 6,
     },
     initialRouteSection: {
         paddingVertical: 20,

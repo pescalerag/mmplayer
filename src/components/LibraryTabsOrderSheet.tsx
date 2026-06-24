@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Animated,
     BackHandler,
     Dimensions,
@@ -16,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
 import { LibraryTabType, useSettingsStore } from '../store/useSettingsStore';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import RNRestart from 'react-native-restart';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { height } = Dimensions.get('window');
 
@@ -34,6 +37,7 @@ export default function LibraryTabsOrderSheet() {
     
     const { libraryTabsOrder, setLibraryTabsOrder } = useSettingsStore();
     const [data, setData] = useState(ALL_TABS);
+    const [isRestarting, setIsRestarting] = useState(false);
 
     const slideAnim = useRef(new Animated.Value(height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -86,17 +90,43 @@ export default function LibraryTabsOrderSheet() {
 
     const onDragEnd = ({ data }: { data: typeof ALL_TABS }) => {
         setData(data);
+    };
+
+    const handleConfirmAndRestart = async () => {
+        if (isRestarting) return;
+        setIsRestarting(true);
+
         setLibraryTabsOrder(data.map(t => t.id));
+
+        try {
+            const state = useSettingsStore.getState();
+            const rawState: any = {};
+            for (const key of Object.keys(state)) {
+                if (typeof (state as any)[key] !== 'function') {
+                    rawState[key] = (state as any)[key];
+                }
+            }
+            // Ensure the newly selected values are included
+            rawState.libraryTabsOrder = data.map(t => t.id);
+
+            await AsyncStorage.setItem('mmplayer-settings', JSON.stringify({
+                state: rawState,
+                version: 0
+            }));
+        } catch (e) {
+            console.error("Error persisting settings before restart:", e);
+        }
+
+        setTimeout(() => {
+            closeSheet();
+            RNRestart.restart();
+        }, 800);
     };
 
     const renderItem = ({ item, drag, isActive }: RenderItemParams<typeof ALL_TABS[0]>) => {
         return (
             <ScaleDecorator>
-                <TouchableOpacity
-                    activeOpacity={1}
-                    onLongPress={drag}
-                    delayLongPress={150}
-                    disabled={isActive}
+                <View
                     style={[
                         styles.itemContainer,
                         { backgroundColor: isActive ? '#252525' : 'transparent' }
@@ -106,8 +136,15 @@ export default function LibraryTabsOrderSheet() {
                         <Ionicons name={item.icon} size={24} color="#8B5CF6" style={styles.itemIcon} />
                         <Text style={styles.itemText}>{t(item.labelKey)}</Text>
                     </View>
-                    <Ionicons name="menu" size={24} color="#666" />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        onLongPress={drag}
+                        delayLongPress={350}
+                        style={{ paddingLeft: 16, paddingVertical: 8 }}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    >
+                        <Ionicons name="menu" size={24} color="#666" />
+                    </TouchableOpacity>
+                </View>
             </ScaleDecorator>
         );
     };
@@ -123,18 +160,22 @@ export default function LibraryTabsOrderSheet() {
             <Animated.View style={[
                 styles.sheetContainer,
                 {
-                    paddingBottom: insets.bottom,
+                    paddingBottom: insets.bottom + 20,
                     transform: [{ translateY: slideAnim }]
                 }
             ]}>
                 <View style={styles.dragIndicator} />
                 
                 <View style={styles.header}>
-                    <Text style={styles.title}>{t('settings.tab_order')}</Text>
-                    <Text style={styles.subtitle}>{t('settings.drag_to_reorder')}</Text>
+                    <Text style={styles.title}>{t('settings.library_tabs_title') || 'Pestañas de la biblioteca'}</Text>
+                    <Text style={styles.subtitle}>{t('settings.library_tabs_subtitle') || 'Personaliza la biblioteca'}</Text>
                 </View>
 
-                <GestureHandlerRootView>
+                <Text style={[styles.sectionTitle, { paddingHorizontal: 24, marginTop: 20 }]}>
+                    {t('settings.drag_to_reorder_library_tabs') || 'Orden de las pestañas (Mantén presionado para mover)'}
+                </Text>
+
+                <GestureHandlerRootView style={{ height: 350 }}>
                     <DraggableFlatList
                         data={data}
                         onDragEnd={onDragEnd}
@@ -144,6 +185,25 @@ export default function LibraryTabsOrderSheet() {
                         showsVerticalScrollIndicator={false}
                     />
                 </GestureHandlerRootView>
+
+                <View style={styles.footer}>
+                    <TouchableOpacity 
+                        style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]} 
+                        onPress={handleConfirmAndRestart}
+                        disabled={isRestarting}
+                    >
+                        {isRestarting ? (
+                            <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
+                        ) : (
+                            <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                        )}
+                        <Text style={styles.confirmButtonText}>
+                            {isRestarting 
+                                ? (t('settings.restarting') || 'Reiniciando...') 
+                                : (t('settings.confirm_restart') || 'Confirmar y Reiniciar')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </Animated.View>
         </View>
     );
@@ -187,11 +247,19 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     subtitle: {
-        fontSize: 13,
+        fontSize: 14,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
-        color: '#888',
-        marginTop: 4,
+        fontWeight: '700',
+        color: '#CCCCCC',
+        marginTop: 6,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#B3B3B3',
+        marginBottom: 12,
+        paddingHorizontal: 24,
     },
     listContent: {
         paddingTop: 10,
@@ -217,4 +285,22 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#FFFFFF',
     },
+    footer: {
+        paddingHorizontal: 24,
+        paddingTop: 10,
+    },
+    confirmButton: {
+        backgroundColor: '#8B5CF6',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        borderRadius: 16,
+    },
+    confirmButtonText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+    }
 });
