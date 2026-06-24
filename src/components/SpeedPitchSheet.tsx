@@ -126,11 +126,15 @@ export default function SpeedPitchSheet() {
         const newSpeed = sliderValueToSpeed(val);
         if (newSpeed !== localSpeed) {
             setLocalSpeed(newSpeed);
-            setPlaybackSpeed(newSpeed);
             if (isVinylModeEnabled) {
                 setLocalPitch(newSpeed);
             }
         }
+    };
+
+    const handleSpeedSlidingComplete = (val: number) => {
+        const newSpeed = sliderValueToSpeed(val);
+        setPlaybackSpeed(newSpeed);
     };
 
     const handleResetPitch = () => {
@@ -144,8 +148,13 @@ export default function SpeedPitchSheet() {
         const newPitch = semitonesToPitch(val);
         if (newPitch !== localPitch) {
             setLocalPitch(newPitch);
-            setPlaybackPitch(newPitch);
         }
+    };
+
+    const handlePitchSlidingComplete = (val: number) => {
+        if (isVinylModeEnabled) return;
+        const newPitch = semitonesToPitch(val);
+        setPlaybackPitch(newPitch);
     };
 
     const currentSemitones = pitchToSemitones(localPitch);
@@ -200,6 +209,7 @@ export default function SpeedPitchSheet() {
                         step={0.01}
                         value={speedToSliderValue(localSpeed)}
                         onValueChange={handleSpeedSliderChange}
+                        onSlidingComplete={handleSpeedSlidingComplete}
                         minimumTrackTintColor={colors.accent}
                         maximumTrackTintColor="#282828"
                         thumbTintColor="#FFFFFF"
@@ -249,6 +259,7 @@ export default function SpeedPitchSheet() {
                         step={1}
                         value={currentSemitones}
                         onValueChange={handlePitchSliderChange}
+                        onSlidingComplete={handlePitchSlidingComplete}
                         minimumTrackTintColor={colors.accent}
                         maximumTrackTintColor="#282828"
                         thumbTintColor="#FFFFFF"

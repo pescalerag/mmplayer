@@ -538,6 +538,48 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </TouchableOpacity>
                     <View style={styles.separator} />
                     <TouchableOpacity
+                        style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
+                        disabled={isScanning}
+                        onPress={() => {
+                            Alert.alert(
+                                t('settings.repair_covers_alert_title') || 'Reparar carátulas vacías',
+                                t('settings.repair_covers_alert_desc') || 'Este proceso buscará carátulas dañadas o vacías en tu biblioteca y les asignará la imagen por defecto si ya no existen en el dispositivo. ¿Deseas continuar?',
+                                [
+                                    { text: t('actions.cancel'), style: "cancel" },
+                                    {
+                                        text: t('actions.continue'),
+                                        style: "default",
+                                        onPress: async () => {
+                                            if (useSyncStore.getState().isScanning) return;
+                                            try {
+                                                useSyncStore.getState().setIsScanning(true, false);
+                                                const repairedCount = await ScannerService.repairMissingAlbumCovers();
+                                                Alert.alert(
+                                                    t('settings.success'),
+                                                    t('settings.repair_covers_success', { count: repairedCount }) || `Se han reparado las carátulas de ${repairedCount} álbumes.`
+                                                );
+                                            } catch (err) {
+                                                console.error("Error al reparar carátulas:", err);
+                                                Alert.alert(t('actions.error'), 'No se pudo completar la reparación.');
+                                            } finally {
+                                                useSyncStore.getState().setIsScanning(false, false);
+                                            }
+                                        }
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.repair_covers') || 'Reparar carátulas vacías'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.repair_covers_desc') || 'Corrige las carátulas de los álbumes que se quedaron en blanco tras el último fallo del escáner'}
+                            </Text>
+                        </View>
+                        <Ionicons name="image" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
                         style={styles.buttonRow}
                         onPress={() => {
                             Alert.alert(
