@@ -118,9 +118,14 @@ export default function LocalCastSheet() {
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerLabel}>
-                        {t('cast.title')}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={styles.headerLabel}>
+                            {t('cast.title')}
+                        </Text>
+                        <View style={styles.betaBadge}>
+                            <Text style={styles.betaBadgeText}>BETA</Text>
+                        </View>
+                    </View>
                     <Text style={styles.headerTitle}>
                         {isServerRunning
                             ? t('cast.status_active')
@@ -308,5 +313,21 @@ const getStyles = (colors: any, fonts: any) => StyleSheet.create({
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: 'bold',
+    },
+    betaBadge: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.25)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        alignSelf: 'center',
+    },
+    betaBadgeText: {
+        color: '#F59E0B',
+        fontSize: 9,
+        fontWeight: '900',
+        fontFamily: fonts.regular,
+        letterSpacing: 0.5,
     },
 });
