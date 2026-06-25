@@ -2,21 +2,20 @@ import { Ionicons } from "@expo/vector-icons";
 import * as NavigationBar from "expo-navigation-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    BackHandler,
-    Dimensions,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Animated,
+  BackHandler,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SortOption, useLibraryStore } from "../store/useLibraryStore";
 import { useSortModalStore } from "../store/useSortModalStore";
 
-import { Colors } from "../theme/theme";
 import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -49,8 +48,8 @@ const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
 };
 
 export default function SortModalSheet() {
-    const { colors, fonts, layout } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const { colors, fonts, layout } = useAppTheme();
+  const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const insets = useSafeAreaInsets();
   const { isVisible, activeTab, activeSort, closeModal } = useSortModalStore();
 
@@ -60,7 +59,7 @@ export default function SortModalSheet() {
   useEffect(() => {
     if (isVisible) {
       if (Platform.OS === "android") {
-        NavigationBar.setBackgroundColorAsync("#121212").catch(() => {});
+        NavigationBar.setBackgroundColorAsync("#121212").catch(() => { });
       }
       Animated.parallel([
         Animated.timing(fadeAnim, {

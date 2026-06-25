@@ -2,23 +2,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { FlashList } from '@shopify/flash-list';
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useState } from "react";
-import { FlashList } from '@shopify/flash-list';
+import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TrackPlayer, {
-    State,
-    usePlaybackState,
+  State,
+  usePlaybackState,
 } from "react-native-track-player";
 import DetailHeaderLayout from "../components/DetailHeaderLayout";
 import PlaylistCover from "../components/PlaylistCover";
@@ -33,12 +34,11 @@ import Track from "../database/models/Track";
 import { HistoryService } from "../services/HistoryService";
 import { PlaylistService } from "../services/PlaylistService";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
 import { usePlaylistMenuStore } from "../store/usePlaylistMenuStore";
+import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors, Layout } from "../theme/theme";
 import { formatAlbumDuration } from "../utils/time";
-import { useTranslation } from "react-i18next";
 
 const { width } = Dimensions.get("window");
 
@@ -404,12 +404,12 @@ function PlaylistDetailContent({
       const { item, index } = info;
       return (
         <View style={{ minHeight: 64, width: '100%' }}>
-            <PlaylistTrackRow
-              playlistTrack={item}
-              playlistId={playlist.id}
-              index={index + 1}
-              onPress={handleTrackPress}
-            />
+          <PlaylistTrackRow
+            playlistTrack={item}
+            playlistId={playlist.id}
+            index={index + 1}
+            onPress={handleTrackPress}
+          />
         </View>
       );
     },

@@ -185,7 +185,11 @@ const removeEmptyEntities = async (
 // --- 1. Helper to extract metadata ---
 const extractFileMetadata = (file: any) => {
     let coverUrl = file.coverUrl || null;
-    if (!coverUrl) {
+    if (coverUrl && coverUrl.startsWith('content://')) {
+        // Append query parameter with lastModified to bust image cache on updates
+        const separator = coverUrl.includes('?') ? '&' : '?';
+        coverUrl = `${coverUrl}${separator}t=${file.lastModified || Date.now()}`;
+    } else if (!coverUrl) {
         coverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
     }
 
@@ -275,7 +279,9 @@ const checkCoverExists = async (uri: string | null): Promise<boolean> => {
         return coverExistsCache.get(uri)!;
     }
     try {
-        const info = await FileSystem.getInfoAsync(uri);
+        // Strip query parameters for checking file info
+        const cleanUri = uri.split('?')[0];
+        const info = await FileSystem.getInfoAsync(cleanUri);
         coverExistsCache.set(uri, info.exists);
         return info.exists;
     } catch {

@@ -1,24 +1,24 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-    Animated, 
-    BackHandler, 
-    Dimensions, 
-    Platform, 
-    StyleSheet, 
-    Text, 
-    TouchableOpacity, 
-    TouchableWithoutFeedback, 
-    View,
-    FlatList
-} from 'react-native';
-import * as NavigationBar from 'expo-navigation-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { useTranslation } from 'react-i18next';
-import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
+import * as NavigationBar from 'expo-navigation-bar';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+    Animated,
+    BackHandler,
+    Dimensions,
+    FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -38,7 +38,7 @@ export default function ArtistsListSheet() {
     useEffect(() => {
         if (isVisible) {
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
+                NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
             }
 
             Animated.parallel([
@@ -104,8 +104,8 @@ export default function ArtistsListSheet() {
     };
 
     return (
-        <View 
-            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} 
+        <View
+            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
             {/* Fondo oscuro animado con Fade */}
@@ -114,17 +114,17 @@ export default function ArtistsListSheet() {
             </TouchableWithoutFeedback>
 
             {/* Contenedor del Menú animado con Slide */}
-            <Animated.View 
+            <Animated.View
                 style={[
-                    styles.sheetContainer, 
-                    { 
+                    styles.sheetContainer,
+                    {
                         paddingBottom: insets.bottom + 20,
                         transform: [{ translateY: slideAnim }]
                     }
                 ]}
             >
                 <View style={styles.dragIndicator} />
-                
+
                 <View style={styles.header}>
                     <Text style={styles.title}>{t('screens.artists') || 'Artistas'}</Text>
                 </View>
@@ -135,15 +135,15 @@ export default function ArtistsListSheet() {
                     keyExtractor={(item) => item.id}
                     showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
-                        <TouchableOpacity 
-                            style={styles.artistRow} 
+                        <TouchableOpacity
+                            style={styles.artistRow}
                             onPress={() => handleArtistPress(item.id)}
                             activeOpacity={0.7}
                         >
                             <View style={styles.artistInfo}>
                                 {item.imageUrl ? (
-                                    <Image 
-                                        source={{ uri: item.imageUrl }} 
+                                    <Image
+                                        source={{ uri: item.imageUrl }}
                                         style={styles.thumbnail}
                                         contentFit="cover"
                                         transition={200}

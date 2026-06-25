@@ -1,13 +1,13 @@
-import { LinearGradient } from 'expo-linear-gradient'; // Asegúrate de tener expo-linear-gradient instalado
-import React from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import PlaylistCover from './PlaylistCover';
-import { useTranslation } from 'react-i18next';
 import withObservables from '@nozbe/with-observables';
-import { database } from '../database';
-import Playlist from '../database/models/Playlist';
+import { LinearGradient } from 'expo-linear-gradient';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { database } from '../database';
+import Playlist from '../database/models/Playlist';
+import PlaylistCover from './PlaylistCover';
 
 interface RecentPlaylistCardProps {
     id: string;
@@ -27,8 +27,8 @@ export const RecentPlaylistCardBase = React.memo(function RecentPlaylistCard({ i
     const handleLongPress = React.useCallback(() => onLongPress?.(id), [id, onLongPress]);
 
     const displayName = id === 'favorites' ? t('home.your_favourites') : (playlist?.name || name);
-    const displayDescription = id === 'favorites' 
-        ? t('home.most_liked_songs') 
+    const displayDescription = id === 'favorites'
+        ? t('home.most_liked_songs')
         : (playlist?.description || description || t('actions.playlist_empty_desc'));
 
     return (
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
 });
 
 export default withObservables(['id'], ({ id }: { id: string }) => ({
-    playlist: id === 'favorites' 
-        ? of(null) 
+    playlist: id === 'favorites'
+        ? of(null)
         : database.collections.get<Playlist>('playlists').findAndObserve(id).pipe(catchError(() => of(null)))
 }))(RecentPlaylistCardBase);

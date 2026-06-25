@@ -1,29 +1,29 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-    Animated, 
-    BackHandler, 
-    Dimensions, 
-    Platform, 
-    StyleSheet, 
-    Text, 
-    TouchableOpacity, 
-    TouchableWithoutFeedback, 
-    View 
-} from 'react-native';
-import * as NavigationBar from 'expo-navigation-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Q } from '@nozbe/watermelondb';
-import Track from '../database/models/Track';
+import { Image } from 'expo-image';
+import * as NavigationBar from 'expo-navigation-bar';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+    Animated,
+    BackHandler,
+    Dimensions,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
+import Track from '../database/models/Track';
+import { getActiveTabName, navigationRef } from '../navigation/navigationRef';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
-import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
-import { useTranslation } from 'react-i18next';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,12 +43,12 @@ export default function ArtistMenuSheet() {
             setTracks([]);
             return;
         }
-        
+
         const loadTracks = async () => {
             try {
                 const tracksList = await database.collections.get<Track>('tracks')
                     .query(Q.on('track_collaborators', 'artist_id', selectedArtist.id))
-                    .fetch() as Track[];
+                    .fetch();
                 setTracks(tracksList);
             } catch (error) {
                 console.error('Error al cargar tracks de ArtistMenuSheet:', error);
@@ -65,7 +65,7 @@ export default function ArtistMenuSheet() {
     useEffect(() => {
         if (isVisible) {
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
+                NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
             }
 
             Animated.parallel([
@@ -123,29 +123,29 @@ export default function ArtistMenuSheet() {
     if (!shouldRender && !isVisible) return null;
 
     return (
-        <View 
-            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} 
+        <View
+            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
 
-            <Animated.View 
+            <Animated.View
                 style={[
-                    styles.sheetContainer, 
-                    { 
+                    styles.sheetContainer,
+                    {
                         paddingBottom: insets.bottom + 20,
                         transform: [{ translateY: slideAnim }]
                     }
                 ]}
             >
                 <View style={styles.dragIndicator} />
-                
+
                 <View style={styles.header}>
                     {selectedArtist?.imageUrl ? (
-                        <Image 
-                            source={{ uri: selectedArtist.imageUrl }} 
+                        <Image
+                            source={{ uri: selectedArtist.imageUrl }}
                             style={styles.thumbnail}
                             contentFit="cover"
                             transition={200}
@@ -162,8 +162,8 @@ export default function ArtistMenuSheet() {
                 </View>
 
                 {/* OPCIÓN: Fijar/Desfijar */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={async () => {
                         if (selectedArtist) {
                             await database.write(async () => {
@@ -182,8 +182,8 @@ export default function ArtistMenuSheet() {
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a continuación */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueNext(tracks);
@@ -199,8 +199,8 @@ export default function ArtistMenuSheet() {
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir al final */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={() => {
                         if (tracks.length > 0) {
                             addMultipleToQueueEnd(tracks);

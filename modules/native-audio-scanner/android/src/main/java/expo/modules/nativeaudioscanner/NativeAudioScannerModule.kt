@@ -8,8 +8,356 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.RandomAccessFile
+import android.media.MediaScannerConnection
+import android.app.Activity
+import android.app.RecoverableSecurityException
+import android.os.Build
+import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.FieldKey
+import org.jaudiotagger.tag.images.AndroidArtwork
+import expo.modules.kotlin.Promise
 
 class NativeAudioScannerModule : Module() {
+  private val REQUEST_CODE_WRITE = 1928
+
+  @Volatile
+  private var isBatchCancelled = false
+
+  private var pendingPromise: Promise? = null
+  private var pendingFilePath: String? = null
+  private var pendingTitle: String? = null
+  private var pendingArtist: String? = null
+  private var pendingAlbum: String? = null
+  private var pendingYear: Int? = null
+  private var pendingTrackNumber: Int? = null
+  private var pendingGenre: String? = null
+  private var pendingCoverArtPath: String? = null
+  private var pendingAlbumArtist: String? = null
+  private var pendingDiscNumber: Int? = null
+  private var pendingBatchList: List<Map<String, Any?>>? = null
+  private var pendingBatchIndex: Int = 0
+
+  private fun clearPending() {
+    pendingPromise = null
+    pendingFilePath = null
+    pendingTitle = null
+    pendingArtist = null
+    pendingAlbum = null
+    pendingYear = null
+    pendingTrackNumber = null
+    pendingGenre = null
+    pendingCoverArtPath = null
+    pendingAlbumArtist = null
+    pendingDiscNumber = null
+    pendingBatchList = null
+    pendingBatchIndex = 0
+  }
+
+  private fun getUriForPath(path: String): Uri? {
+    val context = appContext.reactContext ?: return null
+    val cleanPath = if (path.startsWith("file://")) path.substring(7) else path
+    val projection = arrayOf(MediaStore.Audio.Media._ID)
+    val selection = "${MediaStore.Audio.Media.DATA} = ?"
+    val selectionArgs = arrayOf(cleanPath)
+    val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+    
+    context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+      if (cursor.moveToFirst()) {
+        val idColumn = cursor.getColumnIndex(MediaStore.Audio.Media._ID)
+        if (idColumn >= 0) {
+            val id = cursor.getLong(idColumn)
+            return ContentUris.withAppendedId(uri, id)
+        }
+      }
+    }
+    return null
+  }
+
+  private fun tryWriteMetadata(
+    filePath: String,
+    title: String?,
+    artist: String?,
+    album: String?,
+    year: Int?,
+    trackNumber: Int?,
+    genre: String?,
+    coverArtPath: String?,
+    albumArtist: String? = null,
+    discNumber: Int? = null
+  ): Boolean {
+    val path = if (filePath.startsWith("file://")) filePath.substring(7) else filePath
+    val file = File(path)
+    if (!file.exists()) throw Exception("Archivo no encontrado: $path")
+
+    val context = appContext.reactContext ?: throw Exception("React context no disponible")
+    
+    // Copy to temporary file in cache to edit safely
+    val extension = file.extension
+    val tempFile = File(context.cacheDir, "temp_tag_edit_${System.currentTimeMillis()}.$extension")
+    if (tempFile.exists()) tempFile.delete()
+    file.copyTo(tempFile, overwrite = true)
+
+    try {
+      val audioFile = AudioFileIO.read(tempFile)
+      var tag = audioFile.tag
+      if (tag == null) {
+        tag = audioFile.createDefaultTag()
+        audioFile.tag = tag
+      }
+
+      if (title != null) tag.setField(FieldKey.TITLE, title)
+      if (artist != null) tag.setField(FieldKey.ARTIST, artist)
+      if (album != null) tag.setField(FieldKey.ALBUM, album)
+      if (year != null) tag.setField(FieldKey.YEAR, year.toString())
+      if (trackNumber != null) tag.setField(FieldKey.TRACK, trackNumber.toString())
+      if (genre != null) tag.setField(FieldKey.GENRE, genre)
+      if (albumArtist != null) {
+        if (albumArtist.isEmpty()) {
+          tag.deleteField(FieldKey.ALBUM_ARTIST)
+        } else {
+          tag.setField(FieldKey.ALBUM_ARTIST, albumArtist)
+        }
+      }
+      if (discNumber != null) {
+        if (discNumber == 0) {
+          tag.deleteField(FieldKey.DISC_NO)
+        } else {
+          tag.setField(FieldKey.DISC_NO, discNumber.toString())
+        }
+      }
+
+      if (coverArtPath != null) {
+        if (coverArtPath.isEmpty()) {
+          tag.deleteArtworkField()
+        } else {
+          val cleanCoverPath = if (coverArtPath.startsWith("file://")) coverArtPath.substring(7) else coverArtPath
+          val coverFile = File(cleanCoverPath)
+          if (coverFile.exists()) {
+            val ext = coverFile.extension.lowercase()
+            val mimeType = if (ext == "png") "image/png" else "image/jpeg"
+            
+            if (tag is org.jaudiotagger.tag.flac.FlacTag) {
+              val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+              }
+              android.graphics.BitmapFactory.decodeFile(coverFile.absolutePath, options)
+              val width = if (options.outWidth > 0) options.outWidth else 0
+              val height = if (options.outHeight > 0) options.outHeight else 0
+              val finalMimeType = options.outMimeType ?: mimeType
+              
+              val artworkField = org.jaudiotagger.audio.flac.metadatablock.MetadataBlockDataPicture(
+                coverFile.readBytes(),
+                3, // pictureType (Front Cover)
+                finalMimeType,
+                "", // description
+                width,
+                height,
+                24, // depth
+                0   // colorCount
+              )
+              tag.deleteArtworkField()
+              tag.setField(artworkField)
+            } else {
+              val artwork = AndroidArtwork()
+              artwork.binaryData = coverFile.readBytes()
+              artwork.mimeType = mimeType
+              artwork.pictureType = 3
+              tag.deleteArtworkField()
+              tag.setField(artwork)
+            }
+          }
+        }
+      }
+
+      audioFile.commit()
+
+      // Copy back to original file path (using ContentResolver first if available)
+      val mediaUri = getUriForPath(file.absolutePath)
+      if (mediaUri != null) {
+        val outputStream = context.contentResolver.openOutputStream(mediaUri, "rwt")
+          ?: throw java.io.IOException("Failed to open output stream for MediaStore URI: $mediaUri")
+        outputStream.use { out ->
+          tempFile.inputStream().use { input ->
+            input.copyTo(out)
+          }
+        }
+      } else {
+        java.io.FileOutputStream(file).use { out ->
+          tempFile.inputStream().use { input ->
+            input.copyTo(out)
+          }
+        }
+      }
+      tempFile.delete()
+
+      return true
+    } catch (e: Exception) {
+      if (tempFile.exists()) tempFile.delete()
+      throw e
+    }
+  }
+
+  private fun executeBatchWrite(promise: Promise) {
+    val batchList = pendingBatchList
+    if (batchList == null) {
+      promise.resolve(true)
+      clearPending()
+      return
+    }
+
+    val context = appContext.reactContext
+    if (context == null) {
+      promise.reject("ERR_CONTEXT", "React context is null", null)
+      clearPending()
+      return
+    }
+
+    for (i in pendingBatchIndex until batchList.size) {
+      if (isBatchCancelled) {
+        clearPending()
+        promise.reject("ERR_CANCELLED", "Batch write was cancelled by user", null)
+        return
+      }
+
+      val item = batchList[i]
+      val filePath = item["filePath"] as? String ?: continue
+      @Suppress("UNCHECKED_CAST")
+      val metadata = item["metadata"] as? Map<String, Any?> ?: continue
+
+      val title = metadata["title"] as? String
+      val artist = metadata["artist"] as? String
+      val album = metadata["album"] as? String
+      val year = (metadata["year"] as? Number)?.toInt()
+      val trackNumber = (metadata["trackNumber"] as? Number)?.toInt()
+      val genre = metadata["genre"] as? String
+      val coverArtPath = metadata["coverArtPath"] as? String
+      val albumArtist = metadata["albumArtist"] as? String
+      val discNumber = (metadata["discNumber"] as? Number)?.toInt()
+
+      try {
+        tryWriteMetadata(
+          filePath,
+          title,
+          artist,
+          album,
+          year,
+          trackNumber,
+          genre,
+          coverArtPath,
+          albumArtist,
+          discNumber
+        )
+      } catch (e: SecurityException) {
+        pendingBatchIndex = i
+        pendingPromise = promise
+        handleSecurityException(e, filePath, title, artist, album, year, trackNumber, genre, coverArtPath, albumArtist, discNumber, promise)
+        return
+      } catch (e: java.io.IOException) {
+        val cause = e.cause
+        if (cause is SecurityException) {
+          pendingBatchIndex = i
+          pendingPromise = promise
+          handleSecurityException(cause, filePath, title, artist, album, year, trackNumber, genre, coverArtPath, albumArtist, discNumber, promise)
+          return
+        } else {
+          promise.reject("ERR_WRITE_FAILED", "IOException writing batch at index $i: ${e.message}", e)
+          clearPending()
+          return
+        }
+      } catch (e: Exception) {
+        promise.reject("ERR_WRITE_FAILED", "Failed writing batch at index $i: ${e.message}", e)
+        clearPending()
+        return
+      }
+    }
+
+    promise.resolve(true)
+    clearPending()
+  }
+
+  private fun handleSecurityException(
+    e: SecurityException,
+    filePath: String,
+    title: String?,
+    artist: String?,
+    album: String?,
+    year: Int?,
+    trackNumber: Int?,
+    genre: String?,
+    coverArtPath: String?,
+    albumArtist: String?,
+    discNumber: Int?,
+    promise: Promise
+  ) {
+    val context = appContext.reactContext ?: run {
+      promise.reject("ERR_CONTEXT", "React context is null", e)
+      return
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val recoverableSecurityException = e as? RecoverableSecurityException
+
+      val urisToRequest = mutableListOf<Uri>()
+      val batchList = pendingBatchList
+      if (batchList != null) {
+        for (idx in pendingBatchIndex until batchList.size) {
+          val item = batchList[idx]
+          val path = item["filePath"] as? String ?: continue
+          val uri = getUriForPath(path)
+          if (uri != null) {
+            urisToRequest.add(uri)
+          }
+        }
+      } else {
+        val uri = getUriForPath(filePath)
+        if (uri != null) {
+          urisToRequest.add(uri)
+        }
+      }
+
+      if (urisToRequest.isNotEmpty()) {
+        val pendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          MediaStore.createWriteRequest(context.contentResolver, urisToRequest)
+        } else if (recoverableSecurityException != null) {
+          recoverableSecurityException.userAction.actionIntent
+        } else {
+          null
+        }
+
+        if (pendingIntent != null) {
+          pendingPromise = promise
+          pendingFilePath = filePath
+          pendingTitle = title
+          pendingArtist = artist
+          pendingAlbum = album
+          pendingYear = year
+          pendingTrackNumber = trackNumber
+          pendingGenre = genre
+          pendingCoverArtPath = coverArtPath
+          pendingAlbumArtist = albumArtist
+          pendingDiscNumber = discNumber
+
+          val currentActivity = appContext.currentActivity
+          if (currentActivity != null) {
+            currentActivity.startIntentSenderForResult(
+              pendingIntent.intentSender,
+              REQUEST_CODE_WRITE,
+              null, 0, 0, 0
+            )
+          } else {
+            promise.reject("ERR_NO_ACTIVITY", "No active activity to request permission", null)
+          }
+        } else {
+          promise.reject("ERR_PERMISSION_FAILED", "Failed to create write request: ${e.message}", e)
+        }
+      } else {
+        promise.reject("ERR_URI_NOT_FOUND", "Could not find MediaStore URI for $filePath: ${e.message}", e)
+      }
+    } else {
+      promise.reject("ERR_WRITE_FAILED", "Security exception writing tags: ${e.message}", e)
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("NativeAudioScanner")
 
@@ -137,6 +485,237 @@ class NativeAudioScannerModule : Module() {
       }
 
       Base64.encodeToString(buffer, Base64.NO_WRAP)
+    }
+
+    AsyncFunction("readMetadata") { filePath: String ->
+      val path = if (filePath.startsWith("file://")) filePath.substring(7) else filePath
+      val file = File(path)
+      if (!file.exists()) throw Exception("Archivo no encontrado: $path")
+
+      try {
+        val audioFile = AudioFileIO.read(file)
+        val tag = audioFile.tag
+        val title = tag?.getFirst(FieldKey.TITLE) ?: ""
+        val artist = tag?.getFirst(FieldKey.ARTIST) ?: ""
+        val album = tag?.getFirst(FieldKey.ALBUM) ?: ""
+        val year = tag?.getFirst(FieldKey.YEAR) ?: ""
+        val track = tag?.getFirst(FieldKey.TRACK) ?: ""
+        val genre = tag?.getFirst(FieldKey.GENRE) ?: ""
+        val albumArtist = tag?.getFirst(FieldKey.ALBUM_ARTIST) ?: ""
+        val discNumber = tag?.getFirst(FieldKey.DISC_NO) ?: ""
+
+        mapOf(
+          "title" to title,
+          "artist" to artist,
+          "album" to album,
+          "year" to year,
+          "trackNumber" to track,
+          "genre" to genre,
+          "albumArtist" to albumArtist,
+          "discNumber" to discNumber
+        )
+      } catch (e: Exception) {
+        mapOf(
+          "title" to "",
+          "artist" to "",
+          "album" to "",
+          "year" to "",
+          "trackNumber" to "",
+          "genre" to "",
+          "albumArtist" to "",
+          "discNumber" to ""
+        )
+      }
+    }
+
+    AsyncFunction("updateMetadata") { filePath: String, metadata: Map<String, Any?>, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("ERR_CONTEXT", "React context is null", null)
+        return@AsyncFunction
+      }
+
+      val title = metadata["title"] as? String
+      val artist = metadata["artist"] as? String
+      val album = metadata["album"] as? String
+      val year = (metadata["year"] as? Number)?.toInt()
+      val trackNumber = (metadata["trackNumber"] as? Number)?.toInt()
+      val genre = metadata["genre"] as? String
+      val coverArtPath = metadata["coverArtPath"] as? String
+      val albumArtist = metadata["albumArtist"] as? String
+      val discNumber = (metadata["discNumber"] as? Number)?.toInt()
+
+      try {
+        val success = tryWriteMetadata(filePath, title, artist, album, year, trackNumber, genre, coverArtPath, albumArtist, discNumber)
+        promise.resolve(success)
+      } catch (e: SecurityException) {
+        handleSecurityException(e, filePath, title, artist, album, year, trackNumber, genre, coverArtPath, albumArtist, discNumber, promise)
+      } catch (e: java.io.IOException) {
+        val cause = e.cause
+        if (cause is SecurityException) {
+          handleSecurityException(cause, filePath, title, artist, album, year, trackNumber, genre, coverArtPath, albumArtist, discNumber, promise)
+        } else {
+          val sw = java.io.StringWriter()
+          e.printStackTrace(java.io.PrintWriter(sw))
+          promise.reject("ERR_WRITE_FAILED", "IOException: ${e.javaClass.name} - ${e.message}\n$sw", e)
+        }
+      } catch (e: Exception) {
+        val sw = java.io.StringWriter()
+        e.printStackTrace(java.io.PrintWriter(sw))
+        promise.reject("ERR_WRITE_FAILED", "Failed to write tags: ${e.javaClass.name} - ${e.message}\n$sw", e)
+      }
+    }
+
+    AsyncFunction("updateMetadataBatch") { metadataListJson: String, promise: Promise ->
+      try {
+        val jsonArray = org.json.JSONArray(metadataListJson)
+        val list = mutableListOf<Map<String, Any?>>()
+        for (i in 0 until jsonArray.length()) {
+          val itemObj = jsonArray.getJSONObject(i)
+          val filePath = itemObj.getString("filePath")
+          val metadataObj = itemObj.getJSONObject("metadata")
+          
+          val metadataMap = mutableMapOf<String, Any?>()
+          val keys = metadataObj.keys()
+          while (keys.hasNext()) {
+            val key = keys.next()
+            if (metadataObj.isNull(key)) {
+              metadataMap[key] = null
+            } else {
+              val value = metadataObj.get(key)
+              metadataMap[key] = value
+            }
+          }
+          
+          list.add(mapOf(
+            "filePath" to filePath,
+            "metadata" to metadataMap
+          ))
+        }
+        pendingBatchList = list
+        pendingBatchIndex = 0
+        executeBatchWrite(promise)
+      } catch (e: Exception) {
+        promise.reject("ERR_JSON_PARSE", "Failed to parse batch JSON: ${e.message}", e)
+      }
+    }
+
+    AsyncFunction("cancelUpdateMetadataBatch") {
+      isBatchCancelled = true
+    }
+
+    AsyncFunction("scanMultipleFiles") { filePaths: List<String>, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("ERR_CONTEXT", "React context is null", null)
+        return@AsyncFunction
+      }
+
+      val cleanPaths = filePaths.map { path ->
+        if (path.startsWith("file://")) path.substring(7) else path
+      }.toTypedArray()
+
+      try {
+        MediaScannerConnection.scanFile(context, cleanPaths, null) { _, _ -> }
+        promise.resolve(true)
+      } catch (e: Exception) {
+        promise.reject("ERR_SCAN_FAILED", "Failed to scan files: ${e.message}", e)
+      }
+    }
+
+    AsyncFunction("requestWritePermission") { filePaths: List<String>, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("ERR_CONTEXT", "React context is null", null)
+        return@AsyncFunction
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val uris = filePaths.mapNotNull { getUriForPath(it) }
+        if (uris.isNotEmpty()) {
+          pendingPromise = promise
+          pendingFilePath = null
+          pendingTitle = null
+          pendingArtist = null
+          pendingAlbum = null
+          pendingYear = null
+          pendingTrackNumber = null
+          pendingGenre = null
+          pendingCoverArtPath = null
+          pendingAlbumArtist = null
+          pendingDiscNumber = null
+          pendingBatchList = null
+          pendingBatchIndex = 0
+
+          val pendingIntent = MediaStore.createWriteRequest(context.contentResolver, uris)
+          val currentActivity = appContext.currentActivity
+          if (currentActivity != null) {
+            currentActivity.startIntentSenderForResult(
+              pendingIntent.intentSender,
+              REQUEST_CODE_WRITE,
+              null, 0, 0, 0
+            )
+          } else {
+            promise.reject("ERR_NO_ACTIVITY", "No active activity to request permission", null)
+          }
+        } else {
+          promise.resolve(true)
+        }
+      } else {
+        promise.resolve(true)
+      }
+    }
+
+    OnActivityResult { _, payload ->
+      if (payload.requestCode == REQUEST_CODE_WRITE) {
+        val promise = pendingPromise
+        val filePath = pendingFilePath
+        if (promise == null) {
+          clearPending()
+          return@OnActivityResult
+        }
+
+        if (filePath == null) {
+          if (payload.resultCode == Activity.RESULT_OK) {
+            promise.resolve(true)
+          } else {
+            promise.reject("ERR_PERMISSION_DENIED", "Write permission was denied by user", null)
+          }
+          clearPending()
+          return@OnActivityResult
+        }
+
+        if (payload.resultCode == Activity.RESULT_OK) {
+          try {
+            val success = tryWriteMetadata(
+              filePath,
+              pendingTitle,
+              pendingArtist,
+              pendingAlbum,
+              pendingYear,
+              pendingTrackNumber,
+              pendingGenre,
+              pendingCoverArtPath,
+              pendingAlbumArtist,
+              pendingDiscNumber
+            )
+            val batchList = pendingBatchList
+            if (batchList != null) {
+              pendingBatchIndex++
+              executeBatchWrite(promise)
+            } else {
+              promise.resolve(success)
+              clearPending()
+            }
+          } catch (e: Exception) {
+            promise.reject("ERR_WRITE_FAILED_AFTER_PERM", "Failed to write tags after getting permission: ${e.message}", e)
+            clearPending()
+          }
+        } else {
+          promise.reject("ERR_PERMISSION_DENIED", "Write permission was denied by user", null)
+          clearPending()
+        }
+      }
     }
   }
 }

@@ -10,13 +10,13 @@ import Playlist from '../database/models/Playlist';
 import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface PlaylistCoverProps {
-    playlistId: string;
-    isFavorites?: boolean;
-    size?: number;
-    customCoverUrl?: string | null;
-    width?: number;
-    height?: number;
-    borderRadius?: number;
+    readonly playlistId: string;
+    readonly isFavorites?: boolean;
+    readonly size?: number;
+    readonly customCoverUrl?: string | null;
+    readonly width?: number;
+    readonly height?: number;
+    readonly borderRadius?: number;
 }
 
 export default function PlaylistCover({
@@ -27,7 +27,7 @@ export default function PlaylistCover({
     width: propWidth,
     height: propHeight,
     borderRadius = 12,
-}: PlaylistCoverProps) {
+}: Readonly<PlaylistCoverProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [firstCover, setFirstCover] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export default function PlaylistCover({
             try {
                 try {
                     const playlist = await database.get<Playlist>('playlists').find(playlistId);
-                    if (playlist && playlist.coverCustomUrl && playlist.coverCustomUrl !== 'null') {
+                    if (playlist?.coverCustomUrl && playlist.coverCustomUrl !== 'null') {
                         setFirstCover(playlist.coverCustomUrl);
                         setLoading(false);
                         return;

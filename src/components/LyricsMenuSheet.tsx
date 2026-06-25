@@ -1,23 +1,23 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    Animated as RNAnimated,
+    Alert,
     BackHandler,
+    Animated as RNAnimated,
     StyleSheet,
     Text,
     TouchableOpacity,
     TouchableWithoutFeedback,
-    View,
-    Alert,
     useWindowDimensions,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { LyricsService } from '../services/LyricsService';
 import { useLyricsMenuStore } from '../store/useLyricsMenuStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
-import { LyricsService } from '../services/LyricsService';
-import { useNavigation } from '@react-navigation/native';
 
 export default function LyricsMenuSheet() {
     const { colors, fonts, layout } = useAppTheme();

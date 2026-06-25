@@ -1,14 +1,16 @@
 // src/components/MiniPlayer.tsx
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, runOnJS } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import TrackPlayer, { useProgress } from 'react-native-track-player';
+import { scheduleOnRN } from 'react-native-worklets';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
@@ -16,7 +18,6 @@ import { MainNavigationProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import BlurredBackground from './BlurredBackground';
 import PlayPauseButton from './PlayPauseButton';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 // --- FONDO DIFUMINADO ---
 
@@ -50,7 +51,7 @@ const MiniProgressBar = () => {
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { position, duration } = useProgress();
     const progress = duration > 0 ? (position / duration) * 100 : 0;
-    
+
     return (
         <View style={styles.progressContainer}>
             <View style={[styles.progressIndicator, { width: `${progress}%` }]} />
@@ -74,8 +75,8 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
-    const skipNext = () => TrackPlayer.skipToNext().catch(() => {});
-    const skipPrevious = () => TrackPlayer.skipToPrevious().catch(() => {});
+    const skipNext = () => TrackPlayer.skipToNext().catch(() => { });
+    const skipPrevious = () => TrackPlayer.skipToPrevious().catch(() => { });
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-20, 20])
@@ -83,16 +84,16 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
             translateX.value = event.translationX;
             if (Math.abs(translateX.value) > SWIPE_THRESHOLD && !hasTriggeredHaptic.value) {
                 hasTriggeredHaptic.value = true;
-                runOnJS(triggerHaptic)();
+                scheduleOnRN(triggerHaptic);
             } else if (Math.abs(translateX.value) <= SWIPE_THRESHOLD) {
                 hasTriggeredHaptic.value = false;
             }
         })
         .onEnd(() => {
             if (translateX.value < -SWIPE_THRESHOLD && hasNext) {
-                runOnJS(skipNext)();
+                scheduleOnRN(skipNext);
             } else if (translateX.value > SWIPE_THRESHOLD && hasPrevious) {
-                runOnJS(skipPrevious)();
+                scheduleOnRN(skipPrevious);
             }
             translateX.value = withSpring(0, { damping: 30, stiffness: 90, mass: 1 });
             hasTriggeredHaptic.value = false;
@@ -158,7 +159,7 @@ const ObservableMiniPlayerUI = withObservables(['trackModel'], ({ trackModel }) 
     track: trackModel.observe(),
     album: trackModel.album.observe(),
     artist: trackModel.artist.observe(),
-    artists: trackModel.queryCollaborators.observe() as any,
+    artists: trackModel.queryCollaborators.observe(),
 }))(MiniPlayerUI);
 
 const MiniPlayer = () => {
@@ -177,7 +178,7 @@ const MiniPlayer = () => {
     );
 };
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}, shadows: any = {lg: {}}) => StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radii: any = { sm: 4, md: 8, lg: 12, full: 9999 }, fontWeights: any = { regular: '400', semiBold: '600', bold: '700' }, shadows: any = { lg: {} }) => StyleSheet.create({
     container: { width: '100%', height: layout.MINI_PLAYER_HEIGHT, borderRadius: radii.lg || 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.overlayAlpha10, ...shadows.lg },
     miniPlayerRow: { flex: 1, flexDirection: 'row', alignItems: 'center', width: '100%' },
     swipeableArea: { flex: 1 },

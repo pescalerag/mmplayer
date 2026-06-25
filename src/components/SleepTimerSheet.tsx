@@ -1,5 +1,7 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Animated,
     BackHandler,
@@ -11,10 +13,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height } = Dimensions.get('window');
 
@@ -115,7 +114,17 @@ export default function SleepTimerSheet() {
 
                 {/* Controls */}
                 <View style={styles.contentContainer}>
-                    {!isActive ? (
+                    {isActive ? (
+                        <TouchableOpacity
+                            style={styles.deactivateButton}
+                            onPress={deactivate}
+                        >
+                            <Ionicons name="stop-circle-outline" size={20} color={colors.text} style={{ marginRight: 8 }} />
+                            <Text style={styles.deactivateButtonText}>
+                                {t('sleep_timer.deactivate')}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
                         <View style={styles.optionsGrid}>
                             {timerOptions.map((opt) => (
                                 <TouchableOpacity
@@ -127,16 +136,6 @@ export default function SleepTimerSheet() {
                                 </TouchableOpacity>
                             ))}
                         </View>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.deactivateButton}
-                            onPress={deactivate}
-                        >
-                            <Ionicons name="stop-circle-outline" size={20} color={colors.text} style={{ marginRight: 8 }} />
-                            <Text style={styles.deactivateButtonText}>
-                                {t('sleep_timer.deactivate')}
-                            </Text>
-                        </TouchableOpacity>
                     )}
                 </View>
             </Animated.View>

@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Animated,
@@ -12,13 +14,11 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
-import { LibraryTabType, useSettingsStore } from '../store/useSettingsStore';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNRestart from 'react-native-restart';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
+import { LibraryTabType, useSettingsStore } from '../store/useSettingsStore';
 
 const { height } = Dimensions.get('window');
 
@@ -34,7 +34,7 @@ export default function LibraryTabsOrderSheet() {
     const { t } = useTranslation();
     const { isVisible, closeSheet } = useLibraryTabsOrderSheetStore();
     const insets = useSafeAreaInsets();
-    
+
     const { libraryTabsOrder, setLibraryTabsOrder } = useSettingsStore();
     const [data, setData] = useState(ALL_TABS);
     const [isRestarting, setIsRestarting] = useState(false);
@@ -47,7 +47,7 @@ export default function LibraryTabsOrderSheet() {
         if (isVisible) {
             // Reordenar ALL_TABS basándose en libraryTabsOrder
             const ordered = libraryTabsOrder.map(tabId => ALL_TABS.find(t => t.id === tabId)!).filter(Boolean);
-            
+
             // Si hay pestañas nuevas que no estaban en libraryTabsOrder, agregarlas al final
             const missing = ALL_TABS.filter(t => !libraryTabsOrder.includes(t.id));
             setData([...ordered, ...missing]);
@@ -165,7 +165,7 @@ export default function LibraryTabsOrderSheet() {
                 }
             ]}>
                 <View style={styles.dragIndicator} />
-                
+
                 <View style={styles.header}>
                     <Text style={styles.title}>{t('settings.library_tabs_title') || 'Pestañas de la biblioteca'}</Text>
                     <Text style={styles.subtitle}>{t('settings.library_tabs_subtitle') || 'Personaliza la biblioteca'}</Text>
@@ -187,8 +187,8 @@ export default function LibraryTabsOrderSheet() {
                 </GestureHandlerRootView>
 
                 <View style={styles.footer}>
-                    <TouchableOpacity 
-                        style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]} 
+                    <TouchableOpacity
+                        style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]}
                         onPress={handleConfirmAndRestart}
                         disabled={isRestarting}
                     >
@@ -198,8 +198,8 @@ export default function LibraryTabsOrderSheet() {
                             <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
                         )}
                         <Text style={styles.confirmButtonText}>
-                            {isRestarting 
-                                ? (t('settings.restarting') || 'Reiniciando...') 
+                            {isRestarting
+                                ? (t('settings.restarting') || 'Reiniciando...')
                                 : (t('settings.confirm_restart') || 'Confirmar y Reiniciar')}
                         </Text>
                     </TouchableOpacity>

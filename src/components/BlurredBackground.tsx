@@ -1,8 +1,8 @@
+import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 
 interface Props {
     imageUrl?: string | null;
@@ -11,9 +11,9 @@ interface Props {
     placeholderColors?: string[];
 }
 
-const BlurredBackground = ({ 
-    imageUrl, 
-    blurIntensity = 80, 
+const BlurredBackground = ({
+    imageUrl,
+    blurIntensity = 80,
     gradientColors = ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000000'],
     placeholderColors = ['#1a1a1a', '#000000']
 }: Props) => {
@@ -25,9 +25,9 @@ const BlurredBackground = ({
 
     const showPlaceholder = !imageUrl || hasError;
 
-    const imageSource = React.useMemo(() => 
+    const imageSource = React.useMemo(() =>
         imageUrl ? { uri: imageUrl } : null
-    , [imageUrl]);
+        , [imageUrl]);
 
     return (
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>

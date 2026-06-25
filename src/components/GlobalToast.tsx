@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Text, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useToastStore } from '../store/useToastStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToastStore } from '../store/useToastStore';
 
 export default function GlobalToast() {
     const { colors, fonts, layout } = useAppTheme();

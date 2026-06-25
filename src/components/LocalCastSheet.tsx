@@ -1,5 +1,7 @@
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Animated,
     BackHandler,
@@ -11,11 +13,9 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 import { useCastSheetStore } from '../store/useCastSheetStore';
 import { useCastStore } from '../store/useCastStore';
 import { useToastStore } from '../store/useToastStore';
-import { useAppTheme } from '@/hooks/useAppTheme';
 
 const { height } = Dimensions.get('window');
 
@@ -163,19 +163,7 @@ export default function LocalCastSheet() {
 
                 {/* Botón de acción */}
                 <View style={styles.actionContainer}>
-                    {!isServerRunning ? (
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.startButton, isLoading && styles.buttonDisabled]}
-                            onPress={handleStart}
-                            disabled={isLoading}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="wifi" size={20} color="#fff" style={{ marginRight: 10 }} />
-                            <Text style={styles.actionButtonText}>
-                                {isLoading ? t('cast.starting') : t('cast.start')}
-                            </Text>
-                        </TouchableOpacity>
-                    ) : (
+                    {isServerRunning ? (
                         <TouchableOpacity
                             style={[styles.actionButton, styles.stopButton, isLoading && styles.buttonDisabled]}
                             onPress={handleStop}
@@ -185,6 +173,18 @@ export default function LocalCastSheet() {
                             <Ionicons name="stop-circle-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
                             <Text style={styles.actionButtonText}>
                                 {isLoading ? t('cast.stopping') : t('cast.stop')}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.startButton, isLoading && styles.buttonDisabled]}
+                            onPress={handleStart}
+                            disabled={isLoading}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="wifi" size={20} color="#fff" style={{ marginRight: 10 }} />
+                            <Text style={styles.actionButtonText}>
+                                {isLoading ? t('cast.starting') : t('cast.start')}
                             </Text>
                         </TouchableOpacity>
                     )}

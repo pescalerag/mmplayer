@@ -1,9 +1,8 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface LibraryCardProps {
     readonly title: string;

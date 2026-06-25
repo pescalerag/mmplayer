@@ -1,5 +1,7 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Alert,
     AlertButton,
@@ -19,13 +21,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Playlist from '../database/models/Playlist';
 import { PlaylistService } from '../services/PlaylistService';
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useToastStore } from '../store/useToastStore';
 import PlaylistCover from './PlaylistCover';
-import { useTranslation } from 'react-i18next';
-import { useMultiSelectStore } from '../store/useMultiSelectStore';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -55,7 +54,7 @@ export default function PlaylistSelectorModal() {
             if (tracksToAssociate.length > 0) {
                 const trackIds = tracksToAssociate.map(t => t.id);
                 const associationMap: Record<string, boolean> = {};
-                
+
                 await Promise.all(list.map(async (pl) => {
                     const existingTrackIds = await PlaylistService.getTrackIdsInPlaylist(pl.id);
                     const allPresent = trackIds.every(id => existingTrackIds.includes(id));
@@ -254,6 +253,15 @@ export default function PlaylistSelectorModal() {
 
     if (!shouldRender) return null;
 
+    let saveButtonText = '';
+    if (playlistToEdit) {
+        saveButtonText = t('actions.save_changes');
+    } else if (isCreatingDirectly) {
+        saveButtonText = t('library.create_playlist');
+    } else {
+        saveButtonText = t('playlist.create_and_add');
+    }
+
     const subtitleText = tracksToAssociate.length === 1
         ? t('actions.add_song_to', { title: tracksToAssociate[0].title })
         : t('actions.add_songs_to', { count: tracksToAssociate.length });
@@ -269,10 +277,10 @@ export default function PlaylistSelectorModal() {
             </TouchableWithoutFeedback>
 
             {/* Contenedor del bottom sheet */}
-            <Animated.View 
+            <Animated.View
                 pointerEvents="box-none"
                 style={[
-                    styles.keyboardAvoid, 
+                    styles.keyboardAvoid,
                     { paddingBottom: keyboardHeight }
                 ]}
             >
@@ -287,60 +295,7 @@ export default function PlaylistSelectorModal() {
                 >
                     <View style={styles.dragIndicator} />
 
-                    {!isCreating ? (
-                        <>
-                            <View style={styles.header}>
-                                <Text style={styles.headerTitle}>{t('actions.add_to_playlist')}</Text>
-                                <Text style={styles.headerSubtitle} numberOfLines={1}>
-                                    {subtitleText}
-                                </Text>
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.createButton}
-                                onPress={() => setIsCreating(true)}
-                            >
-                                <Ionicons name="add" size={20} color={colors.text} />
-                                <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>
-                            </TouchableOpacity>
-
-                            <ScrollView style={styles.listScroll} contentContainerStyle={styles.listContent}>
-                                {playlists.length === 0 ? (
-                                    <View style={styles.emptyContainer}>
-                                        <Ionicons name="musical-notes-outline" size={48} color="#444" />
-                                        <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
-                                    </View>
-                                ) : (
-                                    playlists.map(pl => {
-                                        const isPresent = alreadyPresentPlaylists[pl.id];
-                                        return (
-                                            <TouchableOpacity
-                                                key={pl.id}
-                                                style={[
-                                                    styles.playlistItem,
-                                                    isPresent && styles.playlistItemPresent
-                                                ]}
-                                                onPress={() => handleSelectPlaylist(pl.id)}
-                                            >
-                                                <PlaylistCover playlistId={pl.id} size={48} customCoverUrl={pl.coverCustomUrl} />
-                                                <View style={styles.playlistInfo}>
-                                                    <Text style={styles.playlistName} numberOfLines={1}>{pl.name}</Text>
-                                                    <Text style={styles.playlistDesc} numberOfLines={1}>
-                                                        {pl.description || t('playlist.no_description')}
-                                                    </Text>
-                                                </View>
-                                                {isPresent ? (
-                                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                                ) : (
-                                                    <Ionicons name="chevron-forward" size={18} color="#555" />
-                                                )}
-                                            </TouchableOpacity>
-                                        );
-                                    })
-                                )}
-                            </ScrollView>
-                        </>
-                    ) : (
+                    {isCreating ? (
                         <View>
                             <View style={styles.header}>
                                 <Text style={styles.headerTitle}>
@@ -398,11 +353,64 @@ export default function PlaylistSelectorModal() {
                                     disabled={!playlistName.trim()}
                                 >
                                     <Text style={styles.btnConfirmText}>
-                                        {playlistToEdit ? t('actions.save_changes') : (isCreatingDirectly ? t('library.create_playlist') : t('playlist.create_and_add'))}
+                                        {saveButtonText}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
+                    ) : (
+                        <>
+                            <View style={styles.header}>
+                                <Text style={styles.headerTitle}>{t('actions.add_to_playlist')}</Text>
+                                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                                    {subtitleText}
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.createButton}
+                                onPress={() => setIsCreating(true)}
+                            >
+                                <Ionicons name="add" size={20} color={colors.text} />
+                                <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>
+                            </TouchableOpacity>
+
+                            <ScrollView style={styles.listScroll} contentContainerStyle={styles.listContent}>
+                                {playlists.length === 0 ? (
+                                    <View style={styles.emptyContainer}>
+                                        <Ionicons name="musical-notes-outline" size={48} color="#444" />
+                                        <Text style={styles.emptyText}>{t('library.empty_playlists')}</Text>
+                                    </View>
+                                ) : (
+                                    playlists.map(pl => {
+                                        const isPresent = alreadyPresentPlaylists[pl.id];
+                                        return (
+                                            <TouchableOpacity
+                                                key={pl.id}
+                                                style={[
+                                                    styles.playlistItem,
+                                                    isPresent && styles.playlistItemPresent
+                                                ]}
+                                                onPress={() => handleSelectPlaylist(pl.id)}
+                                            >
+                                                <PlaylistCover playlistId={pl.id} size={48} customCoverUrl={pl.coverCustomUrl} />
+                                                <View style={styles.playlistInfo}>
+                                                    <Text style={styles.playlistName} numberOfLines={1}>{pl.name}</Text>
+                                                    <Text style={styles.playlistDesc} numberOfLines={1}>
+                                                        {pl.description || t('playlist.no_description')}
+                                                    </Text>
+                                                </View>
+                                                {isPresent ? (
+                                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                                ) : (
+                                                    <Ionicons name="chevron-forward" size={18} color="#555" />
+                                                )}
+                                            </TouchableOpacity>
+                                        );
+                                    })
+                                )}
+                            </ScrollView>
+                        </>
                     )}
                 </Animated.View>
             </Animated.View>

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,7 +8,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
-    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Switch,
@@ -15,16 +15,15 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import Slider from '@react-native-community/slider';
-import TrackPlayer from 'react-native-track-player';
-import Track from '../database/models/Track';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import TrackPlayer from 'react-native-track-player';
 import { database } from '../database';
+import Track from '../database/models/Track';
 import { ScannerService } from '../services/ScannerService';
-import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
-import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
-import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
 import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
+import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
+import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
+import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
 import { useSyncStore } from '../store/useSyncStore';
 import { Colors, Layout } from '../theme/theme';
 
@@ -169,7 +168,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                 {/* --- SECCIÓN DE AJUSTES --- */}
                 <View style={styles.sectionCard}>
                     <Text style={styles.sectionTitle}>{t('settings.visualization') || 'Visualización y Apariencia'}</Text>
-                    
+
                     <TouchableOpacity
                         style={styles.buttonRow}
                         onPress={() => setForceWelcomeModal(true)}
@@ -295,7 +294,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     {isNormalizationEnabled && (
                         <>
                             <View style={styles.separator} />
-                            
+
                             <View style={{ marginVertical: 8 }}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Text style={styles.settingLabel}>{t('settings.preamp')}</Text>
@@ -387,7 +386,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     )}
 
                     <View style={styles.separator} />
-                    
+
                     <TouchableOpacity
                         style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
                         disabled={isScanning}

@@ -6,6 +6,7 @@ import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
+import { useMetadataEditorStore } from '../store/useMetadataEditorStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import i18n from '../constants/i18n';
 
@@ -40,16 +41,14 @@ export default function MultiSelectActionBar() {
         usePlaylistSelectorStore.getState().openSelector(selectedTracks);
     };
 
-    const handlePlayNext = async () => {
-        await usePlayerStore.getState().addMultipleToQueueNext(selectedTracks);
-        useToastStore.getState().showToast(i18n.t('toasts.playing_next'), 'return-down-forward');
-        exitSelectionMode();
-    };
-
     const handleAddToQueue = async () => {
         await usePlayerStore.getState().addMultipleToQueueEnd(selectedTracks);
         useToastStore.getState().showToast(i18n.t('toasts.added_to_queue'), 'list');
         exitSelectionMode();
+    };
+
+    const handleEditMetadata = () => {
+        useMetadataEditorStore.getState().openSheet(selectedTracks);
     };
 
     return (
@@ -73,12 +72,12 @@ export default function MultiSelectActionBar() {
             </View>
 
             <View style={styles.actionsRow}>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handlePlayNext}>
-                    <Ionicons name="return-down-forward" size={24} color={colors.text} />
-                </TouchableOpacity>
-
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handleAddToQueue}>
                     <Ionicons name="list" size={24} color={colors.text} />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handleEditMetadata}>
+                    <Ionicons name="pencil" size={20} color={colors.text} />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accent }]} onPress={handleAddToPlaylist}>

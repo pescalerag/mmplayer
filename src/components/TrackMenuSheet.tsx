@@ -1,8 +1,13 @@
 
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as NavigationBar from 'expo-navigation-bar';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
+    Alert,
     Animated,
     BackHandler,
     Dimensions,
@@ -12,27 +17,23 @@ import {
     Text,
     TouchableOpacity,
     TouchableWithoutFeedback,
-    View,
-    Alert
+    View
 } from 'react-native';
-import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
+import { getActiveTabName, navigationRef } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
-import { useToastStore } from '../store/useToastStore';
-import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
-import * as Sharing from 'expo-sharing';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { useMetadataEditorStore } from '../store/useMetadataEditorStore';
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
+import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useTagManagerStore } from '../store/useTagManagerStore';
+import { useToastStore } from '../store/useToastStore';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -45,7 +46,7 @@ export default function TrackMenuSheet() {
     const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
     const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
     const excludeSong = useSettingsStore(state => state.excludeSong);
-    
+
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [artistName, setArtistName] = useState(t('actions.unknown'));
 
@@ -57,8 +58,8 @@ export default function TrackMenuSheet() {
             t('actions.exclude_song_confirm'),
             [
                 { text: t('actions.cancel'), style: "cancel" },
-                { 
-                    text: t('actions.exclude'), 
+                {
+                    text: t('actions.exclude'),
                     style: "destructive",
                     onPress: async () => {
                         closeMenu();
@@ -100,7 +101,7 @@ export default function TrackMenuSheet() {
         if (isVisible) {
             // Asegurar que la barra de navegación sea oscura en Android
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
+                NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
             }
 
             Animated.parallel([
@@ -147,7 +148,7 @@ export default function TrackMenuSheet() {
     // Cargar metadatos básicos para la cabecera del menú
     useEffect(() => {
         if (!selectedTrack) return;
-        
+
         const loadMetadata = async () => {
             const [album, artists] = await Promise.all([
                 selectedTrack.album.fetch() as Promise<Album | null>,
@@ -179,8 +180,8 @@ export default function TrackMenuSheet() {
 
 
     return (
-        <View 
-            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} 
+        <View
+            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
             {/* Fondo oscuro animado con Fade */}
@@ -198,12 +199,12 @@ export default function TrackMenuSheet() {
                 ]}
             >
                 <View style={styles.dragIndicator} />
-                
+
                 {/* Cabecera del Menú */}
                 <View style={styles.header}>
                     {imageUrl ? (
-                        <Image 
-                            source={{ uri: imageUrl }} 
+                        <Image
+                            source={{ uri: imageUrl }}
                             style={styles.thumbnail}
                             contentFit="cover"
                             transition={200}
@@ -227,211 +228,227 @@ export default function TrackMenuSheet() {
                     contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
                 >
 
-                {/* OPCIÓN: Añadir a continuación */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedTrack) {
-                            addToQueueNext(selectedTrack);
-                            useToastStore.getState().showToast(t('toasts.playing_next'), 'return-down-forward');
-                            closeMenu();
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="return-down-forward" size={24} color={colors.text} />
-                    </View>
-                    <Text style={styles.optionText}>{t('actions.add_next')}</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir al final */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedTrack) {
-                            addToQueueEnd(selectedTrack);
-                            useToastStore.getState().showToast(t('toasts.added_to_queue'), 'list');
-                            closeMenu();
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="list" size={24} color={colors.text} />
-                    </View>
-                    <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Seleccionar */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedTrack) {
-                            closeMenu();
-                            useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
-                    </View>
-                    <Text style={styles.optionText}>{t('actions.select') || 'Seleccionar'}</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Gestionar Etiquetas */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedTrack) {
-                            closeMenu();
-                            useTagManagerStore.getState().openForTrack(selectedTrack);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="pricetag-outline" size={24} color={colors.text} />
-                    </View>
-                    <Text style={styles.optionText}>{t('tags.manage')}</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Añadir a Playlist */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={() => {
-                        if (selectedTrack) {
-                            closeMenu();
-                            usePlaylistSelectorStore.getState().openSelector(selectedTrack);
-                        }
-                    }}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="add-circle-outline" size={24} color={colors.text} />
-                    </View>
-                    <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
-                </TouchableOpacity>
-
-                {/* OPCIÓN: Eliminar de Playlist (Solo aparece si estamos dentro de una) */}
-                {useTrackMenuStore.getState().playlistId && (
-                    <TouchableOpacity 
-                        style={styles.optionRow} 
-                        onPress={async () => {
+                    {/* OPCIÓN: Añadir a continuación */}
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={() => {
                             if (selectedTrack) {
-                                const pId = useTrackMenuStore.getState().playlistId!;
+                                addToQueueNext(selectedTrack);
+                                useToastStore.getState().showToast(t('toasts.playing_next'), 'return-down-forward');
                                 closeMenu();
-                                await PlaylistService.removeTrackFromPlaylist(pId, selectedTrack.id);
                             }
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
+                            <Ionicons name="return-down-forward" size={24} color={colors.text} />
                         </View>
-                        <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.remove_from_playlist')}</Text>
+                        <Text style={styles.optionText}>{t('actions.add_next')}</Text>
                     </TouchableOpacity>
-                )}
 
-                {/* OPCIÓN: Compartir */}
-                <TouchableOpacity
-                    style={styles.optionRow}
-                    onPress={handleShare}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="share-social-outline" size={24} color={colors.text} />
-                    </View>
-                    <Text style={styles.optionText}>{t('actions.share')}</Text>
-                </TouchableOpacity>
-
-                {/* ── Separador ── */}
-                <View style={styles.separator} />
-
-                {/* OPCIÓN: Ir al álbum */}
-                {albumId && (
+                    {/* OPCIÓN: Añadir al final */}
                     <TouchableOpacity
                         style={styles.optionRow}
                         onPress={() => {
-                            closeMenu();
-                            if (navCallbacks.album) {
-                                // Abierto desde el Player: goBack() + navigate con fromPlayer
-                                navCallbacks.album(albumId);
-                            } else if (navigationRef.isReady()) {
-                                // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
-                                const rootState = navigationRef.getRootState();
-                                const activeRoute = rootState.routes[rootState.index];
-                                const isPlayerActive = activeRoute?.name === 'Player';
-
-                                let tabName = getActiveTabName();
-                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                    tabName = 'Biblioteca';
-                                }
-
-                                const currentTab = getActiveTabName();
-                                if (isPlayerActive || tabName === currentTab) {
-                                    navigationRef.navigate('AlbumDetail', { albumId });
-                                } else {
-                                    navigationRef.navigate('Main', {
-                                        screen: tabName,
-                                        params: { screen: 'AlbumDetail', params: { albumId } }
-                                    });
-                                }
+                            if (selectedTrack) {
+                                addToQueueEnd(selectedTrack);
+                                useToastStore.getState().showToast(t('toasts.added_to_queue'), 'list');
+                                closeMenu();
                             }
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="disc-outline" size={24} color={colors.text} />
+                            <Ionicons name="list" size={24} color={colors.text} />
                         </View>
-                        <Text style={styles.optionText}>{t('actions.go_to_album')}</Text>
+                        <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
                     </TouchableOpacity>
-                )}
 
-                {/* OPCIÓN: Ver artista */}
-                {artistId && (
+                    {/* OPCIÓN: Seleccionar */}
                     <TouchableOpacity
                         style={styles.optionRow}
                         onPress={() => {
-                            closeMenu();
-                            if (artistsList.length > 1) {
-                                useArtistsListSheetStore.getState().openSheet(artistsList);
-                            } else if (navCallbacks.artist) {
-                                // Abierto desde el Player: goBack() + navigate con fromPlayer
-                                navCallbacks.artist(artistId);
-                            } else if (navigationRef.isReady()) {
-                                // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
-                                const rootState = navigationRef.getRootState();
-                                const activeRoute = rootState.routes[rootState.index];
-                                const isPlayerActive = activeRoute?.name === 'Player';
-
-                                let tabName = getActiveTabName();
-                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                    tabName = 'Biblioteca';
-                                }
-
-                                const currentTab = getActiveTabName();
-                                if (isPlayerActive || tabName === currentTab) {
-                                    navigationRef.navigate('ArtistDetail', { artistId });
-                                } else {
-                                    navigationRef.navigate('Main', {
-                                        screen: tabName,
-                                        params: { screen: 'ArtistDetail', params: { artistId } }
-                                    });
-                                }
+                            if (selectedTrack) {
+                                closeMenu();
+                                useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
                             }
                         }}
                     >
                         <View style={styles.iconContainer}>
-                            <Ionicons name="person-outline" size={24} color={colors.text} />
+                            <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
                         </View>
-                        <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
+                        <Text style={styles.optionText}>{t('actions.select') || 'Seleccionar'}</Text>
                     </TouchableOpacity>
-                )}
 
-                {/* OPCIÓN: Excluir canción */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
-                    onPress={handleExclude}
-                >
-                    <View style={styles.iconContainer}>
-                        <Ionicons name="eye-off-outline" size={24} color={colors.heartIcon} />
-                    </View>
-                    <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.exclude_song')}</Text>
-                </TouchableOpacity>
+                    {/* OPCIÓN: Editar Metadatos */}
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={() => {
+                            if (selectedTrack) {
+                                closeMenu();
+                                useMetadataEditorStore.getState().openSheet([selectedTrack]);
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="pencil" size={24} color={colors.text} />
+                        </View>
+                        <Text style={styles.optionText}>{t('metadata_editor.title_single') || 'Editar metadatos'}</Text>
+                    </TouchableOpacity>
+
+                    {/* OPCIÓN: Gestionar Etiquetas */}
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={() => {
+                            if (selectedTrack) {
+                                closeMenu();
+                                useTagManagerStore.getState().openForTrack(selectedTrack);
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="pricetag-outline" size={24} color={colors.text} />
+                        </View>
+                        <Text style={styles.optionText}>{t('tags.manage')}</Text>
+                    </TouchableOpacity>
+
+                    {/* OPCIÓN: Añadir a Playlist */}
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={() => {
+                            if (selectedTrack) {
+                                closeMenu();
+                                usePlaylistSelectorStore.getState().openSelector(selectedTrack);
+                            }
+                        }}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="add-circle-outline" size={24} color={colors.text} />
+                        </View>
+                        <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
+                    </TouchableOpacity>
+
+                    {/* OPCIÓN: Eliminar de Playlist (Solo aparece si estamos dentro de una) */}
+                    {useTrackMenuStore.getState().playlistId && (
+                        <TouchableOpacity
+                            style={styles.optionRow}
+                            onPress={async () => {
+                                if (selectedTrack) {
+                                    const pId = useTrackMenuStore.getState().playlistId!;
+                                    closeMenu();
+                                    await PlaylistService.removeTrackFromPlaylist(pId, selectedTrack.id);
+                                }
+                            }}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
+                            </View>
+                            <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.remove_from_playlist')}</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* OPCIÓN: Compartir */}
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={handleShare}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="share-social-outline" size={24} color={colors.text} />
+                        </View>
+                        <Text style={styles.optionText}>{t('actions.share')}</Text>
+                    </TouchableOpacity>
+
+                    {/* ── Separador ── */}
+                    <View style={styles.separator} />
+
+                    {/* OPCIÓN: Ir al álbum */}
+                    {albumId && (
+                        <TouchableOpacity
+                            style={styles.optionRow}
+                            onPress={() => {
+                                closeMenu();
+                                if (navCallbacks.album) {
+                                    // Abierto desde el Player: goBack() + navigate con fromPlayer
+                                    navCallbacks.album(albumId);
+                                } else if (navigationRef.isReady()) {
+                                    // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
+                                    const rootState = navigationRef.getRootState();
+                                    const activeRoute = rootState.routes[rootState.index];
+                                    const isPlayerActive = activeRoute?.name === 'Player';
+
+                                    let tabName = getActiveTabName();
+                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                        tabName = 'Biblioteca';
+                                    }
+
+                                    const currentTab = getActiveTabName();
+                                    if (isPlayerActive || tabName === currentTab) {
+                                        navigationRef.navigate('AlbumDetail', { albumId });
+                                    } else {
+                                        navigationRef.navigate('Main', {
+                                            screen: tabName,
+                                            params: { screen: 'AlbumDetail', params: { albumId } }
+                                        });
+                                    }
+                                }
+                            }}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="disc-outline" size={24} color={colors.text} />
+                            </View>
+                            <Text style={styles.optionText}>{t('actions.go_to_album')}</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* OPCIÓN: Ver artista */}
+                    {artistId && (
+                        <TouchableOpacity
+                            style={styles.optionRow}
+                            onPress={() => {
+                                closeMenu();
+                                if (artistsList.length > 1) {
+                                    useArtistsListSheetStore.getState().openSheet(artistsList);
+                                } else if (navCallbacks.artist) {
+                                    // Abierto desde el Player: goBack() + navigate con fromPlayer
+                                    navCallbacks.artist(artistId);
+                                } else if (navigationRef.isReady()) {
+                                    // Abierto desde lista: navigate directo sin cerrar ninguna pantalla
+                                    const rootState = navigationRef.getRootState();
+                                    const activeRoute = rootState.routes[rootState.index];
+                                    const isPlayerActive = activeRoute?.name === 'Player';
+
+                                    let tabName = getActiveTabName();
+                                    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                                        tabName = 'Biblioteca';
+                                    }
+
+                                    const currentTab = getActiveTabName();
+                                    if (isPlayerActive || tabName === currentTab) {
+                                        navigationRef.navigate('ArtistDetail', { artistId });
+                                    } else {
+                                        navigationRef.navigate('Main', {
+                                            screen: tabName,
+                                            params: { screen: 'ArtistDetail', params: { artistId } }
+                                        });
+                                    }
+                                }
+                            }}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="person-outline" size={24} color={colors.text} />
+                            </View>
+                            <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* OPCIÓN: Excluir canción */}
+                    <TouchableOpacity
+                        style={styles.optionRow}
+                        onPress={handleExclude}
+                    >
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="eye-off-outline" size={24} color={colors.heartIcon} />
+                        </View>
+                        <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.exclude_song')}</Text>
+                    </TouchableOpacity>
 
                 </ScrollView>
             </Animated.View>

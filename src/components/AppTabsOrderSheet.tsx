@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Animated,
@@ -13,13 +15,11 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
-import { AppTabType, useSettingsStore } from '../store/useSettingsStore';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNRestart from 'react-native-restart';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
+import { AppTabType, useSettingsStore } from '../store/useSettingsStore';
 
 const { height } = Dimensions.get('window');
 
@@ -35,9 +35,9 @@ export default function AppTabsOrderSheet() {
     const { t } = useTranslation();
     const { isVisible, closeSheet } = useAppTabsOrderSheetStore();
     const insets = useSafeAreaInsets();
-    
+
     const { appTabsOrder, setAppTabsOrder, initialAppRoute, setInitialAppRoute } = useSettingsStore();
-    
+
     // Estados temporales en el sheet antes de confirmar
     const [data, setData] = useState(ALL_TABS);
     const [selectedInitial, setSelectedInitial] = useState<AppTabType>(initialAppRoute);
@@ -99,7 +99,7 @@ export default function AppTabsOrderSheet() {
 
         setAppTabsOrder(data.map(t => t.id));
         setInitialAppRoute(selectedInitial);
-        
+
         try {
             const state = useSettingsStore.getState();
             const rawState: any = {};
@@ -168,7 +168,7 @@ export default function AppTabsOrderSheet() {
                 }
             ]}>
                 <View style={styles.dragIndicator} />
-                
+
                 <View style={styles.header}>
                     <Text style={styles.title}>{t('settings.app_tabs_order') || 'Navegación principal'}</Text>
                     <Text style={styles.subtitle}>{t('settings.app_tabs_desc') || 'Personaliza la barra inferior'}</Text>
@@ -181,7 +181,7 @@ export default function AppTabsOrderSheet() {
                         {ALL_TABS.map(tab => {
                             const isSelected = selectedInitial === tab.id;
                             return (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     key={`initial-${tab.id}`}
                                     style={[styles.chip, isSelected && styles.chipSelected]}
                                     onPress={() => setSelectedInitial(tab.id)}
@@ -200,7 +200,7 @@ export default function AppTabsOrderSheet() {
                 <Text style={[styles.sectionTitle, { paddingHorizontal: 24, marginTop: 10 }]}>
                     {t('settings.drag_to_reorder_tabs') || 'Orden de la barra (Mantén presionado para mover)'}
                 </Text>
-                
+
                 <GestureHandlerRootView style={{ height: 350 }}>
                     <DraggableFlatList
                         data={data}
@@ -213,8 +213,8 @@ export default function AppTabsOrderSheet() {
                 </GestureHandlerRootView>
 
                 <View style={styles.footer}>
-                    <TouchableOpacity 
-                        style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]} 
+                    <TouchableOpacity
+                        style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]}
                         onPress={handleConfirmAndRestart}
                         disabled={isRestarting}
                     >
@@ -224,8 +224,8 @@ export default function AppTabsOrderSheet() {
                             <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
                         )}
                         <Text style={styles.confirmButtonText}>
-                            {isRestarting 
-                                ? (t('settings.restarting') || 'Reiniciando...') 
+                            {isRestarting
+                                ? (t('settings.restarting') || 'Reiniciando...')
                                 : (t('settings.confirm_restart') || 'Confirmar y Reiniciar')}
                         </Text>
                     </TouchableOpacity>

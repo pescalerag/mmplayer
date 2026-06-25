@@ -1,25 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import { useNavigation } from '@react-navigation/native';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
-import { FlashList } from '@shopify/flash-list';
-import { useNavigation } from '@react-navigation/native';
-import { TagsNavigationProp } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { database } from '../database';
+import Tag from '../database/models/Tag';
+import { TagsNavigationProp } from '../navigation/types';
 import { useTagFormStore } from '../store/useTagFormStore';
 import { useTagMenuStore } from '../store/useTagMenuStore';
-import Tag from '../database/models/Tag';
-import { database } from '../database';
 import { Colors, Layout } from '../theme/theme';
-import { useTranslation } from 'react-i18next';
 
 interface TagManagementContentProps {
     tags: Tag[];
 }
 
-function TagManagementContent({ tags }: TagManagementContentProps) {
+function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
     const insets = useSafeAreaInsets();
     const { openForCreate } = useTagFormStore();
     const { t } = useTranslation();

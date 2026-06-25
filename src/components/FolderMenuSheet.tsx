@@ -1,31 +1,31 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-    Alert,
-    Animated, 
-    BackHandler, 
-    Dimensions, 
-    Platform, 
-    StyleSheet, 
-    Text, 
-    TouchableOpacity, 
-    TouchableWithoutFeedback, 
-    View 
-} from 'react-native';
-import * as NavigationBar from 'expo-navigation-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Q } from '@nozbe/watermelondb';
-import { useFolderMenuStore } from '../store/useFolderMenuStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { ScannerService } from '../services/ScannerService';
+import * as NavigationBar from 'expo-navigation-bar';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+    Alert,
+    Animated,
+    BackHandler,
+    Dimensions,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import Track from '../database/models/Track';
+import { ScannerService } from '../services/ScannerService';
+import { useFolderMenuStore } from '../store/useFolderMenuStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { useToastStore } from '../store/useToastStore';
-import { useTranslation } from 'react-i18next';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useToastStore } from '../store/useToastStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -46,7 +46,7 @@ export default function FolderMenuSheet() {
     useEffect(() => {
         if (isVisible) {
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
+                NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
             }
 
             Animated.parallel([
@@ -130,8 +130,8 @@ export default function FolderMenuSheet() {
             t('actions.exclude_folder_confirm'),
             [
                 { text: t('actions.cancel'), style: "cancel" },
-                { 
-                    text: t('actions.exclude'), 
+                {
+                    text: t('actions.exclude'),
                     style: "destructive",
                     onPress: async () => {
                         closeMenu();
@@ -148,25 +148,25 @@ export default function FolderMenuSheet() {
     if (!shouldRender && !isVisible) return null;
 
     return (
-        <View 
-            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} 
+        <View
+            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
 
-            <Animated.View 
+            <Animated.View
                 style={[
-                    styles.sheetContainer, 
-                    { 
+                    styles.sheetContainer,
+                    {
                         paddingBottom: insets.bottom + 20,
                         transform: [{ translateY: slideAnim }]
                     }
                 ]}
             >
                 <View style={styles.dragIndicator} />
-                
+
                 <View style={styles.header}>
                     <View style={[styles.thumbnail, styles.placeholder]}>
                         <Ionicons name="folder" size={24} color={colors.accent} />
@@ -178,8 +178,8 @@ export default function FolderMenuSheet() {
                 </View>
 
                 {/* OPCIÓN: Añadir a continuación */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueNext(tracks);
@@ -195,8 +195,8 @@ export default function FolderMenuSheet() {
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir al final de la cola */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={() => {
                         if (tracks.length > 0) {
                             usePlayerStore.getState().addMultipleToQueueEnd(tracks);
@@ -212,8 +212,8 @@ export default function FolderMenuSheet() {
                 </TouchableOpacity>
 
                 {/* OPCIÓN: Añadir a Playlist */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={() => {
                         if (tracks.length > 0) {
                             closeMenu();
@@ -227,12 +227,28 @@ export default function FolderMenuSheet() {
                     <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
                 </TouchableOpacity>
 
+                {/* OPCIÓN: Seleccionar canciones */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (tracks.length > 0) {
+                            closeMenu();
+                            useMultiSelectStore.getState().selectMultipleTracks(tracks);
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
+                    </View>
+                    <Text style={styles.optionText}>{t('actions.select_all')}</Text>
+                </TouchableOpacity>
+
                 {/* Separador */}
                 <View style={styles.separator} />
 
                 {/* OPCIÓN: Excluir */}
-                <TouchableOpacity 
-                    style={styles.optionRow} 
+                <TouchableOpacity
+                    style={styles.optionRow}
                     onPress={handleExclude}
                 >
                     <View style={styles.iconContainer}>

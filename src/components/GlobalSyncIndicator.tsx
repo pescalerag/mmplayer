@@ -1,10 +1,9 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import React, { useEffect, useRef } from 'react';
-import { Animated, ActivityIndicator, Text, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSyncStore } from '../store/useSyncStore';
-import { useTranslation } from 'react-i18next';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function GlobalSyncIndicator() {
     const { colors, fonts, layout } = useAppTheme();

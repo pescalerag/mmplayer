@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,9 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { Colors } from '../theme/theme';
 import MarqueeText from './MarqueeText';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
