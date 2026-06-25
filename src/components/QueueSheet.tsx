@@ -23,13 +23,17 @@ import TrackPlayer, {
     usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
+import { Q } from '@nozbe/watermelondb';
+import { database } from '../database';
+import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { Colors } from '../theme/theme';
 import { PlayingIndicator } from './PlayingIndicator';
 
 const { height, width } = Dimensions.get('window');
-const TAB_WIDTH = (width - 48 - 44) / 2;
+const TAB_WIDTH = (width - 48 - 110) / 2;
 
 type ActiveTab = 'queue' | 'recent';
 
@@ -230,6 +234,37 @@ export default function QueueSheet() {
         );
     };
 
+    const handleSaveQueueAsPlaylist = async () => {
+        if (queue.length === 0) return;
+        try {
+            const trackIds = Array.from(new Set(queue.map(t => t.id.toString().split('-')[0])));
+            if (trackIds.length === 0) return;
+
+            const dbTracks = await database.collections.get<Track>('tracks')
+                .query(Q.where('id', Q.oneOf(trackIds)))
+                .fetch();
+
+            if (dbTracks.length > 0) {
+                // Preservar el orden de reproducción de la cola
+                const trackMap = new Map<string, Track>();
+                dbTracks.forEach(t => trackMap.set(t.id, t));
+
+                const orderedTracks: Track[] = [];
+                trackIds.forEach(id => {
+                    const track = trackMap.get(id);
+                    if (track) {
+                        orderedTracks.push(track);
+                    }
+                });
+
+                usePlaylistSelectorStore.getState().openSelector(orderedTracks);
+                closeQueue();
+            }
+        } catch (error) {
+            console.error('Error saving queue as playlist:', error);
+        }
+    };
+
     const listHeader = React.useMemo(() => (
         <CurrentTrackHeader currentTrack={currentTrack} isPlayingGlobal={isPlayingGlobal} />
     ), [currentTrack, isPlayingGlobal]);
@@ -345,6 +380,15 @@ export default function QueueSheet() {
                             )}
                         </TouchableOpacity>
                     </View>
+                    {queue.length > 0 && (
+                        <TouchableOpacity
+                            style={{ padding: 10, marginLeft: 4 }}
+                            onPress={handleSaveQueueAsPlaylist}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Ionicons name="add-outline" size={26} color={Colors.tint} />
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         style={{ padding: 10, marginLeft: 4 }}
                         onPress={handleTrashPress}
