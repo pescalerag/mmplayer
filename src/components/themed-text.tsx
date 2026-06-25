@@ -1,8 +1,8 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import React from 'react';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Colors, Typography } from '@/theme/theme';
+import React from 'react';
 
 export type ThemeColorName = keyof typeof Colors;
 

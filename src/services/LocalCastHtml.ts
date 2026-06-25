@@ -193,7 +193,7 @@ export function getClientHtml(): string {
             -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 15%, white 85%, transparent 100%);
         }
         .lyrics-scroller {
-            overflow-y: auto;
+            overflow-y: hidden;
             height: 100%;
             padding: 300px 0;
             scrollbar-width: none;
@@ -206,7 +206,10 @@ export function getClientHtml(): string {
             color: rgba(255,255,255,0.35);
             padding: 18px 0;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            cursor: pointer;
+            cursor: default;
+            user-select: none;
+            -webkit-user-select: none;
+            pointer-events: none;
             text-align: left;
             line-height: 1.4;
             transform-origin: left center;
@@ -228,6 +231,18 @@ export function getClientHtml(): string {
             text-transform: uppercase;
             letter-spacing: 1px;
             align-self: flex-start;
+        }
+        .beta-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 800;
+            background-color: rgba(245, 158, 11, 0.15);
+            color: #F59E0B;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
         @media (max-width: 900px) {
             .main-container {
@@ -280,7 +295,10 @@ export function getClientHtml(): string {
                 </div>
             </div>
             <audio id="audio-player" style="display: none;"></audio>
-            <div class="status-badge" id="sync-status">Sincronizando...</div>
+            <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: flex-start;">
+                <div class="status-badge" id="sync-status">Sincronizando...</div>
+                <div class="beta-badge">BETA</div>
+            </div>
         </div>
 
         <div class="right-column">
@@ -316,6 +334,7 @@ export function getClientHtml(): string {
         let currentBlobUrl     = null;
         let isAutoplayBlocked  = false;
         let lastActionTime     = 0;
+        let currentLyricsLRC   = null;
 
         // Cover is fetched once via /api/cover when coverToken changes.
         // This avoids embedding base64 in every /api/state poll response.
@@ -369,6 +388,7 @@ export function getClientHtml(): string {
 
         function renderLyrics(lrcText) {
             lyricsScroller.innerHTML = "";
+            lyricsScroller.scrollTop = 0;
             lyrics = parseLRC(lrcText);
             if (lyrics.length === 0) {
                 const lines = lrcText ? lrcText.split('\\n') : ["No hay letras sincronizadas disponibles"];
@@ -388,16 +408,9 @@ export function getClientHtml(): string {
                 div.className = 'lyric-line';
                 div.id = 'line-' + idx;
                 div.innerText = line.text;
-                div.onclick = () => {
-                    lastActionTime = Date.now();
-                    audioPlayer.currentTime = line.time;
-                    syncLyrics(line.time);
-                    fetch('/api/seek?position=' + line.time, { method: 'POST' }).catch(err => {
-                        console.error("Error seeking lyric line:", err);
-                    });
-                };
                 lyricsScroller.appendChild(div);
             });
+            lyricsScroller.scrollTop = 0;
         }
 
         function syncLyrics(currentTime) {
@@ -483,11 +496,13 @@ export function getClientHtml(): string {
                     currentSongTitle = state.title;
                     isFetchingAudio  = true;
                     isAutoplayBlocked = false;
+                    lastActionTime = Date.now(); // Cooldown sync to allow initial media loading
                     statusEl.innerText = "Conectando al Servidor de Medios...";
 
                     titleEl.innerText  = state.title;
                     artistEl.innerText = state.artist;
 
+                    currentLyricsLRC   = state.lyricsLRC;
                     renderLyrics(state.lyricsLRC);
 
                     if (state.mediaFileName) {
@@ -513,9 +528,19 @@ export function getClientHtml(): string {
                     }
                     isFetchingAudio = false;
                 } else if (!isFetchingAudio) {
+                    // Si las letras se cargaron después en el móvil, actualizarlas en el cast
+                    if (currentLyricsLRC !== state.lyricsLRC) {
+                        currentLyricsLRC = state.lyricsLRC;
+                        renderLyrics(state.lyricsLRC);
+                        syncLyrics(audioPlayer.currentTime);
+                    }
+
                     if (Date.now() - lastActionTime > 3000) {
+                        const isNearEnd = audioPlayer.duration && (audioPlayer.currentTime > audioPlayer.duration - 3);
+                        const shouldPlay = state.isPlaying && !audioPlayer.ended && !isNearEnd;
+
                         setUIPlaying(state.isPlaying);
-                        if (state.isPlaying && audioPlayer.paused && !isAutoplayBlocked && !audioPlayer.error) {
+                        if (shouldPlay && audioPlayer.paused && !isAutoplayBlocked && !audioPlayer.error) {
                             audioPlayer.play().catch(err => {
                                 if (err.name === 'NotAllowedError') {
                                     isAutoplayBlocked = true;
@@ -529,9 +554,12 @@ export function getClientHtml(): string {
                         } else if (!state.isPlaying && !audioPlayer.paused) {
                             audioPlayer.pause();
                         }
-                        if (!isUserSeeking && audioPlayer.duration) {
+                        if (!isUserSeeking && audioPlayer.duration && !audioPlayer.seeking) {
                             const timeDifference = Math.abs(audioPlayer.currentTime - state.position);
-                            if (timeDifference > 3) { audioPlayer.currentTime = state.position; }
+                            if (timeDifference > 3) {
+                                audioPlayer.currentTime = state.position;
+                                lastActionTime = Date.now(); // Cooldown sync while processing seek to avoid reload loops
+                            }
                         }
                     }
                     statusEl.innerText = "Casteando";

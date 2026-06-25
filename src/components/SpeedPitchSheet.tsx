@@ -1,5 +1,8 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Animated,
     BackHandler,
@@ -11,31 +14,28 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 import { useAudioSpeedPitchSheetStore } from '../store/useAudioSpeedPitchSheetStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { height } = Dimensions.get('window');
 
 // Maps speed S in [0.5, 2.0] to slider value X in [-1.0, 1.0]
 const speedToSliderValue = (speed: number): number => {
-    if (speed < 1.0) {
-        return (speed - 1.0) * 2;
+    if (speed < 1) {
+        return (speed - 1) * 2;
     } else {
-        return speed - 1.0;
+        return speed - 1;
     }
 };
 
 // Maps slider value X in [-1.0, 1.0] to speed S in [0.5, 2.0] rounded to the nearest 0.05
 const sliderValueToSpeed = (val: number): number => {
-    let rawSpeed = 1.0;
+    let rawSpeed = 1;
     if (val < 0) {
-        rawSpeed = 1.0 + val * 0.5;
+        rawSpeed = 1 + val * 0.5;
     } else {
-        rawSpeed = 1.0 + val * 1.0;
+        rawSpeed = 1 + val * 1;
     }
     // Snap to nearest 0.05 for uniform steps
     return Math.round(rawSpeed / 0.05) * 0.05;
@@ -70,12 +70,12 @@ export default function SpeedPitchSheet() {
 
     // Local state to track/smooth layout updates
     const [localSpeed, setLocalSpeed] = useState(playbackSpeed);
-    const [localPitch, setLocalPitch] = useState(playbackPitch || 1.0);
+    const [localPitch, setLocalPitch] = useState(playbackPitch || 1);
 
     // Sync local state when store values change (e.g. on mount/hydrate)
     useEffect(() => {
         setLocalSpeed(playbackSpeed);
-        setLocalPitch(isVinylModeEnabled ? playbackSpeed : (playbackPitch || 1.0));
+        setLocalPitch(isVinylModeEnabled ? playbackSpeed : (playbackPitch || 1));
     }, [playbackSpeed, playbackPitch, isVinylModeEnabled]);
 
     // --- ANIMACIONES DE SHEET ---
@@ -115,10 +115,10 @@ export default function SpeedPitchSheet() {
     if (!shouldRender && !isVisible) return null;
 
     const handleResetSpeed = () => {
-        setLocalSpeed(1.0);
-        setPlaybackSpeed(1.0);
+        setLocalSpeed(1);
+        setPlaybackSpeed(1);
         if (isVinylModeEnabled) {
-            setLocalPitch(1.0);
+            setLocalPitch(1);
         }
     };
 
@@ -126,17 +126,21 @@ export default function SpeedPitchSheet() {
         const newSpeed = sliderValueToSpeed(val);
         if (newSpeed !== localSpeed) {
             setLocalSpeed(newSpeed);
-            setPlaybackSpeed(newSpeed);
             if (isVinylModeEnabled) {
                 setLocalPitch(newSpeed);
             }
         }
     };
 
+    const handleSpeedSlidingComplete = (val: number) => {
+        const newSpeed = sliderValueToSpeed(val);
+        setPlaybackSpeed(newSpeed);
+    };
+
     const handleResetPitch = () => {
         if (isVinylModeEnabled) return;
-        setLocalPitch(1.0);
-        setPlaybackPitch(1.0);
+        setLocalPitch(1);
+        setPlaybackPitch(1);
     };
 
     const handlePitchSliderChange = (val: number) => {
@@ -144,16 +148,26 @@ export default function SpeedPitchSheet() {
         const newPitch = semitonesToPitch(val);
         if (newPitch !== localPitch) {
             setLocalPitch(newPitch);
-            setPlaybackPitch(newPitch);
         }
     };
 
+    const handlePitchSlidingComplete = (val: number) => {
+        if (isVinylModeEnabled) return;
+        const newPitch = semitonesToPitch(val);
+        setPlaybackPitch(newPitch);
+    };
+
     const currentSemitones = pitchToSemitones(localPitch);
-    const semitonesText = isVinylModeEnabled
-        ? (t('audio_effects.pitch_locked') || 'Bloqueado')
-        : (currentSemitones === 0 
-            ? "Normal" 
-            : currentSemitones > 0 ? `+${currentSemitones} st` : `${currentSemitones} st`);
+    let semitonesText = '';
+    if (isVinylModeEnabled) {
+        semitonesText = t('audio_effects.pitch_locked') || 'Bloqueado';
+    } else if (currentSemitones === 0) {
+        semitonesText = "Normal";
+    } else if (currentSemitones > 0) {
+        semitonesText = `+${currentSemitones} st`;
+    } else {
+        semitonesText = `${currentSemitones} st`;
+    }
 
     return (
         <View
@@ -186,7 +200,7 @@ export default function SpeedPitchSheet() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                             <Text style={styles.valueText}>{localSpeed.toFixed(2)}x</Text>
-                            {localSpeed !== 1.0 && (
+                            {localSpeed !== 1 && (
                                 <TouchableOpacity onPress={handleResetSpeed} style={styles.resetButton}>
                                     <Text style={styles.resetButtonText}>{t('audio_effects.reset') || 'Restablecer'}</Text>
                                 </TouchableOpacity>
@@ -195,11 +209,12 @@ export default function SpeedPitchSheet() {
                     </View>
                     <Slider
                         style={styles.slider}
-                        minimumValue={-1.0}
-                        maximumValue={1.0}
+                        minimumValue={-1}
+                        maximumValue={1}
                         step={0.01}
                         value={speedToSliderValue(localSpeed)}
                         onValueChange={handleSpeedSliderChange}
+                        onSlidingComplete={handleSpeedSlidingComplete}
                         minimumTrackTintColor={colors.accent}
                         maximumTrackTintColor="#282828"
                         thumbTintColor="#FFFFFF"
@@ -235,7 +250,7 @@ export default function SpeedPitchSheet() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                             <Text style={styles.valueText}>{semitonesText}</Text>
-                            {!isVinylModeEnabled && localPitch !== 1.0 && (
+                            {!isVinylModeEnabled && localPitch !== 1 && (
                                 <TouchableOpacity onPress={handleResetPitch} style={styles.resetButton}>
                                     <Text style={styles.resetButtonText}>{t('audio_effects.reset') || 'Restablecer'}</Text>
                                 </TouchableOpacity>
@@ -249,6 +264,7 @@ export default function SpeedPitchSheet() {
                         step={1}
                         value={currentSemitones}
                         onValueChange={handlePitchSliderChange}
+                        onSlidingComplete={handlePitchSlidingComplete}
                         minimumTrackTintColor={colors.accent}
                         maximumTrackTintColor="#282828"
                         thumbTintColor="#FFFFFF"

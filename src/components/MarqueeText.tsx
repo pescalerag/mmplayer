@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 
 interface MarqueeTextProps {
-    text: string;
-    style?: StyleProp<TextStyle>;
-    pauseDuration?: number;
-    speed?: number;
-    spacing?: number;
+    readonly text: string;
+    readonly style?: StyleProp<TextStyle>;
+    readonly pauseDuration?: number;
+    readonly speed?: number;
+    readonly spacing?: number;
 }
 
 export default function MarqueeText({
@@ -23,7 +23,7 @@ export default function MarqueeText({
     pauseDuration = 1500,
     speed = 40,
     spacing = 60,
-}: MarqueeTextProps) {
+}: Readonly<MarqueeTextProps>) {
     const [containerWidth, setContainerWidth] = useState(0);
     const [textWidth, setTextWidth] = useState(0);
 

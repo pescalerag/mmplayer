@@ -37,7 +37,9 @@ import { getSafeFileName, safeDecodeURIComponent } from '../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
-const cardWidth = (Dimensions.get('window').width - 70) / 3;
+const { width } = Dimensions.get('window');
+type GridAlignment = 'flex-start' | 'center' | 'flex-end';
+const cardWidth = (width - 70) / 3;
 
 // ----- SUB-COMPONENTES DE ESTADO VACÍO -----
 const LibraryEmptyState = ({ icon, title, description }: { icon: string; title: string; description: string }) => (
@@ -129,7 +131,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
                     <Text style={styles.shuffleBtnText}>{t('actions.shuffle')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.playBtn} onPress={handlePlayPress}>
-                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}} />
+                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={isCurrentContextPlaying ? {} : { marginLeft: 4 }} />
                     <Text style={styles.playBtnText}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
                 </TouchableOpacity>
             </View>
@@ -231,13 +233,22 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             ref={scrollRef}
             data={sortedAlbums}
             keyExtractor={a => a.id}
-            renderItem={({ item, index }) => (
-                <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
-                    <EnhancedAlbumCard
-                        album={item}
-                    />
-                </View>
-            )}
+            renderItem={({ item, index }) => {
+                let alignItems: GridAlignment = 'flex-end';
+                const rem = index % 3;
+                if (rem === 0) {
+                    alignItems = 'flex-start';
+                } else if (rem === 1) {
+                    alignItems = 'center';
+                }
+                return (
+                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+                        <EnhancedAlbumCard
+                            album={item}
+                        />
+                    </View>
+                );
+            }}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
@@ -315,13 +326,22 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
             ref={scrollRef}
             data={sortedArtists}
             keyExtractor={a => a.id}
-            renderItem={({ item, index }) => (
-                <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
-                    <EnhancedArtistCard
-                        artist={item}
-                    />
-                </View>
-            )}
+            renderItem={({ item, index }) => {
+                let alignItems: GridAlignment = 'flex-end';
+                const rem = index % 3;
+                if (rem === 0) {
+                    alignItems = 'flex-start';
+                } else if (rem === 1) {
+                    alignItems = 'center';
+                }
+                return (
+                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+                        <EnhancedArtistCard
+                            artist={item}
+                        />
+                    </View>
+                );
+            }}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
@@ -500,8 +520,15 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     }
                 }
 
+                let alignItems: GridAlignment = 'flex-end';
+                const rem = index % 3;
+                if (rem === 0) {
+                    alignItems = 'flex-start';
+                } else if (rem === 1) {
+                    alignItems = 'center';
+                }
                 return (
-                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
+                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
                         {content}
                     </View>
                 );
@@ -522,9 +549,15 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
 const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
     let orderCol = 'created_at';
     let orderDir = Q.desc;
-    if (sortOption === 'name_asc') { orderCol = 'name'; orderDir = Q.asc; }
-    else if (sortOption === 'name_desc') { orderCol = 'name'; orderDir = Q.desc; }
-    else if (sortOption === 'recent_asc') { orderCol = 'created_at'; orderDir = Q.asc; }
+    if (sortOption === 'name_asc') {
+        orderCol = 'name';
+        orderDir = Q.asc;
+    } else if (sortOption === 'name_desc') {
+        orderCol = 'name';
+        orderDir = Q.desc;
+    } else if (sortOption === 'recent_asc') {
+        orderDir = Q.asc;
+    }
 
     return {
         playlists: database.collections.get<Playlist>('playlists').query(
@@ -534,6 +567,24 @@ const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: {
     };
 })(PlaylistsList);
 
+
+type Folder = { path: string; name: string; trackCount: number };
+
+const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) {
+    const { t } = useTranslation();
+    const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
+    const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
+
+    return (
+        <LibraryCard
+            title={folder.name}
+            subtitle={`${folder.trackCount} ${folder.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
+            placeholderIcon="folder"
+            onPress={handlePress}
+            onLongPress={handleLongPress}
+        />
+    );
+});
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
@@ -642,22 +693,6 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
         );
     }
 
-    type Folder = { path: string; name: string; trackCount: number };
-
-    const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) {
-        const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
-        const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
-
-        return (
-            <LibraryCard
-                title={folder.name}
-                subtitle={`${folder.trackCount} ${folder.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
-                placeholderIcon="folder"
-                onPress={handlePress}
-                onLongPress={handleLongPress}
-            />
-        );
-    });
 
     return (
         <FlashList
@@ -665,15 +700,24 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             ref={scrollRef}
             data={folders}
             keyExtractor={f => f.path}
-            renderItem={({ item, index }) => (
-                <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems: index % 3 === 0 ? 'flex-start' : index % 3 === 1 ? 'center' : 'flex-end' }}>
-                    <FolderCard
-                        folder={item}
-                        onOpen={setActiveFolderPath}
-                        onMenu={(path, name) => useFolderMenuStore.getState().openMenu(path, name)}
-                    />
-                </View>
-            )}
+            renderItem={({ item, index }) => {
+                let alignItems: GridAlignment = 'flex-end';
+                const rem = index % 3;
+                if (rem === 0) {
+                    alignItems = 'flex-start';
+                } else if (rem === 1) {
+                    alignItems = 'center';
+                }
+                return (
+                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+                        <FolderCard
+                            folder={item}
+                            onOpen={setActiveFolderPath}
+                            onMenu={(path, name) => useFolderMenuStore.getState().openMenu(path, name)}
+                        />
+                    </View>
+                );
+            }}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
@@ -691,8 +735,6 @@ const EnhancedFolderList = withObservables([], () => ({
     tracks: database.collections.get<Track>('tracks').query().observe(),
 }))(FolderList);
 
-
-type TabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 
 export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
@@ -715,7 +757,7 @@ export default function LibraryScreen() {
         });
     }, [libraryTabsOrder, t]);
 
-    const activeTab = routes[index]?.key as TabType || 'albums';
+    const activeTab = routes[index]?.key || 'albums';
 
     // Estado para guardar la altura dinámica del Título + Selectores
     const [headerHeight, setHeaderHeight] = useState(130);

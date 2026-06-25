@@ -1,10 +1,10 @@
 import { Q } from '@nozbe/watermelondb';
+import i18n from "../constants/i18n";
 import { database } from "../database";
+import Album from "../database/models/Album";
 import PlaybackHistory from "../database/models/PlaybackHistory";
 import Track from "../database/models/Track";
-import Album from "../database/models/Album";
 import { usePlayerStore } from "../store/usePlayerStore";
-import i18n from "../constants/i18n";
 
 export type UIHistoryPayload = {
   id: string;
@@ -31,12 +31,12 @@ export const HistoryService = {
         const cleanId = item.id.split('-')[0];
         const track = await database.get<Track>('tracks').find(cleanId);
         finalTitle = track.title;
-        
+
         if (!finalImageUrl || finalImageUrl === 'null') {
           const album = await track.album.fetch();
           finalImageUrl = album?.coverUrl || null;
         }
-        
+
         if (!finalSubtitle || finalSubtitle === 'Artista desconocido') {
           const artist = await track.artist.fetch();
           finalSubtitle = artist?.name || 'Artista desconocido';

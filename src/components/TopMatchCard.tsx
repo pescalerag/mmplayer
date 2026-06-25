@@ -1,25 +1,25 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Keyboard } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, runOnJS, clamp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import React from 'react';
+import { Image, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { clamp, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import i18n from '../constants/i18n';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { TopMatch } from '../hooks/useMusicSearch';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
-import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
-import { useToastStore } from '../store/useToastStore';
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import i18n from '../constants/i18n';
+import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
+import { useToastStore } from '../store/useToastStore';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import BlurredBackground from './BlurredBackground';
-import { useAppTheme } from "@/hooks/useAppTheme";
-import { useMultiSelectStore } from '../store/useMultiSelectStore';
 
 interface TopMatchCardProps {
     match: TopMatch;
@@ -43,17 +43,17 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     return (
-        <TouchableOpacity 
-            style={[styles.container, containerStyle]} 
-            activeOpacity={0.8} 
+        <TouchableOpacity
+            style={[styles.container, containerStyle]}
+            activeOpacity={0.8}
             onPress={onPress}
             onLongPress={onLongPress}
             delayLongPress={300}
         >
             {/* Fondo con la imagen usando BlurredBackground */}
-            <BlurredBackground 
-                imageUrl={imageUrl} 
-                blurIntensity={60} 
+            <BlurredBackground
+                imageUrl={imageUrl}
+                blurIntensity={60}
                 gradientColors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.8)']}
             />
 
@@ -61,21 +61,21 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
                 <View style={styles.mainInfo}>
                     {isSelectionMode && type === 'track' && (
                         <View style={{ marginRight: 12 }}>
-                            <Ionicons 
-                                name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
-                                size={24} 
-                                color={isSelected ? colors.accent : colors.textSecondary} 
+                            <Ionicons
+                                name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                                size={24}
+                                color={isSelected ? colors.accent : colors.textSecondary}
                             />
                         </View>
                     )}
                     {/* Miniatura cuadrada o redonda según el tipo */}
                     {imageUrl ? (
-                        <Image 
-                            source={{ uri: imageUrl }} 
+                        <Image
+                            source={{ uri: imageUrl }}
                             style={[
-                                styles.thumbnail, 
+                                styles.thumbnail,
                                 type === 'artist' ? { borderRadius: 40 } : { borderRadius: 8 }
-                            ]} 
+                            ]}
                         />
                     ) : (
                         <View style={[styles.thumbnail, styles.placeholder]}>
@@ -139,12 +139,12 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
     album: track.album.observe(),
     collaborators: track.queryCollaborators.observe() as any,
 }))(({ track, album, collaborators, onPress }: { track: Track; album: Album; collaborators: Artist[]; onPress: () => void }) => {
-    const artistNames = collaborators.length > 0 
-        ? collaborators.map(a => a.name).join(', ') 
+    const artistNames = collaborators.length > 0
+        ? collaborators.map(a => a.name).join(', ')
         : 'Desconocido';
-    
+
     const openMenu = useTrackMenuStore(state => state.openMenu);
-    
+
     const { colors } = useAppTheme();
     const swipeLeftAction = useSettingsStore((state) => state.swipeLeftAction);
     const swipeRightAction = useSettingsStore((state) => state.swipeRightAction);
@@ -246,14 +246,14 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
     };
 
     return (
-        <View style={{ 
-            height: 140, 
-            marginHorizontal: 20, 
-            marginBottom: 20, 
-            borderRadius: 16, 
-            overflow: 'hidden', 
-            borderWidth: 1, 
-            borderColor: colors.overlayAlpha10 
+        <View style={{
+            height: 140,
+            marginHorizontal: 20,
+            marginBottom: 20,
+            borderRadius: 16,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: colors.overlayAlpha10
         }}>
             <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }]}>
                 {swipeRightAction !== 'none' ? (

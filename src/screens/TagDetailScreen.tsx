@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
-import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import {
     Dimensions,
     ScrollView,
@@ -15,6 +14,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 
 import { useTranslation } from 'react-i18next';
 import LibraryCard from '../components/LibraryCard';

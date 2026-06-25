@@ -1,5 +1,7 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Animated,
     BackHandler,
@@ -11,10 +13,8 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
 import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
-import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
 
 const { height } = Dimensions.get('window');
 

@@ -1,10 +1,11 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
-import React, { useCallback } from 'react';
-import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 import { FlashList } from '@shopify/flash-list';
+import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     StyleSheet,
     Text,
@@ -12,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import DetailHeaderLayout from '../components/DetailHeaderLayout';
 import SectionHeader from '../components/SectionHeader';
 import TrackRow from '../components/TrackRow';
@@ -21,10 +23,8 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { HistoryService } from '../services/HistoryService';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { Colors, Layout } from '../theme/theme';
+import { Layout } from '../theme/theme';
 import { formatAlbumDuration } from '../utils/time';
-import { useTranslation } from 'react-i18next';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 // ─── FAVORITES TRACK ROW COMPONENT ───
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
@@ -65,7 +65,7 @@ interface FavoritesDetailProps {
     tracks: Track[];
 }
 
-function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
+function FavoritesDetailContent({ tracks }: Readonly<FavoritesDetailProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const navigation = useNavigation<any>();
@@ -160,12 +160,12 @@ function FavoritesDetailContent({ tracks }: FavoritesDetailProps) {
                                 style={styles.playFab}
                                 onPress={handleFabPress}
                             >
-                                <Ionicons 
-                                    name={isCurrentContextPlaying ? "pause" : "play"} 
-                                    size={28} 
+                                <Ionicons
+                                    name={isCurrentContextPlaying ? "pause" : "play"}
+                                    size={28}
                                     color={colors.text}
-                                    style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}}
-                                    />
+                                    style={isCurrentContextPlaying ? {} : { marginLeft: 4 }}
+                                />
                             </TouchableOpacity>
                         </>
                     )

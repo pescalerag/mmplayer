@@ -1,5 +1,7 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Alert,
     Animated,
@@ -17,11 +19,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Tag from '../database/models/Tag';
 import { TagService } from '../services/tagService';
-import { useTagManagerStore } from '../store/useTagManagerStore';
 import { useTagFormStore } from '../store/useTagFormStore';
-import { useTranslation } from 'react-i18next';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { useTagManagerStore } from '../store/useTagManagerStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -104,18 +103,22 @@ export default function TagManagerModal() {
         return () => subscription.remove();
     }, [isVisible, closeManager]);
 
-    const updateTagSelection = (tagId: string, isAssociated: boolean) => {
-        if (isAssociated) {
-            setSelectedTagIds(prev => prev.filter(id => id !== tagId));
-        } else {
-            setSelectedTagIds(prev => [...prev, tagId]);
-        }
+    const addTagToLocalSelection = (tagId: string) => {
+        setSelectedTagIds(prev => [...prev, tagId]);
+    };
+
+    const removeTagFromLocalSelection = (tagId: string) => {
+        setSelectedTagIds(prev => prev.filter(id => id !== tagId));
     };
 
     const toggleAlbum = async (targetId: string, tagId: string, shouldAssociate: boolean, isAssociated: boolean, propagate: boolean) => {
         try {
             await TagService.toggleAlbumTag(targetId, tagId, shouldAssociate, propagate);
-            updateTagSelection(tagId, isAssociated);
+            if (isAssociated) {
+                removeTagFromLocalSelection(tagId);
+            } else {
+                addTagToLocalSelection(tagId);
+            }
         } catch (e) {
             console.error('Error toggling album tag:', e);
         }
@@ -144,7 +147,11 @@ export default function TagManagerModal() {
         if (targetType === 'track') {
             try {
                 await TagService.toggleTrackTag(targetId, tagId, !isAssociated);
-                updateTagSelection(tagId, isAssociated);
+                if (isAssociated) {
+                    removeTagFromLocalSelection(tagId);
+                } else {
+                    addTagToLocalSelection(tagId);
+                }
             } catch (e) {
                 console.error('Error toggling track tag:', e);
             }

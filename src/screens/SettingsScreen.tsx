@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,7 +8,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
-    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Switch,
@@ -15,16 +15,15 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import Slider from '@react-native-community/slider';
-import TrackPlayer from 'react-native-track-player';
-import Track from '../database/models/Track';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import TrackPlayer from 'react-native-track-player';
 import { database } from '../database';
+import Track from '../database/models/Track';
 import { ScannerService } from '../services/ScannerService';
-import { useSettingsStore, SwipeAction } from '../store/useSettingsStore';
-import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
-import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
 import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
+import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
+import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
+import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
 import { useSyncStore } from '../store/useSyncStore';
 import { Colors, Layout } from '../theme/theme';
 
@@ -169,7 +168,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                 {/* --- SECCIÓN DE AJUSTES --- */}
                 <View style={styles.sectionCard}>
                     <Text style={styles.sectionTitle}>{t('settings.visualization') || 'Visualización y Apariencia'}</Text>
-                    
+
                     <TouchableOpacity
                         style={styles.buttonRow}
                         onPress={() => setForceWelcomeModal(true)}
@@ -295,7 +294,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     {isNormalizationEnabled && (
                         <>
                             <View style={styles.separator} />
-                            
+
                             <View style={{ marginVertical: 8 }}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Text style={styles.settingLabel}>{t('settings.preamp')}</Text>
@@ -387,7 +386,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     )}
 
                     <View style={styles.separator} />
-                    
+
                     <TouchableOpacity
                         style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
                         disabled={isScanning}
@@ -535,6 +534,48 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             </Text>
                         </View>
                         <Ionicons name="build" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                    <View style={styles.separator} />
+                    <TouchableOpacity
+                        style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
+                        disabled={isScanning}
+                        onPress={() => {
+                            Alert.alert(
+                                t('settings.repair_covers_alert_title') || 'Reparar carátulas vacías',
+                                t('settings.repair_covers_alert_desc') || 'Este proceso buscará carátulas dañadas o vacías en tu biblioteca y les asignará la imagen por defecto si ya no existen en el dispositivo. ¿Deseas continuar?',
+                                [
+                                    { text: t('actions.cancel'), style: "cancel" },
+                                    {
+                                        text: t('actions.continue'),
+                                        style: "default",
+                                        onPress: async () => {
+                                            if (useSyncStore.getState().isScanning) return;
+                                            try {
+                                                useSyncStore.getState().setIsScanning(true, false);
+                                                const repairedCount = await ScannerService.repairMissingAlbumCovers();
+                                                Alert.alert(
+                                                    t('settings.success'),
+                                                    t('settings.repair_covers_success', { count: repairedCount }) || `Se han reparado las carátulas de ${repairedCount} álbumes.`
+                                                );
+                                            } catch (err) {
+                                                console.error("Error al reparar carátulas:", err);
+                                                Alert.alert(t('actions.error'), 'No se pudo completar la reparación.');
+                                            } finally {
+                                                useSyncStore.getState().setIsScanning(false, false);
+                                            }
+                                        }
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.repair_covers') || 'Reparar carátulas vacías'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.repair_covers_desc') || 'Corrige las carátulas de los álbumes que se quedaron en blanco tras el último fallo del escáner'}
+                            </Text>
+                        </View>
+                        <Ionicons name="image" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
                     <View style={styles.separator} />
                     <TouchableOpacity

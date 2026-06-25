@@ -14,7 +14,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { runOnJS } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ColorPicker, {
   HueSlider,
@@ -311,7 +311,7 @@ export default function TagFormModal() {
                 value={customHexCode || "#FFFFFF"}
                 onComplete={(result: { hex: string }) => {
                   "worklet";
-                  runOnJS(setHexOnJS)(result.hex);
+                  scheduleOnRN(() => setHexOnJS(result.hex));
                 }}
               >
                 <Panel1 />

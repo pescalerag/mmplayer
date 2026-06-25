@@ -1,5 +1,9 @@
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
+import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Alert,
     Animated,
@@ -12,17 +16,13 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-import * as NavigationBar from 'expo-navigation-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Q } from '@nozbe/watermelondb';
-import Track from '../database/models/Track';
 import { database } from '../database';
-import { useTagMenuStore } from '../store/useTagMenuStore';
-import { useTagFormStore } from '../store/useTagFormStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import Track from '../database/models/Track';
 import { TagService } from '../services/tagService';
-import { useTranslation } from 'react-i18next';
-import { useAppTheme } from '@/hooks/useAppTheme';
+import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useTagFormStore } from '../store/useTagFormStore';
+import { useTagMenuStore } from '../store/useTagMenuStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -44,7 +44,7 @@ export default function TagMenuSheet() {
     useEffect(() => {
         if (isVisible) {
             if (Platform.OS === 'android') {
-                NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
+                NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
             }
             Animated.parallel([
                 Animated.timing(fadeAnim, {

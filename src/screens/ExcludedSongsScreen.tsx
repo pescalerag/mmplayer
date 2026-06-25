@@ -1,7 +1,9 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ScrollView,
     StyleSheet,
@@ -10,13 +12,11 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { useSyncStore } from '../store/useSyncStore';
-import { Colors, Layout } from '../theme/theme';
-import { useTranslation } from 'react-i18next';
+import { Layout } from '../theme/theme';
 import { getSafeFileName } from '../utils/safeDecode';
-import { useAppTheme } from "@/hooks/useAppTheme";
 
 export default function ExcludedSongsScreen() {
     const { colors, fonts, layout } = useAppTheme();

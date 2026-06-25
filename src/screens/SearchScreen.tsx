@@ -1,42 +1,42 @@
 import { Ionicons } from "@expo/vector-icons";
-import { getDynamicTagTextColor } from '../utils/color';
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { LinearGradient } from "expo-linear-gradient";
-import { Colors } from "../theme/theme";
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { FlashList } from '@shopify/flash-list';
+import { LinearGradient } from "expo-linear-gradient";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Keyboard,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LibraryCard from "../components/LibraryCard";
 import SectionHeader from "../components/SectionHeader";
 import TopMatchCard from "../components/TopMatchCard";
 import TrackRow from "../components/TrackRow";
+import { database } from "../database";
 import Album from "../database/models/Album";
 import Artist from "../database/models/Artist";
 import Tag from "../database/models/Tag";
 import Track from "../database/models/Track";
-import { database } from "../database";
-import { useMusicSearch, TopMatch } from "../hooks/useMusicSearch";
+import { TopMatch, useMusicSearch } from "../hooks/useMusicSearch";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { SearchStackParamList } from "../navigation/types";
-import { usePlayerStore } from "../store/usePlayerStore";
 import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { useArtistMenuStore } from "../store/useArtistMenuStore";
+import { usePlayerStore } from "../store/usePlayerStore";
 import { useTagMenuStore } from "../store/useTagMenuStore";
-import { Layout } from "../theme/theme";
-import { HistoryService } from "../services/HistoryService";
+import { Colors, Layout } from "../theme/theme";
+import { getDynamicTagTextColor } from '../utils/color';
+
 import { useTranslation } from "react-i18next";
+import { HistoryService } from "../services/HistoryService";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -308,7 +308,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           const artistNames = collaborators.length > 0
             ? collaborators.map(a => a.name).join(', ')
             : t('actions.unknown');
-          
+
           HistoryService.updateUIRecents({
             id: track.id,
             type: "track",
@@ -502,7 +502,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       const { item } = info;
       return (
         <View style={{ minHeight: 64, width: '100%' }}>
-            <SearchTrackRow track={item} onPress={handleTrackPress} />
+          <SearchTrackRow track={item} onPress={handleTrackPress} />
         </View>
       );
     },
@@ -626,10 +626,10 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         data={
           isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
             ? results.tracks.filter(
-                (track) =>
-                  currentTopMatch?.type !== "track" ||
-                  track.id !== currentTopMatch.item.id,
-              )
+              (track) =>
+                currentTopMatch?.type !== "track" ||
+                track.id !== currentTopMatch.item.id,
+            )
             : []
         }
         keyExtractor={(item) => item.id}

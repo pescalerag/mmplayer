@@ -5,6 +5,7 @@ interface MultiSelectState {
     isSelectionMode: boolean;
     selectedTracks: Track[];
     enterSelectionMode: (initialTrack: Track) => void;
+    selectMultipleTracks: (tracks: Track[]) => void;
     toggleTrack: (track: Track) => void;
     clearSelection: () => void;
     exitSelectionMode: () => void;
@@ -17,6 +18,11 @@ export const useMultiSelectStore = create<MultiSelectState>((set, get) => ({
     enterSelectionMode: (initialTrack) => set({ 
         isSelectionMode: true, 
         selectedTracks: [initialTrack] 
+    }),
+
+    selectMultipleTracks: (tracks) => set({
+        isSelectionMode: true,
+        selectedTracks: tracks
     }),
     
     toggleTrack: (track) => {

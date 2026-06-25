@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { FlashList } from '@shopify/flash-list';
-import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
     Alert,
     Animated,
@@ -15,6 +13,8 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     Event,
@@ -23,10 +23,10 @@ import TrackPlayer, {
     usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
-import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { PlayingIndicator } from './PlayingIndicator';
+import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { Colors } from '../theme/theme';
+import { PlayingIndicator } from './PlayingIndicator';
 
 const { height, width } = Dimensions.get('window');
 const TAB_WIDTH = (width - 48 - 44) / 2;
@@ -51,7 +51,7 @@ export default function QueueSheet() {
     const slideAnim = useRef(new Animated.Value(height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
-    
+
     const isReordering = useRef(false);
 
     const recentTracks = queue.slice(0, activeIndex).reverse();
@@ -69,7 +69,7 @@ export default function QueueSheet() {
                 TrackPlayer.getQueue(),
                 TrackPlayer.getActiveTrackIndex(),
             ]);
-            
+
             setQueue(fullQueue);
             if (realIdx !== undefined && realIdx !== null) {
                 setActiveIndex(realIdx);
@@ -134,7 +134,7 @@ export default function QueueSheet() {
 
         const globalFrom = activeIndex + 1 + from;
         const globalTo = activeIndex + 1 + to;
-        
+
         const trackToMove = queue[globalFrom];
         if (!trackToMove) {
             isReordering.current = false;
@@ -151,17 +151,17 @@ export default function QueueSheet() {
         try {
             await TrackPlayer.remove(globalFrom);
             await TrackPlayer.add([trackToMove], globalTo);
-            
+
             await new Promise(resolve => setTimeout(resolve, 300));
 
             const [fullQueue, currentIdx] = await Promise.all([
                 TrackPlayer.getQueue(),
                 TrackPlayer.getActiveTrackIndex(),
             ]);
-            
+
             setQueue(fullQueue);
             if (currentIdx !== undefined && currentIdx !== null) setActiveIndex(currentIdx);
-            
+
             await usePlayerStore.getState().savePlaybackState();
         } catch (error) {
             console.error('Error reordering track:', error);
@@ -192,7 +192,7 @@ export default function QueueSheet() {
             ]);
             setQueue(fullQueue);
             if (idx !== undefined && idx !== null) setActiveIndex(idx);
-            
+
             await usePlayerStore.getState().updateQueueStatus(idx ?? undefined);
             await usePlayerStore.getState().savePlaybackState();
         } catch (error) {
@@ -408,9 +408,9 @@ interface CurrentTrackHeaderProps {
 }
 
 const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal }: CurrentTrackHeaderProps) => {
-    const imageSource = React.useMemo(() => 
+    const imageSource = React.useMemo(() =>
         currentTrack?.artwork ? { uri: currentTrack.artwork } : null
-    , [currentTrack?.artwork]);
+        , [currentTrack?.artwork]);
 
     if (!currentTrack) return null;
 
@@ -459,9 +459,9 @@ const QueueTrackRow = React.memo(({ item, index, activeIndex, userQueueSize, onS
     const globalIndex = activeIndex + 1 + index;
     const isUserQueued = index < userQueueSize;
     const isManual = item.isManual === true || isUserQueued;
-    const imageSource = React.useMemo(() => 
+    const imageSource = React.useMemo(() =>
         item.artwork ? { uri: item.artwork } : null
-    , [item.artwork]);
+        , [item.artwork]);
 
     return (
         <TouchableOpacity
@@ -521,9 +521,9 @@ interface RecentTrackRowProps {
 
 const RecentTrackRow = React.memo(({ item, index, activeIndex, onSkip }: RecentTrackRowProps) => {
     const globalIndex = activeIndex - 1 - index;
-    const imageSource = React.useMemo(() => 
+    const imageSource = React.useMemo(() =>
         item.artwork ? { uri: item.artwork } : null
-    , [item.artwork]);
+        , [item.artwork]);
 
     return (
         <TouchableOpacity

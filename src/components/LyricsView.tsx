@@ -1,5 +1,8 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
+import withObservables from '@nozbe/with-observables';
 import React, { useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
@@ -11,17 +14,14 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import TrackPlayer, { useProgress } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { LyricsService } from '../services/LyricsService';
-import { useAppTheme } from "@/hooks/useAppTheme";
-import withObservables from '@nozbe/with-observables';
-import Track from '../database/models/Track';
+import TrackPlayer, { useProgress } from 'react-native-track-player';
 import Artist from '../database/models/Artist';
+import Track from '../database/models/Track';
 import { useSyncedLyrics } from '../hooks/useSyncedLyrics';
+import { LyricsService } from '../services/LyricsService';
 import { useLyricsMenuStore } from '../store/useLyricsMenuStore';
+import { usePlayerStore } from '../store/usePlayerStore';
 
 interface LyricsViewUIProps {
     track: Track;
@@ -84,6 +84,87 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
         }
     };
 
+    const renderBodyContent = () => {
+        if (isLoading) {
+            return (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                    <Text style={styles.loadingText}>{t('audio_effects.lyrics_searching') || 'Buscando letras...'}</Text>
+                </View>
+            );
+        }
+
+        if (!lyricsText) {
+            return (
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16 }} />
+                    <Text style={styles.emptyText}>{t('audio_effects.lyrics_not_found') || 'No se encontraron letras'}</Text>
+                    <TouchableOpacity
+                        onPress={handleImportLRC}
+                        style={styles.importButton}
+                    >
+                        <Text style={styles.importButtonText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (isSynced) {
+            return (
+                /* Synced Lyrics List */
+                <FlatList
+                    ref={flatListRef}
+                    data={parsedLyrics}
+                    keyExtractor={(item, index) => index.toString()}
+                    renderItem={({ item, index }) => {
+                        const isActive = index === activeIndex;
+                        return (
+                            <TouchableOpacity
+                                onPress={() => TrackPlayer.seekTo(item.time)}
+                                activeOpacity={0.7}
+                                style={styles.lyricLineContainer}
+                            >
+                                <Text style={[
+                                    styles.lyricText,
+                                    isActive ? styles.lyricTextActive : styles.lyricTextInactive
+                                ]}>
+                                    {item.text}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    }}
+                    contentContainerStyle={[
+                        styles.lyricsListContent,
+                        { paddingBottom: insets.bottom + 100 }
+                    ]}
+                    getItemLayout={(data, index) => (
+                        { length: 70, offset: 70 * index, index }
+                    )}
+                    onScrollToIndexFailed={(info) => {
+                        flatListRef.current?.scrollToOffset({
+                            offset: info.highestMeasuredFrameIndex * 70,
+                            animated: false
+                        });
+                    }}
+                    showsVerticalScrollIndicator={false}
+                />
+            );
+        }
+
+        return (
+            /* Plain Text Lyrics Fallback */
+            <ScrollView
+                contentContainerStyle={[
+                    styles.plainTextContainer,
+                    { paddingBottom: insets.bottom + 40 }
+                ]}
+                showsVerticalScrollIndicator={false}
+            >
+                <Text style={styles.plainLyricsText}>{lyricsText}</Text>
+            </ScrollView>
+        );
+    };
+
     return (
         <Modal
             animationType="slide"
@@ -100,14 +181,14 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
                     >
                         <Ionicons name="chevron-down" size={28} color={colors.text} />
                     </TouchableOpacity>
-                    
+
                     <View style={styles.headerTitleContainer}>
                         <Text numberOfLines={1} style={styles.headerTrackTitle}>{track.title}</Text>
                         <Text numberOfLines={1} style={styles.headerTrackArtist}>{artistName}</Text>
                     </View>
 
                     <TouchableOpacity
-                        onPress={() => useLyricsMenuStore.getState().openMenu(track, () => {})}
+                        onPress={() => useLyricsMenuStore.getState().openMenu(track, () => { })}
                         style={styles.menuButton}
                     >
                         <Ionicons name="ellipsis-vertical" size={24} color={colors.text} />
@@ -115,72 +196,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
                 </View>
 
                 {/* Body Content */}
-                {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={colors.accent} />
-                        <Text style={styles.loadingText}>{t('audio_effects.lyrics_searching') || 'Buscando letras...'}</Text>
-                    </View>
-                ) : !lyricsText ? (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16 }} />
-                        <Text style={styles.emptyText}>{t('audio_effects.lyrics_not_found') || 'No se encontraron letras'}</Text>
-                        <TouchableOpacity 
-                            onPress={handleImportLRC}
-                            style={styles.importButton}
-                        >
-                            <Text style={styles.importButtonText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : isSynced ? (
-                    /* Synced Lyrics List */
-                    <FlatList
-                        ref={flatListRef}
-                        data={parsedLyrics}
-                        keyExtractor={(item, index) => index.toString()}
-                        renderItem={({ item, index }) => {
-                            const isActive = index === activeIndex;
-                            return (
-                                <TouchableOpacity
-                                    onPress={() => TrackPlayer.seekTo(item.time)}
-                                    activeOpacity={0.7}
-                                    style={styles.lyricLineContainer}
-                                >
-                                    <Text style={[
-                                        styles.lyricText,
-                                        isActive ? styles.lyricTextActive : styles.lyricTextInactive
-                                    ]}>
-                                        {item.text}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        }}
-                        contentContainerStyle={[
-                            styles.lyricsListContent,
-                            { paddingBottom: insets.bottom + 100 }
-                        ]}
-                        getItemLayout={(data, index) => (
-                            { length: 70, offset: 70 * index, index }
-                        )}
-                        onScrollToIndexFailed={(info) => {
-                            flatListRef.current?.scrollToOffset({
-                                offset: info.highestMeasuredFrameIndex * 70,
-                                animated: false
-                            });
-                        }}
-                        showsVerticalScrollIndicator={false}
-                    />
-                ) : (
-                    /* Plain Text Lyrics Fallback */
-                    <ScrollView
-                        contentContainerStyle={[
-                            styles.plainTextContainer,
-                            { paddingBottom: insets.bottom + 40 }
-                        ]}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <Text style={styles.plainLyricsText}>{lyricsText}</Text>
-                    </ScrollView>
-                )}
+                {renderBodyContent()}
             </View>
         </Modal>
     );
@@ -189,7 +205,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
 const ObservableLyricsViewUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
     artist: trackModel.artist.observe(),
-    artists: trackModel.queryCollaborators.observe() as any,
+    artists: trackModel.queryCollaborators.observe(),
 }))(LyricsViewUI);
 
 export default function LyricsView() {

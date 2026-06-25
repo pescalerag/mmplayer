@@ -1,25 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import React, { memo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, Keyboard } from "react-native";
+import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, runOnJS, clamp } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import Animated, { clamp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { State, usePlaybackState } from "react-native-track-player";
+import { scheduleOnRN } from 'react-native-worklets';
 import Track from "../database/models/Track";
+import { HistoryService } from "../services/HistoryService";
+import { usePlayerStore } from "../store/usePlayerStore";
 import { useTrackMenuStore } from "../store/useTrackMenuStore";
 import { formatTrackTime } from "../utils/time";
-import { usePlayerStore } from "../store/usePlayerStore";
 import { PlayingIndicator } from "./PlayingIndicator";
-import { Colors } from "../theme/theme";
-import { usePlaybackState, State } from "react-native-track-player";
-import { HistoryService } from "../services/HistoryService";
 
-import { useSettingsStore, SwipeAction } from "../store/useSettingsStore";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { useToastStore } from "../store/useToastStore";
-import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
 import i18n from "../constants/i18n";
 import { useMultiSelectStore } from "../store/useMultiSelectStore";
+import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
+import { SwipeAction, useSettingsStore } from "../store/useSettingsStore";
+import { useToastStore } from "../store/useToastStore";
 interface TrackRowProps {
   readonly track: Track;
   readonly contextId: string;
@@ -41,13 +41,13 @@ function TrackRow({
   onPress,
   preventAutoHistory,
 }: Readonly<TrackRowProps>) {
-    const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
+  const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+  const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
   const openMenu = useTrackMenuStore((state) => state.openMenu);
-  
+
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const playbackContext = usePlayerStore((state) => state.playbackContext);
-  
+
   const playbackStateRN = usePlaybackState();
   const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
 
@@ -57,13 +57,13 @@ function TrackRow({
   const isSelectionMode = useMultiSelectStore(state => state.isSelectionMode);
   const isSelected = useMultiSelectStore(state => state.selectedTracks.some(t => t.id === track.id));
 
-  const isCurrentTrack = activeTrack?.id === track.id && 
-                        (playbackContext === contextId || contextId === 'queue');
+  const isCurrentTrack = activeTrack?.id === track.id &&
+    (playbackContext === contextId || contextId === 'queue');
 
   const [imageError, setImageError] = React.useState(false);
 
   React.useEffect(() => {
-      setImageError(false);
+    setImageError(false);
   }, [track.id]);
 
   const swipeLeftAction = useSettingsStore((state) => state.swipeLeftAction);
@@ -91,10 +91,10 @@ function TrackRow({
     } else if (action === 'toggle_favorite') {
       const wasFavorite = track.isFavorite;
       await track.toggleLike();
-      if (!wasFavorite) {
-        showToast(i18n.t('toasts.added_to_favourites'), 'heart');
-      } else {
+      if (wasFavorite) {
         showToast(i18n.t('actions.success'), 'heart-dislike');
+      } else {
+        showToast(i18n.t('toasts.added_to_favourites'), 'heart');
       }
     }
   }, [track]);
@@ -114,7 +114,7 @@ function TrackRow({
 
       if (Math.abs(translateX.value) > SWIPE_THRESHOLD && !hasTriggeredHaptic.value) {
         hasTriggeredHaptic.value = true;
-        runOnJS(triggerHaptic)();
+        scheduleOnRN(triggerHaptic);
       } else if (Math.abs(translateX.value) <= SWIPE_THRESHOLD) {
         hasTriggeredHaptic.value = false;
       }
@@ -122,7 +122,7 @@ function TrackRow({
     .onEnd(() => {
       if (Math.abs(translateX.value) > SWIPE_THRESHOLD) {
         const action = translateX.value > 0 ? swipeRightAction : swipeLeftAction;
-        runOnJS(handleSwipeAction)(action);
+        scheduleOnRN(handleSwipeAction, action);
       }
       translateX.value = withSpring(0, {
         stiffness: 400,
@@ -213,10 +213,10 @@ function TrackRow({
           >
             {isSelectionMode && (
               <View style={{ marginRight: 12 }}>
-                <Ionicons 
-                  name={isSelected ? "checkmark-circle" : "ellipse-outline"} 
-                  size={24} 
-                  color={isSelected ? colors.accent : colors.textSecondary} 
+                <Ionicons
+                  name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                  size={24}
+                  color={isSelected ? colors.accent : colors.textSecondary}
                 />
               </View>
             )}
@@ -226,7 +226,7 @@ function TrackRow({
               {coverUrl && !imageError ? (
                 <Image
                   key={track.id}
-                  source={{ uri: coverUrl as string }}
+                  source={{ uri: coverUrl }}
                   style={styles.cover}
                   contentFit="cover"
                   transition={200}
@@ -247,8 +247,8 @@ function TrackRow({
             {/* Info */}
             <View style={styles.info}>
               <View style={styles.titleRow}>
-                <Text 
-                  style={[styles.title, isCurrentTrack && styles.titleActive]} 
+                <Text
+                  style={[styles.title, isCurrentTrack && styles.titleActive]}
                   numberOfLines={1}
                 >
                   {track.title}
@@ -285,7 +285,11 @@ function TrackRow({
 
 export default memo(TrackRow);
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}) => StyleSheet.create({
+const DEFAULT_SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+const DEFAULT_RADII = { sm: 4, md: 8, lg: 12, full: 9999 };
+const DEFAULT_FONT_WEIGHTS = { regular: '400', semiBold: '600', bold: '700' };
+
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_SPACING, radii: any = DEFAULT_RADII, fontWeights: any = DEFAULT_FONT_WEIGHTS) => StyleSheet.create({
   container: {
     position: 'relative',
     width: '100%',

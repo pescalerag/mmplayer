@@ -1,10 +1,10 @@
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     StyleSheet,
@@ -18,14 +18,13 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import PlaybackHistory from '../database/models/PlaybackHistory';
 import Track from '../database/models/Track';
-import { Colors, Layout } from '../theme/theme';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { Layout } from '../theme/theme';
 
 interface HistoryRowProps {
     historyItem: PlaybackHistory;
 }
 
-function HistoryRow({ historyItem }: HistoryRowProps) {
+function HistoryRow({ historyItem }: Readonly<HistoryRowProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [track, setTrack] = useState<Track | null>(null);
@@ -112,7 +111,18 @@ interface DebugHistoryContentProps {
     history: PlaybackHistory[];
 }
 
-function DebugHistoryContent({ history }: DebugHistoryContentProps) {
+const clearPlaybackHistory = async () => {
+    await database.write(async () => {
+        const records = await database.collections
+            .get<PlaybackHistory>('playback_history')
+            .query()
+            .fetch();
+        const batchOps = records.map(r => r.prepareDestroyPermanently());
+        await database.batch(batchOps);
+    });
+};
+
+function DebugHistoryContent({ history }: Readonly<DebugHistoryContentProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const navigation = useNavigation();
@@ -129,14 +139,7 @@ function DebugHistoryContent({ history }: DebugHistoryContentProps) {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await database.write(async () => {
-                                const records = await database.collections
-                                    .get<PlaybackHistory>('playback_history')
-                                    .query()
-                                    .fetch();
-                                const batchOps = records.map(r => r.prepareDestroyPermanently());
-                                await database.batch(batchOps);
-                            });
+                            await clearPlaybackHistory();
                         } catch (error) {
                             console.error("Error al borrar historial:", error);
                         }

@@ -1,15 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Animated, BackHandler } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { getChangelogForVersion } from '../constants/changelogs';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { navigationRef } from '../navigation/navigationRef';
-import { ScannerService } from '../services/ScannerService';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Animated, BackHandler, Dimensions, StyleSheet } from 'react-native';
+import { navigationRef } from '../navigation/navigationRef';
+import { useSettingsStore } from '../store/useSettingsStore';
 
-import { Colors } from '../theme/theme';
 import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width, height } = Dimensions.get('window');
@@ -19,12 +14,12 @@ const IMAGE_WIDTH = width * 0.75;
 const IMAGE_HEIGHT = IMAGE_WIDTH * (1920 / 1080);
 
 export default function UpdatedAppModal() {
-    const { colors, fonts, layout } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
-    const [visible, setVisible] = useState(false);
-    const [shouldRender, setShouldRender] = useState(false);
-    const { t } = useTranslation();
-  
+  const { colors, fonts, layout } = useAppTheme();
+  const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const [visible, setVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+  const { t } = useTranslation();
+
   const { lastSeenVersion, setLastSeenVersion } = useSettingsStore();
   const currentVersion = Constants.expoConfig?.version || '1.1.0';
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -90,11 +85,6 @@ export default function UpdatedAppModal() {
     const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
     return () => subscription.remove();
   }, [visible, handleClose]);
-
-  const handleSeeChanges = () => {
-    handleClose();
-    navigationRef.current?.navigate('Configuración', { screen: 'ChangelogScreen' });
-  };
 
   if (!shouldRender && !visible) return null;
 

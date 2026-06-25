@@ -185,7 +185,11 @@ const removeEmptyEntities = async (
 // --- 1. Helper to extract metadata ---
 const extractFileMetadata = (file: any) => {
     let coverUrl = file.coverUrl || null;
-    if (!coverUrl) {
+    if (coverUrl && coverUrl.startsWith('content://')) {
+        // Append query parameter with lastModified to bust image cache on updates
+        const separator = coverUrl.includes('?') ? '&' : '?';
+        coverUrl = `${coverUrl}${separator}t=${file.lastModified || Date.now()}`;
+    } else if (!coverUrl) {
         coverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
     }
 
@@ -267,6 +271,25 @@ const resolveArtists = async (artistString: string, artistCache: Map<string, Art
     return { trackArtists, newArtistOps };
 };
 
+const coverExistsCache = new Map<string, boolean>();
+
+const checkCoverExists = async (uri: string | null): Promise<boolean> => {
+    if (!uri) return false;
+    if (coverExistsCache.has(uri)) {
+        return coverExistsCache.get(uri)!;
+    }
+    try {
+        // Strip query parameters for checking file info
+        const cleanUri = uri.split('?')[0];
+        const info = await FileSystem.getInfoAsync(cleanUri);
+        coverExistsCache.set(uri, info.exists);
+        return info.exists;
+    } catch {
+        coverExistsCache.set(uri, false);
+        return false;
+    }
+};
+
 // --- 4. Helper to resolve and optionally create an album ---
 const resolveAlbum = async (
     albumId: string,
@@ -284,6 +307,14 @@ const resolveAlbum = async (
     const newAlbumOps: any[] = [];
     let album = albumCache.get(albumId) || albumCache.get(albumTitle);
 
+    let finalCoverUrl = coverUrl;
+    if (coverUrl && coverUrl.startsWith('content://')) {
+        const exists = await checkCoverExists(coverUrl);
+        if (!exists) {
+            finalCoverUrl = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        }
+    }
+
     if (album) {
         const currentArtistId = (album._raw as any).artist_id;
         let nextArtist: Artist | null = null;
@@ -300,10 +331,10 @@ const resolveAlbum = async (
             }
         }
 
-        const isDefaultCover = coverUrl === RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        const isDefaultCover = finalCoverUrl === RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
         let newCover = null;
-        if (coverUrl && album.coverUrl !== coverUrl && !isDefaultCover) {
-            newCover = coverUrl;
+        if (finalCoverUrl && album.coverUrl !== finalCoverUrl && !isDefaultCover) {
+            newCover = finalCoverUrl;
         }
 
         if (nextArtist || newCover) {
@@ -334,7 +365,7 @@ const resolveAlbum = async (
             a.title = albumTitle;
             a.normalizedTitle = normalizeText(albumTitle);
             a.artist.set(primaryArtist);
-            a.coverUrl = coverUrl;
+            a.coverUrl = finalCoverUrl;
             a.year = year;
             a.isPinned = false;
         });
@@ -899,6 +930,8 @@ export const ScannerService = {
             return { total: 0, added: 0, skipped: 0 };
         }
 
+        coverExistsCache.clear();
+
         onProgress?.(0, 0, 'Solicitando permisos...');
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
@@ -1237,6 +1270,60 @@ export const ScannerService = {
             return tracksWithoutGain.length;
         } catch (error) {
             console.error("Error en runDeepReplayGainScan:", error);
+            throw error;
+        }
+    },
+
+    repairMissingAlbumCovers: async (
+        onProgress?: (current: number, total: number, phase: string) => void
+    ): Promise<number> => {
+        try {
+            const albumsCollection = database.collections.get<Album>('albums');
+            const allAlbums = await albumsCollection.query().fetch();
+            
+            const affectedAlbums = allAlbums.filter(a => a.coverUrl && a.coverUrl.startsWith('content://'));
+
+            if (affectedAlbums.length === 0) {
+                return 0;
+            }
+
+            let repairedCount = 0;
+            const batchOps: any[] = [];
+            const BATCH_SIZE = 100;
+
+            coverExistsCache.clear();
+
+            for (let i = 0; i < affectedAlbums.length; i++) {
+                const album = affectedAlbums[i];
+                onProgress?.(i, affectedAlbums.length, `Verificando carátulas (${i}/${affectedAlbums.length})...`);
+
+                const exists = await checkCoverExists(album.coverUrl);
+                if (!exists) {
+                    const nullCoverUri = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+                    const updateOp = album.prepareUpdate((a: any) => {
+                        a.coverUrl = nullCoverUri;
+                    });
+                    batchOps.push(updateOp);
+                    repairedCount++;
+                }
+
+                if (batchOps.length >= BATCH_SIZE) {
+                    await database.write(async () => {
+                        await database.batch(batchOps);
+                    });
+                    batchOps.length = 0;
+                }
+            }
+
+            if (batchOps.length > 0) {
+                await database.write(async () => {
+                    await database.batch(batchOps);
+                });
+            }
+
+            return repairedCount;
+        } catch (error) {
+            console.error("Error en repairMissingAlbumCovers:", error);
             throw error;
         }
     }

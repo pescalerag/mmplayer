@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 
 interface PlayingIndicatorProps {
     color?: string;
@@ -22,7 +22,7 @@ const makeBarSequence = (anim: Animated.Value): Animated.CompositeAnimation =>
         }),
     ]);
 
-const loopBar = (anim: Animated.Value, pausedRef: React.MutableRefObject<boolean>) => {
+const loopBar = (anim: Animated.Value, pausedRef: React.RefObject<boolean>) => {
     const onFinish = ({ finished }: { finished: boolean }) => {
         if (finished && !pausedRef.current) {
             makeBarSequence(anim).start(onFinish);

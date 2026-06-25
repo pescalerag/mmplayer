@@ -76,6 +76,8 @@ interface PlayerState {
   removePlaylistFromRecents: (playlistId: string) => void;
   updateMediaImageInRecents: (id: string, type: RecentItem["type"], imageUrl: string | null) => void;
   handleDeletedEntities: (trackIds: string[], albumIds: string[], artistIds: string[]) => Promise<void>;
+  isRestoring: boolean;
+  isQueueLoading: boolean;
 }
 
 export type RecentItem = {
@@ -144,10 +146,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isLyricsVisible: false,
   recentMedia: [],
   recentPlaylists: [],
+  isRestoring: false,
+  isQueueLoading: false,
 
   loadQueue: async (tracks, index, context = "unknown") => {
     const loadId = ++currentLoadId;
     try {
+      set({ isQueueLoading: true });
       const CHUNK_SIZE = 50;
 
       const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
@@ -213,11 +218,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             }
           } catch (bgError) {
             console.error("Background queue loading error:", bgError);
+          } finally {
+            if (currentLoadId === loadId) {
+              set({ isQueueLoading: false });
+            }
           }
         })();
+      } else {
+        set({ isQueueLoading: false });
       }
     } catch (error) {
       console.error("Error loading queue:", error);
+      set({ isQueueLoading: false });
     }
   },
 
@@ -590,6 +602,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   restorePlaybackState: async () => {
+    set({ isRestoring: true });
     try {
       const savedData = storage.getString(PERSISTENCE_KEY);
       if (!savedData) {
@@ -676,6 +689,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().updateQueueStatus(safeIndex);
     } catch (error) {
       console.error("Error restaurando estado de reproducción:", error);
+    } finally {
+      setTimeout(() => {
+        set({ isRestoring: false });
+      }, 1000);
     }
   },
 

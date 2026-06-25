@@ -22,6 +22,7 @@ import { usePlayerStore } from '../store/usePlayerStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useTagManagerStore } from '../store/useTagManagerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
 import { useToastStore } from '../store/useToastStore';
 import { useTranslation } from 'react-i18next';
@@ -106,7 +107,7 @@ export default function AlbumMenuSheet() {
                         Q.where('album_id', selectedAlbum.id),
                         Q.sortBy('disc_number', Q.asc),
                         Q.sortBy('track_number', Q.asc)
-                    ).fetch() as Promise<Track[]>
+                    ).fetch()
                 ]);
                 setArtistName(artistDoc?.name || t('actions.unknown'));
                 setArtistId(artistDoc?.id || null);
@@ -254,6 +255,22 @@ export default function AlbumMenuSheet() {
                         <Ionicons name="add-circle-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
+                </TouchableOpacity>
+
+                {/* OPCIÓN: Seleccionar canciones */}
+                <TouchableOpacity 
+                    style={styles.optionRow} 
+                    onPress={() => {
+                        if (tracks.length > 0) {
+                            closeMenu();
+                            useMultiSelectStore.getState().selectMultipleTracks(tracks);
+                        }
+                    }}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
+                    </View>
+                    <Text style={styles.optionText}>{t('actions.select_all')}</Text>
                 </TouchableOpacity>
 
                 {/* ── Separador ── */}

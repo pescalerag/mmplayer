@@ -2,21 +2,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import React from "react";
 import { FlashList } from "@shopify/flash-list";
+import React from "react";
 import {
-    ActivityIndicator,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TrackPlayer, {
-    State,
-    usePlaybackState,
+  State,
+  usePlaybackState,
 } from "react-native-track-player";
 import DetailHeaderLayout from "../components/DetailHeaderLayout";
 import { getDynamicTagTextColor } from "../utils/color";
@@ -25,6 +25,8 @@ import { formatAlbumDuration } from "../utils/time";
 import SectionHeader from "../components/SectionHeader";
 import TrackRow from "../components/TrackRow";
 
+import { useAppTheme } from "@/hooks/useAppTheme";
+import { useTranslation } from "react-i18next";
 import { database } from "../database";
 import Album from "../database/models/Album";
 import Artist from "../database/models/Artist";
@@ -32,13 +34,11 @@ import Tag from "../database/models/Tag";
 import Track from "../database/models/Track";
 import { AlbumDetailRouteProp } from "../navigation/types";
 import { HistoryService } from "../services/HistoryService";
+import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useTagManagerStore } from "../store/useTagManagerStore";
-import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
-import { Colors, Layout } from "../theme/theme";
-import { useTranslation } from "react-i18next";
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { Layout } from "../theme/theme";
 
 const AlbumTrackRow = withObservables(
   ["track"],
@@ -85,7 +85,6 @@ interface Props {
   artist: Artist | null;
   tracks: Track[];
   tags: Tag[];
-  fromPlayer?: boolean;
 }
 
 function AlbumDetailContent({
@@ -95,8 +94,8 @@ function AlbumDetailContent({
   tags,
   isLoadingTracks,
 }: Props & { isLoadingTracks: boolean }) {
-    const { colors, fonts, layout } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const { colors, fonts, layout } = useAppTheme();
+  const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const navigation = useNavigation<any>();
   const showTagColors = useSettingsStore((state) => state.showTagColors);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
@@ -296,7 +295,7 @@ function AlbumDetailContent({
                   name={isCurrentAlbumPlaying ? "pause" : "play"}
                   size={28}
                   color={colors.text}
-                  style={!isCurrentAlbumPlaying ? { marginLeft: 4 } : {}}
+                  style={isCurrentAlbumPlaying ? {} : { marginLeft: 4 }}
                 />
               </TouchableOpacity>
             </>
@@ -335,7 +334,7 @@ function AlbumDetailContent({
         </View>
       );
     },
-    [tracks, album.id, handleTrackPress, t],
+    [tracks, album.id, handleTrackPress, t, colors.accent, styles.discHeader, styles.discText],
   );
 
   const insets = useSafeAreaInsets();

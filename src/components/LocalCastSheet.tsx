@@ -1,5 +1,7 @@
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Animated,
     BackHandler,
@@ -11,11 +13,9 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 import { useCastSheetStore } from '../store/useCastSheetStore';
 import { useCastStore } from '../store/useCastStore';
 import { useToastStore } from '../store/useToastStore';
-import { useAppTheme } from '@/hooks/useAppTheme';
 
 const { height } = Dimensions.get('window');
 
@@ -118,9 +118,14 @@ export default function LocalCastSheet() {
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerLabel}>
-                        {t('cast.title')}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={styles.headerLabel}>
+                            {t('cast.title')}
+                        </Text>
+                        <View style={styles.betaBadge}>
+                            <Text style={styles.betaBadgeText}>BETA</Text>
+                        </View>
+                    </View>
                     <Text style={styles.headerTitle}>
                         {isServerRunning
                             ? t('cast.status_active')
@@ -158,19 +163,7 @@ export default function LocalCastSheet() {
 
                 {/* Botón de acción */}
                 <View style={styles.actionContainer}>
-                    {!isServerRunning ? (
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.startButton, isLoading && styles.buttonDisabled]}
-                            onPress={handleStart}
-                            disabled={isLoading}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="wifi" size={20} color="#fff" style={{ marginRight: 10 }} />
-                            <Text style={styles.actionButtonText}>
-                                {isLoading ? t('cast.starting') : t('cast.start')}
-                            </Text>
-                        </TouchableOpacity>
-                    ) : (
+                    {isServerRunning ? (
                         <TouchableOpacity
                             style={[styles.actionButton, styles.stopButton, isLoading && styles.buttonDisabled]}
                             onPress={handleStop}
@@ -180,6 +173,18 @@ export default function LocalCastSheet() {
                             <Ionicons name="stop-circle-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
                             <Text style={styles.actionButtonText}>
                                 {isLoading ? t('cast.stopping') : t('cast.stop')}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.startButton, isLoading && styles.buttonDisabled]}
+                            onPress={handleStart}
+                            disabled={isLoading}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="wifi" size={20} color="#fff" style={{ marginRight: 10 }} />
+                            <Text style={styles.actionButtonText}>
+                                {isLoading ? t('cast.starting') : t('cast.start')}
                             </Text>
                         </TouchableOpacity>
                     )}
@@ -308,5 +313,21 @@ const getStyles = (colors: any, fonts: any) => StyleSheet.create({
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: 'bold',
+    },
+    betaBadge: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.25)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        alignSelf: 'center',
+    },
+    betaBadgeText: {
+        color: '#F59E0B',
+        fontSize: 9,
+        fontWeight: '900',
+        fontFamily: fonts.regular,
+        letterSpacing: 0.5,
     },
 });

@@ -30,6 +30,7 @@ import LocalCastSheet from "./src/components/LocalCastSheet";
 import SpeedPitchSheet from "./src/components/SpeedPitchSheet";
 import SwipeActionSheet from "./src/components/SwipeActionSheet";
 import SortModalSheet from "./src/components/SortModalSheet";
+import MetadataEditorSheet from "./src/components/MetadataEditorSheet";
 import TagFormModal from "./src/components/TagFormModal";
 import TagManagerModal from "./src/components/TagManagerModal";
 import TrackMenuSheet from "./src/components/TrackMenuSheet";
@@ -157,6 +158,7 @@ export default function App() {
           <LibraryTabsOrderSheet />
           <AppTabsOrderSheet />
           <SwipeActionSheet />
+          <MetadataEditorSheet />
           <GlobalToast />
         </NavigationContainer>
       </View>

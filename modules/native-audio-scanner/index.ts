@@ -36,3 +36,77 @@ export async function getReplayGain(uri: string): Promise<number | null> {
 export async function readFileChunk(filePath: string, offset: number, length: number): Promise<string> {
   return await NativeAudioScannerModule.readFileChunk(filePath, offset, length);
 }
+
+export type PhysicalMetadata = {
+  title: string;
+  artist: string;
+  album: string;
+  year: string;
+  trackNumber: string;
+  genre: string;
+  albumArtist: string;
+  discNumber: string;
+};
+
+export async function readMetadata(filePath: string): Promise<PhysicalMetadata> {
+  return await NativeAudioScannerModule.readMetadata(filePath);
+}
+
+export async function updateMetadata(
+  filePath: string,
+  title: string | null,
+  artist: string | null,
+  album: string | null,
+  year: number | null,
+  trackNumber: number | null,
+  genre: string | null,
+  coverArtPath: string | null,
+  albumArtist?: string | null,
+  discNumber?: number | null
+): Promise<boolean> {
+  return await NativeAudioScannerModule.updateMetadata(
+    filePath,
+    {
+      title,
+      artist,
+      album,
+      year,
+      trackNumber,
+      genre,
+      coverArtPath,
+      albumArtist,
+      discNumber
+    }
+  );
+}
+
+export type BatchMetadataItem = {
+  filePath: string;
+  metadata: {
+    title: string | null;
+    artist: string | null;
+    album: string | null;
+    year: number | null;
+    trackNumber: number | null;
+    genre: string | null;
+    coverArtPath: string | null;
+    albumArtist: string | null;
+    discNumber: number | null;
+  };
+};
+
+export async function updateMetadataBatch(metadataList: BatchMetadataItem[]): Promise<boolean> {
+  return await NativeAudioScannerModule.updateMetadataBatch(JSON.stringify(metadataList));
+}
+
+export async function cancelUpdateMetadataBatch(): Promise<void> {
+  return await NativeAudioScannerModule.cancelUpdateMetadataBatch();
+}
+
+export async function scanMultipleFiles(filePaths: string[]): Promise<boolean> {
+  return await NativeAudioScannerModule.scanMultipleFiles(filePaths);
+}
+
+export async function requestWritePermission(filePaths: string[]): Promise<boolean> {
+  return await NativeAudioScannerModule.requestWritePermission(filePaths);
+}

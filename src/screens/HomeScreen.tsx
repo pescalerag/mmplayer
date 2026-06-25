@@ -1,27 +1,26 @@
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../theme/theme';
-import { useAppTheme } from '@/hooks/useAppTheme';
-import { State, usePlaybackState } from 'react-native-track-player';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { State, usePlaybackState } from 'react-native-track-player';
 import { PlayingIndicator } from '../components/PlayingIndicator';
 import RecentPlaylistCard from '../components/RecentPlaylistCard';
 import { database } from '../database';
-import Track from '../database/models/Track';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
-import { usePlayerStore } from '../store/usePlayerStore';
+import Track from '../database/models/Track';
 import { HistoryService } from '../services/HistoryService';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useTranslation } from 'react-i18next';
+import { useTrackMenuStore } from '../store/useTrackMenuStore';
 
 const { width } = Dimensions.get('window');
 const gridItemWidth = (width - 48) / 2;
@@ -30,14 +29,14 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
     const { colors, fonts, layout, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, undefined, radii, fontWeights), [colors, fonts, layout, radii, fontWeights]);
     const [imageError, setImageError] = React.useState(false);
-    
+
     React.useEffect(() => {
         setImageError(false);
     }, [item.id, item.imageUrl]);
 
     const isCurrentTrack = item.type === 'track' && activeTrack?.id === item.id;
     const isActive = isCurrentTrack;
-    
+
     const showImage = Boolean(item.imageUrl && item.imageUrl !== 'null' && item.imageUrl.trim() !== '') && !imageError;
 
     const handlePress = React.useCallback(() => onPress(item), [item, onPress]);
@@ -210,54 +209,58 @@ export default function HomeScreen() {
                 showsVerticalScrollIndicator={false}
             >
 
-            {/* SECCIÓN 1: Grid 2x3 de Recientes (Canciones y Álbumes) */}
-            {recentMedia.length > 0 ? (
-                <View style={styles.gridContainer}>
-                    {recentMedia.map((item) => (
-                        <RecentMediaCard 
-                            key={`${item.id}-${item.type}`} 
-                            item={item} 
-                            isActuallyPlaying={isActuallyPlaying} 
-                            activeTrack={activeTrack} 
-                            onPress={handleMediaPress} 
-                            onLongPress={handleMediaLongPress}
-                        />
-                    ))}
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
-                </View>
-            )}
+                {/* SECCIÓN 1: Grid 2x3 de Recientes (Canciones y Álbumes) */}
+                {recentMedia.length > 0 ? (
+                    <View style={styles.gridContainer}>
+                        {recentMedia.map((item) => (
+                            <RecentMediaCard
+                                key={`${item.id}-${item.type}`}
+                                item={item}
+                                isActuallyPlaying={isActuallyPlaying}
+                                activeTrack={activeTrack}
+                                onPress={handleMediaPress}
+                                onLongPress={handleMediaLongPress}
+                            />
+                        ))}
+                    </View>
+                ) : (
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
+                    </View>
+                )}
 
-            {/* SECCIÓN 2: Playlists Recientes */}
-            <Text style={styles.sectionTitle}>{t('home.my_playlists')}</Text>
+                {/* SECCIÓN 2: Playlists Recientes */}
+                <Text style={styles.sectionTitle}>{t('home.my_playlists')}</Text>
 
-            {recentPlaylists.length > 0 ? (
-                <View style={styles.playlistsContainer}>
-                    {recentPlaylists.map((playlist, idx) => (
-                        <RecentPlaylistCard
-                            key={`${playlist.id}-${idx}`}
-                            id={playlist.id}
-                            name={playlist.name}
-                            description={playlist.description}
-                            customCoverUrl={(playlist as any).imageUrl}
-                            onPress={handlePlaylistPress}
-                            onLongPress={handlePlaylistLongPress}
-                        />
-                    ))}
-                </View>
-            ) : (
-                <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>{t('home.empty_playlists')}</Text>
-                </View>
-            )}
-        </ScrollView>
+                {recentPlaylists.length > 0 ? (
+                    <View style={styles.playlistsContainer}>
+                        {recentPlaylists.map((playlist, idx) => (
+                            <RecentPlaylistCard
+                                key={`${playlist.id}-${idx}`}
+                                id={playlist.id}
+                                name={playlist.name}
+                                description={playlist.description}
+                                customCoverUrl={(playlist as any).imageUrl}
+                                onPress={handlePlaylistPress}
+                                onLongPress={handlePlaylistLongPress}
+                            />
+                        ))}
+                    </View>
+                ) : (
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyText}>{t('home.empty_playlists')}</Text>
+                    </View>
+                )}
+            </ScrollView>
         </View>
     );
 }
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = {xs: 4, sm: 8, md: 16, lg: 24, xl: 32}, radii: any = {sm: 4, md: 8, lg: 12, full: 9999}, fontWeights: any = {regular: '400', semiBold: '600', bold: '700'}) => StyleSheet.create({
+const DEFAULT_SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+const DEFAULT_RADII = { sm: 4, md: 8, lg: 12, full: 9999 };
+const DEFAULT_FONT_WEIGHTS = { regular: '400', semiBold: '600', bold: '700' };
+
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_SPACING, radii: any = DEFAULT_RADII, fontWeights: any = DEFAULT_FONT_WEIGHTS) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background, // Fondo global

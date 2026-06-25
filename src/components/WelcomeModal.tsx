@@ -1,23 +1,23 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useAppTheme } from "@/hooks/useAppTheme";
+import Constants from 'expo-constants';
+import { Image } from 'expo-image';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    StyleSheet,
-    Text,
-    View,
-    TextInput,
-    TouchableOpacity,
     Animated,
     BackHandler,
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
-    Keyboard,
-    TouchableWithoutFeedback
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
-import { Image } from 'expo-image';
-import Constants from 'expo-constants';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { ScannerService } from '../services/ScannerService';
-import { useTranslation } from 'react-i18next';
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export default function WelcomeModal() {
     const { colors, fonts, layout } = useAppTheme();
@@ -85,7 +85,7 @@ export default function WelcomeModal() {
             // Let's just set it to 'User' or ignore, but the prompt asked for "alias" so it's good to enforce briefly or just save blank.
             setUserAlias(''); // Allow blank if they really want
         }
-        
+
         setLastSeenVersion(currentVersion);
         setForceWelcomeModal(false);
         setVisible(false);
@@ -95,8 +95,8 @@ export default function WelcomeModal() {
     if (!shouldRender && !visible) return null;
 
     return (
-        <View 
-            style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: colors.background }]} 
+        <View
+            style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: colors.background }]}
             pointerEvents={visible ? 'auto' : 'none'}
         >
             <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -112,7 +112,7 @@ export default function WelcomeModal() {
                                 contentFit="contain"
                                 tintColor={colors.text} // In case it needs tinting to be visible
                             />
-                            
+
                             <Text style={styles.title}>{t('welcome.title')}</Text>
                             <Text style={styles.subtitle}>{t('welcome.subtitle')}</Text>
 
@@ -127,8 +127,8 @@ export default function WelcomeModal() {
                                 returnKeyType="done"
                             />
 
-                            <TouchableOpacity 
-                                style={[styles.button, !aliasInput.trim() && !userAlias ? styles.buttonDisabled : null]} 
+                            <TouchableOpacity
+                                style={[styles.button, !aliasInput.trim() && !userAlias ? styles.buttonDisabled : null]}
                                 onPress={handleContinue}
                                 activeOpacity={0.8}
                                 disabled={!aliasInput.trim() && !userAlias}

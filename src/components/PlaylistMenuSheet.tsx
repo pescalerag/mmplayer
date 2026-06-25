@@ -95,6 +95,46 @@ export default function PlaylistMenuSheet() {
         }
     }, [isVisible]);
 
+    const handleViewPlaylist = () => {
+        if (!selectedPlaylist) return;
+        closeMenu();
+        const playlistId = selectedPlaylist.id;
+        if (navCallbacks.detail) {
+            navCallbacks.detail(playlistId);
+            return;
+        }
+
+        if (!navigationRef.isReady()) return;
+
+        const rootState = navigationRef.getRootState();
+        const activeRoute = rootState.routes[rootState.index];
+        const isPlayerActive = activeRoute?.name === 'Player';
+
+        let tabName = getActiveTabName();
+        if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+            tabName = 'Biblioteca';
+        }
+
+        const currentTab = getActiveTabName();
+        const isTargetTabActive = isPlayerActive || tabName === currentTab;
+
+        if (playlistId === 'favorites' && isTargetTabActive) {
+            navigationRef.navigate('FavoritesDetail');
+        } else if (playlistId === 'favorites') {
+            navigationRef.navigate('Main', {
+                screen: tabName,
+                params: { screen: 'FavoritesDetail' }
+            });
+        } else if (isTargetTabActive) {
+            navigationRef.navigate('PlaylistDetail', { playlistId });
+        } else {
+            navigationRef.navigate('Main', {
+                screen: tabName,
+                params: { screen: 'PlaylistDetail', params: { playlistId } }
+            });
+        }
+    };
+
     if (!shouldRender && !isVisible) return null;
 
     return (
@@ -192,45 +232,7 @@ export default function PlaylistMenuSheet() {
                 {/* OPCIÓN: Ver playlist */}
                 <TouchableOpacity
                     style={styles.optionRow}
-                    onPress={() => {
-                        if (selectedPlaylist) {
-                            closeMenu();
-                            const playlistId = selectedPlaylist.id;
-                            if (navCallbacks.detail) {
-                                navCallbacks.detail(playlistId);
-                            } else if (navigationRef.isReady()) {
-                                const rootState = navigationRef.getRootState();
-                                const activeRoute = rootState.routes[rootState.index];
-                                const isPlayerActive = activeRoute?.name === 'Player';
-
-                                let tabName = getActiveTabName();
-                                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                                    tabName = 'Biblioteca';
-                                }
-
-                                const currentTab = getActiveTabName();
-                                if (isPlayerActive || tabName === currentTab) {
-                                    if (playlistId === 'favorites') {
-                                        navigationRef.navigate('FavoritesDetail');
-                                    } else {
-                                        navigationRef.navigate('PlaylistDetail', { playlistId });
-                                    }
-                                } else {
-                                    if (playlistId === 'favorites') {
-                                        navigationRef.navigate('Main', {
-                                            screen: tabName,
-                                            params: { screen: 'FavoritesDetail' }
-                                        });
-                                    } else {
-                                        navigationRef.navigate('Main', {
-                                            screen: tabName,
-                                            params: { screen: 'PlaylistDetail', params: { playlistId } }
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }}
+                    onPress={handleViewPlaylist}
                 >
                     <View style={styles.iconContainer}>
                         <Ionicons name="list-outline" size={24} color={colors.text} />

@@ -3,10 +3,10 @@ import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
+import { FlashList } from '@shopify/flash-list';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { FlashList } from '@shopify/flash-list';
 import {
     ActivityIndicator,
     Alert,
@@ -21,6 +21,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DetailHeaderLayout from '../components/DetailHeaderLayout';
 
+import { useTranslation } from 'react-i18next';
+import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
 import LibraryCard from '../components/LibraryCard';
 import SectionHeader from '../components/SectionHeader';
 import TrackRow from '../components/TrackRow';
@@ -29,14 +31,12 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { ArtistDetailRouteProp } from '../navigation/types';
-import { usePlayerStore } from '../store/usePlayerStore';
+import { HistoryService } from '../services/HistoryService';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
-import { Colors, Layout } from '../theme/theme';
-import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
-import { HistoryService } from '../services/HistoryService';
-import { useTranslation } from 'react-i18next';
+import { usePlayerStore } from '../store/usePlayerStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { Colors, Layout } from '../theme/theme';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
@@ -213,7 +213,7 @@ const ArtistHeader = memo(function ArtistHeader({
                                         name={isCurrentContextPlaying ? "pause" : "play"}
                                         size={28}
                                         color="#FFFFFF"
-                                        style={!isCurrentContextPlaying ? { marginLeft: 4 } : {}}
+                                        style={isCurrentContextPlaying ? {} : { marginLeft: 4 }}
                                     />
                                 </TouchableOpacity>
                             </>
@@ -304,7 +304,7 @@ interface Props {
     isLoadingContent: boolean;
 }
 
-function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingContent }: Props) {
+function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingContent }: Readonly<Props>) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
@@ -415,7 +415,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
             setImageError={setImageError}
             onMore={handleOpenArtistMenu}
         />
-    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, handleOpenArtistMenu]);
+    ), [artist, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, handleOpenArtistMenu]);
 
     return (
         <View style={styles.container}>

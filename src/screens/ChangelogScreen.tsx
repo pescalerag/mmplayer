@@ -1,17 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SectionHeader from '../components/SectionHeader';
 import { changelogs } from '../constants/changelogs';
-import { Layout, Colors } from '../theme/theme';
-import { useTranslation } from 'react-i18next';
+import { Colors, Layout } from '../theme/theme';
 
 export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const currentVersion = Constants.expoConfig?.version || '1.0.0';
-  
+
   const versionKeys = Object.keys(changelogs).sort((a, b) => {
     const cleanA = a.replace(/-beta$/, '');
     const cleanB = b.replace(/-beta$/, '');
@@ -22,7 +22,7 @@ export default function ChangelogScreen() {
   });
 
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, { paddingTop: insets.top }]}
       contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 30 }}
       showsVerticalScrollIndicator={false}
@@ -44,7 +44,7 @@ export default function ChangelogScreen() {
                 </View>
               )}
             </View>
-            
+
             <Text style={versionDateStyle(isCurrent)}>{data.date} — {data.title}</Text>
 
             <View style={[styles.card, isCurrent && styles.cardCurrent]}>
