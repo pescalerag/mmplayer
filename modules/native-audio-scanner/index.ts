@@ -110,3 +110,12 @@ export async function scanMultipleFiles(filePaths: string[]): Promise<boolean> {
 export async function requestWritePermission(filePaths: string[]): Promise<boolean> {
   return await NativeAudioScannerModule.requestWritePermission(filePaths);
 }
+
+export async function updateWidget(
+  title: string,
+  artist: string,
+  coverUri: string | null,
+  isPlaying: boolean
+): Promise<void> {
+  return await NativeAudioScannerModule.updateWidget(title, artist, coverUri, isPlaying);
+}

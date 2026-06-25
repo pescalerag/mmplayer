@@ -5,6 +5,12 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ChangelogScreen from '../screens/ChangelogScreen';
 import ExcludedFoldersScreen from '../screens/ExcludedFoldersScreen';
 import ExcludedSongsScreen from '../screens/ExcludedSongsScreen';
+import SettingsAppearanceScreen from '../screens/SettingsAppearanceScreen';
+import SettingsLanguageScreen from '../screens/SettingsLanguageScreen';
+import SettingsAudioScreen from '../screens/SettingsAudioScreen';
+import SettingsGesturesScreen from '../screens/SettingsGesturesScreen';
+import SettingsExclusionsScreen from '../screens/SettingsExclusionsScreen';
+import SettingsDebugScreen from '../screens/SettingsDebugScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +21,12 @@ export default function SettingsNavigator() {
             <Stack.Screen name="ChangelogScreen" component={ChangelogScreen} />
             <Stack.Screen name="ExcludedFolders" component={ExcludedFoldersScreen} />
             <Stack.Screen name="ExcludedSongs" component={ExcludedSongsScreen} />
+            <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
+            <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
+            <Stack.Screen name="SettingsAudio" component={SettingsAudioScreen} />
+            <Stack.Screen name="SettingsGestures" component={SettingsGesturesScreen} />
+            <Stack.Screen name="SettingsExclusions" component={SettingsExclusionsScreen} />
+            <Stack.Screen name="SettingsDebug" component={SettingsDebugScreen} />
         </Stack.Navigator>
     );
 }
