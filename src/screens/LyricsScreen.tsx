@@ -25,6 +25,7 @@ import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
 import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useToastStore } from '../store/useToastStore';
+import { useCastStore } from '../store/useCastStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
@@ -40,6 +41,8 @@ import Track from '../database/models/Track';
 import { useSyncedLyrics } from '../hooks/useSyncedLyrics';
 import { LyricsService } from '../services/LyricsService';
 import { formatTrackTime } from '../utils/time';
+import { useABRepeatStore } from '../store/useABRepeatStore';
+import { ABSliderMarkers } from '../components/ABSliderMarkers';
 
 const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -119,6 +122,11 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const { position, duration } = useProgress();
     const hasNext = usePlayerStore(state => state.hasNext);
     const hasPrevious = usePlayerStore(state => state.hasPrevious);
+
+    const pointA = useABRepeatStore(state => state.pointA);
+    const pointB = useABRepeatStore(state => state.pointB);
+    const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
+    const isServerRunning = useCastStore(state => state.isServerRunning);
 
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
     const shuffleOriginalQueue = usePlayerStore(state => state.shuffleOriginalQueue);
@@ -356,18 +364,21 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
                 {/* Progress Slider */}
                 <View style={styles.progressSection}>
-                    <Slider
-                        style={styles.slider}
-                        minimumValue={0}
-                        maximumValue={duration > 0 ? duration : 1}
-                        value={isSeeking ? seekValue : position}
-                        minimumTrackTintColor={colors.text}
-                        maximumTrackTintColor={colors.overlayAlpha20}
-                        thumbTintColor={colors.text}
-                        onSlidingStart={(val) => { setIsSeeking(true); setSeekValue(val); }}
-                        onValueChange={(val) => setSeekValue(val)}
-                        onSlidingComplete={(val) => { setIsSeeking(false); TrackPlayer.seekTo(val).catch(() => { }); }}
-                    />
+                    <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+                        <ABSliderMarkers duration={duration} />
+                        <Slider
+                            style={{ width: '100%', height: 40 }}
+                            minimumValue={0}
+                            maximumValue={duration > 0 ? duration : 1}
+                            value={isSeeking ? seekValue : position}
+                            minimumTrackTintColor={colors.text}
+                            maximumTrackTintColor={colors.overlayAlpha20}
+                            thumbTintColor={colors.text}
+                            onSlidingStart={(val) => { setIsSeeking(true); setSeekValue(val); }}
+                            onValueChange={(val) => setSeekValue(val)}
+                            onSlidingComplete={(val) => { setIsSeeking(false); TrackPlayer.seekTo(val).catch(() => { }); }}
+                        />
+                    </View>
                     <View style={styles.timeContainer}>
                         <Text style={styles.timeText}>{formatTrackTime(displayPosition)}</Text>
                         <Text style={styles.timeText}>{formatTrackTime(duration)}</Text>
@@ -411,23 +422,25 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                         <TouchableOpacity
                             onPress={openSleepTimer}
                             style={styles.footerButton}
+                            disabled={isServerRunning}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <Ionicons
                                 name="timer-outline"
                                 size={24}
-                                color={isSleepTimerActive ? colors.accentLight : colors.textSecondary}
+                                color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={openSpeedPitch}
                             style={styles.footerButton}
+                            disabled={isServerRunning}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <Ionicons
                                 name="speedometer-outline"
                                 size={24}
-                                color={isSpeedPitchActive ? colors.accentLight : colors.textSecondary}
+                                color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -439,6 +452,26 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                                 name="mic"
                                 size={24}
                                 color="#A855F7"
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => handleABButtonPress(position)}
+                            style={styles.footerButton}
+                            disabled={isServerRunning}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name={pointA !== null ? "infinite" : "infinite-outline"}
+                                size={24}
+                                color={
+                                    isServerRunning
+                                        ? colors.disabled
+                                        : pointB !== null
+                                        ? colors.accentLight
+                                        : pointA !== null
+                                        ? "rgba(167, 139, 250, 0.5)"
+                                        : colors.textSecondary
+                                }
                             />
                         </TouchableOpacity>
                     </View>
