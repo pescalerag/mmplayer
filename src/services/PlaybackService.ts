@@ -6,6 +6,7 @@ import { database } from "../database";
 import Track from "../database/models/Track";
 import { LyricsSyncService } from "./LyricsSyncService";
 import { useCastStore } from "../store/useCastStore";
+import { updateWidget } from "../../modules/native-audio-scanner";
 
 const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -66,9 +67,33 @@ export const PlaybackTimeTracker = {
   }
 };
 
+export async function syncWidgetState() {
+  try {
+    const activeTrack = await TrackPlayer.getActiveTrack();
+    const playbackState = await TrackPlayer.getPlaybackState();
+    const isPlaying = playbackState.state === State.Playing;
+
+    const title = activeTrack?.title ?? "MMPlayer";
+    const artist = activeTrack?.artist ?? "No se está reproduciendo";
+    const artwork = activeTrack?.artwork ?? null;
+
+    await updateWidget(title, artist, artwork, isPlaying);
+  } catch (e) {
+    console.error("Error syncing widget state:", e);
+  }
+}
+
 export const PlaybackService = async function () {
   TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
+  TrackPlayer.addEventListener(Event.RemotePlayPause, async () => {
+    const state = await TrackPlayer.getPlaybackState();
+    if (state.state === State.Playing) {
+      await TrackPlayer.pause();
+    } else {
+      await TrackPlayer.play();
+    }
+  });
   TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
     try {
@@ -109,6 +134,7 @@ export const PlaybackService = async function () {
     } catch (e) {
       console.error("Error persistiendo posición en PlaybackState:", e);
     }
+    await syncWidgetState();
   });
 
   TrackPlayer.addEventListener(
@@ -192,6 +218,7 @@ export const PlaybackService = async function () {
           }
         } catch { }
       }, 2000);
+      await syncWidgetState();
     },
   );
 

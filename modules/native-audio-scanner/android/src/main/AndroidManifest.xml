@@ -1,0 +1,32 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="expo.modules.nativeaudioscanner">
+    <application>
+        <!-- MMPlayer Widget 4x1 -->
+        <receiver
+            android:name=".WidgetProvider"
+            android:exported="true"
+            android:label="MMPlayer Widget 4x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.pescalerag.mmplayer.ACTION_UPDATE_STATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
+        <!-- MMPlayer Widget 2x2 -->
+        <receiver
+            android:name=".WidgetProviderSmall"
+            android:exported="true"
+            android:label="MMPlayer Widget 2x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.pescalerag.mmplayer.ACTION_UPDATE_STATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+    </application>
+</manifest>

@@ -1,5 +1,6 @@
 package expo.modules.nativeaudioscanner
 
+import android.content.Intent
 import android.content.ContentUris
 import android.net.Uri
 import android.provider.MediaStore
@@ -360,6 +361,30 @@ class NativeAudioScannerModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("NativeAudioScanner")
+
+    AsyncFunction("updateWidget") { title: String, artist: String, coverUri: String?, isPlaying: Boolean ->
+      val context = appContext.reactContext ?: return@AsyncFunction
+      
+      // Update 4x1 widget
+      val intent4x1 = Intent("com.pescalerag.mmplayer.ACTION_UPDATE_STATE").apply {
+          setClassName(context.packageName, "expo.modules.nativeaudioscanner.WidgetProvider")
+          putExtra("title", title)
+          putExtra("artist", artist)
+          putExtra("coverUri", coverUri)
+          putExtra("isPlaying", isPlaying)
+      }
+      context.sendBroadcast(intent4x1)
+
+      // Update 2x2 widget
+      val intent2x2 = Intent("com.pescalerag.mmplayer.ACTION_UPDATE_STATE").apply {
+          setClassName(context.packageName, "expo.modules.nativeaudioscanner.WidgetProviderSmall")
+          putExtra("title", title)
+          putExtra("artist", artist)
+          putExtra("coverUri", coverUri)
+          putExtra("isPlaying", isPlaying)
+      }
+      context.sendBroadcast(intent2x2)
+    }
 
     AsyncFunction("getAudioFiles") { scanReplayGain: Boolean ->
       val shouldScanReplay = scanReplayGain
