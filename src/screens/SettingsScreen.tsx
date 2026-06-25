@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+    Linking,
     ScrollView,
     StyleSheet,
     Text,
@@ -213,6 +214,28 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 <Text style={styles.settingLabel}>{t('settings.debug')}</Text>
                                 <Text style={styles.settingDescription}>
                                     {t('settings.debug_desc')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                </View>
+
+                {/* --- SECCIÓN SÍGUENOS --- */}
+                <View style={styles.sectionCard}>
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => Linking.openURL('https://github.com/pescalerag/mmplayer')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="logo-github" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.follow_us')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.follow_us_desc')}
                                 </Text>
                             </View>
                         </View>

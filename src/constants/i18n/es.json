@@ -137,6 +137,8 @@
     "full_data_removal": "Borrado de datos completo",
     "full_data_removal_desc": "Borra toda la base de datos, playlists, etiquetas, historial y configuración. Luego re-escanea tu biblioteca desde cero.",
     "info": "Información",
+    "follow_us": "Síguenos",
+    "follow_us_desc": "Proyecto oficial en GitHub",
     "about_version": "Acerca de esta versión",
     "release_notes": "Novedades, correcciones y notas de lanzamiento",
     "credits": "Desarrollado por pescalerag. Betatesteado por Killerdroid",

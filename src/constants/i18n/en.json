@@ -137,6 +137,8 @@
     "full_data_removal": "Clear All Data",
     "full_data_removal_desc": "Erase the entire database, playlists, tags, history, and settings. Then, rescan your library from scratch.",
     "info": "About",
+    "follow_us": "Follow Us",
+    "follow_us_desc": "Official GitHub Repository",
     "about_version": "About this version",
     "release_notes": "What's new, fixes, and release notes",
     "credits": "Developed by pescalerag. Beta tested by Killerdroid",
