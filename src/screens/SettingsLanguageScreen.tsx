@@ -62,6 +62,7 @@ export default function SettingsLanguageScreen() {
                     }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.sectionCard}>
                     <View style={styles.languageContainer}>

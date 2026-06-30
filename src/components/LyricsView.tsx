@@ -147,6 +147,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
                         });
                     }}
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 />
             );
         }
@@ -159,6 +160,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
                     { paddingBottom: insets.bottom + 40 }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <Text style={styles.plainLyricsText}>{lyricsText}</Text>
             </ScrollView>

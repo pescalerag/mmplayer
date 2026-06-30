@@ -73,6 +73,7 @@ export default function SettingsGesturesScreen() {
                     }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.sectionCard}>
                     <TouchableOpacity

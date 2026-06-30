@@ -10,15 +10,15 @@ import { Colors, Layout } from '../theme/theme';
 export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const currentVersion = Constants.expoConfig?.version || '1.0.0';
+  const currentVersion = Constants.expoConfig?.version || '2.0.0-beta.5';
 
   const versionKeys = Object.keys(changelogs).sort((a, b) => {
-    const cleanA = a.replace(/-beta$/, '');
-    const cleanB = b.replace(/-beta$/, '');
+    const cleanA = a.replace(/-beta(\.\d+)?$/, '');
+    const cleanB = b.replace(/-beta(\.\d+)?$/, '');
     if (cleanA !== cleanB) {
       return cleanB.localeCompare(cleanA, undefined, { numeric: true });
     }
-    return a.endsWith('-beta') ? 1 : -1;
+    return a.includes('-beta') ? 1 : -1;
   });
 
   return (
@@ -26,6 +26,7 @@ export default function ChangelogScreen() {
       style={[styles.container, { paddingTop: insets.top }]}
       contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 30 }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.headerTitle}>{t('changelog.history_title')}</Text>
       <Text style={styles.headerSubtitle}>{t('changelog.history_subtitle')}</Text>

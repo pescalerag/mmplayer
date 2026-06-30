@@ -7,6 +7,7 @@ import Track from "../database/models/Track";
 import { LyricsSyncService } from "./LyricsSyncService";
 import { useCastStore } from "../store/useCastStore";
 import { updateWidget } from "../../modules/native-audio-scanner";
+import { useABRepeatStore } from "../store/useABRepeatStore";
 
 const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -179,6 +180,9 @@ export const PlaybackService = async function () {
       lastKnownPosition = 0;
       lastKnownDuration = 0;
 
+      // Reiniciar estado de repetición A-B al cambiar la canción
+      useABRepeatStore.getState().clearAB();
+
       // Limpiar minutaje y acumulado persistido de la canción anterior
       storage.set("@player_position", 0);
       storage.set("@player_accumulated", 0);
@@ -226,6 +230,9 @@ export const PlaybackService = async function () {
     Event.PlaybackProgressUpdated,
     async (event) => {
       const { position, duration } = event;
+
+      // Verificar y ejecutar bucle A-B si está activo
+      await useABRepeatStore.getState().checkLoop(position);
       
       if (duration > 0 && lastKnownPosition > 0) {
         // Detect if position jumped backwards to the start from near the end

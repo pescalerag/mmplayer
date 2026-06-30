@@ -63,6 +63,7 @@ export default function SettingsDebugScreen() {
                         paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom
                     }
                 ]}
+                keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.sectionCard}>

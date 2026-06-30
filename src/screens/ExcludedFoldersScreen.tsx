@@ -70,6 +70,7 @@ export default function ExcludedFoldersScreen() {
                     }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.sectionCard}>
                     {excludedFolders.length === 0 ? (

@@ -10,9 +10,11 @@ import i18n from '../constants/i18n';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
+import Playlist from '../database/models/Playlist';
 import { TopMatch } from '../hooks/useMusicSearch';
 import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
 import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
@@ -129,6 +131,25 @@ const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album 
             onLongPress={() => {
                 Keyboard.dismiss();
                 openMenu(album);
+            }}
+        />
+    );
+});
+
+const TopMatchPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
+    playlist: playlist.observe(),
+}))(({ playlist, onPress }: { playlist: Playlist; onPress: () => void }) => {
+    const openMenu = usePlaylistMenuStore(state => state.openMenu);
+    return (
+        <TopMatchCardLayout
+            title={playlist.name}
+            subtitle="Playlist"
+            imageUrl={playlist.coverCustomUrl}
+            type="album"
+            onPress={onPress}
+            onLongPress={() => {
+                Keyboard.dismiss();
+                openMenu(playlist);
             }}
         />
     );
@@ -308,6 +329,8 @@ export default function TopMatchCard({ match, onPress }: TopMatchCardProps) {
             return <TopMatchAlbumCard album={match.item as Album} onPress={onPress} />;
         case 'track':
             return <TopMatchTrackCard track={match.item as Track} onPress={onPress} />;
+        case 'playlist':
+            return <TopMatchPlaylistCard playlist={match.item as Playlist} onPress={onPress} />;
         default:
             return null;
     }

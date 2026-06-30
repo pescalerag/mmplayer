@@ -46,6 +46,8 @@ import { useToastStore } from '../store/useToastStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { getDynamicTagTextColor } from '../utils/color';
 import { formatTrackTime } from '../utils/time';
+import { useABRepeatStore } from '../store/useABRepeatStore';
+import { ABSliderMarkers } from '../components/ABSliderMarkers';
 
 const { width } = Dimensions.get('window');
 
@@ -117,6 +119,10 @@ const PlayerScreenUI = ({
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
+    
+    const pointA = useABRepeatStore(state => state.pointA);
+    const pointB = useABRepeatStore(state => state.pointB);
+    const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
 
     const artworkSource = React.useMemo(() =>
         album.coverUrl ? { uri: album.coverUrl } : null
@@ -348,6 +354,7 @@ const PlayerScreenUI = ({
                                     horizontal
                                     showsHorizontalScrollIndicator={false}
                                     contentContainerStyle={styles.tagsScroll}
+                                    keyboardShouldPersistTaps="handled"
                                 >
                                     {tags.map(t => (
                                         <TouchableOpacity
@@ -416,26 +423,29 @@ const PlayerScreenUI = ({
 
                 {/* Progress Slider */}
                 <View style={styles.progressSection}>
-                    <Slider
-                        style={styles.slider}
-                        minimumValue={0}
-                        maximumValue={duration > 0 ? duration : 1}
-                        value={isSeeking ? seekValue : position}
-                        minimumTrackTintColor={colors.text}
-                        maximumTrackTintColor={colors.overlayAlpha20}
-                        thumbTintColor={colors.text}
-                        onSlidingStart={(value) => {
-                            setIsSeeking(true);
-                            setSeekValue(value);
-                        }}
-                        onValueChange={(value) => {
-                            setSeekValue(value);
-                        }}
-                        onSlidingComplete={(value) => {
-                            setIsSeeking(false);
-                            TrackPlayer.seekTo(value).catch(() => { });
-                        }}
-                    />
+                    <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+                        <ABSliderMarkers duration={duration} />
+                        <Slider
+                            style={{ width: '100%', height: 40 }}
+                            minimumValue={0}
+                            maximumValue={duration > 0 ? duration : 1}
+                            value={isSeeking ? seekValue : position}
+                            minimumTrackTintColor={colors.text}
+                            maximumTrackTintColor={colors.overlayAlpha20}
+                            thumbTintColor={colors.text}
+                            onSlidingStart={(value) => {
+                                setIsSeeking(true);
+                                setSeekValue(value);
+                            }}
+                            onValueChange={(value) => {
+                                setSeekValue(value);
+                            }}
+                            onSlidingComplete={(value) => {
+                                setIsSeeking(false);
+                                TrackPlayer.seekTo(value).catch(() => { });
+                            }}
+                        />
+                    </View>
                     <View style={styles.timeContainer}>
                         <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
                         <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
@@ -513,23 +523,25 @@ const PlayerScreenUI = ({
                         <TouchableOpacity
                             onPress={openSleepTimer}
                             style={styles.footerButton}
+                            disabled={isServerRunning}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <Ionicons
                                 name="timer-outline"
                                 size={24}
-                                color={isSleepTimerActive ? colors.accentLight : colors.textSecondary}
+                                color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={openSpeedPitch}
                             style={styles.footerButton}
+                            disabled={isServerRunning}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <Ionicons
                                 name="speedometer-outline"
                                 size={24}
-                                color={isSpeedPitchActive ? colors.accentLight : colors.textSecondary}
+                                color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -552,6 +564,26 @@ const PlayerScreenUI = ({
                                 name={isServerRunning ? "desktop" : "desktop-outline"}
                                 size={24}
                                 color={isServerRunning ? colors.accentLight : colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => handleABButtonPress(position)}
+                            style={styles.footerButton}
+                            disabled={isServerRunning}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name={pointA !== null ? "infinite" : "infinite-outline"}
+                                size={24}
+                                color={
+                                    isServerRunning
+                                        ? colors.disabled
+                                        : pointB !== null
+                                        ? colors.accentLight
+                                        : pointA !== null
+                                        ? "rgba(167, 139, 250, 0.5)"
+                                        : colors.textSecondary
+                                }
                             />
                         </TouchableOpacity>
                     </View>

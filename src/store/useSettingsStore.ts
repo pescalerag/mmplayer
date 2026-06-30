@@ -39,11 +39,24 @@ interface SettingsState {
     setAppTabsOrder: (order: AppTabType[]) => void;
     initialAppRoute: AppTabType;
     setInitialAppRoute: (route: AppTabType) => void;
+    homeSectionsOrder: HomeSection[];
+    setHomeSectionsOrder: (order: HomeSection[]) => void;
+    homeSectionsVisibility: Record<HomeSection, boolean>;
+    setHomeSectionsVisibility: (visibility: Record<HomeSection, boolean>) => void;
+    showGlobalShuffle: boolean;
+    setShowGlobalShuffle: (value: boolean) => void;
+    isCompactTags: boolean;
+    setIsCompactTags: (value: boolean) => void;
+    artistImageDownloadMode: 'disabled' | 'main' | 'all';
+    setArtistImageDownloadMode: (value: 'disabled' | 'main' | 'all') => void;
+    artistImageBackgroundDownload: boolean;
+    setArtistImageBackgroundDownload: (value: boolean) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
+export type HomeSection = 'stats' | 'recent_media' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -68,6 +81,25 @@ export const useSettingsStore = create<SettingsState>()(
             setAppTabsOrder: (order) => set({ appTabsOrder: order }),
             initialAppRoute: 'Inicio',
             setInitialAppRoute: (route) => set({ initialAppRoute: route }),
+            homeSectionsOrder: ['stats', 'recent_media', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
+            setHomeSectionsOrder: (order) => set({ homeSectionsOrder: order }),
+            homeSectionsVisibility: {
+                stats: true,
+                recent_media: true,
+                recent_playlists: true,
+                recently_added: true,
+                most_played: true,
+                explore: true,
+            },
+            setHomeSectionsVisibility: (visibility) => set({ homeSectionsVisibility: visibility }),
+            showGlobalShuffle: true,
+            setShowGlobalShuffle: (value) => set({ showGlobalShuffle: value }),
+            isCompactTags: true,
+            setIsCompactTags: (value) => set({ isCompactTags: value }),
+            artistImageDownloadMode: 'disabled',
+            setArtistImageDownloadMode: (value) => set({ artistImageDownloadMode: value }),
+            artistImageBackgroundDownload: false,
+            setArtistImageBackgroundDownload: (value) => set({ artistImageBackgroundDownload: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

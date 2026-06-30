@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
 import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
+import { useHomeSectionsSheetStore } from '../store/useHomeSectionsSheetStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Colors, Layout } from '../theme/theme';
 
@@ -35,6 +36,7 @@ export default function SettingsAppearanceScreen() {
     const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
     // Safe hook fetch for app tabs order sheet, handling standard and typescript variants
     const openAppTabsOrderSheet = useAppTabsOrderSheetStore(s => s.openSheet);
+    const openHomeSectionsSheet = useHomeSectionsSheetStore(s => s.openSheet);
 
     return (
         <View style={[styles.container, { backgroundColor: Colors.background }]}>
@@ -76,6 +78,7 @@ export default function SettingsAppearanceScreen() {
                         paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom
                     }
                 ]}
+                keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.sectionCard}>
@@ -156,6 +159,21 @@ export default function SettingsAppearanceScreen() {
                             </Text>
                         </View>
                         <Ionicons name="apps" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    <TouchableOpacity
+                        style={styles.buttonRow}
+                        onPress={openHomeSectionsSheet}
+                    >
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.home_sections') || 'Secciones de inicio'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.home_sections_desc') || 'Elige qué secciones se muestran en la pantalla de inicio'}
+                            </Text>
+                        </View>
+                        <Ionicons name="grid-outline" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
                 </View>
             </ScrollView>

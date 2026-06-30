@@ -238,6 +238,7 @@ const ArtistHeader = memo(function ArtistHeader({
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.albumsScroll}
+                            keyboardShouldPersistTaps="handled"
                         >
                             {(showAllAlbums ? albums : albums.slice(0, ALBUMS_PREVIEW)).map((album: Album) => (
                                 <AlbumCardWithNav
@@ -333,8 +334,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 
     const showHeaderImage = useMemo(() => !!artist.imageUrl && !imageError, [artist.imageUrl, imageError]);
 
-    // 3. The newly simplified main callback
-    const handlePickPhoto = useCallback(async () => {
+    const performPickPhoto = useCallback(async () => {
         let result;
 
         // Step A: Pick the document
@@ -370,6 +370,56 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
             Alert.alert(t('actions.error'), t('actions.save_photo_error'));
         }
     }, [artist, t]);
+
+    const handleDeletePhoto = useCallback(async () => {
+        try {
+            const oldPath = artist.imageUrl;
+            if (oldPath && oldPath.startsWith('file://')) {
+                try {
+                    await FileSystem.deleteAsync(oldPath, { idempotent: true });
+                } catch (fsError) {
+                    console.warn('FS error deleting artist photo:', fsError);
+                }
+            }
+
+            await database.write(async () => {
+                await artist.update(a => { a.imageUrl = null; });
+            });
+
+            setImageError(false);
+            usePlayerStore.getState().updateMediaImageInRecents(artist.id, 'artist', null);
+
+            Alert.alert(t('actions.success'), t('actions.artist_photo_deleted') || 'Imagen del artista eliminada correctamente.');
+        } catch (e) {
+            console.error('Error deleting photo:', e);
+            Alert.alert(t('actions.error'), t('delete_photo_error') || 'Error al eliminar la imagen.');
+        }
+    }, [artist, t]);
+
+    const handlePickPhoto = useCallback(() => {
+        if (!artist.imageUrl) {
+            performPickPhoto();
+            return;
+        }
+
+        Alert.alert(
+            artist.name,
+            t('actions.artist_photo_options') || '¿Qué deseas hacer con la imagen del artista?',
+            [
+                { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
+                {
+                    text: t('actions.artist_photo_delete') || 'Eliminar imagen',
+                    style: 'destructive',
+                    onPress: handleDeletePhoto,
+                },
+                {
+                    text: t('actions.artist_photo_set') || 'Establecer imagen',
+                    style: 'default',
+                    onPress: performPickPhoto,
+                },
+            ]
+        );
+    }, [artist.imageUrl, artist.name, performPickPhoto, handleDeletePhoto, t]);
 
     const handleOpenArtistMenu = useCallback(() => {
         useArtistMenuStore.getState().openMenu(artist);
@@ -415,7 +465,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
             setImageError={setImageError}
             onMore={handleOpenArtistMenu}
         />
-    ), [artist, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, handleOpenArtistMenu]);
+    ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, handleOpenArtistMenu]);
 
     return (
         <View style={styles.container}>

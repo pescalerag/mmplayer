@@ -228,6 +228,7 @@ function TagDetailScreen({
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.albumsScroll}
+                            keyboardShouldPersistTaps="handled"
                         >
                             {albums.map((album) => (
                                 <AlbumCardWithNav

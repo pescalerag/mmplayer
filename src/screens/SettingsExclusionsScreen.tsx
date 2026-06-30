@@ -60,6 +60,7 @@ export default function SettingsExclusionsScreen() {
                     }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.sectionCard}>
                     <TouchableOpacity

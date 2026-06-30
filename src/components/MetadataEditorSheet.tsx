@@ -24,8 +24,18 @@ import { useToastStore } from '../store/useToastStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { readMetadata } from '../../modules/native-audio-scanner';
 import { MetadataEditorService, EditableMetadata } from '../services/MetadataEditorService';
+import { database } from '../database';
+import Artist from '../database/models/Artist';
+import Album from '../database/models/Album';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const normalizeText = (text: string) =>
+    text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, "");
 
 export default function MetadataEditorSheet() {
     const { t } = useTranslation();
@@ -49,6 +59,102 @@ export default function MetadataEditorSheet() {
     const [initialCoverUrl, setInitialCoverUrl] = useState<string | null>(null);
     const [coverArtPath, setCoverArtPath] = useState<string | null>(null);
 
+    // Autocomplete states
+    const [allArtists, setAllArtists] = useState<string[]>([]);
+    const [allAlbums, setAllAlbums] = useState<string[]>([]);
+    const [filteredArtists, setFilteredArtists] = useState<string[]>([]);
+    const [filteredAlbums, setFilteredAlbums] = useState<string[]>([]);
+    const [filteredAlbumArtists, setFilteredAlbumArtists] = useState<string[]>([]);
+    const [activeSuggestionField, setActiveSuggestionField] = useState<'artist' | 'album' | 'albumArtist' | null>(null);
+
+    // Fetch unique artists/albums from DB when visible
+    useEffect(() => {
+        if (!isVisible) return;
+        const fetchDbSuggestions = async () => {
+            try {
+                const artistsList = await database.collections.get<Artist>('artists').query().fetch();
+                const albumsList = await database.collections.get<Album>('albums').query().fetch();
+                
+                const artistNames = Array.from(new Set(artistsList.map(a => a.name).filter(Boolean))).sort();
+                const albumNames = Array.from(new Set(albumsList.map(a => a.title).filter(Boolean))).sort();
+                
+                setAllArtists(artistNames);
+                setAllAlbums(albumNames);
+            } catch (err) {
+                console.error("Error fetching autocomplete metadata from DB", err);
+            }
+        };
+        fetchDbSuggestions();
+    }, [isVisible]);
+
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+    const handleArtistChange = (text: string) => {
+        setArtist(text);
+        const normalized = normalizeText(text.trim());
+        if (normalized === '') {
+            setFilteredArtists(allArtists.slice(0, 10));
+        } else {
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
+            setFilteredArtists(filtered);
+        }
+    };
+
+    const handleArtistFocus = () => {
+        setActiveSuggestionField('artist');
+        const normalized = normalizeText(artist.trim());
+        if (normalized === '') {
+            setFilteredArtists(allArtists.slice(0, 10));
+        } else {
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
+            setFilteredArtists(filtered);
+        }
+    };
+
+    const handleAlbumChange = (text: string) => {
+        setAlbum(text);
+        const normalized = normalizeText(text.trim());
+        if (normalized === '') {
+            setFilteredAlbums(allAlbums.slice(0, 10));
+        } else {
+            const filtered = allAlbums.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
+            setFilteredAlbums(filtered);
+        }
+    };
+
+    const handleAlbumFocus = () => {
+        setActiveSuggestionField('album');
+        const normalized = normalizeText(album.trim());
+        if (normalized === '') {
+            setFilteredAlbums(allAlbums.slice(0, 10));
+        } else {
+            const filtered = allAlbums.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
+            setFilteredAlbums(filtered);
+        }
+    };
+
+    const handleAlbumArtistChange = (text: string) => {
+        setAlbumArtist(text);
+        const normalized = normalizeText(text.trim());
+        if (normalized === '') {
+            setFilteredAlbumArtists(allArtists.slice(0, 10));
+        } else {
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
+            setFilteredAlbumArtists(filtered);
+        }
+    };
+
+    const handleAlbumArtistFocus = () => {
+        setActiveSuggestionField('albumArtist');
+        const normalized = normalizeText(albumArtist.trim());
+        if (normalized === '') {
+            setFilteredAlbumArtists(allArtists.slice(0, 10));
+        } else {
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
+            setFilteredAlbumArtists(filtered);
+        }
+    };
+
     const [isLoadingPhysical, setIsLoadingPhysical] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isAutoNumbering, setIsAutoNumbering] = useState(false);
@@ -67,20 +173,101 @@ export default function MetadataEditorSheet() {
         if (!isVisible || tracks.length === 0) return;
 
         if (isBatchMode) {
-            // Reset fields for batch mode
-            setTitle('');
-            setArtist('');
-            setAlbumArtist('');
-            setAlbum('');
-            setYear('');
-            setTrackNumber('');
-            setDiscNumber('');
-            setGenre('');
-            setOriginalMetadata(null);
-            setInitialCoverUrl(null);
-            setCoverArtPath(null);
-            setIsAutoNumbering(false);
-            setSaveProgress({ current: 0, total: 0 });
+            const loadBatchTracksMetadata = async () => {
+                setIsLoadingPhysical(true);
+                try {
+                    const titles: string[] = [];
+                    const artists: string[] = [];
+                    const albumArtists: string[] = [];
+                    const albums: string[] = [];
+                    const years: string[] = [];
+                    const trackNumbers: string[] = [];
+                    const discNumbers: string[] = [];
+                    const genres: string[] = [];
+                    const covers: string[] = [];
+
+                    for (const track of tracks) {
+                        const albumModel = await track.album.fetch();
+                        const artistModel = await track.artist.fetch();
+
+                        titles.push(track.title || '');
+                        artists.push(artistModel?.name || '');
+                        albums.push(albumModel?.title || '');
+                        years.push(albumModel?.year?.toString() || '');
+                        trackNumbers.push(track.trackNumber?.toString() || '');
+                        genres.push('');
+                        if (albumModel?.coverUrl) {
+                            covers.push(albumModel.coverUrl);
+                        }
+
+                        // Read physical tags for additional fields
+                        try {
+                            const physical = await readMetadata(track.fileUrl);
+                            if (physical.albumArtist) {
+                                albumArtists.push(physical.albumArtist);
+                            } else {
+                                albumArtists.push('');
+                            }
+                            if (physical.discNumber) {
+                                discNumbers.push(physical.discNumber.toString());
+                            } else {
+                                discNumbers.push('');
+                            }
+                            if (physical.genre) {
+                                genres[genres.length - 1] = physical.genre;
+                            }
+                        } catch {
+                            albumArtists.push('');
+                            discNumbers.push('');
+                        }
+                    }
+
+                    const getCommonValue = (arr: string[]) => {
+                        if (arr.length === 0) return '';
+                        const first = arr[0];
+                        return arr.every(val => val === first) ? first : '';
+                    };
+
+                    const commonTitle = getCommonValue(titles);
+                    const commonArtist = getCommonValue(artists);
+                    const commonAlbumArtist = getCommonValue(albumArtists);
+                    const commonAlbum = getCommonValue(albums);
+                    const commonYear = getCommonValue(years);
+                    const commonTrackNumber = getCommonValue(trackNumbers);
+                    const commonDiscNumber = getCommonValue(discNumbers);
+                    const commonGenre = getCommonValue(genres);
+                    const commonCover = getCommonValue(covers);
+
+                    setTitle(commonTitle);
+                    setArtist(commonArtist);
+                    setAlbumArtist(commonAlbumArtist);
+                    setAlbum(commonAlbum);
+                    setYear(commonYear);
+                    setTrackNumber(commonTrackNumber);
+                    setDiscNumber(commonDiscNumber);
+                    setGenre(commonGenre);
+                    setInitialCoverUrl(commonCover || null);
+                    setCoverArtPath(null);
+                    setIsAutoNumbering(false);
+                    setSaveProgress({ current: 0, total: 0 });
+
+                    setOriginalMetadata({
+                        title: commonTitle,
+                        artist: commonArtist,
+                        albumArtist: commonAlbumArtist,
+                        album: commonAlbum,
+                        year: commonYear,
+                        trackNumber: commonTrackNumber,
+                        discNumber: commonDiscNumber,
+                        genre: commonGenre
+                    });
+                } catch (err) {
+                    console.error("Error loading batch metadata", err);
+                } finally {
+                    setIsLoadingPhysical(false);
+                }
+            };
+            loadBatchTracksMetadata();
         } else {
             const loadSingleTrackMetadata = async () => {
                 setIsLoadingPhysical(true);
@@ -179,6 +366,7 @@ export default function MetadataEditorSheet() {
         const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
         const showSubscription = Keyboard.addListener(showEvent, (e) => {
+            setIsKeyboardVisible(true);
             Animated.timing(keyboardHeight, {
                 toValue: e.endCoordinates.height,
                 duration: 250,
@@ -187,6 +375,7 @@ export default function MetadataEditorSheet() {
         });
 
         const hideSubscription = Keyboard.addListener(hideEvent, () => {
+            setIsKeyboardVisible(false);
             Animated.timing(keyboardHeight, {
                 toValue: 0,
                 duration: 200,
@@ -222,18 +411,7 @@ export default function MetadataEditorSheet() {
         }
     }, [isVisible]);
 
-    const getBatchPayload = (): EditableMetadata => {
-        const payload: EditableMetadata = {};
-        if (artist.trim() !== '') payload.artist = artist;
-        if (albumArtist.trim() !== '') payload.albumArtist = albumArtist;
-        if (album.trim() !== '') payload.album = album;
-        if (year.trim() !== '') payload.year = year;
-        if (genre.trim() !== '') payload.genre = genre;
-        if (coverArtPath !== null) payload.coverArtPath = coverArtPath;
-        return payload;
-    };
-
-    const getSinglePayload = (): EditableMetadata => {
+    const getMetadataPayload = (): EditableMetadata => {
         const payload: EditableMetadata = {};
         if (title !== originalMetadata?.title) payload.title = title;
         if (artist !== originalMetadata?.artist) payload.artist = artist;
@@ -245,10 +423,6 @@ export default function MetadataEditorSheet() {
         if (genre !== originalMetadata?.genre) payload.genre = genre;
         if (coverArtPath !== null) payload.coverArtPath = coverArtPath;
         return payload;
-    };
-
-    const getMetadataPayload = (): EditableMetadata => {
-        return isBatchMode ? getBatchPayload() : getSinglePayload();
     };
 
     const handlePickImage = async () => {
@@ -506,22 +680,14 @@ export default function MetadataEditorSheet() {
 
                             {/* FIELD: Disc Number */}
                             <View style={styles.fieldWrapper}>
-                                <View style={styles.labelRow}>
-                                    <Text style={styles.label}>{t('metadata_editor.field_disc')}</Text>
-                                    {isBatchMode && (
-                                        <View style={styles.lockedBadge}>
-                                            <Ionicons name="lock-closed" size={10} color={colors.textSecondary} />
-                                            <Text style={styles.lockedText}>{t('metadata_editor.locked_batch')}</Text>
-                                        </View>
-                                    )}
-                                </View>
+                                <Text style={styles.label}>{t('metadata_editor.field_disc')}</Text>
                                 <TextInput
-                                    style={[styles.input, (isBatchMode || isSaving) && styles.inputDisabled]}
+                                    style={[styles.input, isSaving && styles.inputDisabled]}
                                     value={discNumber}
                                     onChangeText={setDiscNumber}
                                     keyboardType="numeric"
-                                    editable={!isBatchMode && !isSaving}
-                                    placeholder={isBatchMode ? t('metadata_editor.locked_batch') : '...'}
+                                    editable={!isSaving}
+                                    placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
                             </View>
@@ -532,11 +698,33 @@ export default function MetadataEditorSheet() {
                                 <TextInput
                                     style={[styles.input, isSaving && styles.inputDisabled]}
                                     value={artist}
-                                    onChangeText={setArtist}
+                                    onChangeText={handleArtistChange}
+                                    onFocus={handleArtistFocus}
                                     editable={!isSaving}
                                     placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
+                                {isKeyboardVisible && activeSuggestionField === 'artist' && filteredArtists.length > 0 && (
+                                    <ScrollView 
+                                        horizontal 
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.suggestionsContainer}
+                                        keyboardShouldPersistTaps="handled"
+                                    >
+                                        {filteredArtists.map((item, index) => (
+                                            <TouchableOpacity 
+                                                key={index} 
+                                                style={styles.suggestionPill}
+                                                onPress={() => {
+                                                    setArtist(item);
+                                                    setActiveSuggestionField(null);
+                                                }}
+                                            >
+                                                <Text style={styles.suggestionText}>{item}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                )}
                             </View>
 
                             {/* FIELD: Album */}
@@ -545,11 +733,33 @@ export default function MetadataEditorSheet() {
                                 <TextInput
                                     style={[styles.input, isSaving && styles.inputDisabled]}
                                     value={album}
-                                    onChangeText={setAlbum}
+                                    onChangeText={handleAlbumChange}
+                                    onFocus={handleAlbumFocus}
                                     editable={!isSaving}
                                     placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
+                                {isKeyboardVisible && activeSuggestionField === 'album' && filteredAlbums.length > 0 && (
+                                    <ScrollView 
+                                        horizontal 
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.suggestionsContainer}
+                                        keyboardShouldPersistTaps="handled"
+                                    >
+                                        {filteredAlbums.map((item, index) => (
+                                            <TouchableOpacity 
+                                                key={index} 
+                                                style={styles.suggestionPill}
+                                                onPress={() => {
+                                                    setAlbum(item);
+                                                    setActiveSuggestionField(null);
+                                                }}
+                                            >
+                                                <Text style={styles.suggestionText}>{item}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                )}
                             </View>
 
                             {/* FIELD: Album Artist */}
@@ -558,11 +768,33 @@ export default function MetadataEditorSheet() {
                                 <TextInput
                                     style={[styles.input, isSaving && styles.inputDisabled]}
                                     value={albumArtist}
-                                    onChangeText={setAlbumArtist}
+                                    onChangeText={handleAlbumArtistChange}
+                                    onFocus={handleAlbumArtistFocus}
                                     editable={!isSaving}
                                     placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
+                                {isKeyboardVisible && activeSuggestionField === 'albumArtist' && filteredAlbumArtists.length > 0 && (
+                                    <ScrollView 
+                                        horizontal 
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.suggestionsContainer}
+                                        keyboardShouldPersistTaps="handled"
+                                    >
+                                        {filteredAlbumArtists.map((item, index) => (
+                                            <TouchableOpacity 
+                                                key={index} 
+                                                style={styles.suggestionPill}
+                                                onPress={() => {
+                                                    setAlbumArtist(item);
+                                                    setActiveSuggestionField(null);
+                                                }}
+                                            >
+                                                <Text style={styles.suggestionText}>{item}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                )}
                             </View>
 
                             {/* FIELD: Year */}
@@ -847,5 +1079,26 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
         fontFamily: fonts.regular,
         textAlign: 'center',
         paddingHorizontal: 24,
+    },
+    suggestionsContainer: {
+        flexDirection: 'row',
+        paddingVertical: 6,
+        gap: 8,
+    },
+    suggestionPill: {
+        backgroundColor: '#1E1E1E',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#2D2D2D',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 6,
+    },
+    suggestionText: {
+        color: colors.text,
+        fontSize: 13,
+        fontFamily: fonts.regular,
     },
 });

@@ -177,7 +177,7 @@ export default function AppTabsOrderSheet() {
                 {/* --- SELECTOR DE INICIO --- */}
                 <View style={styles.initialRouteSection}>
                     <Text style={styles.sectionTitle}>{t('settings.initial_route') || 'Pantalla de inicio'}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer} keyboardShouldPersistTaps="handled">
                         {ALL_TABS.map(tab => {
                             const isSelected = selectedInitial === tab.id;
                             return (

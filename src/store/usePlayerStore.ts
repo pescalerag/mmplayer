@@ -763,7 +763,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const filtered = current.filter((p) => p.id !== playlist.id);
     const updated = [{ ...playlist, timestamp: Date.now() }, ...filtered].slice(
       0,
-      3,
+      10,
     );
     set({ recentPlaylists: updated });
     get().saveRecentsState().catch((err) => console.error("Error saving recents:", err));

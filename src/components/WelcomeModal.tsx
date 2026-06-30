@@ -29,7 +29,7 @@ export default function WelcomeModal() {
     const [aliasInput, setAliasInput] = useState('');
 
     const { lastSeenVersion, setLastSeenVersion, userAlias, setUserAlias, forceWelcomeModal, setForceWelcomeModal } = useSettingsStore();
-    const currentVersion = Constants.expoConfig?.version || '1.1.0';
+    const currentVersion = Constants.expoConfig?.version || '2.0.0-beta.5';
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 

@@ -307,6 +307,8 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const artistFilter = useLibraryStore(state => state.artistFilter);
+    const setArtistFilter = useLibraryStore(state => state.setArtistFilter);
 
     const sortedArtists = React.useMemo(() => {
         const isDesc = sortOption === 'name_desc';
@@ -344,6 +346,40 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
             }}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+            ListHeaderComponent={
+                <View style={styles.artistSelectorContainer}>
+                    <TouchableOpacity
+                        style={[
+                            styles.artistSelectorBtn,
+                            artistFilter === 'album' && styles.artistSelectorBtnActive
+                        ]}
+                        onPress={() => setArtistFilter('album')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[
+                            styles.artistSelectorText,
+                            artistFilter === 'album' && styles.artistSelectorTextActive
+                        ]}>
+                            {t('library.album_artists')}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.artistSelectorBtn,
+                            artistFilter === 'all' && styles.artistSelectorBtnActive
+                        ]}
+                        onPress={() => setArtistFilter('all')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[
+                            styles.artistSelectorText,
+                            artistFilter === 'all' && styles.artistSelectorTextActive
+                        ]}>
+                            {t('library.all_artists')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            }
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="people-outline"
@@ -355,15 +391,26 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
     );
 };
 
-const EnhancedArtistList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
+const EnhancedArtistList = withObservables(['sortOption', 'artistFilter'], ({ sortOption, artistFilter }: { sortOption: SortOption, artistFilter: 'album' | 'all' }) => {
     let orderCol = 'name';
     let orderDir = Q.asc;
     if (sortOption === 'name_desc') orderDir = Q.desc;
 
+    const conditions: any[] = [];
+    if (artistFilter === 'album') {
+        conditions.push(
+            Q.experimentalJoinTables(['albums']),
+            Q.on('albums', 'id', Q.notEq(null as any))
+        );
+    }
+    conditions.push(
+        Q.sortBy('is_pinned', Q.desc),
+        Q.sortBy(orderCol, orderDir)
+    );
+
     return {
         artists: database.collections.get<Artist>('artists').query(
-            Q.sortBy('is_pinned', Q.desc),
-            Q.sortBy(orderCol, orderDir)
+            ...conditions
         ).observe(),
     };
 })(ArtistList);
@@ -766,6 +813,7 @@ export default function LibraryScreen() {
     const artistSort = useLibraryStore(state => state.artistSort);
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
+    const artistFilter = useLibraryStore(state => state.artistFilter);
 
     const getActiveSortOption = (): SortOption => {
         if (activeTab === 'albums') return albumSort;
@@ -802,7 +850,7 @@ export default function LibraryScreen() {
     const renderScene = ({ route }: { route: { key: string } }) => {
         switch (route.key) {
             case 'albums': return <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
-            case 'artists': return <EnhancedArtistList sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'artists': return <EnhancedArtistList artistFilter={artistFilter} sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'folders': return <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'tracks': return <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'playlists': return <EnhancedPlaylistsList sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
@@ -883,6 +931,7 @@ export default function LibraryScreen() {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.tabsContainer}
+                    keyboardShouldPersistTaps="handled"
                 >
                     {routes.map((route, i) => (
                         <TouchableOpacity
@@ -1098,5 +1147,33 @@ const styles = StyleSheet.create({
         color: '#B3B3B3',
         marginTop: 10,
         marginBottom: 10,
+    },
+    artistSelectorContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 20,
+        padding: 3,
+        marginBottom: 16,
+        alignSelf: 'center',
+        width: '100%',
+        maxWidth: 320,
+    },
+    artistSelectorBtn: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        borderRadius: 17,
+    },
+    artistSelectorBtnActive: {
+        backgroundColor: '#8B5CF6',
+    },
+    artistSelectorText: {
+        color: '#A0A0A0',
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    artistSelectorTextActive: {
+        color: '#FFFFFF',
     },
 });

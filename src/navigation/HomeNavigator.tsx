@@ -5,6 +5,7 @@ import ArtistDetailScreen from '../screens/ArtistDetailScreen';
 import FavoritesDetailScreen from '../screens/FavoritesDetailScreen';
 import HomeScreen from '../screens/HomeScreen';
 import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
+import ActivityMainScreen from '../screens/ActivityMainScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -16,6 +17,7 @@ export default function HomeNavigator() {
             <Stack.Screen name="ArtistDetail" component={ArtistDetailScreen} />
             <Stack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} />
             <Stack.Screen name="FavoritesDetail" component={FavoritesDetailScreen} />
+            <Stack.Screen name="WeeklyActivity" component={ActivityMainScreen} />
         </Stack.Navigator>
     );
 }
