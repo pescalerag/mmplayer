@@ -27,6 +27,7 @@ import Album from "../database/models/Album";
 import Artist from "../database/models/Artist";
 import Tag from "../database/models/Tag";
 import Track from "../database/models/Track";
+import Playlist from "../database/models/Playlist";
 import { TopMatch, useMusicSearch } from "../hooks/useMusicSearch";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { SearchStackParamList } from "../navigation/types";
@@ -34,6 +35,7 @@ import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { useArtistMenuStore } from "../store/useArtistMenuStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useTagMenuStore } from "../store/useTagMenuStore";
+import { usePlaylistMenuStore } from "../store/usePlaylistMenuStore";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors, Layout } from "../theme/theme";
 import { getDynamicTagTextColor } from '../utils/color';
@@ -43,13 +45,15 @@ import { HistoryService } from "../services/HistoryService";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
-type FilterOption = "all" | "artists" | "albums" | "tracks";
+type FilterOption = "all" | "artists" | "albums" | "tracks" | "playlists" | "tags";
 
 const FILTER_TABS: { id: FilterOption }[] = [
   { id: "all" },
   { id: "artists" },
   { id: "albums" },
   { id: "tracks" },
+  { id: "playlists" },
+  { id: "tags" },
 ];
 
 // --- ENHANCED COMPONENTS FOR SEARCH ---
@@ -187,6 +191,42 @@ const SearchArtistCard = memo(function SearchArtistCard({
   );
 });
 
+const SearchPlaylistCardBase = memo(function SearchPlaylistCardBase({
+  playlist,
+  onPress,
+}: {
+  playlist: Playlist;
+  onPress: (playlistId: string, playlistName: string) => void;
+}) {
+  const { t } = useTranslation();
+  const handlePress = useCallback(() => onPress(playlist.id, playlist.name), [onPress, playlist.id, playlist.name]);
+  const handleLongPress = useCallback(() => {
+    Keyboard.dismiss();
+    usePlaylistMenuStore.getState().openMenu(playlist);
+  }, [playlist]);
+
+  return (
+    <View style={styles.cardContainer}>
+      <LibraryCard
+        title={playlist.name}
+        subtitle={t('library.playlist_singular')}
+        imageUrl={playlist.coverCustomUrl}
+        placeholderIcon="musical-notes"
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+      />
+    </View>
+  );
+});
+
+const SearchPlaylistCard = withObservables(
+  ["playlist"],
+  ({ playlist }: { playlist: Playlist }) => ({
+    playlist: playlist.observe(),
+  }),
+)(SearchPlaylistCardBase);
+SearchPlaylistCard.displayName = "SearchPlaylistCard";
+
 const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPress: () => void; isCompact?: boolean }) => {
   const textColor = getDynamicTagTextColor(tag.color || '#8B5CF6');
   if (isCompact) {
@@ -257,13 +297,15 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       case "artists": return t("library.artists");
       case "albums": return t("library.albums");
       case "tracks": return t("library.songs");
+      case "playlists": return t("library.playlists");
+      case "tags": return t("navigation.tags");
       default: return "";
     }
   };
 
   // --- NUEVA LÓGICA: ¿ES EL ÚNICO RESULTADO? ---
   const totalResultsCount =
-    results.artists.length + results.albums.length + results.tracks.length;
+    results.artists.length + results.albums.length + results.tracks.length + results.playlists.length + results.tags.length;
   const isOnlyTopMatch = totalResultsCount === 1 && !!topMatch;
 
   // --- MEJOR RESULTADO POR CATEGORÍA ---
@@ -276,6 +318,8 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       return { type: "album", item: results.albums[0] };
     if (activeFilter === "tracks" && results.tracks.length > 0)
       return { type: "track", item: results.tracks[0] };
+    if (activeFilter === "playlists" && results.playlists.length > 0)
+      return { type: "playlist", item: results.playlists[0] };
     return null;
   };
   const currentTopMatch = getLocalTopMatch();
@@ -324,6 +368,11 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     handleResultClick();
   }, [handleResultClick]);
 
+  const handlePlaylistPress = useCallback((playlistId: string) => {
+    handleResultClick();
+    navigation.navigate("PlaylistDetail", { playlistId });
+  }, [handleResultClick, navigation]);
+
   const handleTopMatchPress = useCallback(() => {
     if (!currentTopMatch) return;
 
@@ -336,6 +385,10 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     } else if (currentTopMatch.type === "album") {
       navigation.navigate("AlbumDetail", {
         albumId: (currentTopMatch.item as Album).id,
+      });
+    } else if (currentTopMatch.type === "playlist") {
+      navigation.navigate("PlaylistDetail", {
+        playlistId: (currentTopMatch.item as Playlist).id,
       });
     } else if (currentTopMatch.type === "track") {
       const track = currentTopMatch.item as Track;
@@ -478,7 +531,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         (activeFilter === "all" ||
           (activeFilter === "artists" && results.artists.length > 1) ||
           (activeFilter === "albums" && results.albums.length > 1) ||
-          (activeFilter === "tracks" && results.tracks.length > 1)) && (
+          (activeFilter === "tracks" && results.tracks.length > 1) ||
+          (activeFilter === "playlists" && results.playlists.length > 1) ||
+          (activeFilter === "tags" && results.tags.length > 0)) && (
           <>
             <Text style={styles.resultsTitle}>{t('search.matches')}</Text>
 
@@ -532,6 +587,64 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                           onPress={handleAlbumPress}
                         />
                       ))}
+                  </ScrollView>
+                </>
+              )}
+
+            {/* Playlists Section */}
+            {(activeFilter === "all" || activeFilter === "playlists") &&
+              results.playlists.some(
+                (playlist) => playlist.id !== currentTopMatch?.item.id,
+              ) && (
+                <>
+                  <SectionHeader
+                    title={activeFilter === "all" ? t('library.playlists') : t('search.other_playlists')}
+                  />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalScroll}
+                  >
+                    {results.playlists
+                      .filter((playlist) => playlist.id !== currentTopMatch?.item.id)
+                      .map((playlist) => (
+                        <SearchPlaylistCard
+                          key={playlist.id}
+                          playlist={playlist}
+                          onPress={handlePlaylistPress}
+                        />
+                      ))}
+                  </ScrollView>
+                </>
+              )}
+
+            {/* Tags Section */}
+            {(activeFilter === "all" || activeFilter === "tags") &&
+              results.tags.length > 0 && (
+                <>
+                  <SectionHeader
+                    title={t('navigation.tags')}
+                  />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalScroll}
+                  >
+                    {results.tags.map((tag) => (
+                      <View key={tag.id} style={{ marginRight: 10, alignSelf: 'center' }}>
+                        <SearchTagCard
+                          tag={tag}
+                          isCompact={true}
+                          onPress={() => {
+                            navigation.navigate("TagDetail", {
+                              tagId: tag.id,
+                              tagName: tag.name,
+                              tagColor: tag.color || '#8B5CF6'
+                            });
+                          }}
+                        />
+                      </View>
+                    ))}
                   </ScrollView>
                 </>
               )}
@@ -715,7 +828,6 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         ListEmptyComponent={(() => {
           if (isLoading || !isSearching) return null;
 
-          // Verificar si hay algún resultado visible según el filtro activo
           const hasArtists =
             (activeFilter === "all" || activeFilter === "artists") &&
             results.artists.length > 0;
@@ -725,8 +837,14 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           const hasTracks =
             (activeFilter === "all" || activeFilter === "tracks") &&
             results.tracks.length > 0;
+          const hasPlaylists =
+            (activeFilter === "all" || activeFilter === "playlists") &&
+            results.playlists.length > 0;
+          const hasTags =
+            (activeFilter === "all" || activeFilter === "tags") &&
+            results.tags.length > 0;
 
-          if (hasArtists || hasAlbums || hasTracks) return null;
+          if (hasArtists || hasAlbums || hasTracks || hasPlaylists || hasTags) return null;
 
           return (
             <View style={styles.emptyContainer}>

@@ -30,6 +30,13 @@ import Album from '../database/models/Album';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+const normalizeText = (text: string) =>
+    text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, "");
+
 export default function MetadataEditorSheet() {
     const { t } = useTranslation();
     const { colors, fonts, fontWeights } = useAppTheme();
@@ -80,62 +87,70 @@ export default function MetadataEditorSheet() {
         fetchDbSuggestions();
     }, [isVisible]);
 
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
     const handleArtistChange = (text: string) => {
         setArtist(text);
-        if (text.trim() === '') {
+        const normalized = normalizeText(text.trim());
+        if (normalized === '') {
             setFilteredArtists(allArtists.slice(0, 10));
         } else {
-            const filtered = allArtists.filter(name => name.toLowerCase().includes(text.toLowerCase())).slice(0, 10);
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
             setFilteredArtists(filtered);
         }
     };
 
     const handleArtistFocus = () => {
         setActiveSuggestionField('artist');
-        if (artist.trim() === '') {
+        const normalized = normalizeText(artist.trim());
+        if (normalized === '') {
             setFilteredArtists(allArtists.slice(0, 10));
         } else {
-            const filtered = allArtists.filter(name => name.toLowerCase().includes(artist.toLowerCase())).slice(0, 10);
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
             setFilteredArtists(filtered);
         }
     };
 
     const handleAlbumChange = (text: string) => {
         setAlbum(text);
-        if (text.trim() === '') {
+        const normalized = normalizeText(text.trim());
+        if (normalized === '') {
             setFilteredAlbums(allAlbums.slice(0, 10));
         } else {
-            const filtered = allAlbums.filter(name => name.toLowerCase().includes(text.toLowerCase())).slice(0, 10);
+            const filtered = allAlbums.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
             setFilteredAlbums(filtered);
         }
     };
 
     const handleAlbumFocus = () => {
         setActiveSuggestionField('album');
-        if (album.trim() === '') {
+        const normalized = normalizeText(album.trim());
+        if (normalized === '') {
             setFilteredAlbums(allAlbums.slice(0, 10));
         } else {
-            const filtered = allAlbums.filter(name => name.toLowerCase().includes(album.toLowerCase())).slice(0, 10);
+            const filtered = allAlbums.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
             setFilteredAlbums(filtered);
         }
     };
 
     const handleAlbumArtistChange = (text: string) => {
         setAlbumArtist(text);
-        if (text.trim() === '') {
+        const normalized = normalizeText(text.trim());
+        if (normalized === '') {
             setFilteredAlbumArtists(allArtists.slice(0, 10));
         } else {
-            const filtered = allArtists.filter(name => name.toLowerCase().includes(text.toLowerCase())).slice(0, 10);
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
             setFilteredAlbumArtists(filtered);
         }
     };
 
     const handleAlbumArtistFocus = () => {
         setActiveSuggestionField('albumArtist');
-        if (albumArtist.trim() === '') {
+        const normalized = normalizeText(albumArtist.trim());
+        if (normalized === '') {
             setFilteredAlbumArtists(allArtists.slice(0, 10));
         } else {
-            const filtered = allArtists.filter(name => name.toLowerCase().includes(albumArtist.toLowerCase())).slice(0, 10);
+            const filtered = allArtists.filter(name => normalizeText(name).includes(normalized)).slice(0, 10);
             setFilteredAlbumArtists(filtered);
         }
     };
@@ -351,6 +366,7 @@ export default function MetadataEditorSheet() {
         const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
         const showSubscription = Keyboard.addListener(showEvent, (e) => {
+            setIsKeyboardVisible(true);
             Animated.timing(keyboardHeight, {
                 toValue: e.endCoordinates.height,
                 duration: 250,
@@ -359,6 +375,7 @@ export default function MetadataEditorSheet() {
         });
 
         const hideSubscription = Keyboard.addListener(hideEvent, () => {
+            setIsKeyboardVisible(false);
             Animated.timing(keyboardHeight, {
                 toValue: 0,
                 duration: 200,
@@ -683,12 +700,11 @@ export default function MetadataEditorSheet() {
                                     value={artist}
                                     onChangeText={handleArtistChange}
                                     onFocus={handleArtistFocus}
-                                    onBlur={() => setTimeout(() => setActiveSuggestionField(null), 250)}
                                     editable={!isSaving}
                                     placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
-                                {activeSuggestionField === 'artist' && filteredArtists.length > 0 && (
+                                {isKeyboardVisible && activeSuggestionField === 'artist' && filteredArtists.length > 0 && (
                                     <ScrollView 
                                         horizontal 
                                         showsHorizontalScrollIndicator={false}
@@ -719,12 +735,11 @@ export default function MetadataEditorSheet() {
                                     value={album}
                                     onChangeText={handleAlbumChange}
                                     onFocus={handleAlbumFocus}
-                                    onBlur={() => setTimeout(() => setActiveSuggestionField(null), 250)}
                                     editable={!isSaving}
                                     placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
-                                {activeSuggestionField === 'album' && filteredAlbums.length > 0 && (
+                                {isKeyboardVisible && activeSuggestionField === 'album' && filteredAlbums.length > 0 && (
                                     <ScrollView 
                                         horizontal 
                                         showsHorizontalScrollIndicator={false}
@@ -755,12 +770,11 @@ export default function MetadataEditorSheet() {
                                     value={albumArtist}
                                     onChangeText={handleAlbumArtistChange}
                                     onFocus={handleAlbumArtistFocus}
-                                    onBlur={() => setTimeout(() => setActiveSuggestionField(null), 250)}
                                     editable={!isSaving}
                                     placeholder="..."
                                     placeholderTextColor={colors.textSecondary}
                                 />
-                                {activeSuggestionField === 'albumArtist' && filteredAlbumArtists.length > 0 && (
+                                {isKeyboardVisible && activeSuggestionField === 'albumArtist' && filteredAlbumArtists.length > 0 && (
                                     <ScrollView 
                                         horizontal 
                                         showsHorizontalScrollIndicator={false}

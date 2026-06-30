@@ -24,6 +24,7 @@ export type SearchStackParamList = {
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     TagDetail: { tagId: string; tagName: string; tagColor: string };
+    PlaylistDetail: { playlistId: string };
 };
 
 export type TagsStackParamList = {

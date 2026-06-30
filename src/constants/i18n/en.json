@@ -83,6 +83,7 @@
     "matches": "Results",
     "other_artists": "Other artists",
     "other_albums": "Other albums",
+    "other_playlists": "Other playlists",
     "more_songs": "More songs",
     "no_results": "No results found for \"{{query}}\"",
     "no_tags": "No tags created. Add tags from the player or from a song/album menu.",

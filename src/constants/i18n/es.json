@@ -83,6 +83,7 @@
     "matches": "Resultados",
     "other_artists": "Otros artistas",
     "other_albums": "Otros álbumes",
+    "other_playlists": "Otras playlists",
     "more_songs": "Más canciones",
     "no_results": "No hemos encontrado nada para \"{{query}}\"",
     "no_tags": "No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum.",
