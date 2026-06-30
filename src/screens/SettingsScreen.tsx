@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import { Colors, Layout } from '../theme/theme';
+import { BackupService } from '../services/BackupService';
 
 interface SettingsProps {
     readonly tracksCount: number;
@@ -222,6 +223,61 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </TouchableOpacity>
                 </View>
 
+                {/* --- SECCIÓN DE COPIAS DE SEGURIDAD --- */}
+                <View style={styles.sectionCard}>
+                    {/* EXPORTAR COPIA */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => BackupService.exportDatabase()}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="cloud-upload-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_export')}</Text>
+                                    <View style={styles.betaBadge}>
+                                        <Text style={styles.betaBadgeText}>BETA</Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.backup_export_desc')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    {/* IMPORTAR COPIA */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => BackupService.importDatabase()}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="cloud-download-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_import')}</Text>
+                                    <View style={styles.betaBadge}>
+                                        <Text style={styles.betaBadgeText}>BETA</Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.backup_import_desc')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+                </View>
+
                 {/* --- SECCIÓN SÍGUENOS --- */}
                 <View style={styles.sectionCard}>
                     <TouchableOpacity
@@ -405,6 +461,22 @@ const styles = StyleSheet.create({
     separator: {
         height: 1,
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    betaBadge: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.25)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        alignSelf: 'center',
+    },
+    betaBadgeText: {
+        color: '#F59E0B',
+        fontSize: 9,
+        fontWeight: '900',
+        fontFamily: 'Montserrat',
+        letterSpacing: 0.5,
     },
 });
 
