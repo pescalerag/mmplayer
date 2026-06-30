@@ -217,6 +217,7 @@ export default function TagManagerModal() {
                             style={styles.tagsScrollView}
                             contentContainerStyle={styles.tagsScrollContent}
                             showsVerticalScrollIndicator={true}
+                            keyboardShouldPersistTaps="handled"
                         >
                             {allTags.length === 0 ? (
                                 <View style={styles.emptyContainer}>

@@ -883,6 +883,7 @@ export default function LibraryScreen() {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.tabsContainer}
+                    keyboardShouldPersistTaps="handled"
                 >
                     {routes.map((route, i) => (
                         <TouchableOpacity

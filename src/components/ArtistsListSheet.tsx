@@ -134,6 +134,7 @@ export default function ArtistsListSheet() {
                     data={artists}
                     keyExtractor={(item) => item.id}
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             style={styles.artistRow}

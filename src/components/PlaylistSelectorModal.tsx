@@ -375,7 +375,7 @@ export default function PlaylistSelectorModal() {
                                 <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>
                             </TouchableOpacity>
 
-                            <ScrollView style={styles.listScroll} contentContainerStyle={styles.listContent}>
+                            <ScrollView style={styles.listScroll} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
                                 {playlists.length === 0 ? (
                                     <View style={styles.emptyContainer}>
                                         <Ionicons name="musical-notes-outline" size={48} color="#444" />

@@ -34,6 +34,7 @@ export const HorizontalCarousel: React.FC<HorizontalCarouselProps> = ({
           keyExtractor={keyExtractor || ((item, index) => index.toString())}
           contentContainerStyle={[styles.listContent, { paddingHorizontal: spacing.lg || 20 }]}
           ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+          keyboardShouldPersistTaps="handled"
         />
       ) : (
         <View style={{ paddingHorizontal: spacing.lg || 20 }}>

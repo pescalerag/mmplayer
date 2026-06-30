@@ -72,6 +72,7 @@ export default function ExcludedSongsScreen() {
                     }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.sectionCard}>
                     {songs.length === 0 ? (

@@ -550,6 +550,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.horizontalScroll}
+                    keyboardShouldPersistTaps="handled"
                   >
                     {results.artists
                       .filter((artist) => artist.id !== currentTopMatch?.item.id)
@@ -577,6 +578,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.horizontalScroll}
+                    keyboardShouldPersistTaps="handled"
                   >
                     {results.albums
                       .filter((album) => album.id !== currentTopMatch?.item.id)
@@ -604,6 +606,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.horizontalScroll}
+                    keyboardShouldPersistTaps="handled"
                   >
                     {results.playlists
                       .filter((playlist) => playlist.id !== currentTopMatch?.item.id)
@@ -629,6 +632,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.horizontalScroll}
+                    keyboardShouldPersistTaps="handled"
                   >
                     {results.tags.map((tag) => (
                       <View key={tag.id} style={{ marginRight: 10, alignSelf: 'center' }}>
@@ -760,6 +764,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filtersContainer}
             style={styles.filtersScroll}
+            keyboardShouldPersistTaps="handled"
           >
             {FILTER_TABS.map((tab) => {
               const isActive = activeFilter === tab.id;

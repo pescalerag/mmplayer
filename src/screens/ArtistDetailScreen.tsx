@@ -238,6 +238,7 @@ const ArtistHeader = memo(function ArtistHeader({
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.albumsScroll}
+                            keyboardShouldPersistTaps="handled"
                         >
                             {(showAllAlbums ? albums : albums.slice(0, ALBUMS_PREVIEW)).map((album: Album) => (
                                 <AlbumCardWithNav

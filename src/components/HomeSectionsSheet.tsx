@@ -108,7 +108,7 @@ export default function HomeSectionsSheet() {
                     <Text style={styles.subtitle}>{t('settings.home_sections_subtitle') || "Activa o desactiva las secciones de la pantalla principal"}</Text>
                 </View>
 
-                <ScrollView style={styles.listContent} showsVerticalScrollIndicator={false}>
+                <ScrollView style={styles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     {SECTIONS_METADATA.map((section) => {
                         const isEnabled = homeSectionsVisibility[section.id] ?? true;
                         return (

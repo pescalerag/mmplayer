@@ -26,6 +26,7 @@ export default function ChangelogScreen() {
       style={[styles.container, { paddingTop: insets.top }]}
       contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 30 }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.headerTitle}>{t('changelog.history_title')}</Text>
       <Text style={styles.headerSubtitle}>{t('changelog.history_subtitle')}</Text>

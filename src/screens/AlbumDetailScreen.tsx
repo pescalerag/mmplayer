@@ -218,6 +218,7 @@ function AlbumDetailContent({
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.tagsScroll}
+                keyboardShouldPersistTaps="handled"
               >
                 {tags.map((t) => (
                   <TouchableOpacity

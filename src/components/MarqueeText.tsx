@@ -90,6 +90,7 @@ export default function MarqueeText({
                 showsHorizontalScrollIndicator={false}
                 style={StyleSheet.absoluteFill}
                 contentContainerStyle={{ opacity: 0 }}
+                keyboardShouldPersistTaps="handled"
             >
                 <Text
                     style={style}

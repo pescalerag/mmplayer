@@ -66,6 +66,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     }
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 {/* --- SECCIÓN DE ESTADÍSTICAS --- */}
                 <View style={styles.statsCard}>

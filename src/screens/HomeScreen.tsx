@@ -303,6 +303,7 @@ export default function HomeScreen() {
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingTop: headerHeight + 20, paddingBottom: 200 }}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 {/* Modular Sections Render */}
                 {homeSectionsOrder.map((section) => {
