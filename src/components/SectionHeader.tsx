@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 
@@ -11,13 +12,14 @@ interface SectionHeaderProps {
 
 export default function SectionHeader({ title, onSeeAll, showSeeAll = false }: Readonly<SectionHeaderProps>) {
     const { colors, fonts, layout } = useAppTheme();
+    const { t } = useTranslation();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
             {showSeeAll && (
                 <TouchableOpacity onPress={onSeeAll}>
-                    <Text style={styles.seeAll}>Ver todos</Text>
+                    <Text style={styles.seeAll}>{t('activity.see_all')}</Text>
                 </TouchableOpacity>
             )}
         </View>

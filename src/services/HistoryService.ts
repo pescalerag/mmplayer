@@ -274,6 +274,158 @@ export const HistoryService = {
     };
   },
 
+  /**
+   * Returns date range boundaries for a given period type.
+   */
+  getPeriodRange(period: 'day' | 'week' | 'month' | 'year' | 'all'): { from: Date | null; to: Date } {
+    const to = new Date();
+    to.setHours(23, 59, 59, 999);
+    if (period === 'all') return { from: null, to };
+
+    const from = new Date();
+    if (period === 'day') {
+      from.setHours(0, 0, 0, 0);
+    } else if (period === 'week') {
+      from.setDate(from.getDate() - 6);
+      from.setHours(0, 0, 0, 0);
+    } else if (period === 'month') {
+      from.setDate(1);
+      from.setHours(0, 0, 0, 0);
+    } else if (period === 'year') {
+      from.setMonth(0, 1);
+      from.setHours(0, 0, 0, 0);
+    }
+    return { from, to };
+  },
+
+  /**
+   * Fetch stats for a period, ranked by either 'duration' or 'plays'.
+   */
+  async getStatsForPeriod(
+    period: 'day' | 'week' | 'month' | 'year' | 'all',
+    metric: 'duration' | 'plays'
+  ) {
+    const { from } = this.getPeriodRange(period);
+
+    const query = from
+      ? database.collections
+          .get<PlaybackHistory>('playback_history')
+          .query(Q.where('played_at', Q.gte(from.getTime())))
+      : database.collections
+          .get<PlaybackHistory>('playback_history')
+          .query();
+
+    const historyRecords = await query.fetch();
+
+    let totalSeconds = 0;
+    let totalPlays = historyRecords.length;
+    const trackDurations: Record<string, number> = {};
+    const trackPlayCounts: Record<string, number> = {};
+
+    for (const record of historyRecords) {
+      const seconds = record.durationPlayed || 0;
+      totalSeconds += seconds;
+      trackDurations[record.itemId] = (trackDurations[record.itemId] || 0) + seconds;
+      trackPlayCounts[record.itemId] = (trackPlayCounts[record.itemId] || 0) + 1;
+    }
+
+    const totalHours = totalSeconds / 3600;
+    const uniqueTrackIds = Object.keys(trackDurations);
+
+    let topArtistObj = { id: '', name: 'Ninguno', imageUrl: null as string | null, duration: 0, plays: 0 };
+    let topAlbumObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, duration: 0, plays: 0 };
+    let topSongObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, artistName: 'Ninguno', duration: 0, plays: 0 };
+
+    if (uniqueTrackIds.length > 0) {
+      try {
+        const tracks = await database.collections
+          .get<Track>('tracks')
+          .query(Q.where('id', Q.oneOf(uniqueTrackIds)))
+          .fetch();
+
+        const artistData: Record<string, { id: string; name: string; imageUrl: string | null; duration: number; plays: number }> = {};
+        const albumData: Record<string, { id: string; title: string; coverUrl: string | null; duration: number; plays: number }> = {};
+        const songData: Record<string, { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number }> = {};
+
+        for (const track of tracks) {
+          const dur = trackDurations[track.id] || 0;
+          const cnt = trackPlayCounts[track.id] || 0;
+          if (dur <= 0 && cnt <= 0) continue;
+
+          const artist = await track.artist.fetch();
+          if (artist) {
+            if (!artistData[artist.id]) {
+              artistData[artist.id] = { id: artist.id, name: artist.name, imageUrl: artist.imageUrl || null, duration: 0, plays: 0 };
+            }
+            artistData[artist.id].duration += dur;
+            artistData[artist.id].plays += cnt;
+          }
+
+          const album = await track.album.fetch();
+          if (album) {
+            if (!albumData[album.id]) {
+              albumData[album.id] = { id: album.id, title: album.title, coverUrl: album.coverUrl || null, duration: 0, plays: 0 };
+            }
+            albumData[album.id].duration += dur;
+            albumData[album.id].plays += cnt;
+          }
+
+          if (!songData[track.id]) {
+            songData[track.id] = {
+              id: track.id,
+              title: track.title,
+              coverUrl: album?.coverUrl || null,
+              artistName: artist?.name || 'Artista desconocido',
+              duration: 0,
+              plays: 0,
+            };
+          }
+          songData[track.id].duration += dur;
+          songData[track.id].plays += cnt;
+        }
+
+        const scoreOf = (d: { duration: number; plays: number }) =>
+          metric === 'duration' ? d.duration : d.plays;
+
+        let maxArtist = 0;
+        for (const data of Object.values(artistData)) {
+          if (scoreOf(data) > maxArtist) { maxArtist = scoreOf(data); topArtistObj = data; }
+        }
+        let maxAlbum = 0;
+        for (const data of Object.values(albumData)) {
+          if (scoreOf(data) > maxAlbum) { maxAlbum = scoreOf(data); topAlbumObj = data; }
+        }
+        let maxSong = 0;
+        for (const data of Object.values(songData)) {
+          if (scoreOf(data) > maxSong) { maxSong = scoreOf(data); topSongObj = data; }
+        }
+      } catch (e) {
+        console.warn('[HistoryService] Error calculating period stats:', e);
+      }
+    }
+
+    return {
+      totalHours,
+      totalPlays,
+      topArtist: topArtistObj.name,
+      topArtistId: topArtistObj.id,
+      topArtistImg: topArtistObj.imageUrl,
+      topArtistDuration: topArtistObj.duration,
+      topArtistPlays: topArtistObj.plays,
+      topAlbum: topAlbumObj.title,
+      topAlbumId: topAlbumObj.id,
+      topAlbumImg: topAlbumObj.coverUrl,
+      topAlbumDuration: topAlbumObj.duration,
+      topAlbumPlays: topAlbumObj.plays,
+      topSong: topSongObj.title,
+      topSongId: topSongObj.id,
+      topSongImg: topSongObj.coverUrl,
+      topSongArtist: topSongObj.artistName,
+      topSongDuration: topSongObj.duration,
+      topSongPlays: topSongObj.plays,
+    };
+  },
+
   async getMostPlayedTracks(limit = 10): Promise<Track[]> {
     try {
       const historyRecords = await database.collections

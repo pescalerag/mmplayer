@@ -47,6 +47,10 @@ interface SettingsState {
     setShowGlobalShuffle: (value: boolean) => void;
     isCompactTags: boolean;
     setIsCompactTags: (value: boolean) => void;
+    artistImageDownloadMode: 'disabled' | 'main' | 'all';
+    setArtistImageDownloadMode: (value: 'disabled' | 'main' | 'all') => void;
+    artistImageBackgroundDownload: boolean;
+    setArtistImageBackgroundDownload: (value: boolean) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -92,6 +96,10 @@ export const useSettingsStore = create<SettingsState>()(
             setShowGlobalShuffle: (value) => set({ showGlobalShuffle: value }),
             isCompactTags: true,
             setIsCompactTags: (value) => set({ isCompactTags: value }),
+            artistImageDownloadMode: 'disabled',
+            setArtistImageDownloadMode: (value) => set({ artistImageDownloadMode: value }),
+            artistImageBackgroundDownload: false,
+            setArtistImageBackgroundDownload: (value) => set({ artistImageBackgroundDownload: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

@@ -17,10 +17,12 @@ interface LibraryState {
     artistSort: SortOption;
     playlistSort: SortOption;
     trackSort: SortOption;
+    artistFilter: 'album' | 'all';
     setAlbumSort: (sort: SortOption) => void;
     setArtistSort: (sort: SortOption) => void;
     setPlaylistSort: (sort: SortOption) => void;
     setTrackSort: (sort: SortOption) => void;
+    setArtistFilter: (filter: 'album' | 'all') => void;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -30,10 +32,12 @@ export const useLibraryStore = create<LibraryState>()(
             artistSort: 'name_asc',
             playlistSort: 'recent_desc',
             trackSort: 'name_asc',
+            artistFilter: 'album',
             setAlbumSort: (sort) => set({ albumSort: sort }),
             setArtistSort: (sort) => set({ artistSort: sort }),
             setPlaylistSort: (sort) => set({ playlistSort: sort }),
             setTrackSort: (sort) => set({ trackSort: sort }),
+            setArtistFilter: (filter) => set({ artistFilter: filter }),
         }),
         {
             name: 'library-storage',

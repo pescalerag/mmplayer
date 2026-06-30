@@ -13,6 +13,7 @@ import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
 
 const sanitizeArtistName = (name: string) => {
@@ -450,7 +451,11 @@ export const ScannerService = {
         try {
             useSyncStore.getState().setIsScanning(true, isSilent);
             await ScannerService.cleanDeletedFiles((phase) => onProgress?.(0, 0, phase));
+
             await ScannerService.autoScanAndroid(onProgress);
+
+            ArtistImageService.processMissingArtistImages({ isBackground: true });
+
         } catch (error: any) {
             console.error("Error en syncLibrary:", error);
             if (!isSilent) {
@@ -462,7 +467,6 @@ export const ScannerService = {
             useSyncStore.getState().setIsScanning(false, false);
         }
     },
-
     fullDataWipe: async (onProgress?: (current: number, total: number, phase: string) => void) => {
         if (useSyncStore.getState().isScanning) return;
         try {
@@ -1005,7 +1009,7 @@ export const ScannerService = {
                         skipped++;
                         continue;
                     }
-                    
+
                     const dbLastModified = existingTrack.lastModified || 0;
                     if (file.lastModified <= dbLastModified) {
                         skipped++;
@@ -1244,7 +1248,7 @@ export const ScannerService = {
 
             for (let i = 0; i < tracksWithoutGain.length; i += CHUNK_SIZE) {
                 const chunk = tracksWithoutGain.slice(i, i + CHUNK_SIZE);
-                
+
                 onProgress?.(processed, tracksWithoutGain.length, `Analizando volumen (${processed}/${tracksWithoutGain.length})...`);
 
                 const batchOps: any[] = [];
@@ -1271,7 +1275,7 @@ export const ScannerService = {
                 }
 
                 processed += chunk.length;
-                
+
                 // Dar respiro a la UI
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
@@ -1289,7 +1293,7 @@ export const ScannerService = {
         try {
             const albumsCollection = database.collections.get<Album>('albums');
             const allAlbums = await albumsCollection.query().fetch();
-            
+
             const affectedAlbums = allAlbums.filter(a => a.coverUrl && a.coverUrl.startsWith('content://'));
 
             if (affectedAlbums.length === 0) {

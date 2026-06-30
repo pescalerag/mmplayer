@@ -180,6 +180,28 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                     <View style={styles.separator} />
 
+                    {/* IMÁGENES DE ARTISTAS */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => navigation.navigate('SettingsArtistImages')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="image-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.artist_images_title')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.artist_images_desc')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
                     {/* EXCLUSIONES */}
                     <TouchableOpacity
                         style={styles.menuRow}
