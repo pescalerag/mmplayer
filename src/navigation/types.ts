@@ -7,6 +7,7 @@ export type HomeStackParamList = {
     PlaylistDetail: { playlistId: string };
     FavoritesDetail: undefined;
     ChangelogScreen: undefined;
+    WeeklyActivity: undefined;
 };
 
 export type LibraryStackParamList = {

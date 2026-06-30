@@ -311,7 +311,7 @@ export default function TagFormModal() {
                 value={customHexCode || "#FFFFFF"}
                 onComplete={(result: { hex: string }) => {
                   "worklet";
-                  scheduleOnRN(() => setHexOnJS(result.hex));
+                  scheduleOnRN(setHexOnJS, result.hex);
                 }}
               >
                 <Panel1 />

@@ -102,7 +102,15 @@ export default function FolderMenuSheet() {
                 const tracksList = await database.collections.get<Track>('tracks').query(
                     Q.where('file_url', Q.like(`${selectedFolderPath}%`))
                 ).fetch();
-                setTracks(tracksList);
+                
+                const directTracksList = tracksList.filter(t => {
+                    const lastSlash = t.fileUrl.lastIndexOf('/');
+                    if (lastSlash === -1) return false;
+                    const dirPath = t.fileUrl.substring(0, lastSlash);
+                    return dirPath === selectedFolderPath;
+                });
+
+                setTracks(directTracksList);
             } catch (error) {
                 console.error("Error loading folder tracks in menu sheet:", error);
             }

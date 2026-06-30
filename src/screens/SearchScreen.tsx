@@ -14,6 +14,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Switch,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LibraryCard from "../components/LibraryCard";
@@ -32,6 +34,7 @@ import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
 import { useArtistMenuStore } from "../store/useArtistMenuStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useTagMenuStore } from "../store/useTagMenuStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors, Layout } from "../theme/theme";
 import { getDynamicTagTextColor } from '../utils/color';
 
@@ -184,19 +187,36 @@ const SearchArtistCard = memo(function SearchArtistCard({
   );
 });
 
-const SearchTagCardBase = ({ tag, onPress }: { tag: Tag; onPress: () => void }) => {
+const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPress: () => void; isCompact?: boolean }) => {
   const textColor = getDynamicTagTextColor(tag.color || '#8B5CF6');
+  if (isCompact) {
+    return (
+      <TouchableOpacity
+        style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
+        onPress={onPress}
+        onLongPress={() => {
+          Keyboard.dismiss();
+          useTagMenuStore.getState().openMenu(tag);
+        }}
+      >
+        <Ionicons name="pricetag" size={14} color={textColor} style={styles.tagCardIcon} />
+        <Text style={[styles.tagCardText, { color: textColor }]} numberOfLines={1}>{tag.name}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
-      style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
+      style={[styles.tagCardNormal, { backgroundColor: tag.color || '#8B5CF6' }]}
       onPress={onPress}
       onLongPress={() => {
         Keyboard.dismiss();
         useTagMenuStore.getState().openMenu(tag);
       }}
     >
-      <Ionicons name="pricetag" size={14} color={textColor} style={styles.tagCardIcon} />
-      <Text style={[styles.tagCardText, { color: textColor }]} numberOfLines={1}>{tag.name}</Text>
+      <Text style={[styles.tagCardTextNormal, { color: textColor }]} numberOfLines={2}>
+        {tag.name}
+      </Text>
     </TouchableOpacity>
   );
 };
@@ -206,6 +226,9 @@ const SearchTagCard = withObservables(['tag'], ({ tag }: { tag: Tag }) => ({
 }))(SearchTagCardBase);
 SearchTagCard.displayName = "SearchTagCard";
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const NORMAL_CARD_WIDTH = (SCREEN_WIDTH - 40 - 12) / 2;
+
 // --- MAIN SCREEN ---
 
 function SearchScreen({ tags }: { tags: Tag[] }) {
@@ -213,6 +236,8 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const navigation = useNavigation<SearchNavigationProp>();
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const { isCompactTags, setIsCompactTags } = useSettingsStore();
   const {
     results,
     topMatch,
@@ -260,6 +285,19 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
   const queryRef = useRef(query);
   useEffect(() => { queryRef.current = query; }, [query]);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const handleResultClick = useCallback(
     (text?: string) => {
@@ -358,7 +396,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      {!isSearching && history.length > 0 && (
+      {!isSearching && isKeyboardVisible && history.length > 0 && (
         <View style={styles.historySection}>
           <View style={styles.sectionHeaderWithAction}>
             <SectionHeader title={t('search.recent')} />
@@ -386,17 +424,33 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
       {!isSearching && (
         <View style={styles.tagsSection}>
-          <Text style={styles.resultsTitle}>{t('search.explore_tags')}</Text>
+          <View style={styles.tagsSectionHeader}>
+            <Text style={styles.resultsTitle}>{t('search.explore_tags')}</Text>
+            <View style={styles.layoutSwitchContainer}>
+              <Text style={styles.layoutSwitchLabel}>
+                {isCompactTags ? t('search.compact') : t('search.normal')}
+              </Text>
+              <Switch
+                value={isCompactTags}
+                onValueChange={setIsCompactTags}
+                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                thumbColor={isCompactTags ? '#FFFFFF' : '#888888'}
+                ios_backgroundColor="#282828"
+                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+              />
+            </View>
+          </View>
           {tags.length === 0 ? (
             <Text style={styles.noTagsText}>
               {t('search.no_tags')}
             </Text>
           ) : (
-            <View style={styles.tagsContainer}>
+            <View style={isCompactTags ? styles.tagsContainer : styles.tagsContainerNormal}>
               {tags.map((tag) => (
                 <SearchTagCard
                   key={tag.id}
                   tag={tag}
+                  isCompact={isCompactTags}
                   onPress={() => {
                     navigation.navigate("TagDetail", {
                       tagId: tag.id,
@@ -880,6 +934,48 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 20,
     marginTop: 8,
+  },
+  tagsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingRight: 20,
+  },
+  layoutSwitchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  layoutSwitchLabel: {
+    fontSize: 12,
+    fontFamily: "Montserrat",
+    fontWeight: "700",
+    color: "#666666",
+  },
+  tagsContainerNormal: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  tagCardNormal: {
+    width: NORMAL_CARD_WIDTH,
+    height: 80,
+    borderRadius: 16,
+    padding: 16,
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+  },
+  tagCardTextNormal: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontFamily: "Montserrat",
+    fontWeight: "800",
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

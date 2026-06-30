@@ -44,11 +44,18 @@ export const MetadataEditorService = {
                     const nameWithoutExt = fileName.includes('.') 
                         ? fileName.substring(0, fileName.lastIndexOf('.')) 
                         : fileName;
-                    const match = nameWithoutExt.match(/\b(\d{1,3})\b/);
-                    if (match) {
-                        trackNumberVal = parseInt(match[1], 10);
+                    
+                    // Check for patterns like "1-02", "01.02", "1_02" to ignore disc number in autonumbering
+                    const discTrackMatch = nameWithoutExt.match(/\b\d+[-_.](\d{1,3})\b/);
+                    if (discTrackMatch) {
+                        trackNumberVal = parseInt(discTrackMatch[1], 10);
                     } else {
-                        trackNumberVal = i + 1;
+                        const match = nameWithoutExt.match(/\b(\d{1,3})\b/);
+                        if (match) {
+                            trackNumberVal = parseInt(match[1], 10);
+                        } else {
+                            trackNumberVal = i + 1;
+                        }
                     }
                 } else {
                     trackNumberVal = null;
@@ -57,7 +64,7 @@ export const MetadataEditorService = {
                 trackNumberVal = metadata.trackNumber !== undefined ? (metadata.trackNumber === '' ? 0 : (parseInt(metadata.trackNumber, 10) || null)) : null;
             }
 
-            const discNumberVal = isBatchMode ? null : (metadata.discNumber !== undefined ? (metadata.discNumber === '' ? 0 : (parseInt(metadata.discNumber, 10) || null)) : null);
+            const discNumberVal = metadata.discNumber !== undefined ? (metadata.discNumber === '' ? 0 : (parseInt(metadata.discNumber, 10) || null)) : null;
             
             const artistVal = metadata.artist !== undefined ? metadata.artist : null;
             const albumVal = metadata.album !== undefined ? metadata.album : null;

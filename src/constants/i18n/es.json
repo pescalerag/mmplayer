@@ -8,9 +8,29 @@
     "welcome_afternoon": "Buenas tardes",
     "welcome_evening": "Buenas noches",
     "empty_recents": "Aquí aparecerá la música que reproduzcas.",
-    "my_playlists": "Tus Playlists",
+    "my_playlists": "Playlists Recientes",
     "empty_playlists": "Aún no has escuchado ninguna playlist.",
-    "special_playlist": "Lista de reproducción especial"
+    "special_playlist": "Lista de reproducción especial",
+    "weekly_stats_title": "ACTIVIDAD SEMANAL",
+    "weekly_stats_hours": "Horas escuchadas",
+    "weekly_stats_artist": "Artista top",
+    "weekly_stats_album": "Álbum top",
+    "weekly_stats_song": "Canción top",
+    "weekly_stats_hours_desc": "Tiempo total de escucha en los últimos 7 días",
+    "weekly_stats_play_time": "Tiempo de escucha: {{time}}",
+    "weekly_stats_empty": "No hay suficientes datos de reproducción esta semana",
+    "weekly_highlights": "TUS DESTACADOS DE LA SEMANA",
+    "global_shuffle": "REPRODUCCIÓN ALEATORIA",
+    "home_shuffle_button": "Botón de reproducción aleatoria",
+    "recently_played": "Escuchado recientemente",
+    "recently_added_albums": "Álbumes añadidos recientemente",
+    "most_played_songs": "Tus más escuchadas",
+    "explore_albums": "Explorar álbumes aleatorios",
+    "empty_added": "No hay álbumes añadidos",
+    "empty_most_played": "Escucha música para ver tus canciones más escuchadas",
+    "empty_explore": "No hay álbumes para explorar",
+    "no_tracks_to_shuffle": "No hay canciones para reproducir",
+    "shuffling_library": "Reproduciendo biblioteca aleatoriamente"
   },
   "welcome": {
     "title": "¡Bienvenido a MMPlayer!",
@@ -65,7 +85,9 @@
     "other_albums": "Otros álbumes",
     "more_songs": "Más canciones",
     "no_results": "No hemos encontrado nada para \"{{query}}\"",
-    "no_tags": "No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum."
+    "no_tags": "No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum.",
+    "compact": "Compacto",
+    "normal": "Normal"
   },
   "tags": {
     "manager": "Gestión de etiquetas",
@@ -162,6 +184,10 @@
     "drag_to_reorder": "Mantén pulsado y arrastra para reordenar",
     "app_tabs_order": "Navegación principal",
     "app_tabs_desc": "Personaliza la barra inferior",
+    "home_sections": "Secciones de inicio",
+    "home_sections_desc": "Elige qué secciones se muestran en la pantalla de inicio",
+    "home_sections_title": "Secciones de inicio",
+    "home_sections_subtitle": "Activa o desactiva las secciones",
     "initial_route": "Pantalla de inicio",
     "drag_to_reorder_tabs": "Orden de la barra (Mantén presionado para mover)",
     "confirm_restart": "Confirmar y Reiniciar",
@@ -297,7 +323,9 @@
     "current_badge": "Actual",
     "default_title": "MMPlayer se ha actualizado",
     "default_date": "Nueva Actualización",
-    "default_changes": ["Mejoras de rendimiento y corrección de errores menores."],
+    "default_changes": [
+      "Mejoras de rendimiento y corrección de errores menores."
+    ],
     "v_2_0_0_beta": {
       "title": "¡Bienvenido a MMPlayer v2!",
       "date": "22 de Junio, 2026",

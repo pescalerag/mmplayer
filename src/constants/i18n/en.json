@@ -8,9 +8,29 @@
     "welcome_afternoon": "Good afternoon",
     "welcome_evening": "Good evening",
     "empty_recents": "Music you play will appear here.",
-    "my_playlists": "Your Playlists",
+    "my_playlists": "Recent Playlists",
     "empty_playlists": "You haven't listened to any playlists yet.",
-    "special_playlist": "Special Playlist"
+    "special_playlist": "Special Playlist",
+    "weekly_stats_title": "WEEKLY ACTIVITY",
+    "weekly_stats_hours": "Hours listened",
+    "weekly_stats_artist": "Top artist",
+    "weekly_stats_album": "Top album",
+    "weekly_stats_song": "Top song",
+    "weekly_stats_hours_desc": "Total listening time in the last 7 days",
+    "weekly_stats_play_time": "Listening time: {{time}}",
+    "weekly_stats_empty": "Not enough playback data for this week",
+    "weekly_highlights": "YOUR WEEKLY HIGHLIGHTS",
+    "global_shuffle": "SHUFFLE PLAYBACK",
+    "home_shuffle_button": "Shuffle playback button",
+    "recently_played": "Recently played",
+    "recently_added_albums": "Recently added albums",
+    "most_played_songs": "Your most played",
+    "explore_albums": "Explore random albums",
+    "empty_added": "No recently added albums",
+    "empty_most_played": "Play some tracks to see your most played songs",
+    "empty_explore": "No albums available to explore",
+    "no_tracks_to_shuffle": "No tracks available to play",
+    "shuffling_library": "Playing library in shuffle mode"
   },
   "welcome": {
     "title": "Welcome to MMPlayer!",
@@ -65,7 +85,9 @@
     "other_albums": "Other albums",
     "more_songs": "More songs",
     "no_results": "No results found for \"{{query}}\"",
-    "no_tags": "No tags created. Add tags from the player or from a song/album menu."
+    "no_tags": "No tags created. Add tags from the player or from a song/album menu.",
+    "compact": "Compact",
+    "normal": "Normal"
   },
   "tags": {
     "manager": "Tag Manager",
@@ -162,6 +184,10 @@
     "drag_to_reorder": "Press and hold to drag and reorder",
     "app_tabs_order": "Main Navigation",
     "app_tabs_desc": "Customize the bottom bar",
+    "home_sections": "Home screen sections",
+    "home_sections_desc": "Choose which sections to display on the Home Screen",
+    "home_sections_title": "Home Screen Sections",
+    "home_sections_subtitle": "Enable or disable sections",
     "initial_route": "Startup screen",
     "drag_to_reorder_tabs": "Bar order (Hold to move)",
     "confirm_restart": "Confirm and Restart",
@@ -297,7 +323,9 @@
     "current_badge": "Current",
     "default_title": "MMPlayer has been updated",
     "default_date": "New Update",
-    "default_changes": ["Performance improvements and minor bug fixes."],
+    "default_changes": [
+      "Performance improvements and minor bug fixes."
+    ],
     "v_2_0_0_beta": {
       "title": "Welcome to MMPlayer v2!",
       "date": "June 22, 2026",

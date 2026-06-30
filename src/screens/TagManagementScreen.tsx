@@ -40,7 +40,14 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
             >
                 <View style={[styles.colorDot, { backgroundColor: item.color }]} />
                 <Text style={styles.tagName}>{item.name}</Text>
-                <Ionicons name="ellipsis-vertical" size={20} color="#888" />
+                <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => {
+                        useTagMenuStore.getState().openMenu(item);
+                    }}
+                >
+                    <Ionicons name="ellipsis-vertical" size={20} color="#888" />
+                </TouchableOpacity>
             </TouchableOpacity>
         );
     };

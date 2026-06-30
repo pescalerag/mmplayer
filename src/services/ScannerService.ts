@@ -781,10 +781,17 @@ export const ScannerService = {
             onProgress?.('Buscando archivos a eliminar...');
             const tracksCollection = database.collections.get<Track>('tracks');
 
-            // Buscamos todas las canciones cuya URL empiece por la ruta de la carpeta
-            const tracksToDelete = await tracksCollection.query(
+            // Buscamos todas las canciones cuya URL empiece por la ruta de la carpeta y filtramos por la carpeta exacta
+            const allTracks = await tracksCollection.query(
                 Q.where('file_url', Q.like(`${folderPath}%`))
             ).fetch();
+
+            const tracksToDelete = allTracks.filter(t => {
+                const lastSlash = t.fileUrl.lastIndexOf('/');
+                if (lastSlash === -1) return false;
+                const dirPath = t.fileUrl.substring(0, lastSlash);
+                return dirPath === folderPath;
+            });
 
             if (tracksToDelete.length > 0) {
                 onProgress?.(`Eliminando ${tracksToDelete.length} canciones...`);
@@ -983,7 +990,9 @@ export const ScannerService = {
 
                 if (i % 100 === 0) onProgress?.(i, audioFiles.length, 'Añadiendo a tu biblioteca...');
 
-                const isFolderExcluded = excludedFolders.some(folderPath => file.uri.startsWith(folderPath));
+                const lastSlash = file.uri.lastIndexOf('/');
+                const fileFolder = lastSlash !== -1 ? file.uri.substring(0, lastSlash) : '';
+                const isFolderExcluded = excludedFolders.includes(fileFolder);
                 const isSongExcluded = excludedSongs.includes(file.uri);
                 if (isFolderExcluded || isSongExcluded) {
                     skipped++;

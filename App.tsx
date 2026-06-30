@@ -25,6 +25,7 @@ import PlaylistSelectorModal from "./src/components/PlaylistSelectorModal";
 import QueueSheet from "./src/components/QueueSheet";
 import LibraryTabsOrderSheet from "./src/components/LibraryTabsOrderSheet";
 import AppTabsOrderSheet from "./src/components/AppTabsOrderSheet";
+import HomeSectionsSheet from "./src/components/HomeSectionsSheet";
 import SleepTimerSheet from "./src/components/SleepTimerSheet";
 import LocalCastSheet from "./src/components/LocalCastSheet";
 import SpeedPitchSheet from "./src/components/SpeedPitchSheet";
@@ -157,6 +158,7 @@ export default function App() {
           <SpeedPitchSheet />
           <LibraryTabsOrderSheet />
           <AppTabsOrderSheet />
+          <HomeSectionsSheet />
           <SwipeActionSheet />
           <MetadataEditorSheet />
           <GlobalToast />
