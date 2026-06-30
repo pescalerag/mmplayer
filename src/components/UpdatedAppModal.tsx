@@ -21,7 +21,7 @@ export default function UpdatedAppModal() {
   const { t } = useTranslation();
 
   const { lastSeenVersion, setLastSeenVersion } = useSettingsStore();
-  const currentVersion = Constants.expoConfig?.version || '1.1.0';
+  const currentVersion = Constants.expoConfig?.version || '2.0.0-beta.5';
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
 

@@ -10,15 +10,15 @@ import { Colors, Layout } from '../theme/theme';
 export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const currentVersion = Constants.expoConfig?.version || '1.0.0';
+  const currentVersion = Constants.expoConfig?.version || '2.0.0-beta.5';
 
   const versionKeys = Object.keys(changelogs).sort((a, b) => {
-    const cleanA = a.replace(/-beta$/, '');
-    const cleanB = b.replace(/-beta$/, '');
+    const cleanA = a.replace(/-beta(\.\d+)?$/, '');
+    const cleanB = b.replace(/-beta(\.\d+)?$/, '');
     if (cleanA !== cleanB) {
       return cleanB.localeCompare(cleanA, undefined, { numeric: true });
     }
-    return a.endsWith('-beta') ? 1 : -1;
+    return a.includes('-beta') ? 1 : -1;
   });
 
   return (

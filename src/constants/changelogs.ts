@@ -9,12 +9,12 @@ export interface VersionChangelog {
 }
 
 export const changelogs: Record<string, VersionChangelog> = {
-  '2.0.0-beta': {
-    version: '2.0.0-beta',
-    get title() { return i18n.t('changelog.v_2_0_0_beta.title'); },
-    get date() { return i18n.t('changelog.v_2_0_0_beta.date'); },
+  '2.0.0-beta.5': {
+    version: '2.0.0-beta.5',
+    get title() { return i18n.t('changelog.v_2_0_0_beta_5.title'); },
+    get date() { return i18n.t('changelog.v_2_0_0_beta_5.date'); },
     image: require('../assets/images/splash-icon.png'),
-    get changes() { return i18n.t('changelog.v_2_0_0_beta.changes', { returnObjects: true }) as unknown as string[]; }
+    get changes() { return i18n.t('changelog.v_2_0_0_beta_5.changes', { returnObjects: true }) as unknown as string[]; }
   },
   '1.3.1': {
     version: '1.3.1',

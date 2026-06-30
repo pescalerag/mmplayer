@@ -3,7 +3,7 @@
     "name": "MMPlayer",
     "slug": "mmplayer",
     "icon": "./src/assets/images/icon.png",
-    "version": "2.0.0-beta.4",
+    "version": "2.0.0-beta.5",
     "orientation": "portrait",
     "scheme": "mmplayer",
     "userInterfaceStyle": "automatic",
@@ -33,7 +33,7 @@
         "backgroundImage": "./src/assets/images/android-icon-background.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 8,
+      "versionCode": 9,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
