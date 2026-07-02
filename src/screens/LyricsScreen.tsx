@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -43,6 +43,8 @@ import { LyricsService } from '../services/LyricsService';
 import { formatTrackTime } from '../utils/time';
 import { useABRepeatStore } from '../store/useABRepeatStore';
 import { ABSliderMarkers } from '../components/ABSliderMarkers';
+import { useKeepAwake } from 'expo-keep-awake';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -513,10 +515,24 @@ const ObservableLyricsScreenUI = withObservables(['trackModel'], ({ trackModel }
     artists: trackModel.queryCollaborators.observe(),
 }))(LyricsScreenUI);
 
+function KeepAwakeController() {
+    useKeepAwake();
+    return null;
+}
+
 export default function LyricsScreen() {
     const activeTrackModel = usePlayerStore(state => state.activeTrack);
+    const isFocused = useIsFocused();
+    const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
+
     if (!activeTrackModel) return null;
-    return <ObservableLyricsScreenUI trackModel={activeTrackModel} />;
+
+    return (
+        <>
+            {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
+            <ObservableLyricsScreenUI trackModel={activeTrackModel} />
+        </>
+    );
 }
 
 const DEFAULT_SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };

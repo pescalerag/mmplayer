@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
@@ -19,6 +19,7 @@ import TrackPlayer, {
     RepeatMode,
     useProgress
 } from 'react-native-track-player';
+import { useKeepAwake } from 'expo-keep-awake';
 import BlurredBackground from '../components/BlurredBackground';
 
 import Album from '../database/models/Album';
@@ -623,25 +624,32 @@ const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }
     tags: trackModel.queryTags.observe(),
 }))(PlayerScreenUI);
 
+function KeepAwakeController() {
+    useKeepAwake();
+    return null;
+}
+
 const PlayerScreen = () => {
     const activeTrackModel = usePlayerStore(state => state.activeTrack);
     const hasNext = usePlayerStore(state => state.hasNext);
     const hasPrevious = usePlayerStore(state => state.hasPrevious);
     const navigation = useNavigation();
-
-
+    const isFocused = useIsFocused();
+    const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
 
     if (!activeTrackModel) return null;
 
-
     return (
-        <ObservablePlayerScreenUI
-            trackModel={activeTrackModel}
-            navigation={navigation}
-            formatTimestamp={formatTrackTime}
-            hasNext={hasNext}
-            hasPrevious={hasPrevious}
-        />
+        <>
+            {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
+            <ObservablePlayerScreenUI
+                trackModel={activeTrackModel}
+                navigation={navigation}
+                formatTimestamp={formatTrackTime}
+                hasNext={hasNext}
+                hasPrevious={hasPrevious}
+            />
+        </>
     );
 };
 

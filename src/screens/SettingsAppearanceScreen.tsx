@@ -30,7 +30,9 @@ export default function SettingsAppearanceScreen() {
         hideSyncToastOnResume,
         setHideSyncToastOnResume,
         userAlias,
-        setForceWelcomeModal
+        setForceWelcomeModal,
+        isKeepAwakeEnabled,
+        setIsKeepAwakeEnabled
     } = useSettingsStore();
 
     const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
@@ -127,6 +129,22 @@ export default function SettingsAppearanceScreen() {
                             onValueChange={setHideSyncToastOnResume}
                             trackColor={{ false: '#282828', true: '#8B5CF6' }}
                             thumbColor={hideSyncToastOnResume ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.keep_awake') || 'Reproductor persistente'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.keep_awake_desc') || 'Evita que la pantalla se apague mientras el reproductor o las letras están abiertos'}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={isKeepAwakeEnabled}
+                            onValueChange={setIsKeepAwakeEnabled}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={isKeepAwakeEnabled ? '#FFFFFF' : '#888888'}
                             ios_backgroundColor="#282828"
                         />
                     </View>

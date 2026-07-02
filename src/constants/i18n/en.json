@@ -147,6 +147,8 @@
     "artist_images_bg_download_desc": "Downloads images automatically during library scans. If disabled, they can only be downloaded manually.",
     "visualization": "Appearance",
     "visualization_desc": "Customize user alias, tag colors, tabs, and layout options",
+    "keep_awake": "Persistent Player",
+    "keep_awake_desc": "Prevents the screen from turning off while the player or lyrics screen is open",
     "tag_colors": "Tag Colors",
     "tag_colors_desc": "Show tags with their assigned colors on the player and album detail screens. If disabled, they will appear in low-opacity gray.",
     "silent_sync": "Silent sync on resume",

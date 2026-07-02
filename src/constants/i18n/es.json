@@ -147,6 +147,8 @@
     "artist_images_bg_download_desc": "Descarga imágenes automáticamente al escanear la biblioteca. Si se desactiva, solo se descargarán de forma manual.",
     "visualization": "Visualización",
     "visualization_desc": "Personaliza tu alias, colores de etiquetas y el orden de pestañas",
+    "keep_awake": "Reproductor persistente",
+    "keep_awake_desc": "Evita que la pantalla del móvil se apague mientras el reproductor o la pantalla de letras están abiertos",
     "tag_colors": "Colores de etiquetas",
     "tag_colors_desc": "Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.",
     "silent_sync": "Escaneo silencioso al volver",
