@@ -1,13 +1,15 @@
-import TrackPlayer, { Event, State } from "react-native-track-player";
+import TrackPlayer, { Event, State, RemotePlaySearchEvent } from "react-native-track-player";
 import { createMMKV } from "react-native-mmkv";
 import { HistoryService } from "./HistoryService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { database } from "../database";
 import Track from "../database/models/Track";
+import { Q } from "@nozbe/watermelondb";
 import { LyricsSyncService } from "./LyricsSyncService";
 import { useCastStore } from "../store/useCastStore";
 import { updateWidget } from "../../modules/native-audio-scanner";
 import { useABRepeatStore } from "../store/useABRepeatStore";
+import { usePlayerStore } from "../store/usePlayerStore";
 
 const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -95,8 +97,18 @@ export const PlaybackService = async function () {
       await TrackPlayer.play();
     }
   });
-  TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
+  TrackPlayer.addEventListener(Event.RemoteNext, () => {
+    if (usePlayerStore.getState().isSyncingLyrics) {
+      console.log("[PlaybackService] Ignored RemoteNext during lyrics sync");
+      return;
+    }
+    TrackPlayer.skipToNext();
+  });
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+    if (usePlayerStore.getState().isSyncingLyrics) {
+      console.log("[PlaybackService] Ignored RemotePrevious during lyrics sync");
+      return;
+    }
     try {
       const { position } = await TrackPlayer.getProgress();
       if (position > SKIP_PREVIOUS_THRESHOLD) {
@@ -141,6 +153,22 @@ export const PlaybackService = async function () {
   TrackPlayer.addEventListener(
     Event.PlaybackActiveTrackChanged,
     async (event) => {
+      const isSyncActive = usePlayerStore.getState().isSyncingLyrics;
+      if (isSyncActive && event.track) {
+        const syncedTrack = usePlayerStore.getState().activeTrack;
+        if (syncedTrack && event.track.id !== syncedTrack.id) {
+          console.log("[PlaybackService] Lyrics sync active. Reverting track change.");
+          const queue = await TrackPlayer.getQueue();
+          const syncedIndex = queue.findIndex(t => t.id?.toString().startsWith(syncedTrack.id.toString()));
+          if (syncedIndex !== -1) {
+            await TrackPlayer.skip(syncedIndex);
+            await TrackPlayer.seekTo(0);
+            await TrackPlayer.pause();
+          }
+          return;
+        }
+      }
+
       const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
       const nextTrackId = event.track?.id?.toString();
 
@@ -284,4 +312,31 @@ export const PlaybackService = async function () {
       }
     }
   );
+
+  TrackPlayer.addEventListener(Event.RemotePlaySearch, async (event: RemotePlaySearchEvent) => {
+    console.log('[Voice Assistant] Request:', event);
+    const searchTerm = event.title || event.artist || event.query || '';
+    if (!searchTerm) {
+      await TrackPlayer.play();
+      return;
+    }
+    try {
+      const tracksCollection = database.collections.get<Track>('tracks');
+      const results = await tracksCollection.query(
+        Q.or(
+          Q.where('title', Q.like(`%${Q.sanitizeLikeString(searchTerm)}%`)),
+          Q.where('artist', Q.like(`%${Q.sanitizeLikeString(searchTerm)}%`))
+        )
+      ).fetch();
+
+      if (results.length > 0) {
+        await usePlayerStore.getState().loadQueue(results, 0, "voice_search");
+        await TrackPlayer.play();
+      } else {
+        console.log('[Voice Assistant] No tracks found for:', searchTerm);
+      }
+    } catch (error) {
+      console.error('[Voice Assistant] DB error:', error);
+    }
+  });
 };

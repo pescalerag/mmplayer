@@ -5,7 +5,8 @@ import React, { memo } from "react";
 import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { clamp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { State, usePlaybackState } from "react-native-track-player";
+import { State } from "react-native-track-player";
+import { usePlaybackState } from "../hooks/usePlaybackState";
 import { scheduleOnRN } from 'react-native-worklets';
 import Track from "../database/models/Track";
 import { HistoryService } from "../services/HistoryService";
@@ -296,20 +297,19 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
   },
   underlay: {
     ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg || 20,
   },
   underlayIconContainer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   underlayIconLeft: {
-    alignItems: 'flex-start',
+    left: spacing.lg || 20,
   },
   underlayIconRight: {
-    alignItems: 'flex-end',
+    right: spacing.lg || 20,
   },
   row: {
     flexDirection: "row",

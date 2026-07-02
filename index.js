@@ -3,6 +3,7 @@ import 'react-native-gesture-handler';
 import { registerRootComponent } from 'expo';
 import * as SystemUI from 'expo-system-ui';
 import TrackPlayer from 'react-native-track-player';
+import './src/services/TrackPlayerFade';
 import App from './App';
 import { PlaybackService } from './src/services/PlaybackService';
 SystemUI.setBackgroundColorAsync('#000000');

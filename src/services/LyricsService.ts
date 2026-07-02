@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { database } from '../database';
 import Track from '../database/models/Track';
+import { usePlayerStore } from '../store/usePlayerStore';
 
 export const parseLRC = (lrcText: string): { time: number; text: string }[] => {
     if (!lrcText) return [];
@@ -35,12 +36,26 @@ export const parseLRC = (lrcText: string): { time: number; text: string }[] => {
     return parsedLines.sort((a, b) => a.time - b.time);
 };
 
+let isCurrentlyFetching = false;
+
 export const LyricsService = {
-    fetchLyrics: async (track: Track): Promise<string | null> => {
+    isFetching: (): boolean => {
+        return isCurrentlyFetching;
+    },
+
+    fetchLyrics: async (track: Track, force = false): Promise<string | null> => {
+        if (isCurrentlyFetching) {
+            console.log("[LyricsService] Fetch ignored: search already in progress");
+            return null;
+        }
+
         // 1. Check if cached in DB
-        if (track.lyricsLRC) {
+        if (!force && track.lyricsLRC) {
             return track.lyricsLRC;
         }
+
+        isCurrentlyFetching = true;
+        usePlayerStore.getState().setIsFetchingLyrics(true);
 
         // 2. Fetch from LRCLIB API
         try {
@@ -91,6 +106,9 @@ export const LyricsService = {
         } catch (error) {
             console.error("[LyricsService] Error fetching lyrics:", error);
             return null;
+        } finally {
+            isCurrentlyFetching = false;
+            usePlayerStore.getState().setIsFetchingLyrics(false);
         }
     },
 
@@ -125,5 +143,14 @@ export const LyricsService = {
             console.error("[LyricsService] Error importing custom lyrics:", error);
             throw error;
         }
+    },
+
+    saveLyrics: async (track: Track, lyrics: string): Promise<void> => {
+        await database.write(async () => {
+            await track.update(t => {
+                t.lyricsLRC = lyrics;
+            });
+        });
+        console.log(`[LyricsService] Custom lyrics saved to DB for track: ${track.title}`);
     }
 };

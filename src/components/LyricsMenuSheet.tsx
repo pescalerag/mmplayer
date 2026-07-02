@@ -18,11 +18,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LyricsService } from '../services/LyricsService';
 import { useLyricsMenuStore } from '../store/useLyricsMenuStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { usePlayerStore } from '../store/usePlayerStore';
 
 export default function LyricsMenuSheet() {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { isVisible, track, onImportSuccess, closeMenu } = useLyricsMenuStore();
+    const hasLyrics = !!track?.lyricsLRC?.trim();
+    const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -87,6 +90,57 @@ export default function LyricsMenuSheet() {
         }
     };
 
+    const handleSearchLyrics = async () => {
+        if (!track) return;
+        if (LyricsService.isFetching()) {
+            Alert.alert(
+                t('actions.warning') || 'Atención',
+                t('lyrics.search_in_progress') || 'Ya hay una búsqueda de letras en curso en este momento.'
+            );
+            return;
+        }
+
+        closeMenu();
+        try {
+            const lyrics = await LyricsService.fetchLyrics(track, true);
+            if (lyrics) {
+                onImportSuccess(lyrics);
+                Alert.alert(t('actions.success') || 'Éxito', t('lyrics.search_success') || 'Letras encontradas e importadas correctamente.');
+            } else {
+                Alert.alert(t('actions.error') || 'Error', t('lyrics.search_not_found') || 'No se encontraron letras para esta canción en internet.');
+            }
+        } catch (e) {
+            console.error('Error searching lyrics online:', e);
+            Alert.alert(t('actions.error') || 'Error', 'Ocurrió un error al buscar las letras.');
+        }
+    };
+
+    const handleDeleteLyrics = async () => {
+        if (!track) return;
+        Alert.alert(
+            t('actions.warning') || 'Atención',
+            t('lyrics.delete_confirm') || '¿Estás seguro de que quieres eliminar las letras de esta canción?',
+            [
+                { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
+                {
+                    text: t('actions.confirm') || 'Confirmar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await LyricsService.saveLyrics(track, '');
+                            onImportSuccess('');
+                            closeMenu();
+                            Alert.alert(t('actions.success') || 'Éxito', t('lyrics.delete_success') || 'Letras eliminadas correctamente.');
+                        } catch (e) {
+                            console.error('Error deleting lyrics:', e);
+                            Alert.alert(t('actions.error') || 'Error', 'No se pudieron eliminar las letras.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <View
             style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
@@ -95,7 +149,7 @@ export default function LyricsMenuSheet() {
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <RNAnimated.View style={[styles.menuOverlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
-
+ 
             <RNAnimated.View
                 style={[
                     styles.menuSheet,
@@ -106,26 +160,67 @@ export default function LyricsMenuSheet() {
                 ]}
             >
                 <View style={styles.dragHandle} />
-
+ 
                 <TouchableOpacity onPress={handleMorePress} style={styles.optionRow}>
                     <View style={styles.iconContainer}>
                         <Ionicons name="information-circle-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('actions.more_info') || 'Más info'}</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity onPress={handleImportLRC} style={styles.optionRow}>
+ 
+                <TouchableOpacity
+                    onPress={handleImportLRC}
+                    disabled={isFetchingLyrics}
+                    style={[styles.optionRow, isFetchingLyrics && { opacity: 0.4 }]}
+                >
                     <View style={styles.iconContainer}>
                         <Ionicons name="cloud-upload-outline" size={24} color={colors.text} />
                     </View>
                     <Text style={styles.optionText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={closeMenu} style={[styles.optionRow, { borderBottomWidth: 0 }]}>
+                <TouchableOpacity
+                    onPress={handleSearchLyrics}
+                    disabled={isFetchingLyrics}
+                    style={[styles.optionRow, isFetchingLyrics && { opacity: 0.4 }]}
+                >
                     <View style={styles.iconContainer}>
-                        <Ionicons name="close-outline" size={24} color={colors.heartIcon} />
+                        <Ionicons name="search-outline" size={24} color={colors.text} />
                     </View>
-                    <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.cancel') || 'Cancelar'}</Text>
+                    <Text style={styles.optionText}>{t('lyrics.search_lyrics') || 'Buscar letras en internet'}</Text>
+                </TouchableOpacity>
+ 
+                <TouchableOpacity
+                    onPress={() => { closeMenu(); navigation.navigate('LyricsEditor'); }}
+                    disabled={isFetchingLyrics}
+                    style={[styles.optionRow, isFetchingLyrics && { opacity: 0.4 }]}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="create-outline" size={24} color={colors.text} />
+                    </View>
+                    <Text style={styles.optionText}>{t('lyrics.edit') || 'Editar letras'}</Text>
+                </TouchableOpacity>
+ 
+                <TouchableOpacity
+                    onPress={() => { closeMenu(); navigation.navigate('LyricsSync'); }}
+                    disabled={!hasLyrics || isFetchingLyrics}
+                    style={[styles.optionRow, (!hasLyrics || isFetchingLyrics) && { opacity: 0.4 }]}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="time-outline" size={24} color={colors.text} />
+                    </View>
+                    <Text style={styles.optionText}>{t('lyrics.sync') || 'Sincronizar letras'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={handleDeleteLyrics}
+                    disabled={!hasLyrics || isFetchingLyrics}
+                    style={[styles.optionRow, { borderBottomWidth: 0 }, (!hasLyrics || isFetchingLyrics) && { opacity: 0.4 }]}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
+                    </View>
+                    <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('lyrics.delete_lyrics') || 'Eliminar letras'}</Text>
                 </TouchableOpacity>
             </RNAnimated.View>
         </View>

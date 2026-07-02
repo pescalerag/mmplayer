@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
+    Animated,
     ScrollView,
     StyleSheet,
     Switch,
@@ -18,6 +19,7 @@ import TrackPlayer from 'react-native-track-player';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { ScannerService } from '../services/ScannerService';
+import { EqualizerService } from '../services/EqualizerService';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useSyncStore } from '../store/useSyncStore';
 import { Colors, Layout } from '../theme/theme';
@@ -35,8 +37,35 @@ export default function SettingsAudioScreen() {
         preampLevel,
         setPreampLevel,
         fallbackGainDB,
-        setFallbackGain
+        setFallbackGain,
+        isFadeEnabled,
+        setIsFadeEnabled,
+        isEqualizerEnabled,
+        setIsEqualizerEnabled,
+        equalizerBands,
+        setEqualizerBand,
+        setEqualizerBands,
+        bassBoostStrength,
+        setBassBoostStrength,
     } = useSettingsStore();
+
+    const [bandFreqs, setBandFreqs] = useState<number[]>([]);
+    const [bandRange, setBandRange] = useState<{ min: number; max: number }>({ min: -1500, max: 1500 });
+    const [scrollEnabled, setScrollEnabled] = useState(true);
+    const eqInitialized = useRef(false);
+
+    useEffect(() => {
+        if (!eqInitialized.current) {
+            eqInitialized.current = true;
+            EqualizerService.initialize().then(() => {
+                setBandFreqs(EqualizerService.getBandFrequencies());
+                setBandRange(EqualizerService.getBandLevelRange());
+                if (isEqualizerEnabled) {
+                    EqualizerService.applyCurrentSettings();
+                }
+            });
+        }
+    }, [isEqualizerEnabled]);
 
     return (
         <View style={[styles.container, { backgroundColor: Colors.background }]}>
@@ -71,6 +100,7 @@ export default function SettingsAudioScreen() {
             {/* CONTENIDO */}
             <ScrollView
                 style={{ flex: 1 }}
+                scrollEnabled={scrollEnabled}
                 contentContainerStyle={[
                     styles.scrollContent,
                     {
@@ -216,6 +246,26 @@ export default function SettingsAudioScreen() {
 
                     <View style={styles.separator} />
 
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.fade') || 'Atenuación suave (Fade)'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.fade_desc') || 'Baja y sube el volumen suavemente al pausar y reproducir'}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={isFadeEnabled}
+                            onValueChange={(value) => {
+                                setIsFadeEnabled(value);
+                            }}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={isFadeEnabled ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
+                    <View style={styles.separator} />
+
                     <TouchableOpacity
                         style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
                         disabled={isScanning}
@@ -257,6 +307,144 @@ export default function SettingsAudioScreen() {
                         </View>
                         <Ionicons name="volume-high" size={20} color="#8B5CF6" />
                     </TouchableOpacity>
+                </View>
+
+                <View style={styles.sectionCard}>
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.equalizer')}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.equalizer_desc')}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={isEqualizerEnabled}
+                            onValueChange={async (value) => {
+                                setIsEqualizerEnabled(value);
+                                await EqualizerService.setEnabled(value);
+                                if (value) {
+                                    await EqualizerService.applyCurrentSettings();
+                                }
+                            }}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={isEqualizerEnabled ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
+                    {isEqualizerEnabled && (
+                        <>
+                            <View style={styles.separator} />
+
+                            <View style={{ marginVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <Text style={styles.settingLabel}>{t('settings.equalizer')}</Text>
+                                    <TouchableOpacity
+                                        onPress={async () => {
+                                            const zeros = new Array(equalizerBands.length).fill(0);
+                                            setEqualizerBands(zeros);
+                                            for (let i = 0; i < zeros.length; i++) {
+                                                await EqualizerService.setBandLevel(i, 0);
+                                            }
+                                        }}
+                                        style={styles.eqResetBtn}
+                                    >
+                                        <Text style={styles.eqResetText}>{t('settings.eq_reset')}</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.eqBandsContainer}>
+                                    {equalizerBands.map((level, index) => {
+                                        const freq = bandFreqs[index];
+                                        const freqLabel = freq === undefined
+                                            ? `B${index + 1}`
+                                            : freq >= 1000
+                                                ? `${(freq / 1000).toFixed(0)}${t('settings.eq_khz')}`
+                                                : `${Math.round(freq)}${t('settings.eq_hz')}`;
+                                        const dbValue = (level / 100).toFixed(1);
+                                        const isPositive = level > 0;
+                                        return (
+                                            <View key={index} style={styles.eqBand}>
+                                                <Text style={[styles.eqBandDb, { color: isPositive ? '#8B5CF6' : level < 0 ? '#999' : '#555' }]}>
+                                                    {isPositive ? `+${dbValue}` : dbValue}
+                                                </Text>
+                                                <View style={styles.eqSliderTrack}>
+                                                    <View style={[
+                                                        styles.eqSliderFill,
+                                                        {
+                                                            height: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
+                                                            backgroundColor: isPositive ? '#8B5CF6' : '#444',
+                                                        }
+                                                    ]} />
+                                                    <Animated.View
+                                                        style={[
+                                                            styles.eqSliderThumb,
+                                                            {
+                                                                bottom: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
+                                                                marginBottom: -8,
+                                                            }
+                                                        ]}
+                                                    />
+                                                </View>
+                                                <View style={styles.eqTouchArea}
+                                                    onStartShouldSetResponder={() => true}
+                                                    onMoveShouldSetResponder={() => true}
+                                                    onResponderGrant={(e) => {
+                                                        setScrollEnabled(false);
+                                                        const { locationY } = e.nativeEvent;
+                                                        e.target.measure((_fx, _fy, _w, h) => {
+                                                            const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
+                                                            const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
+                                                            setEqualizerBand(index, newLevel);
+                                                            EqualizerService.setBandLevel(index, newLevel);
+                                                        });
+                                                    }}
+                                                    onResponderMove={(e) => {
+                                                        const { locationY } = e.nativeEvent;
+                                                        e.target.measure((_fx, _fy, _w, h) => {
+                                                            const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
+                                                            const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
+                                                            setEqualizerBand(index, newLevel);
+                                                            EqualizerService.setBandLevel(index, newLevel);
+                                                        });
+                                                    }}
+                                                    onResponderRelease={() => setScrollEnabled(true)}
+                                                    onResponderTerminate={() => setScrollEnabled(true)}
+                                                />
+                                                <Text style={styles.eqBandFreq}>{freqLabel}</Text>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+
+                            <View style={styles.separator} />
+
+                            <View style={{ marginVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={styles.settingLabel}>{t('settings.bass_boost')}</Text>
+                                    <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                        {Math.round(bassBoostStrength / 10)}%
+                                    </Text>
+                                </View>
+                                <Text style={styles.settingDescription}>{t('settings.bass_boost_desc')}</Text>
+                                <Slider
+                                    style={{ width: '100%', height: 40, marginTop: 8 }}
+                                    minimumValue={0}
+                                    maximumValue={1000}
+                                    step={10}
+                                    value={bassBoostStrength}
+                                    onValueChange={async (value) => {
+                                        setBassBoostStrength(value);
+                                        await EqualizerService.setBassBoost(value);
+                                    }}
+                                    minimumTrackTintColor="#8B5CF6"
+                                    maximumTrackTintColor="#282828"
+                                    thumbTintColor="#FFFFFF"
+                                />
+                            </View>
+                        </>
+                    )}
                 </View>
             </ScrollView>
         </View>
@@ -336,5 +524,87 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         marginVertical: 4,
+    },
+    eqBandsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        height: 180,
+        paddingTop: 24,
+        paddingBottom: 24,
+        marginTop: 8,
+    },
+    eqBand: {
+        flex: 1,
+        alignItems: 'center',
+        height: '100%',
+        position: 'relative',
+    },
+    eqBandDb: {
+        fontSize: 9,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        marginBottom: 4,
+        position: 'absolute',
+        top: 0,
+    },
+    eqSliderTrack: {
+        width: 6,
+        flex: 1,
+        backgroundColor: '#1C1C1C',
+        borderRadius: 3,
+        overflow: 'hidden',
+        justifyContent: 'flex-end',
+        marginTop: 18,
+        marginBottom: 18,
+        position: 'relative',
+    },
+    eqSliderFill: {
+        width: '100%',
+        borderRadius: 3,
+    },
+    eqSliderThumb: {
+        position: 'absolute',
+        left: -5,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    eqTouchArea: {
+        position: 'absolute',
+        top: 18,
+        bottom: 18,
+        left: -10,
+        right: -10,
+        zIndex: 10,
+    },
+    eqBandFreq: {
+        fontSize: 8,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#666',
+        position: 'absolute',
+        bottom: 0,
+        textAlign: 'center',
+    },
+    eqResetBtn: {
+        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+    },
+    eqResetText: {
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#8B5CF6',
     },
 });

@@ -28,6 +28,7 @@ export async function setupPlayer() {
             Capability.SkipToPrevious,
             Capability.SeekTo,
             Capability.Stop,
+            Capability.PlayFromSearch,
         ],
         notificationCapabilities: [
             Capability.Play,

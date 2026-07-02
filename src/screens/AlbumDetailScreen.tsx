@@ -16,8 +16,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TrackPlayer, {
   State,
-  usePlaybackState,
 } from "react-native-track-player";
+import { usePlaybackState } from "../hooks/usePlaybackState";
 import DetailHeaderLayout from "../components/DetailHeaderLayout";
 import { getDynamicTagTextColor } from "../utils/color";
 import { formatAlbumDuration } from "../utils/time";

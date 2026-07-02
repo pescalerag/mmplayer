@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Track from '../database/models/Track';
 import { LyricsService, parseLRC } from '../services/LyricsService';
+import { usePlayerStore } from '../store/usePlayerStore';
 
 export function useSyncedLyrics(track: Track | null, currentTime: number) {
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLocalLoading, setIsLocalLoading] = useState(false);
+    const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
+    const isLoading = isLocalLoading || isFetchingLyrics;
 
     // Sync parsedLyrics with track.lyricsLRC (reactive from WatermelonDB)
     const parsedLyrics = useMemo(() => {
@@ -16,12 +19,12 @@ export function useSyncedLyrics(track: Track | null, currentTime: number) {
     useEffect(() => {
         if (!track) return;
         if (track.lyricsLRC) {
-            setIsLoading(false);
+            setIsLocalLoading(false);
             return;
         }
 
         let isMounted = true;
-        setIsLoading(true);
+        setIsLocalLoading(true);
 
         LyricsService.fetchLyrics(track)
             .catch(err => {
@@ -29,7 +32,7 @@ export function useSyncedLyrics(track: Track | null, currentTime: number) {
             })
             .finally(() => {
                 if (isMounted) {
-                    setIsLoading(false);
+                    setIsLocalLoading(false);
                 }
             });
 
