@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import { useKeepAwake } from 'expo-keep-awake';
 import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
@@ -13,14 +14,18 @@ import {
     View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
-    useProgress
+    State as TrackPlayerState,
+    usePlaybackState,
+    useProgress,
 } from 'react-native-track-player';
-import { useKeepAwake } from 'expo-keep-awake';
+import { NativeVisualizer } from '../../modules/native-equalizer';
 import BlurredBackground from '../components/BlurredBackground';
+import PlayerMenuSheet from '../components/PlayerMenuSheet';
+import { usePlayerMenuStore } from '../store/usePlayerMenuStore';
 
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -39,16 +44,16 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
+import { ABSliderMarkers } from '../components/ABSliderMarkers';
 import MarqueeText from '../components/MarqueeText';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Track from '../database/models/Track';
+import { useABRepeatStore } from '../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import { useToastStore } from '../store/useToastStore';
 import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { getDynamicTagTextColor } from '../utils/color';
 import { formatTrackTime } from '../utils/time';
-import { useABRepeatStore } from '../store/useABRepeatStore';
-import { ABSliderMarkers } from '../components/ABSliderMarkers';
 
 const { width } = Dimensions.get('window');
 
@@ -120,7 +125,14 @@ const PlayerScreenUI = ({
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
-    
+    const showPlayerVisualizer = useSettingsStore(state => state.showPlayerVisualizer);
+    const playerVisualizerType = useSettingsStore(state => state.playerVisualizerType);
+    const playerVisualizerColorMode = useSettingsStore(state => state.playerVisualizerColorMode);
+    const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
+
+    // Is something replacing the big cover? (visualizer OR cd/vinyl spinning)
+    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl';
+
     const pointA = useABRepeatStore(state => state.pointA);
     const pointB = useABRepeatStore(state => state.pointB);
     const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
@@ -156,6 +168,30 @@ const PlayerScreenUI = ({
     const translateX = useSharedValue(0);
     const hasTriggeredHaptic = useSharedValue(false);
 
+    // ── CD / Vinyl spin animation ──
+    const spinDeg = useSharedValue(0);
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === TrackPlayerState.Playing;
+
+    React.useEffect(() => {
+        if ((playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl') && isPlaying) {
+            spinDeg.value = withRepeat(
+                withTiming(spinDeg.value + 360, {
+                    duration: playerCoverStyle === 'vinyl' ? 2500 : 4000,
+                    easing: Easing.linear
+                }),
+                -1,
+                false
+            );
+        } else {
+            cancelAnimation(spinDeg);
+        }
+    }, [playerCoverStyle, isPlaying]);
+
+    const spinStyle = useAnimatedStyle(() => ({
+        transform: [{ rotate: `${spinDeg.value}deg` }],
+    }));
+
     const triggerHaptic = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
@@ -183,6 +219,16 @@ const PlayerScreenUI = ({
             translateX.value = withSpring(0, { damping: 25, stiffness: 60 });
             hasTriggeredHaptic.value = false;
         });
+
+    const openPlayerMenu = usePlayerMenuStore(state => state.openSheet);
+    const longPressGesture = Gesture.LongPress()
+        .minDuration(450)
+        .onStart(() => {
+            runOnJS(triggerHaptic)();
+            runOnJS(openPlayerMenu)();
+        });
+
+    const composedGesture = Gesture.Simultaneous(panGesture, longPressGesture);
 
     const swipeAnimatedStyle = useAnimatedStyle(() => {
         return {
@@ -322,24 +368,54 @@ const PlayerScreenUI = ({
                     </TouchableOpacity>
                 </View>
 
-                {/* Artwork */}
-                <View style={styles.artworkContainer}>
-                    <GestureDetector gesture={panGesture}>
-                        <Animated.View style={swipeAnimatedStyle}>
-                            {artworkSource && !imageError ? (
-                                <Image
-                                    key={track.id}
-                                    source={artworkSource}
-                                    style={styles.artwork}
-                                    contentFit="cover"
-                                    transition={300}
-                                    cachePolicy="memory-disk"
-                                    onError={() => setImageError(true)}
+                {/* Artwork / Visualizer / CD / Vinyl Container */}
+                <View style={[styles.artworkContainer, isAltDisplay && { paddingHorizontal: 0 }]}>
+                    <GestureDetector gesture={composedGesture}>
+                        <Animated.View style={[swipeAnimatedStyle, { width: '100%' }]}>
+                            {showPlayerVisualizer ? (
+                                <NativeVisualizer
+                                    active={true}
+                                    type={playerVisualizerType}
+                                    color={playerVisualizerColorMode === 'cover' ? 'rgba(139, 92, 246, 0.8)' : colors.accentLight || '#8B5CF6'}
+                                    style={{
+                                        width: '100%',
+                                        height: 240,
+                                        backgroundColor: 'transparent',
+                                    }}
                                 />
+                            ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
+                                <Animated.View style={[{
+                                    width: width - 64,
+                                    height: width - 64,
+                                    alignSelf: 'center',
+                                }, spinStyle]}>
+                                    <Image
+                                        source={playerCoverStyle === 'cd'
+                                            ? require('../assets/cd.svg')
+                                            : require('../assets/vinyl.svg')
+                                        }
+                                        style={{ width: '100%', height: '100%' }}
+                                        contentFit="contain"
+                                    />
+                                </Animated.View>
                             ) : (
-                                <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                    <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
-                                </View>
+                                artworkSource && !imageError ? (
+                                    <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
+                                        <Image
+                                            key={track.id}
+                                            source={artworkSource}
+                                            style={styles.artwork}
+                                            contentFit="cover"
+                                            transition={300}
+                                            cachePolicy="memory-disk"
+                                            onError={() => setImageError(true)}
+                                        />
+                                    </View>
+                                ) : (
+                                    <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                        <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                    </View>
+                                )
                             )}
                         </Animated.View>
                     </GestureDetector>
@@ -378,22 +454,36 @@ const PlayerScreenUI = ({
                             )}
                         </View>
 
-                        <MarqueeText
-                            text={track.title}
-                            style={styles.title}
-                            speed={45}
-                            pauseDuration={1800}
-                        />
-                        <TouchableOpacity
-                            onPress={handleArtistPress}
-                        >
-                            <MarqueeText
-                                text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || t('actions.unknown'))}
-                                style={styles.artist}
-                                speed={35}
-                                pauseDuration={2000}
-                            />
-                        </TouchableOpacity>
+                        {/* Title & Artist row with optional mini cover */}
+                        <View style={isAltDisplay ? { flexDirection: 'row', alignItems: 'center' } : null}>
+                            {isAltDisplay && artworkSource && !imageError && (
+                                <Image
+                                    key={`mini-${track.id}`}
+                                    source={artworkSource}
+                                    style={styles.miniArtwork}
+                                    contentFit="cover"
+                                    cachePolicy="memory-disk"
+                                />
+                            )}
+                            <View style={isAltDisplay ? { flex: 1 } : null}>
+                                <MarqueeText
+                                    text={track.title}
+                                    style={styles.title}
+                                    speed={45}
+                                    pauseDuration={1800}
+                                />
+                                <TouchableOpacity
+                                    onPress={handleArtistPress}
+                                >
+                                    <MarqueeText
+                                        text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || t('actions.unknown'))}
+                                        style={styles.artist}
+                                        speed={35}
+                                        pauseDuration={2000}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
 
                     {/* Actions Column (Heart + Plus) */}
@@ -580,10 +670,10 @@ const PlayerScreenUI = ({
                                     isServerRunning
                                         ? colors.disabled
                                         : pointB !== null
-                                        ? colors.accentLight
-                                        : pointA !== null
-                                        ? "rgba(167, 139, 250, 0.5)"
-                                        : colors.textSecondary
+                                            ? colors.accentLight
+                                            : pointA !== null
+                                                ? "rgba(167, 139, 250, 0.5)"
+                                                : colors.textSecondary
                                 }
                             />
                         </TouchableOpacity>
@@ -649,6 +739,7 @@ const PlayerScreen = () => {
                 hasNext={hasNext}
                 hasPrevious={hasPrevious}
             />
+            <PlayerMenuSheet />
         </>
     );
 };
@@ -703,6 +794,13 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
     artworkPlaceholder: {
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: colors.cardBackground,
+    },
+    miniArtwork: {
+        width: 48,
+        height: 48,
+        borderRadius: radii.sm || 6,
+        marginRight: 12,
         backgroundColor: colors.cardBackground,
     },
     infoContainer: {

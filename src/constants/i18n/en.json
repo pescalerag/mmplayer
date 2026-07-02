@@ -587,5 +587,23 @@
     "delete_success": "Lyrics deleted successfully.",
     "search_success": "Lyrics found and imported successfully.",
     "search_not_found": "No lyrics found for this song online."
+  },
+  "visualizer": {
+    "menu_title": "Visualization Options",
+    "menu_desc": "Customize the real-time visualizer",
+    "enable": "Active Visualizer",
+    "enable_desc": "Show waves and bars moving to the beat of the music",
+    "style": "Visualizer Style",
+    "style_bars": "Equalizer Bars",
+    "style_wave": "Oscillating Wave",
+    "style_spectrum": "Full Spectrum",
+    "style_circle": "Pulsing Circle",
+    "color_mode": "Color",
+    "color_cover": "Adapt to Cover",
+    "color_accent": "Purple Theme Color",
+    "cover_style": "Cover Art Style",
+    "cover_style_cover": "Original Artwork",
+    "cover_style_cd": "Spinning CD",
+    "cover_style_vinyl": "Spinning Vinyl"
   }
 }
