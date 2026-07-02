@@ -1,0 +1,9 @@
+{
+  "name": "native-equalizer",
+  "version": "1.0.0",
+  "description": "Native Android Equalizer module",
+  "main": "index.ts",
+  "peerDependencies": {
+    "expo": "*"
+  }
+}

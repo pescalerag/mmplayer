@@ -241,7 +241,14 @@
     "lyrics_sync_start": "Descargar letras faltantes",
     "lyrics_downloading": "Descargando... {{current}} de {{total}}",
     "cast_title": "Casteo local activo",
-    "cast_desc": "Abre esta dirección en tu PC para escuchar:"
+    "cast_desc": "Abre esta dirección en tu PC para escuchar:",
+    "equalizer": "Ecualizador",
+    "equalizer_desc": "Ajusta el sonido por frecuencias",
+    "bass_boost": "Refuerzo de graves",
+    "bass_boost_desc": "Añade potencia extra a las frecuencias bajas",
+    "eq_reset": "Restablecer",
+    "eq_hz": "Hz",
+    "eq_khz": "kHz"
   },
   "queue": {
     "title": "Cola",

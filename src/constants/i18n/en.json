@@ -241,7 +241,14 @@
     "lyrics_sync_start": "Download missing lyrics",
     "lyrics_downloading": "Downloading... {{current}} of {{total}}",
     "cast_title": "Local cast active",
-    "cast_desc": "Open this address on your PC to listen:"
+    "cast_desc": "Open this address on your PC to listen:",
+    "equalizer": "Equalizer",
+    "equalizer_desc": "Adjust sound by frequency",
+    "bass_boost": "Bass Boost",
+    "bass_boost_desc": "Add extra power to low frequencies",
+    "eq_reset": "Reset",
+    "eq_hz": "Hz",
+    "eq_khz": "kHz"
   },
   "queue": {
     "title": "Queue",

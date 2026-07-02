@@ -55,6 +55,13 @@ interface SettingsState {
     setIsFadeEnabled: (value: boolean) => void;
     isKeepAwakeEnabled: boolean;
     setIsKeepAwakeEnabled: (value: boolean) => void;
+    isEqualizerEnabled: boolean;
+    setIsEqualizerEnabled: (value: boolean) => void;
+    equalizerBands: number[];
+    setEqualizerBand: (index: number, levelMb: number) => void;
+    setEqualizerBands: (bands: number[]) => void;
+    bassBoostStrength: number;
+    setBassBoostStrength: (value: number) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -108,6 +115,17 @@ export const useSettingsStore = create<SettingsState>()(
             setIsFadeEnabled: (value) => set({ isFadeEnabled: value }),
             isKeepAwakeEnabled: false,
             setIsKeepAwakeEnabled: (value) => set({ isKeepAwakeEnabled: value }),
+            isEqualizerEnabled: false,
+            setIsEqualizerEnabled: (value) => set({ isEqualizerEnabled: value }),
+            equalizerBands: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            setEqualizerBand: (index, levelMb) => set((state) => {
+                const bands = [...state.equalizerBands];
+                bands[index] = levelMb;
+                return { equalizerBands: bands };
+            }),
+            setEqualizerBands: (bands) => set({ equalizerBands: bands }),
+            bassBoostStrength: 0,
+            setBassBoostStrength: (value) => set({ bassBoostStrength: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {
