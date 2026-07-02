@@ -51,6 +51,8 @@ interface SettingsState {
     setArtistImageDownloadMode: (value: 'disabled' | 'main' | 'all') => void;
     artistImageBackgroundDownload: boolean;
     setArtistImageBackgroundDownload: (value: boolean) => void;
+    isFadeEnabled: boolean;
+    setIsFadeEnabled: (value: boolean) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -100,6 +102,8 @@ export const useSettingsStore = create<SettingsState>()(
             setArtistImageDownloadMode: (value) => set({ artistImageDownloadMode: value }),
             artistImageBackgroundDownload: false,
             setArtistImageBackgroundDownload: (value) => set({ artistImageBackgroundDownload: value }),
+            isFadeEnabled: true,
+            setIsFadeEnabled: (value) => set({ isFadeEnabled: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

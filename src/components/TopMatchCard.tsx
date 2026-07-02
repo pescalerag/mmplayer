@@ -276,17 +276,17 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
             borderWidth: 1,
             borderColor: colors.overlayAlpha10
         }}>
-            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 }]}>
-                {swipeRightAction !== 'none' ? (
-                    <Animated.View style={leftIconStyle}>
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.accent }]}>
+                {swipeRightAction !== 'none' && (
+                    <Animated.View style={[leftIconStyle, { position: 'absolute', left: 20, top: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }]}>
                         <Ionicons name={getActionIcon(swipeRightAction)} size={24} color="#FFFFFF" />
                     </Animated.View>
-                ) : <View />}
-                {swipeLeftAction !== 'none' ? (
-                    <Animated.View style={rightIconStyle}>
+                )}
+                {swipeLeftAction !== 'none' && (
+                    <Animated.View style={[rightIconStyle, { position: 'absolute', right: 20, top: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }]}>
                         <Ionicons name={getActionIcon(swipeLeftAction)} size={24} color="#FFFFFF" />
                     </Animated.View>
-                ) : <View />}
+                )}
             </View>
 
             <GestureDetector gesture={panGesture}>

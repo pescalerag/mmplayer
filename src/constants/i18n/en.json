@@ -232,6 +232,8 @@
     "scan_replaygain_alert_title": "Analyze Track Volume",
     "scan_replaygain_alert_desc": "This process will scan and analyze tracks in your library that do not have volume gain assigned. This might take a few minutes for larger libraries. Do you wish to continue?",
     "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks.",
+    "fade": "Playback Fade Effect",
+    "fade_desc": "Lower and raise volume smoothly (500ms) on pause and play",
     "lyrics_sync": "Lyrics Sync",
     "lyrics_sync_desc": "Download lyrics for your entire library in the background. Wi-Fi recommended.",
     "lyrics_sync_start": "Download missing lyrics",

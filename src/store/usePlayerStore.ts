@@ -648,7 +648,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
 
       // Iniciamos pausado para no sorprender al usuario al abrir la app
-      await TrackPlayer.pause();
+      await (TrackPlayer as any).pause(true);
 
       // 2. Rehidratar el modelo WatermelonDB por ID
       const activeTPTrack = queue[safeIndex];

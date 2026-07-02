@@ -20,9 +20,9 @@ import TrackPlayer, {
     Event,
     State,
     Track as TPTrack,
-    usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
+import { usePlaybackState } from '../hooks/usePlaybackState';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Track from '../database/models/Track';

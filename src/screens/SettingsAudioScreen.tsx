@@ -35,7 +35,9 @@ export default function SettingsAudioScreen() {
         preampLevel,
         setPreampLevel,
         fallbackGainDB,
-        setFallbackGain
+        setFallbackGain,
+        isFadeEnabled,
+        setIsFadeEnabled
     } = useSettingsStore();
 
     return (
@@ -213,6 +215,26 @@ export default function SettingsAudioScreen() {
                             </View>
                         </>
                     )}
+
+                    <View style={styles.separator} />
+
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1, paddingRight: 15 }}>
+                            <Text style={styles.settingLabel}>{t('settings.fade') || 'Atenuación suave (Fade)'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.fade_desc') || 'Baja y sube el volumen suavemente al pausar y reproducir'}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={isFadeEnabled}
+                            onValueChange={(value) => {
+                                setIsFadeEnabled(value);
+                            }}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={isFadeEnabled ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
 
                     <View style={styles.separator} />
 

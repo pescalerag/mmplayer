@@ -14,7 +14,8 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
+import TrackPlayer, { State } from 'react-native-track-player';
+import { usePlaybackState } from '../hooks/usePlaybackState';
 
 import { useTranslation } from 'react-i18next';
 import LibraryCard from '../components/LibraryCard';

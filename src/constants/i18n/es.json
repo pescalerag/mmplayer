@@ -232,6 +232,8 @@
     "scan_replaygain_alert_title": "Analizar volumen de canciones",
     "scan_replaygain_alert_desc": "Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?",
     "scan_replaygain_success": "Se han analizado y guardado las ganancias de {{count}} canciones.",
+    "fade": "Atenuación suave (Fade)",
+    "fade_desc": "Baja y sube el volumen suavemente (500ms) al pausar y reproducir",
     "lyrics_sync": "Sincronización de Letras",
     "lyrics_sync_desc": "Descarga las letras de toda tu biblioteca en segundo plano. Se recomienda usar Wi-Fi.",
     "lyrics_sync_start": "Descargar letras faltantes",

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
-import TrackPlayer, { State, usePlaybackState } from 'react-native-track-player';
+import TrackPlayer, { State } from 'react-native-track-player';
+import { usePlaybackState } from '../hooks/usePlaybackState';
 
 interface Props {
     size?: number;
