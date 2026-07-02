@@ -270,6 +270,8 @@
     "previous": "Anterior",
     "cancel": "Cancelar",
     "continue": "Continuar",
+    "save": "Guardar",
+    "discard": "Descartar",
     "pin": "Fijar",
     "unpin": "Desfijar",
     "go_to_album": "Ir a álbum",
@@ -558,5 +560,25 @@
     "auto_number_active": "Autonumeración inteligente activada",
     "auto_number_inactive": "Toca para aplicar autonumeración",
     "auto_number_help": "Se extraerá el número del nombre del archivo (ej: \"01\"). Si no se encuentra, se asignará por orden de lista."
+  },
+  "lyrics": {
+    "edit": "Editar letras",
+    "sync": "Sincronizar letras",
+    "edit_title": "Editar letras",
+    "sync_title": "Sincronizar letras",
+    "edit_placeholder": "Escribe las letras aquí...",
+    "save_success": "Letras guardadas con éxito.",
+    "sync_save_success": "Tiempos sincronizados correctamente.",
+    "unsaved_warning": "Tienes cambios sin guardar. ¿Deseas salir de todas formas?",
+    "reset_confirm": "¿Estás seguro de que quieres borrar todos los tiempos y empezar de nuevo?",
+    "next_phrase": "Marcar inicio de frase",
+    "sync_instructions": "Toca el botón central en el momento exacto en que comience a cantarse la frase destacada en morado (no al final).",
+    "search_lyrics": "Buscar letras en internet",
+    "delete_lyrics": "Eliminar letras",
+    "search_in_progress": "Ya hay una búsqueda de letras en curso en este momento.",
+    "delete_confirm": "¿Estás seguro de que quieres eliminar las letras de esta canción?",
+    "delete_success": "Letras eliminadas correctamente.",
+    "search_success": "Letras encontradas e importadas correctamente.",
+    "search_not_found": "No se encontraron letras para esta canción en internet."
   }
 }

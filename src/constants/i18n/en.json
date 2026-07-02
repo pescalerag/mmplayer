@@ -270,6 +270,8 @@
     "previous": "Previous",
     "cancel": "Cancel",
     "continue": "Continue",
+    "save": "Save",
+    "discard": "Discard",
     "pin": "Pin",
     "unpin": "Unpin",
     "go_to_album": "View album",
@@ -558,5 +560,25 @@
     "auto_number_active": "Smart auto-numbering enabled",
     "auto_number_inactive": "Tap to apply auto-numbering",
     "auto_number_help": "Track number will be extracted from the file name (e.g. \"01\"). If not found, it will be assigned based on list order."
+  },
+  "lyrics": {
+    "edit": "Edit lyrics",
+    "sync": "Sync lyrics",
+    "edit_title": "Edit lyrics",
+    "sync_title": "Sync lyrics",
+    "edit_placeholder": "Write lyrics here...",
+    "save_success": "Lyrics saved successfully.",
+    "sync_save_success": "Timestamps synced successfully.",
+    "unsaved_warning": "You have unsaved changes. Do you want to leave anyway?",
+    "reset_confirm": "Are you sure you want to clear all timestamps and start over?",
+    "next_phrase": "Mark phrase start",
+    "sync_instructions": "Tap the central button at the exact moment the highlighted purple phrase begins (not at the end).",
+    "search_lyrics": "Search lyrics online",
+    "delete_lyrics": "Delete lyrics",
+    "search_in_progress": "A lyrics search is already in progress at this moment.",
+    "delete_confirm": "Are you sure you want to delete the lyrics for this song?",
+    "delete_success": "Lyrics deleted successfully.",
+    "search_success": "Lyrics found and imported successfully.",
+    "search_not_found": "No lyrics found for this song online."
   }
 }

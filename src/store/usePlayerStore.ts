@@ -78,6 +78,10 @@ interface PlayerState {
   handleDeletedEntities: (trackIds: string[], albumIds: string[], artistIds: string[]) => Promise<void>;
   isRestoring: boolean;
   isQueueLoading: boolean;
+  isSyncingLyrics: boolean;
+  setIsSyncingLyrics: (value: boolean) => void;
+  isFetchingLyrics: boolean;
+  setIsFetchingLyrics: (value: boolean) => void;
 }
 
 export type RecentItem = {
@@ -148,6 +152,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   recentPlaylists: [],
   isRestoring: false,
   isQueueLoading: false,
+  isSyncingLyrics: false,
+  setIsSyncingLyrics: (value) => set({ isSyncingLyrics: value }),
+  isFetchingLyrics: false,
+  setIsFetchingLyrics: (value) => set({ isFetchingLyrics: value }),
 
   loadQueue: async (tracks, index, context = "unknown") => {
     const loadId = ++currentLoadId;
