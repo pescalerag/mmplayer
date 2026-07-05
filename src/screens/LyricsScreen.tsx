@@ -45,6 +45,7 @@ import { useABRepeatStore } from '../store/useABRepeatStore';
 import { ABSliderMarkers } from '../components/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { extractColorFromImage } from '../../modules/native-equalizer';
 
 const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -83,6 +84,114 @@ const performToggleShuffle = async (
     }
 };
 
+// Helper functions for hex color conversions and dark background/gradient generation
+const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
+    let r = 0, g = 0, b = 0;
+    hex = hex.replace(/^#/, '');
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+};
+
+const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+        const y = Math.min(Math.max(Math.min(k(n) - 3, 9 - k(n)), -1), 1);
+        return Math.round(255 * (l - a * y)).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+};
+
+const hexToRgba = (hex: string, alpha: number): string => {
+    hex = hex.replace(/^#/, '');
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
+    try {
+        const hsl = hexToHsl(extractedHex);
+        // Base dark color: Saturation 30%, Lightness 10%
+        const baseColor = hslToHex(hsl.h, 30, 10);
+        // Lighter top color: Saturation 35%, Lightness 20%
+        const topColor = hslToHex(hsl.h, 35, 20);
+        return {
+            backgroundSolid: baseColor,
+            topGradient: topColor,
+            bottomGradient: baseColor
+        };
+    } catch (e) {
+        return {
+            backgroundSolid: defaultBg,
+            topGradient: '#121212',
+            bottomGradient: defaultBg
+        };
+    }
+};
+
+interface LyricLineProps {
+    item: { time: number; text: string };
+    isActive: boolean;
+    onPress: () => void;
+    styles: any;
+}
+
+const LyricLine = React.memo(({ item, isActive, onPress, styles }: LyricLineProps) => {
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.7}
+            style={styles.lineContainer}
+        >
+            <Text style={[styles.lineText, isActive ? styles.lineActive : styles.lineInactive]}>
+                {item.text}
+            </Text>
+        </TouchableOpacity>
+    );
+}, (prevProps, nextProps) => {
+    return (
+        prevProps.item.text === nextProps.item.text &&
+        prevProps.item.time === nextProps.item.time &&
+        prevProps.isActive === nextProps.isActive &&
+        prevProps.styles === nextProps.styles
+    );
+});
+
 interface LyricsScreenUIProps {
     track: Track;
     album: Album;
@@ -95,6 +204,49 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+
+    const [extractedColor, setExtractedColor] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        if (!album.coverUrl) {
+            setExtractedColor(null);
+            return;
+        }
+
+        extractColorFromImage(album.coverUrl)
+            .then(color => {
+                if (isMounted) {
+                    setExtractedColor(color);
+                }
+            })
+            .catch(err => {
+                console.error("Error extracting cover color in LyricsScreen:", err);
+                if (isMounted) {
+                    setExtractedColor(null);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [album.coverUrl]);
+
+    const { finalBgColor, topGradientColor, bottomGradientColor } = React.useMemo(() => {
+        if (extractedColor) {
+            const grads = generateDarkGradients(extractedColor, colors.background);
+            return {
+                finalBgColor: grads.backgroundSolid,
+                topGradientColor: grads.topGradient,
+                bottomGradientColor: grads.bottomGradient,
+            };
+        }
+        return {
+            finalBgColor: colors.background,
+            topGradientColor: colors.background,
+            bottomGradientColor: colors.background,
+        };
+    }, [extractedColor, colors.background]);
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
 
     // Calculate layout metrics for perfect lyrics centering in the gap
@@ -142,6 +294,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const heartScale = useSharedValue(1);
 
     const flatListRef = useRef<FlatList>(null);
+    const scrollViewRef = useRef<ScrollView>(null);
 
     useEffect(() => {
         TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
@@ -153,6 +306,13 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     useEffect(() => {
         isInitialScrollRef.current = true;
+        // Reset scroll position to top on track changes
+        if (flatListRef.current) {
+            flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+        }
+        if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({ y: 0, animated: false });
+        }
     }, [track.id]);
 
     useEffect(() => {
@@ -275,20 +435,14 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                     ref={flatListRef}
                     data={parsedLyrics}
                     keyExtractor={(_, i) => i.toString()}
-                    renderItem={({ item, index }) => {
-                        const isActive = index === activeIndex;
-                        return (
-                            <TouchableOpacity
-                                onPress={() => TrackPlayer.seekTo(item.time)}
-                                activeOpacity={0.7}
-                                style={styles.lineContainer}
-                            >
-                                <Text style={[styles.lineText, isActive ? styles.lineActive : styles.lineInactive]}>
-                                    {item.text}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    }}
+                    renderItem={({ item, index }) => (
+                        <LyricLine
+                            item={item}
+                            isActive={index === activeIndex}
+                            onPress={() => TrackPlayer.seekTo(item.time)}
+                            styles={styles}
+                        />
+                    )}
                     contentContainerStyle={[styles.listContent, { paddingTop, paddingBottom }]}
                     getItemLayout={(_, index) => ({ length: LYRIC_ITEM_HEIGHT, offset: LYRIC_ITEM_HEIGHT * index, index })}
                     onScrollToIndexFailed={info => {
@@ -305,6 +459,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
         return (
             <ScrollView
+                ref={scrollViewRef}
                 contentContainerStyle={[styles.plainContainer, { paddingTop: insets.top + 200, paddingBottom: insets.bottom + 320 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
@@ -315,13 +470,21 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     };
 
     return (
-        <View style={styles.root}>
+        <View style={[styles.root, { backgroundColor: finalBgColor }]}>
             {/* Blurred Background */}
             <BlurredBackground
                 key={`blur-${track.id}`}
                 imageUrl={album.coverUrl || undefined}
                 blurIntensity={100}
-                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                gradientColors={
+                    extractedColor
+                        ? [
+                            topGradientColor,
+                            bottomGradientColor,
+                            bottomGradientColor
+                          ]
+                        : ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]
+                }
             />
 
             {/* Lyrics Content (Absolute Full to scroll behind) */}
@@ -331,13 +494,21 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
             {/* Gradient Masks */}
             <LinearGradient
-                colors={[colors.background, colors.background, 'transparent']}
+                colors={
+                    extractedColor
+                        ? [topGradientColor, topGradientColor, 'transparent']
+                        : [colors.background, colors.background, 'transparent']
+                }
                 locations={[0, 0.45, 1]}
                 style={[styles.gradientMaskTop, { height: insets.top + 200 }]}
                 pointerEvents="none"
             />
             <LinearGradient
-                colors={['transparent', colors.background, colors.background]}
+                colors={
+                    extractedColor
+                        ? ['transparent', bottomGradientColor, bottomGradientColor]
+                        : ['transparent', colors.background, colors.background]
+                }
                 locations={[0, 0.3, 1]}
                 style={[styles.gradientMaskBottom, { height: insets.bottom + 320 }]}
                 pointerEvents="none"

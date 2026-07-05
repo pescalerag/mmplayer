@@ -1,5 +1,9 @@
 package expo.modules.nativeequalizer
 
+import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.net.Uri
+import androidx.palette.graphics.Palette
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.Visualizer
@@ -162,6 +166,33 @@ class NativeEqualizerModule : Module() {
             releaseEffects()
         }
 
+        AsyncFunction("extractColorFromImage") { url: String ->
+            var resultColor = "#8B5CF6"
+            try {
+                val bitmap = if (url.startsWith("content://")) {
+                    val uri = Uri.parse(url)
+                    appContext.reactContext?.contentResolver?.openInputStream(uri).use { inputStream ->
+                        BitmapFactory.decodeStream(inputStream)
+                    }
+                } else {
+                    val cleanPath = url.removePrefix("file://")
+                    BitmapFactory.decodeFile(cleanPath)
+                }
+
+                if (bitmap != null) {
+                    val palette = Palette.from(bitmap).generate()
+                    val extractedColor = palette.getDominantColor(Color.parseColor("#8B5CF6"))
+                        ?: palette.getVibrantColor(Color.parseColor("#8B5CF6"))
+                        ?: Color.parseColor("#8B5CF6")
+                    
+                    resultColor = String.format("#%06X", 0xFFFFFF and extractedColor)
+                }
+            } catch (e: Exception) {
+                Log.e("NativeEqualizer", "Error in extractColorFromImage: ${e.message}", e)
+            }
+            resultColor
+        }
+
         View(NativeVisualizerView::class) {
             Prop("color") { view: NativeVisualizerView, color: String ->
                 view.setColor(color)
@@ -171,6 +202,9 @@ class NativeEqualizerModule : Module() {
             }
             Prop("active") { view: NativeVisualizerView, active: Boolean ->
                 view.setActive(active)
+            }
+            Prop("coverUrl") { view: NativeVisualizerView, coverUrl: String? ->
+                view.setCoverUrl(coverUrl)
             }
         }
     }

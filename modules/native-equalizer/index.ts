@@ -8,6 +8,7 @@ export interface NativeVisualizerProps extends ViewProps {
     color?: string;
     type?: 'bars' | 'wave' | 'spectrum' | 'circle';
     active?: boolean;
+    coverUrl?: string;
 }
 
 export const NativeVisualizer: React.ComponentType<NativeVisualizerProps> = requireNativeViewManager('NativeEqualizer');
@@ -42,4 +43,8 @@ export async function getEqualizerNumberOfBands(): Promise<number> {
 
 export async function releaseEqualizer(): Promise<void> {
     return await NativeEqualizerModule.release();
+}
+
+export async function extractColorFromImage(imageUrl: string): Promise<string> {
+    return await NativeEqualizerModule.extractColorFromImage(imageUrl);
 }

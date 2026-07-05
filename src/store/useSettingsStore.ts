@@ -70,6 +70,8 @@ interface SettingsState {
     setPlayerVisualizerColorMode: (value: 'accent' | 'cover') => void;
     playerCoverStyle: 'cover' | 'cd' | 'vinyl';
     setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl') => void;
+    playerBackgroundStyle: 'cover' | 'gradient';
+    setPlayerBackgroundStyle: (value: 'cover' | 'gradient') => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -142,6 +144,8 @@ export const useSettingsStore = create<SettingsState>()(
             setPlayerVisualizerColorMode: (value) => set({ playerVisualizerColorMode: value }),
             playerCoverStyle: 'cover',
             setPlayerCoverStyle: (value) => set({ playerCoverStyle: value }),
+            playerBackgroundStyle: 'cover',
+            setPlayerBackgroundStyle: (value) => set({ playerBackgroundStyle: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

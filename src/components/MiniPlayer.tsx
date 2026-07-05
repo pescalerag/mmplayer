@@ -18,6 +18,66 @@ import { MainNavigationProp } from '../navigation/types';
 import { usePlayerStore } from '../store/usePlayerStore';
 import BlurredBackground from './BlurredBackground';
 import PlayPauseButton from './PlayPauseButton';
+import { extractColorFromImage } from '../../modules/native-equalizer';
+
+// Helper functions for hex color conversions and dark overlay generation
+const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
+    let r = 0, g = 0, b = 0;
+    hex = hex.replace(/^#/, '');
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+};
+
+const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+        const y = Math.min(Math.max(Math.min(k(n) - 3, 9 - k(n)), -1), 1);
+        return Math.round(255 * (l - a * y)).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+};
+
+const hexToRgba = (hex: string, alpha: number): string => {
+    hex = hex.replace(/^#/, '');
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 // --- FONDO DIFUMINADO ---
 
@@ -26,12 +86,68 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
     album: track.album.observe(),
 }))(({ album }: { album: Album }) => {
     const { colors } = useAppTheme();
+    const [coverColor, setCoverColor] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        let isMounted = true;
+        if (!album.coverUrl) {
+            setCoverColor(null);
+            return;
+        }
+
+        extractColorFromImage(album.coverUrl)
+            .then(color => {
+                if (isMounted) {
+                    setCoverColor(color);
+                }
+            })
+            .catch(err => {
+                console.error("Error extracting cover color in MiniPlayer:", err);
+                if (isMounted) {
+                    setCoverColor(null);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [album.coverUrl]);
+
+    const overlayColors = React.useMemo(() => {
+        if (coverColor) {
+            try {
+                const hsl = hexToHsl(coverColor);
+                // Create a dark version of the color: Saturation 25%, Lightness 12%
+                const darkHex = hslToHex(hsl.h, 25, 12);
+                // Convert it to RGBA with 0.65 opacity to overlay on the cover
+                const rgbaVal = hexToRgba(darkHex, 0.65);
+                return [rgbaVal, rgbaVal];
+            } catch (e) {
+                return ['rgba(18,18,18,0.6)', 'rgba(18,18,18,0.6)'];
+            }
+        }
+        return ['rgba(18,18,18,0.6)', 'rgba(18,18,18,0.6)'];
+    }, [coverColor]);
+
+    const placeholderBg = React.useMemo(() => {
+        if (coverColor) {
+            try {
+                const hsl = hexToHsl(coverColor);
+                // Solid dark color: Saturation 25%, Lightness 10%
+                return hslToHex(hsl.h, 25, 10);
+            } catch (e) {
+                return colors.cardBackground;
+            }
+        }
+        return colors.cardBackground;
+    }, [coverColor, colors.cardBackground]);
+
     return (
         <BlurredBackground
             imageUrl={album.coverUrl}
             blurIntensity={Platform.OS === 'ios' ? 40 : 70}
-            gradientColors={['rgba(18,18,18,0.6)', 'rgba(18,18,18,0.6)']}
-            placeholderColors={[colors.cardBackground, colors.cardBackground]}
+            gradientColors={overlayColors}
+            placeholderColors={[placeholderBg, placeholderBg]}
         />
     );
 });

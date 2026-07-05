@@ -22,7 +22,7 @@ import TrackPlayer, {
     usePlaybackState,
     useProgress,
 } from 'react-native-track-player';
-import { NativeVisualizer } from '../../modules/native-equalizer';
+import { NativeVisualizer, extractColorFromImage } from '../../modules/native-equalizer';
 import BlurredBackground from '../components/BlurredBackground';
 import PlayerMenuSheet from '../components/PlayerMenuSheet';
 import { usePlayerMenuStore } from '../store/usePlayerMenuStore';
@@ -110,6 +110,69 @@ const performToggleShuffle = async (
     }
 };
 
+// Helper functions for hex color conversions and dark background/gradient generation
+const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
+    let r = 0, g = 0, b = 0;
+    hex = hex.replace(/^#/, '');
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+};
+
+const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+        const y = Math.min(Math.max(Math.min(k(n) - 3, 9 - k(n)), -1), 1);
+        return Math.round(255 * (l - a * y)).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+};
+
+const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
+    try {
+        const hsl = hexToHsl(extractedHex);
+        const baseColor = hslToHex(hsl.h, 30, 10);
+        const topColor = hslToHex(hsl.h, 35, 20);
+        return {
+            backgroundSolid: baseColor,
+            topGradient: topColor,
+            bottomGradient: baseColor
+        };
+    } catch (e) {
+        return {
+            backgroundSolid: defaultBg,
+            topGradient: '#121212',
+            bottomGradient: defaultBg
+        };
+    }
+};
+
 const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious
 }: PlayerScreenUIProps) => {
@@ -129,6 +192,7 @@ const PlayerScreenUI = ({
     const playerVisualizerType = useSettingsStore(state => state.playerVisualizerType);
     const playerVisualizerColorMode = useSettingsStore(state => state.playerVisualizerColorMode);
     const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
+    const playerBackgroundStyle = useSettingsStore(state => state.playerBackgroundStyle);
 
     // Is something replacing the big cover? (visualizer OR cd/vinyl spinning)
     const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl';
@@ -140,6 +204,49 @@ const PlayerScreenUI = ({
     const artworkSource = React.useMemo(() =>
         album.coverUrl ? { uri: album.coverUrl } : null
         , [album.coverUrl]);
+
+    const [coverColor, setCoverColor] = useState<string | null>(null);
+
+    const { finalBgColor, topGradientColor, bottomGradientColor } = React.useMemo(() => {
+        if (coverColor) {
+            const grads = generateDarkGradients(coverColor, colors.background);
+            return {
+                finalBgColor: grads.backgroundSolid,
+                topGradientColor: grads.topGradient,
+                bottomGradientColor: grads.bottomGradient,
+            };
+        }
+        return {
+            finalBgColor: colors.background,
+            topGradientColor: colors.background,
+            bottomGradientColor: colors.background,
+        };
+    }, [coverColor, colors.background]);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (!album.coverUrl) {
+            setCoverColor(null);
+            return;
+        }
+
+        extractColorFromImage(album.coverUrl)
+            .then(color => {
+                if (isMounted) {
+                    setCoverColor(color);
+                }
+            })
+            .catch(err => {
+                console.error("Error extracting cover color in PlayerScreen:", err);
+                if (isMounted) {
+                    setCoverColor(null);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [album.coverUrl]);
 
     // Shuffle — estado global (sobrevive a la navegación)
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
@@ -331,13 +438,17 @@ const PlayerScreenUI = ({
     }, [track.id]);
 
     return (
-        <View style={styles.container}>
-            {/* Background Image with Blur */}
+        <View style={[styles.container, playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor }]}>
+            {/* Background Image with Blur / Color Gradient */}
             <BlurredBackground
                 key={`blur-${track.id}`}
                 imageUrl={album.coverUrl}
                 blurIntensity={10}
-                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                gradientColors={
+                    playerBackgroundStyle === 'gradient' && coverColor
+                        ? [topGradientColor, bottomGradientColor, bottomGradientColor]
+                        : ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]
+                }
             />
 
             <View style={styles.safeArea}>
@@ -376,7 +487,8 @@ const PlayerScreenUI = ({
                                 <NativeVisualizer
                                     active={true}
                                     type={playerVisualizerType}
-                                    color={playerVisualizerColorMode === 'cover' ? 'rgba(139, 92, 246, 0.8)' : colors.accentLight || '#8B5CF6'}
+                                    color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
+                                    coverUrl={album.coverUrl || undefined}
                                     style={{
                                         width: '100%',
                                         height: 240,
@@ -397,6 +509,18 @@ const PlayerScreenUI = ({
                                         style={{ width: '100%', height: '100%' }}
                                         contentFit="contain"
                                     />
+                                    {playerCoverStyle === 'vinyl' && coverColor && (
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0, left: 0, right: 0, bottom: 0,
+                                                borderRadius: (width - 64) / 2,
+                                                backgroundColor: coverColor,
+                                                opacity: 0.25,
+                                            }}
+                                            pointerEvents="none"
+                                        />
+                                    )}
                                 </Animated.View>
                             ) : (
                                 artworkSource && !imageError ? (

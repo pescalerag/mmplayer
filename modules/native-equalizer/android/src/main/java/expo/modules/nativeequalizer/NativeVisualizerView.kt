@@ -6,6 +6,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.palette.graphics.Palette
 import android.media.audiofx.Visualizer
 import android.util.Log
 import android.view.Choreographer
@@ -20,10 +23,14 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
 
     private var active = false
     private var typeStr = "bars"
+    private var isCoverMode = false
+    private var coverUrl: String? = null
+    private var coverColor: Int? = null
+    private val defaultColor = Color.parseColor("#8B5CF6")
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#8B5CF6")
+        color = defaultColor
     }
 
     // Audio data updated at max Visualizer rate (~20Hz)
@@ -48,12 +55,82 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     }
 
     fun setColor(hexOrRgba: String) {
-        try {
-            paint.color = resolveColor(hexOrRgba)
-        } catch (e: Exception) {
-            paint.color = Color.parseColor("#8B5CF6")
+        if (hexOrRgba == "cover") {
+            isCoverMode = true
+            paint.color = coverColor ?: defaultColor
+        } else {
+            isCoverMode = false
+            try {
+                paint.color = resolveColor(hexOrRgba)
+            } catch (e: Exception) {
+                paint.color = defaultColor
+            }
         }
         invalidate()
+    }
+
+    fun setCoverUrl(url: String?) {
+        if (url == coverUrl) return
+        coverUrl = url
+        coverColor = null
+        
+        if (url.isNullOrEmpty()) {
+            if (isCoverMode) {
+                paint.color = defaultColor
+                invalidate()
+            }
+            return
+        }
+        
+        Thread {
+            try {
+                val bitmap = if (url.startsWith("content://")) {
+                    val uri = Uri.parse(url)
+                    context.contentResolver.openInputStream(uri).use { inputStream ->
+                        BitmapFactory.decodeStream(inputStream)
+                    }
+                } else {
+                    val cleanPath = url.removePrefix("file://")
+                    BitmapFactory.decodeFile(cleanPath)
+                }
+
+                if (bitmap != null) {
+                    Palette.from(bitmap).generate { palette ->
+                        val extractedColor = palette?.getDominantColor(defaultColor)
+                            ?: palette?.getVibrantColor(defaultColor)
+                            ?: defaultColor
+                        
+                        // Ensure the color has enough contrast and is bright/vibrant
+                        val hsl = FloatArray(3)
+                        androidx.core.graphics.ColorUtils.colorToHSL(extractedColor, hsl)
+                        if (hsl[2] < 0.45f) {
+                            hsl[2] = 0.65f // Boost lightness
+                        }
+                        if (hsl[1] < 0.25f) {
+                            hsl[1] = 0.65f // Boost saturation
+                        }
+                        val adjustedColor = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
+                        
+                        coverColor = adjustedColor
+                        
+                        post {
+                            if (isCoverMode) {
+                                paint.color = adjustedColor
+                                invalidate()
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error extracting color from cover: ${e.message}", e)
+                post {
+                    if (isCoverMode) {
+                        paint.color = defaultColor
+                        invalidate()
+                    }
+                }
+            }
+        }.start()
     }
 
     private fun resolveColor(color: String): Int {
@@ -105,8 +182,8 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
 
     // --- Choreographer render loop (capped at TARGET_FPS) ---
 
-    private val targetFps = 40
-    private val frameIntervalNs = 1_000_000_000L / targetFps // 25ms en nanosegundos
+    private val targetFps = 30
+    private val frameIntervalNs = 1_000_000_000L / targetFps // 33.3ms en nanosegundos
     private var lastFrameTimeNs = 0L
 
     private fun startRenderLoop() {
@@ -161,10 +238,10 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
 
         captureListener = object : Visualizer.OnDataCaptureListener {
             override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
-                waveBytes = waveform
+                waveBytes = waveform?.clone()
             }
             override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
-                fftBytes = fft
+                fftBytes = fft?.clone()
             }
         }
 
@@ -245,17 +322,25 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
             return
         }
 
-        val binSize = maxOf(1, (fft.size / 2) / numCircleBars)
+        val numBins = fft.size / 2
         for (i in 0 until numCircleBars) {
+            val minIdx = 2.0
+            val maxIdx = (numBins - 1).toDouble().coerceAtLeast(minIdx + 1)
+            val lowIdx = Math.round(minIdx * Math.pow(maxIdx / minIdx, i.toDouble() / numCircleBars)).toInt().coerceIn(0, numBins - 1)
+            val highIdx = Math.round(minIdx * Math.pow(maxIdx / minIdx, (i + 1).toDouble() / numCircleBars)).toInt().coerceIn(0, numBins)
+            val actualHighIdx = maxOf(lowIdx + 1, highIdx).coerceAtMost(numBins)
+
             var sum = 0f
-            for (j in 0 until binSize) {
-                val idx = 2 * (i * binSize + j)
+            var count = 0
+            for (k in lowIdx until actualHighIdx) {
+                val idx = 2 * k
                 if (idx + 1 < fft.size) {
                     sum += hypot(fft[idx].toFloat(), fft[idx + 1].toFloat())
+                    count++
                 }
             }
-            val avg = sum / binSize
-            val target = (log10(avg.toDouble() + 1.0) * (baseRadius * 0.9f)).toFloat().coerceAtMost(baseRadius * 1.5f)
+            val avg = if (count > 0) sum / count else 0f
+            val target = (log10(avg.toDouble() + 1.0) / 2.0 * (baseRadius * 1.2f)).toFloat().coerceAtMost(baseRadius * 1.5f)
             circleSmoothed[i] = maxOf(circleSmoothed[i] * decay, target)
         }
 
@@ -306,16 +391,26 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
         }
 
         val barWidth = w / numBars
-        val binSize = maxOf(1, (fft.size / 2) / numBars)
+        val numBins = fft.size / 2
 
         for (i in 0 until numBars) {
+            val minIdx = 2.0
+            val maxIdx = (numBins - 1).toDouble().coerceAtLeast(minIdx + 1)
+            val lowIdx = Math.round(minIdx * Math.pow(maxIdx / minIdx, i.toDouble() / numBars)).toInt().coerceIn(0, numBins - 1)
+            val highIdx = Math.round(minIdx * Math.pow(maxIdx / minIdx, (i + 1).toDouble() / numBars)).toInt().coerceIn(0, numBins)
+            val actualHighIdx = maxOf(lowIdx + 1, highIdx).coerceAtMost(numBins)
+
             var sum = 0f
-            for (j in 0 until binSize) {
-                val idx = 2 * (i * binSize + j)
-                if (idx + 1 < fft.size) sum += hypot(fft[idx].toFloat(), fft[idx + 1].toFloat())
+            var count = 0
+            for (k in lowIdx until actualHighIdx) {
+                val idx = 2 * k
+                if (idx + 1 < fft.size) {
+                    sum += hypot(fft[idx].toFloat(), fft[idx + 1].toFloat())
+                    count++
+                }
             }
-            val avg = sum / binSize
-            val target = (log10(avg.toDouble() + 1.0) * (h * 0.9f)).toFloat().coerceAtMost(h)
+            val avg = if (count > 0) sum / count else 0f
+            val target = (log10(avg.toDouble() + 1.0) / 2.0 * h).toFloat().coerceAtMost(h)
             smoothedMagnitudes[i] = maxOf(smoothedMagnitudes[i] * decay, target)
         }
 
@@ -347,16 +442,27 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     private fun drawSpectrum(canvas: Canvas, w: Float, h: Float) {
         val fft = fftBytes ?: return
         val points = 60
-        val binSize = maxOf(1, (fft.size / 2) / points)
+        val numBins = fft.size / 2
         val path = Path()
         path.moveTo(0f, h)
         for (i in 0 until points) {
+            val minIdx = 2.0
+            val maxIdx = (numBins - 1).toDouble().coerceAtLeast(minIdx + 1)
+            val lowIdx = Math.round(minIdx * Math.pow(maxIdx / minIdx, i.toDouble() / points)).toInt().coerceIn(0, numBins - 1)
+            val highIdx = Math.round(minIdx * Math.pow(maxIdx / minIdx, (i + 1).toDouble() / points)).toInt().coerceIn(0, numBins)
+            val actualHighIdx = maxOf(lowIdx + 1, highIdx).coerceAtMost(numBins)
+
             var sum = 0f
-            for (j in 0 until binSize) {
-                val idx = 2 * (i * binSize + j)
-                if (idx + 1 < fft.size) sum += hypot(fft[idx].toFloat(), fft[idx + 1].toFloat())
+            var count = 0
+            for (k in lowIdx until actualHighIdx) {
+                val idx = 2 * k
+                if (idx + 1 < fft.size) {
+                    sum += hypot(fft[idx].toFloat(), fft[idx + 1].toFloat())
+                    count++
+                }
             }
-            val mag = (log10((sum / binSize).toDouble() + 1.0) * (h * 0.7f)).toFloat()
+            val avg = if (count > 0) sum / count else 0f
+            val mag = (log10(avg.toDouble() + 1.0) / 2.0 * (h * 0.8f)).toFloat()
             path.lineTo(i * (w / (points - 1)), h - maxOf(mag, 3f))
         }
         path.lineTo(w, h)

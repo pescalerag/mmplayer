@@ -18,73 +18,6 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { usePlayerStore } from '../store/usePlayerStore';
 import { LyricsService } from '../services/LyricsService';
 
-interface LRCLine {
-    tag: string;
-    text: string;
-    isHeader: boolean;
-}
-
-const parseLRCToEditable = (lrc: string): LRCLine[] => {
-    if (!lrc) return [];
-    const lines = lrc.split(/\r?\n/);
-    const timeRegex = /^(\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\])(.*)$/;
-
-    return lines.map(line => {
-        const match = line.match(timeRegex);
-        if (match) {
-            return {
-                tag: match[1],
-                text: match[5],
-                isHeader: false
-            };
-        } else {
-            // Check if it's metadata like [ar: ...]
-            if (line.trim().startsWith('[') && !line.match(/\[\d{2}:\d{2}/)) {
-                return {
-                    tag: line,
-                    text: '',
-                    isHeader: true
-                };
-            }
-            return {
-                tag: '',
-                text: line,
-                isHeader: false
-            };
-        }
-    });
-};
-
-const saveEditableToLRC = (editedText: string, originalLines: LRCLine[]): string => {
-    const editedLines = editedText.split(/\r?\n/);
-    const resultLines: string[] = [];
-
-    // 1. Put all headers at the top
-    originalLines.forEach(line => {
-        if (line.isHeader) {
-            resultLines.push(line.tag);
-        }
-    });
-
-    // 2. Map edited lines to original timestamps
-    const originalTimeLines = originalLines.filter(line => !line.isHeader);
-
-    editedLines.forEach((editedLine, index) => {
-        if (index < originalTimeLines.length) {
-            const originalLine = originalTimeLines[index];
-            if (originalLine.tag) {
-                resultLines.push(`${originalLine.tag}${editedLine}`);
-            } else {
-                resultLines.push(editedLine);
-            }
-        } else {
-            resultLines.push(editedLine);
-        }
-    });
-
-    return resultLines.join('\n');
-};
-
 export default function LyricsEditorScreen() {
     const { colors, fonts, fontWeights, spacing } = useAppTheme();
     const insets = useSafeAreaInsets();
@@ -93,16 +26,9 @@ export default function LyricsEditorScreen() {
 
     const activeTrack = usePlayerStore(state => state.activeTrack);
 
-    const originalLrcText = activeTrack?.lyricsLRC || '';
-    const parsedOriginalLines = useMemo(() => parseLRCToEditable(originalLrcText), [originalLrcText]);
-
-    // Construct the text input value (text only, omitting headers)
     const initialTextValue = useMemo(() => {
-        return parsedOriginalLines
-            .filter(line => !line.isHeader)
-            .map(line => line.text)
-            .join('\n');
-    }, [parsedOriginalLines]);
+        return activeTrack?.lyricsLRC || '';
+    }, [activeTrack]);
 
     const [editedText, setEditedText] = useState(initialTextValue);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -115,8 +41,7 @@ export default function LyricsEditorScreen() {
     const handleSave = async () => {
         if (!activeTrack) return;
         try {
-            const finalLrc = saveEditableToLRC(editedText, parsedOriginalLines);
-            await LyricsService.saveLyrics(activeTrack, finalLrc);
+            await LyricsService.saveLyrics(activeTrack, editedText);
             setHasUnsavedChanges(false);
             Alert.alert(t('actions.success') || 'Éxito', t('lyrics.save_success') || 'Letra guardada con éxito.', [
                 { text: 'OK', onPress: () => navigation.goBack() }

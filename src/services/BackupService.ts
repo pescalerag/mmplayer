@@ -176,6 +176,12 @@ export const BackupService = {
                 await database.unsafeResetDatabase();
             });
 
+            // Clear player recents to match the new database state
+            usePlayerStore.setState({ recentMedia: [], recentPlaylists: [] });
+            await usePlayerStore.getState().saveRecentsState().catch(err => {
+                console.warn('No se pudieron limpiar las escuchas recientes:', err);
+            });
+
             store.startImport('Restaurando datos desde la copia de seguridad...');
             const batchOperations: any[] = [];
 

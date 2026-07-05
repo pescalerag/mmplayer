@@ -604,6 +604,9 @@
     "cover_style": "Cover Art Style",
     "cover_style_cover": "Original Artwork",
     "cover_style_cd": "Spinning CD",
-    "cover_style_vinyl": "Spinning Vinyl"
+    "cover_style_vinyl": "Spinning Vinyl",
+    "background_style": "Background Style",
+    "background_style_cover": "Blurred Artwork",
+    "background_style_gradient": "Color Gradient"
   }
 }

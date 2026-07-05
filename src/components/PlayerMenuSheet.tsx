@@ -57,6 +57,8 @@ export default function PlayerMenuSheet() {
         setPlayerVisualizerColorMode,
         playerCoverStyle,
         setPlayerCoverStyle,
+        playerBackgroundStyle,
+        setPlayerBackgroundStyle,
     } = useSettingsStore();
 
     const { t } = useTranslation();
@@ -176,6 +178,32 @@ export default function PlayerMenuSheet() {
 
                     <View style={styles.separator} />
 
+                    {/* Background Style */}
+                    <Text style={styles.sectionLabel}>{t('visualizer.background_style') || 'Estilo de Fondo'}</Text>
+                    <View style={styles.optionsGroup}>
+                        <TouchableOpacity
+                            style={[styles.optionBtn, playerBackgroundStyle === 'cover' && styles.optionBtnActive]}
+                            onPress={() => setPlayerBackgroundStyle('cover')}
+                        >
+                            <Ionicons name="image-outline" size={18} color={playerBackgroundStyle === 'cover' ? '#8B5CF6' : colors.textSecondary} />
+                            <Text style={[styles.optionText, playerBackgroundStyle === 'cover' && styles.optionTextActive]}>
+                                {t('visualizer.background_style_cover') || 'Carátula Difuminada'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.optionBtn, playerBackgroundStyle === 'gradient' && styles.optionBtnActive]}
+                            onPress={() => setPlayerBackgroundStyle('gradient')}
+                        >
+                            <Ionicons name="color-palette-outline" size={18} color={playerBackgroundStyle === 'gradient' ? '#8B5CF6' : colors.textSecondary} />
+                            <Text style={[styles.optionText, playerBackgroundStyle === 'gradient' && styles.optionTextActive]}>
+                                {t('visualizer.background_style_gradient') || 'Degradado de Color'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.separator} />
+
                     {/* Visualizer toggle */}
                     <View style={styles.settingRow}>
                         <View style={{ flex: 1 }}>
@@ -280,7 +308,7 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any, radii: an
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(15, 15, 15, 0.96)',
+        backgroundColor: '#0F0F0F',
         borderTopLeftRadius: radii?.lg || 24,
         borderTopRightRadius: radii?.lg || 24,
         paddingHorizontal: 20,
