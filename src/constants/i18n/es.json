@@ -587,5 +587,26 @@
     "delete_success": "Letras eliminadas correctamente.",
     "search_success": "Letras encontradas e importadas correctamente.",
     "search_not_found": "No se encontraron letras para esta canción en internet."
+  },
+  "visualizer": {
+    "menu_title": "Opciones de Visualización",
+    "menu_desc": "Personaliza el visualizador en tiempo real",
+    "enable": "Visualizador Activo",
+    "enable_desc": "Muestra ondas y barras al ritmo del sonido",
+    "style": "Estilo del Visualizador",
+    "style_bars": "Barras de Ecualizador",
+    "style_wave": "Onda Oscilante",
+    "style_spectrum": "Espectro Completo",
+    "style_circle": "Círculo Pulsante",
+    "color_mode": "Color",
+    "color_cover": "Adaptarse a Portada",
+    "color_accent": "Color Temático Morado",
+    "cover_style": "Estilo de Carátula",
+    "cover_style_cover": "Carátula Original",
+    "cover_style_cd": "CD Giratorio",
+    "cover_style_vinyl": "Vinilo Giratorio",
+    "background_style": "Estilo de Fondo",
+    "background_style_cover": "Carátula Difuminada",
+    "background_style_gradient": "Degradado de Color"
   }
 }

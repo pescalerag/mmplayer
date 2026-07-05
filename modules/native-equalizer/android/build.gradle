@@ -44,4 +44,5 @@ repositories {
 dependencies {
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${safeExtGet('kotlinVersion', '1.8.10')}"
   implementation project(':expo-modules-core')
+  implementation 'androidx.palette:palette:1.0.0'
 }

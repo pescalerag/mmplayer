@@ -26,4 +26,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+// 3. Add SVG as a static asset extension (expo-image renders SVGs natively)
+config.resolver.assetExts = [
+    ...(config.resolver.assetExts || []),
+    'svg',
+];
+
 module.exports = config;

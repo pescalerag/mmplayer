@@ -62,6 +62,16 @@ interface SettingsState {
     setEqualizerBands: (bands: number[]) => void;
     bassBoostStrength: number;
     setBassBoostStrength: (value: number) => void;
+    showPlayerVisualizer: boolean;
+    setShowPlayerVisualizer: (value: boolean) => void;
+    playerVisualizerType: 'bars' | 'wave' | 'spectrum' | 'circle';
+    setPlayerVisualizerType: (value: 'bars' | 'wave' | 'spectrum' | 'circle') => void;
+    playerVisualizerColorMode: 'accent' | 'cover';
+    setPlayerVisualizerColorMode: (value: 'accent' | 'cover') => void;
+    playerCoverStyle: 'cover' | 'cd' | 'vinyl';
+    setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl') => void;
+    playerBackgroundStyle: 'cover' | 'gradient';
+    setPlayerBackgroundStyle: (value: 'cover' | 'gradient') => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -126,6 +136,16 @@ export const useSettingsStore = create<SettingsState>()(
             setEqualizerBands: (bands) => set({ equalizerBands: bands }),
             bassBoostStrength: 0,
             setBassBoostStrength: (value) => set({ bassBoostStrength: value }),
+            showPlayerVisualizer: false,
+            setShowPlayerVisualizer: (value) => set({ showPlayerVisualizer: value }),
+            playerVisualizerType: 'bars',
+            setPlayerVisualizerType: (value) => set({ playerVisualizerType: value }),
+            playerVisualizerColorMode: 'cover',
+            setPlayerVisualizerColorMode: (value) => set({ playerVisualizerColorMode: value }),
+            playerCoverStyle: 'cover',
+            setPlayerCoverStyle: (value) => set({ playerCoverStyle: value }),
+            playerBackgroundStyle: 'cover',
+            setPlayerBackgroundStyle: (value) => set({ playerBackgroundStyle: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

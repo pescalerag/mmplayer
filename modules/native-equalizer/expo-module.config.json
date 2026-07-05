@@ -2,6 +2,7 @@
   "name": "NativeEqualizer",
   "platforms": ["android"],
   "android": {
-    "modules": ["expo.modules.nativeequalizer.NativeEqualizerModule"]
+    "modules": ["expo.modules.nativeequalizer.NativeEqualizerModule"],
+    "views": ["expo.modules.nativeequalizer.NativeVisualizerView"]
   }
 }
