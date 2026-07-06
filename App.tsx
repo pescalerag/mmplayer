@@ -15,28 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import AlbumMenuSheet from "./src/components/AlbumMenuSheet";
-import ArtistMenuSheet from "./src/components/ArtistMenuSheet";
-import ArtistsListSheet from "./src/components/ArtistsListSheet";
-import FolderMenuSheet from "./src/components/FolderMenuSheet";
 import GlobalToast from "./src/components/GlobalToast";
-import PlaylistMenuSheet from "./src/components/PlaylistMenuSheet";
-import PlaylistSelectorModal from "./src/components/PlaylistSelectorModal";
-import QueueSheet from "./src/components/QueueSheet";
-import LibraryTabsOrderSheet from "./src/components/LibraryTabsOrderSheet";
-import AppTabsOrderSheet from "./src/components/AppTabsOrderSheet";
-import HomeSectionsSheet from "./src/components/HomeSectionsSheet";
-import SleepTimerSheet from "./src/components/SleepTimerSheet";
-import LocalCastSheet from "./src/components/LocalCastSheet";
-import SpeedPitchSheet from "./src/components/SpeedPitchSheet";
-import SwipeActionSheet from "./src/components/SwipeActionSheet";
-import SortModalSheet from "./src/components/SortModalSheet";
-import MetadataEditorSheet from "./src/components/MetadataEditorSheet";
-import TagFormModal from "./src/components/TagFormModal";
-import TagManagerModal from "./src/components/TagManagerModal";
-import TrackMenuSheet from "./src/components/TrackMenuSheet";
-import TagMenuSheet from "./src/components/TagMenuSheet";
-import LyricsMenuSheet from "./src/components/LyricsMenuSheet";
+import GlobalBottomSheet from "./src/components/GlobalBottomSheet";
 import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/UpdatedAppModal";
 import WelcomeModal from "./src/components/WelcomeModal";
@@ -104,8 +84,8 @@ export default function App() {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorTitle}>❌ Error al arrancar</Text>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>Error al cargar la aplicación:</Text>
+        <Text style={styles.errorSubtext}>{error}</Text>
       </View>
     );
   }
@@ -139,29 +119,9 @@ export default function App() {
           <MainNavigator />
           {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
-          <TrackMenuSheet />
-          <LyricsMenuSheet />
-          <AlbumMenuSheet />
-          <ArtistMenuSheet />
-          <SortModalSheet />
-          <QueueSheet />
-          <TagManagerModal />
-          <TagFormModal />
-          <TagMenuSheet />
-          <PlaylistSelectorModal />
-          <PlaylistMenuSheet />
-          <FolderMenuSheet />
+          <GlobalBottomSheet />
           <UpdatedAppModal />
           <WelcomeModal />
-          <ArtistsListSheet />
-          <SleepTimerSheet />
-          <LocalCastSheet />
-          <SpeedPitchSheet />
-          <LibraryTabsOrderSheet />
-          <AppTabsOrderSheet />
-          <HomeSectionsSheet />
-          <SwipeActionSheet />
-          <MetadataEditorSheet />
           <GlobalToast />
           <BackupBlockingModal />
         </NavigationContainer>
@@ -180,20 +140,22 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   loadingText: {
-    color: "#aaa",
-    marginTop: 12,
-    fontSize: 14,
-  },
-  errorTitle: {
-    color: "#ff5555",
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 12,
+    color: "#FFFFFF",
+    marginTop: 16,
+    fontSize: 16,
+    fontFamily: "Montserrat",
   },
   errorText: {
-    color: "#fff",
-    fontSize: 13,
+    color: "#EF4444",
+    fontSize: 18,
+    fontFamily: "Montserrat",
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    color: "#A0A0A0",
+    fontSize: 14,
+    fontFamily: "Montserrat",
     textAlign: "center",
-    fontFamily: "monospace",
   },
 });

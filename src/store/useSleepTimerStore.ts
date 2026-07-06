@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import TrackPlayer from 'react-native-track-player';
 import BackgroundTimer from 'react-native-background-timer';
 import { AppState, AppStateStatus } from 'react-native';
+import { useUIStore } from './useUIStore';
 
 interface SleepTimerState {
     isVisible: boolean;
@@ -54,8 +55,12 @@ export const useSleepTimerStore = create<SleepTimerState>((set, get) => ({
     timeLeft: 0,
     targetEndTime: null,
     
-    openSheet: () => set({ isVisible: true }),
-    closeSheet: () => set({ isVisible: false }),
+    openSheet: () => {
+        useUIStore.getState().openSheet('sleep-timer');
+    },
+    closeSheet: () => {
+        useUIStore.getState().closeSheet();
+    },
     
     startTimer: (minutes: number) => {
         stopUIInterval();
@@ -103,6 +108,14 @@ export const useSleepTimerStore = create<SleepTimerState>((set, get) => ({
         });
     }
 }));
+
+// Sync with global UI store
+useUIStore.subscribe((state) => {
+    const isVisible = state.activeSheet === 'sleep-timer';
+    if (useSleepTimerStore.getState().isVisible !== isVisible) {
+        useSleepTimerStore.setState({ isVisible });
+    }
+});
 
 // Suscribirse a cambios en el estado de la aplicación (AppState)
 AppState.addEventListener('change', (nextAppState: AppStateStatus) => {

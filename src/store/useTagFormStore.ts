@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import Tag from '../database/models/Tag';
+import { useUIStore } from './useUIStore';
 
 interface TagFormState {
     isVisible: boolean;
@@ -14,19 +15,24 @@ export const useTagFormStore = create<TagFormState>((set) => ({
     isVisible: false,
     tag: null,
     onSaveCallback: null,
-    openForCreate: (onSave) => set({
-        isVisible: true,
-        tag: null,
-        onSaveCallback: onSave || null,
-    }),
-    openForEdit: (tag, onSave) => set({
-        isVisible: true,
-        tag: tag,
-        onSaveCallback: onSave || null,
-    }),
-    closeForm: () => set({
-        isVisible: false,
-        tag: null,
-        onSaveCallback: null,
-    }),
+    openForCreate: (onSave) => {
+        useUIStore.getState().openSheet('tag-form', { tag: null, onSaveCallback: onSave || null });
+    },
+    openForEdit: (tag, onSave) => {
+        useUIStore.getState().openSheet('tag-form', { tag, onSaveCallback: onSave || null });
+    },
+    closeForm: () => {
+        useUIStore.getState().closeSheet();
+    },
 }));
+
+// Sync with global UI store
+useUIStore.subscribe((state) => {
+    const isVisible = state.activeSheet === 'tag-form';
+    const props = isVisible ? state.sheetProps : {};
+    useTagFormStore.setState({
+        isVisible,
+        tag: props.tag || null,
+        onSaveCallback: props.onSaveCallback || null,
+    });
+});

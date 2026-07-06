@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
+import { useUIStore } from './useUIStore';
 
 interface PlaylistSelectorState {
     isVisible: boolean;
@@ -18,28 +19,40 @@ export const usePlaylistSelectorStore = create<PlaylistSelectorState>((set) => (
     tracksToAssociate: [],
     playlistToEdit: null,
     isCreatingDirectly: false,
-    openSelector: (tracks) => set({
-        isVisible: true,
-        tracksToAssociate: Array.isArray(tracks) ? tracks : [tracks],
-        playlistToEdit: null,
-        isCreatingDirectly: false,
-    }),
-    openEdit: (playlist) => set({
-        isVisible: true,
-        tracksToAssociate: [],
-        playlistToEdit: playlist,
-        isCreatingDirectly: false,
-    }),
-    openCreate: () => set({
-        isVisible: true,
-        tracksToAssociate: [],
-        playlistToEdit: null,
-        isCreatingDirectly: true,
-    }),
-    closeSelector: () => set({
-        isVisible: false,
-        tracksToAssociate: [],
-        playlistToEdit: null,
-        isCreatingDirectly: false,
-    }),
+    openSelector: (tracks) => {
+        useUIStore.getState().openSheet('playlist-selector', {
+            tracksToAssociate: Array.isArray(tracks) ? tracks : [tracks],
+            playlistToEdit: null,
+            isCreatingDirectly: false,
+        });
+    },
+    openEdit: (playlist) => {
+        useUIStore.getState().openSheet('playlist-selector', {
+            tracksToAssociate: [],
+            playlistToEdit: playlist,
+            isCreatingDirectly: false,
+        });
+    },
+    openCreate: () => {
+        useUIStore.getState().openSheet('playlist-selector', {
+            tracksToAssociate: [],
+            playlistToEdit: null,
+            isCreatingDirectly: true,
+        });
+    },
+    closeSelector: () => {
+        useUIStore.getState().closeSheet();
+    },
 }));
+
+// Sync with global UI store
+useUIStore.subscribe((state) => {
+    const isVisible = state.activeSheet === 'playlist-selector';
+    const props = isVisible ? state.sheetProps : {};
+    usePlaylistSelectorStore.setState({
+        isVisible,
+        tracksToAssociate: props.tracksToAssociate || [],
+        playlistToEdit: props.playlistToEdit || null,
+        isCreatingDirectly: props.isCreatingDirectly || false,
+    });
+});

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import Track from '../database/models/Track';
+import { useUIStore } from './useUIStore';
 
 interface NavCallbacks {
     album?: (albumId: string) => void;
@@ -20,16 +21,22 @@ export const useTrackMenuStore = create<TrackMenuState>((set) => ({
     selectedTrack: null,
     navCallbacks: {},
     playlistId: undefined,
-    openMenu: (track, callbacks = {}, playlistId) => set({
-        isVisible: true,
-        selectedTrack: track,
-        navCallbacks: callbacks,
-        playlistId: playlistId,
-    }),
-    closeMenu: () => set({
-        isVisible: false,
-        selectedTrack: null,
-        navCallbacks: {},
-        playlistId: undefined,
-    }),
+    openMenu: (track, callbacks = {}, playlistId) => {
+        useUIStore.getState().openSheet('track-menu', { track, callbacks, playlistId });
+    },
+    closeMenu: () => {
+        useUIStore.getState().closeSheet();
+    },
 }));
+
+// Sync with global UI store
+useUIStore.subscribe((state) => {
+    const isVisible = state.activeSheet === 'track-menu';
+    const props = isVisible ? state.sheetProps : {};
+    useTrackMenuStore.setState({
+        isVisible,
+        selectedTrack: props.track || null,
+        navCallbacks: props.callbacks || {},
+        playlistId: props.playlistId,
+    });
+});
