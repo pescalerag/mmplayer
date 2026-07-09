@@ -92,46 +92,48 @@ class WidgetProviderSmall : AppWidgetProvider() {
         }
 
         private fun setupButtonPendingIntents(context: Context, views: RemoteViews) {
-            // Play/Pause Action
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
             val playPauseIntent = Intent().apply {
                 setClassName(context.packageName, "com.doublesymmetry.trackplayer.service.MusicService")
                 action = Intent.ACTION_MEDIA_BUTTON
                 putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
             }
-            val playPausePending = PendingIntent.getService(
-                context, 20, playPauseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val playPausePending = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(context, 20, playPauseIntent, flags)
+            } else {
+                PendingIntent.getService(context, 20, playPauseIntent, flags)
+            }
             views.setOnClickPendingIntent(R.id.btn_play_pause, playPausePending)
 
-            // Next Action
             val nextIntent = Intent().apply {
                 setClassName(context.packageName, "com.doublesymmetry.trackplayer.service.MusicService")
                 action = Intent.ACTION_MEDIA_BUTTON
                 putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT))
             }
-            val nextPending = PendingIntent.getService(
-                context, 21, nextIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val nextPending = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(context, 21, nextIntent, flags)
+            } else {
+                PendingIntent.getService(context, 21, nextIntent, flags)
+            }
             views.setOnClickPendingIntent(R.id.btn_next, nextPending)
 
-            // Prev Action
             val prevIntent = Intent().apply {
                 setClassName(context.packageName, "com.doublesymmetry.trackplayer.service.MusicService")
                 action = Intent.ACTION_MEDIA_BUTTON
                 putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PREVIOUS))
             }
-            val prevPending = PendingIntent.getService(
-                context, 22, prevIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val prevPending = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(context, 22, prevIntent, flags)
+            } else {
+                PendingIntent.getService(context, 22, prevIntent, flags)
+            }
             views.setOnClickPendingIntent(R.id.btn_prev, prevPending)
 
-            // Open App
             val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             if (openAppIntent != null) {
                 openAppIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                val openAppPending = PendingIntent.getActivity(
-                    context, 23, openAppIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
+                val openAppPending = PendingIntent.getActivity(context, 23, openAppIntent, flags)
                 views.setOnClickPendingIntent(R.id.widget_cover, openAppPending)
                 views.setOnClickPendingIntent(R.id.widget_title, openAppPending)
                 views.setOnClickPendingIntent(R.id.widget_artist, openAppPending)
