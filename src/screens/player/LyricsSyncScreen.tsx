@@ -25,14 +25,19 @@ interface SyncLine {
     time: number | null;
 }
 
+// Offset applied to compensate for human reaction time when tapping "Next phrase"
+const REACTION_OFFSET_MS = 0.20; // 200ms
+
 const formatLRCTimestamp = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 100);
+    // Use Math.round + 3 decimal digits for maximum LRC precision
+    const ms = Math.round((seconds % 1) * 1000);
 
     const minsStr = mins.toString().padStart(2, '0');
     const secsStr = secs.toString().padStart(2, '0');
-    const msStr = ms.toString().padStart(2, '0');
+    // LRC standard allows 2–3 decimal digits; we use 2 (hundredths) for compatibility
+    const msStr = Math.min(ms, 999).toString().padStart(3, '0').slice(0, 2);
 
     return `[${minsStr}:${secsStr}.${msStr}]`;
 };
@@ -118,10 +123,20 @@ export default function LyricsSyncScreen() {
     const { position, duration } = useProgress(50);
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
-    // Auto-pause when song is about to end to prevent skipping to next track
+    // Keep a ref always pointing to the latest position so handleNextPhrase
+    // can read it synchronously (0ms bridge latency) instead of awaiting
+    // the native getProgress() call which has variable latency (10–80ms).
+    const positionRef = useRef(0);
     useEffect(() => {
-        if (duration > 0 && position >= duration - 0.4 && isPlaying) {
-            (TrackPlayer as any).pause(true);
+        positionRef.current = position;
+    }, [position]);
+
+    // Auto-pause when song is about to end to prevent skipping to next track.
+    // Use a small threshold (0.15s) instead of 0.4s to avoid prematurely
+    // cutting audio on songs that have vocals until the very last second.
+    useEffect(() => {
+        if (duration > 0 && position >= duration - 0.15 && isPlaying) {
+            TrackPlayer.pause();
         }
     }, [position, duration, isPlaying]);
 
@@ -156,7 +171,9 @@ export default function LyricsSyncScreen() {
                 headersList.push(trimmed);
             } else {
                 // Strip existing timestamp if any
-                const cleanText = trimmed.replace(/^\[\d{2}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
+                // Remove ALL chained LRC timestamps (e.g. [01:10.00][02:20.00]text)
+                // The ^ anchor is intentionally removed so the global flag strips every tag.
+                const cleanText = trimmed.replace(/\[\d{2}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
                 if (!cleanText) return;
                 
                 syncList.push({
@@ -182,17 +199,22 @@ export default function LyricsSyncScreen() {
         }
     };
 
-    // Record timestamp for current line and advance
+    // Record timestamp for current line and advance.
+    // positionRef.current holds the latest position from useProgress and is
+    // read synchronously (no async round-trip), giving consistent latency
+    // across all taps. We then subtract the reaction-time offset.
     const handleNextPhrase = () => {
         if (currentIndex >= syncLines.length) return;
 
-        // Play feedback
+        // Synchronous read — no bridge latency, no variability
+        const compensated = Math.max(0, positionRef.current - REACTION_OFFSET_MS);
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         const updated = [...syncLines];
         updated[currentIndex] = {
             ...updated[currentIndex],
-            time: position
+            time: compensated
         };
 
         setSyncLines(updated);
