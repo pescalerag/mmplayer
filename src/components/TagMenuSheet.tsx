@@ -1,3 +1,6 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openTagForm } from '@/store/useUIStore';
+import { openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -14,16 +17,16 @@ import {
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { TagService } from '../services/tagService';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useTagFormStore } from '../store/useTagFormStore';
-import { useTagMenuStore } from '../store/useTagMenuStore';
+
+
+
 
 export default function TagMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { selectedTag, closeMenu } = useTagMenuStore();
-  const { openForEdit } = useTagFormStore();
+  const { props: { tag: selectedTag, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ tag: any; callbacks?: any }>('tag-menu');
+  
 
   const [tracks, setTracks] = useState<Track[]>([]);
 
@@ -53,13 +56,13 @@ export default function TagMenuSheet() {
 
   const handleEdit = () => {
     closeMenu();
-    openForEdit(selectedTag);
+    openTagForm(selectedTag);
   };
 
   const handleAddToPlaylist = () => {
     if (tracks.length === 0) return;
     closeMenu();
-    usePlaylistSelectorStore.getState().openSelector(tracks);
+    openPlaylistSelector(tracks);
   };
 
   const handleDelete = () => {

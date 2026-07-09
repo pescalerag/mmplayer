@@ -1,3 +1,6 @@
+import { openQueueSheet, openSpeedPitch, openSleepTimer, openLyricsMenu, openArtistsList, openPlaylistSelector } from '@/store/useUIStore';
+
+
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -17,12 +20,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, { RepeatMode, useProgress } from 'react-native-track-player';
 import BlurredBackground from '../components/BlurredBackground';
 
-import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
-import { useAudioSpeedPitchSheetStore } from '../store/useAudioSpeedPitchSheetStore';
-import { useLyricsMenuStore } from '../store/useLyricsMenuStore';
+
+
+
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useQueueSheetStore } from '../store/useQueueSheetStore';
+
+
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
 import { useToastStore } from '../store/useToastStore';
 import { useCastStore } from '../store/useCastStore';
@@ -265,10 +268,9 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         };
     }, [insets.top, insets.bottom]);
 
-    const openQueue = useQueueSheetStore(state => state.openQueue);
-    const openSleepTimer = useSleepTimerStore(state => state.openSheet);
+    const openQueue = openQueueSheet;
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
-    const openSpeedPitch = useAudioSpeedPitchSheetStore(state => state.openSheet);
+    
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1 || playbackPitch !== 1;
@@ -378,7 +380,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const handleAlbumPress = () => navigation.navigate('AlbumDetail', { albumId: album.id });
     const handleArtistPress = () => {
         if (artists && artists.length > 1) {
-            useArtistsListSheetStore.getState().openSheet(artists);
+            openArtistsList(artists);
         } else {
             const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
             if (!targetArtistId) return;
@@ -386,7 +388,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     };
     const handleOpenPlaylistSelector = React.useCallback(() => {
-        usePlaylistSelectorStore.getState().openSelector(track);
+        openPlaylistSelector(track);
     }, [track]);
 
     const handleShare = React.useCallback(async () => {
@@ -530,7 +532,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                     />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.moreButton} onPress={() => useLyricsMenuStore.getState().openMenu(track, () => { })} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity style={styles.moreButton} onPress={() => openLyricsMenu(track, () => { })} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
                 </TouchableOpacity>
             </View>

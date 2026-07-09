@@ -1,3 +1,4 @@
+import { openTrackMenu, openPlaylistSelector } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
@@ -11,14 +12,14 @@ import { scheduleOnRN } from 'react-native-worklets';
 import Track from "../database/models/Track";
 import { HistoryService } from "../services/HistoryService";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { useTrackMenuStore } from "../store/useTrackMenuStore";
+
 import { formatTrackTime } from "../utils/time";
 import { PlayingIndicator } from "./PlayingIndicator";
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import i18n from "../constants/i18n";
 import { useMultiSelectStore } from "../store/useMultiSelectStore";
-import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
+
 import { SwipeAction, useSettingsStore } from "../store/useSettingsStore";
 import { useToastStore } from "../store/useToastStore";
 interface TrackRowProps {
@@ -44,7 +45,7 @@ function TrackRow({
 }: Readonly<TrackRowProps>) {
   const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
-  const openMenu = useTrackMenuStore((state) => state.openMenu);
+  const openMenu = openTrackMenu;
 
   const activeTrack = usePlayerStore((state) => state.activeTrack);
   const playbackContext = usePlayerStore((state) => state.playbackContext);
@@ -88,7 +89,7 @@ function TrackRow({
       usePlayerStore.getState().addToQueueEnd(track);
       showToast(i18n.t('toasts.added_to_queue'), 'list');
     } else if (action === 'add_to_playlist') {
-      usePlaylistSelectorStore.getState().openSelector(track);
+      openPlaylistSelector(track);
     } else if (action === 'toggle_favorite') {
       const wasFavorite = track.isFavorite;
       await track.toggleLike();

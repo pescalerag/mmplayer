@@ -1,3 +1,4 @@
+import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import withObservables from "@nozbe/with-observables";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
@@ -31,11 +32,11 @@ import Playlist from "../database/models/Playlist";
 import { TopMatch, useMusicSearch } from "../hooks/useMusicSearch";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { SearchStackParamList } from "../navigation/types";
-import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
-import { useArtistMenuStore } from "../store/useArtistMenuStore";
+
+
 import { usePlayerStore } from "../store/usePlayerStore";
-import { useTagMenuStore } from "../store/useTagMenuStore";
-import { usePlaylistMenuStore } from "../store/usePlaylistMenuStore";
+
+
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors, Layout } from "../theme/theme";
 import { getDynamicTagTextColor } from '../utils/color';
@@ -139,7 +140,7 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
   const handlePress = useCallback(() => onPress(album.id), [onPress, album.id]);
   const handleLongPress = useCallback(() => {
     Keyboard.dismiss();
-    useAlbumMenuStore.getState().openMenu(album);
+    openAlbumMenu(album);
   }, [album]);
 
   return (
@@ -175,7 +176,7 @@ const SearchArtistCard = memo(function SearchArtistCard({
   const handlePress = useCallback(() => onPress(artist.id), [onPress, artist.id]);
   const handleLongPress = useCallback(() => {
     Keyboard.dismiss();
-    useArtistMenuStore.getState().openMenu(artist);
+    openArtistMenu(artist);
   }, [artist]);
 
   return (
@@ -202,7 +203,7 @@ const SearchPlaylistCardBase = memo(function SearchPlaylistCardBase({
   const handlePress = useCallback(() => onPress(playlist.id, playlist.name), [onPress, playlist.id, playlist.name]);
   const handleLongPress = useCallback(() => {
     Keyboard.dismiss();
-    usePlaylistMenuStore.getState().openMenu(playlist);
+    openPlaylistMenu(playlist);
   }, [playlist]);
 
   return (
@@ -236,7 +237,7 @@ const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPre
         onPress={onPress}
         onLongPress={() => {
           Keyboard.dismiss();
-          useTagMenuStore.getState().openMenu(tag);
+          openTagMenu(tag);
         }}
       >
         <Ionicons name="pricetag" size={14} color={textColor} style={styles.tagCardIcon} />
@@ -251,7 +252,7 @@ const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPre
       onPress={onPress}
       onLongPress={() => {
         Keyboard.dismiss();
-        useTagMenuStore.getState().openMenu(tag);
+        openTagMenu(tag);
       }}
     >
       <Text style={[styles.tagCardTextNormal, { color: textColor }]} numberOfLines={2}>

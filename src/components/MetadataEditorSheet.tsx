@@ -1,3 +1,4 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
-import { useMetadataEditorStore } from '../store/useMetadataEditorStore';
+
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { useToastStore } from '../store/useToastStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -35,7 +36,7 @@ export default function MetadataEditorSheet() {
   const { t } = useTranslation();
   const { colors, fonts, fontWeights } = useAppTheme();
   
-  const { isVisible, tracks, closeSheet } = useMetadataEditorStore();
+  const { isVisible, props: { tracks = [] }, close: closeSheet } = useSheetProps<{ tracks: any[] }>('metadata-editor');
   const { exitSelectionMode } = useMultiSelectStore();
   
   const isBatchMode = tracks.length > 1;

@@ -1,3 +1,4 @@
+import { openAlbumMenu, openArtistMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -33,8 +34,8 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { ArtistDetailRouteProp } from '../navigation/types';
 import { HistoryService } from '../services/HistoryService';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { useArtistMenuStore } from '../store/useArtistMenuStore';
+
+
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Colors, Layout } from '../theme/theme';
@@ -182,7 +183,7 @@ const ArtistHeader = memo(function ArtistHeader({
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
-        useAlbumMenuStore.getState().openMenu(album);
+        openAlbumMenu(album);
     }, []);
 
     const albumLabel = albums.length === 1 ? t('library.album_singular') : t('library.album_plural');
@@ -423,7 +424,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
     }, [artist.imageUrl, artist.name, performPickPhoto, handleDeletePhoto, t]);
 
     const handleOpenArtistMenu = useCallback(() => {
-        useArtistMenuStore.getState().openMenu(artist);
+        openArtistMenu(artist);
     }, [artist]);
 
     const handleTrackPress = useCallback((trackId: string) => {

@@ -9,12 +9,12 @@ import {
   View,
 } from 'react-native';
 import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
-import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 
 export default function SwipeActionSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
-  const { currentSwipeTarget, closeSheet } = useSwipeActionSheetStore();
+  const { props: { target: currentSwipeTarget }, close: closeSheet } = useSheetProps<{ target: 'left' | 'right' }>('swipe-action');
   const { swipeLeftAction, setSwipeLeftAction, swipeRightAction, setSwipeRightAction } = useSettingsStore();
   const { t } = useTranslation();
 

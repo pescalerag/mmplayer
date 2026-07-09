@@ -1,3 +1,4 @@
+import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
@@ -12,15 +13,15 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import Playlist from '../database/models/Playlist';
 import { TopMatch } from '../hooks/useMusicSearch';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { useArtistMenuStore } from '../store/useArtistMenuStore';
-import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
+
+
+
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
 import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
 import { useToastStore } from '../store/useToastStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
+
 import BlurredBackground from './BlurredBackground';
 
 interface TopMatchCardProps {
@@ -100,7 +101,7 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
 const TopMatchArtistCard = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
     artist: artist.observe(),
 }))(({ artist, onPress }: { artist: Artist; onPress: () => void }) => {
-    const openMenu = useArtistMenuStore(state => state.openMenu);
+    const openMenu = openArtistMenu;
     return (
         <TopMatchCardLayout
             title={artist.name}
@@ -120,7 +121,7 @@ const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album 
     album: album.observe(),
     artist: album.artist.observe(),
 }))(({ album, artist, onPress }: { album: Album; artist: Artist; onPress: () => void }) => {
-    const openMenu = useAlbumMenuStore(state => state.openMenu);
+    const openMenu = openAlbumMenu;
     return (
         <TopMatchCardLayout
             title={album.title}
@@ -139,7 +140,7 @@ const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 const TopMatchPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
     playlist: playlist.observe(),
 }))(({ playlist, onPress }: { playlist: Playlist; onPress: () => void }) => {
-    const openMenu = usePlaylistMenuStore(state => state.openMenu);
+    const openMenu = openPlaylistMenu;
     return (
         <TopMatchCardLayout
             title={playlist.name}
@@ -164,7 +165,7 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
         ? collaborators.map(a => a.name).join(', ')
         : 'Desconocido';
 
-    const openMenu = useTrackMenuStore(state => state.openMenu);
+    const openMenu = openTrackMenu;
 
     const { colors } = useAppTheme();
     const swipeLeftAction = useSettingsStore((state) => state.swipeLeftAction);
@@ -191,7 +192,7 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
             usePlayerStore.getState().addToQueueEnd(track);
             showToast(i18n.t('toasts.added_to_queue'), 'list');
         } else if (action === 'add_to_playlist') {
-            usePlaylistSelectorStore.getState().openSelector(track);
+            openPlaylistSelector(track);
         } else if (action === 'toggle_favorite') {
             const wasFavorite = track.isFavorite;
             await track.toggleLike();

@@ -1,3 +1,5 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openTagForm } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -12,15 +14,15 @@ import {
 } from 'react-native';
 import Tag from '../database/models/Tag';
 import { TagService } from '../services/tagService';
-import { useTagFormStore } from '../store/useTagFormStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
+
+
 
 export default function TagManagerModal() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { isVisible, targetType, targetId, targetTitle } = useTagManagerStore();
-  const { openForCreate } = useTagFormStore();
+  const { isVisible, props: { targetType, targetId, targetTitle } } = useSheetProps<{ targetType: 'track' | 'album' | null; targetId: string | null; targetTitle: string | null }>('tag-manager');
+  
 
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -163,7 +165,7 @@ export default function TagManagerModal() {
       <TouchableOpacity
         style={styles.createTagButtonGlobal}
         onPress={() => {
-          openForCreate(reloadData);
+          openTagForm(null, reloadData);
         }}
       >
         <Ionicons name="add-circle-outline" size={20} color={colors.text} />

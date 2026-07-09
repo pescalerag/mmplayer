@@ -1,3 +1,4 @@
+import { openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -14,16 +15,16 @@ import {
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { getActiveTabName, navigationRef } from '../navigation/navigationRef';
-import { useArtistMenuStore } from '../store/useArtistMenuStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
 import { useToastStore } from '../store/useToastStore';
 
 export default function ArtistMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { selectedArtist, closeMenu, navCallbacks } = useArtistMenuStore();
+  const { props: { artist: selectedArtist, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ artist: any; callbacks: any }>('artist-menu');
   const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
   const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -83,7 +84,7 @@ export default function ArtistMenuSheet() {
           style={styles.optionRow}
           onPress={async () => {
             await database.write(async () => {
-              await selectedArtist.update((a) => {
+              await selectedArtist.update((a: any) => {
                 a.isPinned = !a.isPinned;
               });
             });
@@ -140,7 +141,7 @@ export default function ArtistMenuSheet() {
               return;
             }
             closeMenu();
-            usePlaylistSelectorStore.getState().openSelector(tracks);
+            openPlaylistSelector(tracks);
           }}
         >
           <View style={styles.iconContainer}>

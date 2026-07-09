@@ -1,3 +1,4 @@
+import { openTagManager, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -15,18 +16,18 @@ import { database } from '../database';
 import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { getActiveTabName, navigationRef } from '../navigation/navigationRef';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
+
+
 import { useToastStore } from '../store/useToastStore';
 
 export default function AlbumMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { selectedAlbum, closeMenu, navCallbacks } = useAlbumMenuStore();
+  const { props: { album: selectedAlbum, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ album: any; callbacks: any }>('album-menu');
   const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
   const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
 
@@ -93,7 +94,7 @@ export default function AlbumMenuSheet() {
           style={styles.optionRow}
           onPress={async () => {
             await database.write(async () => {
-              await selectedAlbum.update((a) => {
+              await selectedAlbum.update((a: any) => {
                 a.isPinned = !a.isPinned;
               });
             });
@@ -145,7 +146,7 @@ export default function AlbumMenuSheet() {
           style={styles.optionRow}
           onPress={() => {
             closeMenu();
-            useTagManagerStore.getState().openForAlbum(selectedAlbum);
+            openTagManager('album', selectedAlbum.id, selectedAlbum.title);
           }}
         >
           <View style={styles.iconContainer}>
@@ -160,7 +161,7 @@ export default function AlbumMenuSheet() {
           onPress={() => {
             if (tracks.length > 0) {
               closeMenu();
-              usePlaylistSelectorStore.getState().openSelector(tracks);
+              openPlaylistSelector(tracks);
             }
           }}
         >

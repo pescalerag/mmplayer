@@ -1,3 +1,5 @@
+import { openSortModal } from '@/store/useUIStore';
+import { openAlbumMenu, openArtistMenu, openFolderMenu, openPlaylistMenu, openPlaylistSelectorCreate } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -23,15 +25,15 @@ import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { LibraryNavigationProp } from '../navigation/types';
 import { ScannerService } from '../services/ScannerService';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { useArtistMenuStore } from '../store/useArtistMenuStore';
-import { useFolderMenuStore } from '../store/useFolderMenuStore';
+
+
+
 import { SortOption, useLibraryStore } from '../store/useLibraryStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
+
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useSortModalStore } from '../store/useSortModalStore';
+
 import { Colors, Layout } from '../theme/theme';
 
 import { getSafeFileName, safeDecodeURIComponent } from '../utils/safeDecode';
@@ -200,7 +202,7 @@ const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist | 
             placeholderIcon="albums"
             isPinned={album.isPinned}
             onPress={handlePress}
-            onLongPress={() => useAlbumMenuStore.getState().openMenu(album)}
+            onLongPress={() => openAlbumMenu(album)}
         />
     );
 };
@@ -296,7 +298,7 @@ const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void 
             isPinned={artist.isPinned}
             onPress={handlePress}
             onLongPress={() => {
-                useArtistMenuStore.getState().openMenu(artist);
+                openArtistMenu(artist);
             }}
         />
     );
@@ -482,7 +484,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
             isPinned={playlist.isPinned}
             onPress={handlePress}
             onLongPress={() => {
-                usePlaylistMenuStore.getState().openMenu(playlist);
+                openPlaylistMenu(playlist);
             }}
         />
     );
@@ -493,7 +495,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     const navigation = useNavigation<LibraryNavigationProp>();
 
     const handleCreatePlaylist = React.useCallback(() => {
-        usePlaylistSelectorStore.getState().openCreate();
+        openPlaylistSelectorCreate();
     }, []);
 
     const handleNavFavorites = React.useCallback(() => {
@@ -555,7 +557,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                                 subtitle={t('actions.special')}
                                 onPress={handleNavFavorites}
                                 onLongPress={() => {
-                                    usePlaylistMenuStore.getState().openMenu(item as any);
+                                    openPlaylistMenu(item as any);
                                 }}
                             />
                         );
@@ -761,7 +763,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                         <FolderCard
                             folder={item}
                             onOpen={setActiveFolderPath}
-                            onMenu={(path, name) => useFolderMenuStore.getState().openMenu(path, name)}
+                            onMenu={(path, name) => openFolderMenu(path, name)}
                         />
                     </View>
                 );
@@ -918,7 +920,7 @@ export default function LibraryScreen() {
                         </TouchableOpacity>
                         {activeTab !== 'folders' && (
                             <TouchableOpacity
-                                onPress={() => useSortModalStore.getState().openModal(activeTab, getActiveSortOption())}
+                                onPress={() => openSortModal({ activeTab, activeSort: getActiveSortOption() })}
                                 style={styles.filterButton}
                             >
                                 <Ionicons name="filter" size={22} color="#8B5CF6" />

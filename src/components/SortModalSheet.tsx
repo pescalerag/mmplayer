@@ -1,3 +1,5 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
+
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -7,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SortOption, useLibraryStore } from "../store/useLibraryStore";
-import { useSortModalStore } from "../store/useSortModalStore";
+
 import { useAppTheme } from "@/hooks/useAppTheme";
 
 type SortOptionItem = { value: SortOption; label: string };
@@ -40,7 +42,7 @@ const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
 export default function SortModalSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
-  const { activeTab, activeSort, closeModal } = useSortModalStore();
+  const { props: { activeTab = 'albums', activeSort }, close: closeModal } = useSheetProps<{ activeTab: any; activeSort: any }>('sort-modal');
 
   const options = SORT_OPTIONS[activeTab] ?? [];
 

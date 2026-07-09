@@ -1,3 +1,4 @@
+import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,9 +13,9 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTabsOrderSheetStore } from '../store/useAppTabsOrderSheetStore';
-import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
-import { useHomeSectionsSheetStore } from '../store/useHomeSectionsSheetStore';
+
+
+
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Colors, Layout } from '../theme/theme';
 
@@ -35,10 +36,10 @@ export default function SettingsAppearanceScreen() {
         setIsKeepAwakeEnabled
     } = useSettingsStore();
 
-    const openLibraryTabsOrderSheet = useLibraryTabsOrderSheetStore(s => s.openSheet);
+    const openLibraryTabsOrderSheet = openLibraryTabsOrder;
     // Safe hook fetch for app tabs order sheet, handling standard and typescript variants
-    const openAppTabsOrderSheet = useAppTabsOrderSheetStore(s => s.openSheet);
-    const openHomeSectionsSheet = useHomeSectionsSheetStore(s => s.openSheet);
+    const openAppTabsOrderSheet = openAppTabsOrder;
+    const openHomeSectionsSheet = openHomeSections;
 
     return (
         <View style={[styles.container, { backgroundColor: Colors.background }]}>

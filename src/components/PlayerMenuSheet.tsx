@@ -1,3 +1,4 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -17,7 +18,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePlayerMenuStore } from '../store/usePlayerMenuStore';
+
 import { useSettingsStore } from '../store/useSettingsStore';
 
 const { height } = Dimensions.get('window');
@@ -47,7 +48,7 @@ const requestAudioPermission = async (): Promise<boolean> => {
 export default function PlayerMenuSheet() {
     const { colors, fonts, layout, spacing, radii } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii), [colors, fonts, layout, spacing, radii]);
-    const { isVisible, closeSheet } = usePlayerMenuStore();
+    const { isVisible, close: closeSheet } = useSheetProps('player-menu');
     const {
         showPlayerVisualizer,
         setShowPlayerVisualizer,

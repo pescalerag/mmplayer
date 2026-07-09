@@ -1,3 +1,5 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openPlaylistSelector } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
@@ -24,8 +26,8 @@ import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useQueueSheetStore } from '../store/useQueueSheetStore';
+
+
 import { Colors } from '../theme/theme';
 import { PlayingIndicator } from './PlayingIndicator';
 
@@ -35,7 +37,7 @@ const TAB_WIDTH = (width - 48 - 110) / 2;
 type ActiveTab = 'queue' | 'recent';
 
 export default function QueueSheet() {
-  const { closeQueue } = useQueueSheetStore();
+  const { close: closeQueue } = useSheetProps('queue');
   const userQueueSize = usePlayerStore(state => state.userQueueSize);
   const decrementUserQueue = usePlayerStore(state => state.decrementUserQueue);
   const clearPlayer = usePlayerStore(state => state.clearPlayer);
@@ -235,7 +237,7 @@ export default function QueueSheet() {
           }
         });
 
-        usePlaylistSelectorStore.getState().openSelector(orderedTracks);
+        openPlaylistSelector(orderedTracks);
         closeQueue();
       }
     } catch (error) {

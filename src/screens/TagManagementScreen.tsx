@@ -1,3 +1,5 @@
+import { openTagForm } from '@/store/useUIStore';
+import { openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -11,8 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../database';
 import Tag from '../database/models/Tag';
 import { TagsNavigationProp } from '../navigation/types';
-import { useTagFormStore } from '../store/useTagFormStore';
-import { useTagMenuStore } from '../store/useTagMenuStore';
+
+
 import { Colors, Layout } from '../theme/theme';
 
 interface TagManagementContentProps {
@@ -21,7 +23,7 @@ interface TagManagementContentProps {
 
 function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
     const insets = useSafeAreaInsets();
-    const { openForCreate } = useTagFormStore();
+    const openForCreate = () => openTagForm();
     const { t } = useTranslation();
     const navigation = useNavigation<TagsNavigationProp>();
 
@@ -35,7 +37,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color })}
                 onLongPress={() => {
-                    useTagMenuStore.getState().openMenu(item);
+                    openTagMenu(item);
                 }}
             >
                 <View style={[styles.colorDot, { backgroundColor: item.color }]} />
@@ -43,7 +45,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                 <TouchableOpacity
                     style={styles.iconButton}
                     onPress={() => {
-                        useTagMenuStore.getState().openMenu(item);
+                        openTagMenu(item);
                     }}
                 >
                     <Ionicons name="ellipsis-vertical" size={20} color="#888" />

@@ -1,3 +1,5 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openTrackMenu } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -12,14 +14,14 @@ import {
   View,
 } from 'react-native';
 import { LyricsService } from '../services/LyricsService';
-import { useLyricsMenuStore } from '../store/useLyricsMenuStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
+
+
 import { usePlayerStore } from '../store/usePlayerStore';
 
 export default function LyricsMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
-  const { track, onImportSuccess, closeMenu } = useLyricsMenuStore();
+  const { props: { track, onImportSuccess }, close: closeMenu } = useSheetProps<{ track: any; onImportSuccess: (lyrics: string) => void }>('lyrics-menu');
   const hasLyrics = !!track?.lyricsLRC?.trim();
   const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
   const { t } = useTranslation();
@@ -29,9 +31,9 @@ export default function LyricsMenuSheet() {
 
   const handleMorePress = () => {
     closeMenu();
-    useTrackMenuStore.getState().openMenu(track, {
-      album: (albumId) => navigation.navigate('AlbumDetail', { albumId }),
-      artist: (artistId) => navigation.navigate('ArtistDetail', { artistId }),
+    openTrackMenu(track, {
+      album: (albumId: any) => navigation.navigate('AlbumDetail', { albumId }),
+      artist: (artistId: any) => navigation.navigate('ArtistDetail', { artistId }),
     });
   };
 

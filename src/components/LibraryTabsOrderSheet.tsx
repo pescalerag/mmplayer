@@ -12,7 +12,7 @@ import {
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RNRestart from 'react-native-restart';
-import { useLibraryTabsOrderSheetStore } from '../store/useLibraryTabsOrderSheetStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { LibraryTabType, useSettingsStore } from '../store/useSettingsStore';
 
 const ALL_TABS: { id: LibraryTabType, labelKey: string, icon: any }[] = [
@@ -25,7 +25,7 @@ const ALL_TABS: { id: LibraryTabType, labelKey: string, icon: any }[] = [
 
 export default function LibraryTabsOrderSheet() {
   const { t } = useTranslation();
-  const { closeSheet } = useLibraryTabsOrderSheetStore();
+  const { close: closeSheet } = useSheetProps('library-tabs-order');
   const { libraryTabsOrder, setLibraryTabsOrder } = useSettingsStore();
 
   const [data, setData] = useState(ALL_TABS);

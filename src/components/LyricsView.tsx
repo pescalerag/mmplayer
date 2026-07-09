@@ -1,3 +1,4 @@
+import { openLyricsMenu } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
@@ -20,7 +21,7 @@ import Artist from '../database/models/Artist';
 import Track from '../database/models/Track';
 import { useSyncedLyrics } from '../hooks/useSyncedLyrics';
 import { LyricsService } from '../services/LyricsService';
-import { useLyricsMenuStore } from '../store/useLyricsMenuStore';
+
 import { usePlayerStore } from '../store/usePlayerStore';
 
 interface LyricsViewUIProps {
@@ -190,7 +191,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
                     </View>
 
                     <TouchableOpacity
-                        onPress={() => useLyricsMenuStore.getState().openMenu(track, () => { })}
+                        onPress={() => openLyricsMenu(track, () => { })}
                         style={styles.menuButton}
                     >
                         <Ionicons name="ellipsis-vertical" size={24} color={colors.text} />

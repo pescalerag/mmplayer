@@ -1,3 +1,4 @@
+import { openPlaylistSelector } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
@@ -8,8 +9,8 @@ import {
   View
 } from 'react-native';
 import { database } from '../database';
-import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
+
 import { useToastStore } from '../store/useToastStore';
 import { Q } from '@nozbe/watermelondb';
 import { navigationRef, getActiveTabName } from '../navigation/navigationRef';
@@ -21,7 +22,7 @@ export default function PlaylistMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { selectedPlaylist, closeMenu, navCallbacks } = usePlaylistMenuStore();
+  const { props: { playlist: selectedPlaylist, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ playlist: any; callbacks?: any }>('playlist-menu');
 
   const handleViewPlaylist = () => {
     if (!selectedPlaylist) return;
@@ -96,7 +97,7 @@ export default function PlaylistMenuSheet() {
             style={styles.optionRow}
             onPress={async () => {
               await database.write(async () => {
-                await selectedPlaylist.update((p) => {
+                await selectedPlaylist.update((p: any) => {
                   p.isPinned = !p.isPinned;
                 });
               });
@@ -132,7 +133,7 @@ export default function PlaylistMenuSheet() {
                 .fetch();
 
               closeMenu();
-              usePlaylistSelectorStore.getState().openSelector(validTracks);
+              openPlaylistSelector(validTracks);
             } catch (e) {
               console.error('Error fetching playlist tracks', e);
             }

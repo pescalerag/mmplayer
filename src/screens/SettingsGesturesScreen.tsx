@@ -1,3 +1,4 @@
+import { openSwipeAction } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
-import { useSwipeActionSheetStore } from '../store/useSwipeActionSheetStore';
+
 import { Colors, Layout } from '../theme/theme';
 
 export default function SettingsGesturesScreen() {
@@ -22,7 +23,7 @@ export default function SettingsGesturesScreen() {
     const { t } = useTranslation();
 
     const { swipeLeftAction, swipeRightAction } = useSettingsStore();
-    const { openSheet } = useSwipeActionSheetStore();
+    const openSheet = openSwipeAction;
 
     const swipeOptions: { label: string, value: SwipeAction, icon: any }[] = [
         { label: t('settings.swipe_action_add_next'), value: 'add_next', icon: 'return-down-forward' },

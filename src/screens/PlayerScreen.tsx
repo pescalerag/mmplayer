@@ -25,20 +25,15 @@ import TrackPlayer, {
 import { NativeVisualizer, extractColorFromImage } from '../../modules/native-equalizer';
 import BlurredBackground from '../components/BlurredBackground';
 import PlayerMenuSheet from '../components/PlayerMenuSheet';
-import { usePlayerMenuStore } from '../store/usePlayerMenuStore';
+import { openQueueSheet, openSpeedPitch, openPlayerMenu, openTrackMenu, openArtistsList, openTagManagerForTrack, openPlaylistSelector, openSleepTimer, openLocalCast } from '@/store/useUIStore';
 
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Tag from '../database/models/Tag';
-import { useAudioSpeedPitchSheetStore } from '../store/useAudioSpeedPitchSheetStore';
-import { useCastSheetStore } from '../store/useCastSheetStore';
 import { useCastStore } from '../store/useCastStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
-import { useQueueSheetStore } from '../store/useQueueSheetStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useSleepTimerStore } from '../store/useSleepTimerStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
@@ -51,7 +46,6 @@ import Track from '../database/models/Track';
 import { useABRepeatStore } from '../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
 import { useToastStore } from '../store/useToastStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
 import { getDynamicTagTextColor } from '../utils/color';
 import { formatTrackTime } from '../utils/time';
 
@@ -179,10 +173,8 @@ const PlayerScreenUI = ({
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const insets = useSafeAreaInsets();
-    const openQueue = useQueueSheetStore(state => state.openQueue);
-    const openSleepTimer = useSleepTimerStore(state => state.openSheet);
+    const openQueue = openQueueSheet;
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
-    const openSpeedPitch = useAudioSpeedPitchSheetStore(state => state.openSheet);
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
@@ -327,7 +319,7 @@ const PlayerScreenUI = ({
             hasTriggeredHaptic.value = false;
         });
 
-    const openPlayerMenu = usePlayerMenuStore(state => state.openSheet);
+
     const longPressGesture = Gesture.LongPress()
         .minDuration(450)
         .onStart(() => {
@@ -346,7 +338,7 @@ const PlayerScreenUI = ({
     const { t } = useTranslation();
 
     const isServerRunning = useCastStore(state => state.isServerRunning);
-    const openCastSheet = useCastSheetStore(state => state.openSheet);
+    const openCastSheet = openLocalCast;
 
     const handleLikePress = async () => {
         heartScale.value = withSequence(
@@ -388,11 +380,11 @@ const PlayerScreenUI = ({
     };
 
     const handleMorePress = () => {
-        useTrackMenuStore.getState().openMenu(track, {
-            album: (albumId) => {
+        openTrackMenu(track, {
+            album: (albumId: string) => {
                 navigation.navigate('AlbumDetail', { albumId });
             },
-            artist: (artistId) => {
+            artist: (artistId: string) => {
                 navigation.navigate('ArtistDetail', { artistId });
             },
         });
@@ -409,11 +401,11 @@ const PlayerScreenUI = ({
     };
 
     const handleOpenTagManager = React.useCallback(() => {
-        useTagManagerStore.getState().openForTrack(track);
+        openTagManagerForTrack(track);
     }, [track]);
 
     const handleOpenPlaylistSelector = React.useCallback(() => {
-        usePlaylistSelectorStore.getState().openSelector(track);
+        openPlaylistSelector(track);
     }, [track]);
 
     const handleShare = React.useCallback(async () => {

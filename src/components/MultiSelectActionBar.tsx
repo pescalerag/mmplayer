@@ -1,12 +1,13 @@
+import { openMetadataEditor, openPlaylistSelector } from '@/store/useUIStore';
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
-import { useMetadataEditorStore } from '../store/useMetadataEditorStore';
+
 import { useAppTheme } from '@/hooks/useAppTheme';
 import i18n from '../constants/i18n';
 
@@ -38,7 +39,7 @@ export default function MultiSelectActionBar() {
     if (!isSelectionMode) return null;
 
     const handleAddToPlaylist = () => {
-        usePlaylistSelectorStore.getState().openSelector(selectedTracks);
+        openPlaylistSelector(selectedTracks);
     };
 
     const handleAddToQueue = async () => {
@@ -48,7 +49,7 @@ export default function MultiSelectActionBar() {
     };
 
     const handleEditMetadata = () => {
-        useMetadataEditorStore.getState().openSheet(selectedTracks);
+        openMetadataEditor(selectedTracks);
     };
 
     return (

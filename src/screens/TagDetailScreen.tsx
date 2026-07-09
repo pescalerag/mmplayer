@@ -1,3 +1,4 @@
+import { openAlbumMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -27,7 +28,7 @@ import Artist from '../database/models/Artist';
 import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import { SearchNavigationProp } from '../navigation/types';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
+
 import { usePlayerStore } from '../store/usePlayerStore';
 import { Colors, Layout } from '../theme/theme';
 
@@ -121,7 +122,7 @@ function TagDetailScreen({
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
-        useAlbumMenuStore.getState().openMenu(album);
+        openAlbumMenu(album);
     }, []);
 
     const handleTrackPress = useCallback((trackId: string) => {

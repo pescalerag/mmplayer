@@ -1,3 +1,4 @@
+import { openPlaylistMenu, openPlaylistSelectorEdit } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
@@ -34,8 +35,8 @@ import Track from "../database/models/Track";
 import { HistoryService } from "../services/HistoryService";
 import { PlaylistService } from "../services/PlaylistService";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { usePlaylistMenuStore } from "../store/usePlaylistMenuStore";
-import { usePlaylistSelectorStore } from "../store/usePlaylistSelectorStore";
+
+
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors, Layout } from "../theme/theme";
 import { formatAlbumDuration } from "../utils/time";
@@ -224,11 +225,11 @@ function PlaylistDetailContent({
   };
 
   const handleEdit = () => {
-    usePlaylistSelectorStore.getState().openEdit(playlist);
+    openPlaylistSelectorEdit(playlist);
   };
 
   const handleOpenPlaylistMenu = useCallback(() => {
-    usePlaylistMenuStore.getState().openMenu(playlist);
+    openPlaylistMenu(playlist);
   }, [playlist]);
 
   const handleTrackPress = useCallback(

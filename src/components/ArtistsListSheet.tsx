@@ -11,14 +11,14 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 
 export default function ArtistsListSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
-  const { artists, closeSheet } = useArtistsListSheetStore();
+  const { props: { artists }, close: closeSheet } = useSheetProps<{ artists: any[] }>('artists-list');
 
   const handleArtistPress = (artistId: string) => {
     closeSheet();

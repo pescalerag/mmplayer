@@ -12,7 +12,7 @@ import { Colors } from "../theme/theme";
 
 import MiniPlayer from "../components/MiniPlayer";
 import { useCastStore } from "../store/useCastStore";
-import { useCastSheetStore } from "../store/useCastSheetStore";
+import { openLocalCast } from "../store/useUIStore";
 import { useTranslation } from "react-i18next";
 import DebugHistoryScreen from "../screens/DebugHistoryScreen";
 import TagsNavigator from "./TagsNavigator";
@@ -30,7 +30,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 // --- BANNER DE CASTEO ---
 const CastingBanner = () => {
   const isServerRunning = useCastStore(state => state.isServerRunning);
-  const openCastSheet = useCastSheetStore(state => state.openSheet);
+  const openCastSheet = openLocalCast;
   const { t } = useTranslation();
   const opacity = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(12)).current;

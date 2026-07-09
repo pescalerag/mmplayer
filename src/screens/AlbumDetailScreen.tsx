@@ -1,3 +1,4 @@
+import { openAlbumMenu, openTagManager } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
@@ -34,10 +35,10 @@ import Tag from "../database/models/Tag";
 import Track from "../database/models/Track";
 import { AlbumDetailRouteProp } from "../navigation/types";
 import { HistoryService } from "../services/HistoryService";
-import { useAlbumMenuStore } from "../store/useAlbumMenuStore";
+
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useSettingsStore } from "../store/useSettingsStore";
-import { useTagManagerStore } from "../store/useTagManagerStore";
+
 import { Layout } from "../theme/theme";
 
 const AlbumTrackRow = withObservables(
@@ -119,11 +120,11 @@ function AlbumDetailContent({
   const isCurrentAlbumPlaying = isCurrentAlbum && isPlaying;
 
   const handleOpenTagManager = React.useCallback(() => {
-    useTagManagerStore.getState().openForAlbum(album);
+    openTagManager('album', album.id, album.title);
   }, [album]);
 
   const handleOpenAlbumMenu = React.useCallback(() => {
-    useAlbumMenuStore.getState().openMenu(album);
+    openAlbumMenu(album);
   }, [album]);
 
   const totalDuration = tracks.reduce(

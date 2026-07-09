@@ -1,3 +1,4 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,7 +17,7 @@ import ColorPicker, {
   Swatches,
 } from "reanimated-color-picker";
 import { TagService } from "../services/tagService";
-import { useTagFormStore } from "../store/useTagFormStore";
+
 import { useToastStore } from "../store/useToastStore";
 import { getDynamicTagTextColor } from "../utils/color";
 
@@ -31,7 +32,7 @@ const COLOR_PALETTE = [
 ];
 
 export default function TagFormModal() {
-  const { isVisible, tag, closeForm, onSaveCallback } = useTagFormStore();
+  const { isVisible, props: { tag, onSaveCallback }, close: closeForm } = useSheetProps<{ tag: any; onSaveCallback: (() => void) | null }>('tag-form');
   const { t } = useTranslation();
 
   const [tagName, setTagName] = useState("");

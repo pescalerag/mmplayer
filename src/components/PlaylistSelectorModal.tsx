@@ -1,3 +1,4 @@
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -16,7 +17,7 @@ import {
 import Playlist from '../database/models/Playlist';
 import { PlaylistService } from '../services/PlaylistService';
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
 import { useToastStore } from '../store/useToastStore';
 import PlaylistCover from './PlaylistCover';
 
@@ -24,7 +25,7 @@ export default function PlaylistSelectorModal() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { isVisible, tracksToAssociate, playlistToEdit, isCreatingDirectly, closeSelector } = usePlaylistSelectorStore();
+  const { isVisible, props: { tracksToAssociate = [], playlistToEdit, isCreatingDirectly }, close: closeSelector } = useSheetProps<{ tracksToAssociate: any[]; playlistToEdit: any; isCreatingDirectly: boolean }>('playlist-selector');
 
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [alreadyPresentPlaylists, setAlreadyPresentPlaylists] = useState<Record<string, boolean>>({});
@@ -38,12 +39,12 @@ export default function PlaylistSelectorModal() {
       setPlaylists(list);
 
       if (tracksToAssociate.length > 0) {
-        const trackIds = tracksToAssociate.map(t => t.id);
+        const trackIds = tracksToAssociate.map((t: any) => t.id);
         const associationMap: Record<string, boolean> = {};
 
         await Promise.all(list.map(async (pl) => {
           const existingTrackIds = await PlaylistService.getTrackIdsInPlaylist(pl.id);
-          const allPresent = trackIds.every(id => existingTrackIds.includes(id));
+          const allPresent = trackIds.every((id: any) => existingTrackIds.includes(id));
           associationMap[pl.id] = allPresent;
         }));
         setAlreadyPresentPlaylists(associationMap);
@@ -97,9 +98,9 @@ export default function PlaylistSelectorModal() {
     const buttons: AlertButton[] = [{ text: t('actions.cancel'), style: "cancel" }];
 
     if (newTracks.length > 0) {
-      buttons.push({ text: t('actions.only_new'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map(t => t.id)); showToast(newTracks.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
+      buttons.push({ text: t('actions.only_new'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map((t: any) => t.id)); showToast(newTracks.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
     }
-    buttons.push({ text: t('actions.add_all'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id)); showToast(tracksToAssociate.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
+    buttons.push({ text: t('actions.add_all'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map((t: any) => t.id)); showToast(tracksToAssociate.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
 
     const message = newTracks.length > 0
       ? t('actions.duplicate_songs_partial', { duplicateCount: duplicateTracks.length, totalCount: tracksToAssociate.length })
@@ -117,7 +118,7 @@ export default function PlaylistSelectorModal() {
       if (duplicateTracks.length > 0) {
         handleDuplicateTracks(playlistId, existingTrackIds, duplicateTracks);
       } else {
-        await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map(t => t.id));
+        await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map((t: any) => t.id));
         const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_playlist') : t('toasts.added_to_playlist_plural', { count: tracksToAssociate.length });
         useToastStore.getState().showToast(msg, 'list-circle');
         closeSelector();
@@ -136,7 +137,7 @@ export default function PlaylistSelectorModal() {
       } else {
         const playlist = await PlaylistService.createPlaylist(playlistName, playlistDesc);
         if (tracksToAssociate.length > 0) {
-          const trackIds = tracksToAssociate.map(t => t.id);
+          const trackIds = tracksToAssociate.map((t: any) => t.id);
           await PlaylistService.addMultipleTracksToPlaylist(playlist.id, trackIds);
           const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_new_playlist') : t('toasts.added_to_new_playlist_plural', { count: tracksToAssociate.length });
           useToastStore.getState().showToast(msg, 'list-circle');

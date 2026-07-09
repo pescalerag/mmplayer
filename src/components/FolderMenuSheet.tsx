@@ -1,3 +1,4 @@
+import { openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -14,9 +15,9 @@ import {
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { ScannerService } from '../services/ScannerService';
-import { useFolderMenuStore } from '../store/useFolderMenuStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useToastStore } from '../store/useToastStore';
@@ -25,7 +26,7 @@ export default function FolderMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { selectedFolderPath, selectedFolderName, closeMenu } = useFolderMenuStore();
+  const { props: { folderPath: selectedFolderPath, folderName: selectedFolderName, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ folderPath: string; folderName?: string; callbacks?: any }>('folder-menu');
   const excludeFolder = useSettingsStore(state => state.excludeFolder);
   const [tracks, setTracks] = useState<Track[]>([]);
 
@@ -138,7 +139,7 @@ export default function FolderMenuSheet() {
           onPress={() => {
             if (tracks.length > 0) {
               closeMenu();
-              usePlaylistSelectorStore.getState().openSelector(tracks);
+              openPlaylistSelector(tracks);
             }
           }}
         >

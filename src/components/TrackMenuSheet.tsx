@@ -1,3 +1,4 @@
+import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -17,21 +18,21 @@ import Artist from '../database/models/Artist';
 import { getActiveTabName, navigationRef } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
 import { ScannerService } from '../services/ScannerService';
-import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
-import { useMetadataEditorStore } from '../store/useMetadataEditorStore';
+
+
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistSelectorStore } from '../store/usePlaylistSelectorStore';
+
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useTagManagerStore } from '../store/useTagManagerStore';
+
 import { useToastStore } from '../store/useToastStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
+import { useSheetProps } from '@/hooks/useSheetProps';
 
 export default function TrackMenuSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { selectedTrack, closeMenu, navCallbacks } = useTrackMenuStore();
+  const { props: { track: selectedTrack, callbacks: navCallbacks, playlistId }, close: closeMenu } = useSheetProps<{ track: any; callbacks?: any; playlistId?: string }>('track-menu');
   const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
   const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
   const excludeSong = useSettingsStore(state => state.excludeSong);
@@ -175,7 +176,7 @@ export default function TrackMenuSheet() {
           style={styles.optionRow}
           onPress={() => {
             closeMenu();
-            useMetadataEditorStore.getState().openSheet([selectedTrack]);
+            openMetadataEditor([selectedTrack]);
           }}
         >
           <View style={styles.iconContainer}>
@@ -189,7 +190,7 @@ export default function TrackMenuSheet() {
           style={styles.optionRow}
           onPress={() => {
             closeMenu();
-            useTagManagerStore.getState().openForTrack(selectedTrack);
+            openTagManager('track', selectedTrack.id, selectedTrack.title);
           }}
         >
           <View style={styles.iconContainer}>
@@ -203,7 +204,7 @@ export default function TrackMenuSheet() {
           style={styles.optionRow}
           onPress={() => {
             closeMenu();
-            usePlaylistSelectorStore.getState().openSelector(selectedTrack);
+            openPlaylistSelector(selectedTrack);
           }}
         >
           <View style={styles.iconContainer}>
@@ -213,11 +214,11 @@ export default function TrackMenuSheet() {
         </TouchableOpacity>
 
         {/* OPTION: Remove from Playlist */}
-        {useTrackMenuStore.getState().playlistId && (
+        {playlistId && (
           <TouchableOpacity
             style={styles.optionRow}
             onPress={async () => {
-              const pId = useTrackMenuStore.getState().playlistId!;
+              const pId = playlistId!;
               closeMenu();
               await PlaylistService.removeTrackFromPlaylist(pId, selectedTrack.id);
             }}
@@ -287,7 +288,7 @@ export default function TrackMenuSheet() {
             onPress={() => {
               closeMenu();
               if (artistsList.length > 1) {
-                useArtistsListSheetStore.getState().openSheet(artistsList);
+                openArtistsList(artistsList);
               } else if (navCallbacks.artist) {
                 navCallbacks.artist(artistId);
               } else if (navigationRef.isReady()) {

@@ -1,3 +1,4 @@
+import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -16,12 +17,12 @@ import Album from '../database/models/Album';
 import Track from '../database/models/Track';
 import Artist from '../database/models/Artist';
 import { HistoryService } from '../services/HistoryService';
-import { useAlbumMenuStore } from '../store/useAlbumMenuStore';
-import { useArtistMenuStore } from '../store/useArtistMenuStore';
+
+
 import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaylistMenuStore } from '../store/usePlaylistMenuStore';
+
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useTrackMenuStore } from '../store/useTrackMenuStore';
+
 import { StatsWidget } from '../components/StatsWidget';
 import { HorizontalCarousel } from '../components/HorizontalCarousel';
 import { GlobalShuffleButton } from '../components/GlobalShuffleButton';
@@ -128,7 +129,7 @@ export default function HomeScreen() {
                     type: 'album' as const,
                     title: album.title,
                     subtitle: artist?.name || 'Artista desconocido',
-                    imageUrl: album.coverUrl,
+                    imageUrl: album.coverUrl || '',
                 };
             }));
             setRecentlyAdded(mappedAdded);
@@ -143,7 +144,7 @@ export default function HomeScreen() {
                     type: 'track' as const,
                     title: track.title,
                     subtitle: artist?.name || 'Artista desconocido',
-                    imageUrl: album?.coverUrl,
+                    imageUrl: album?.coverUrl || '',
                 };
             }));
             setMostPlayed(mappedPopular);
@@ -165,7 +166,7 @@ export default function HomeScreen() {
                         type: 'album' as const,
                         title: album.title,
                         subtitle: artist?.name || 'Artista desconocido',
-                        imageUrl: album.coverUrl,
+                        imageUrl: album.coverUrl || '',
                     };
                 }));
                 setExplore(mappedExplore);
@@ -205,15 +206,15 @@ export default function HomeScreen() {
         try {
             if (item.type === 'album') {
                 const album = await database.get<Album>('albums').find(item.id);
-                useAlbumMenuStore.getState().openMenu(album);
+                openAlbumMenu(album);
             } else if (item.type === 'artist') {
                 const artist = await database.get<Artist>('artists').find(item.id);
-                useArtistMenuStore.getState().openMenu(artist);
+                openArtistMenu(artist);
             } else if (item.type === 'track') {
                 const track = await database.get<Track>('tracks').find(item.id);
-                useTrackMenuStore.getState().openMenu(track, {
-                    album: (albumId) => navigation.navigate('AlbumDetail', { albumId }),
-                    artist: (artistId) => navigation.navigate('ArtistDetail', { artistId })
+                openTrackMenu(track, {
+                    album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }),
+                    artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId })
                 });
             }
         } catch (error) {
@@ -232,7 +233,7 @@ export default function HomeScreen() {
     const handlePlaylistLongPress = React.useCallback((id: string) => {
         const playlist = recentPlaylists.find(p => p.id === id);
         if (playlist) {
-            usePlaylistMenuStore.getState().openMenu(playlist as any);
+            openPlaylistMenu(playlist as any);
         }
     }, [recentPlaylists]);
 
