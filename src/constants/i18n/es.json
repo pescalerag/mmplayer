@@ -508,7 +508,20 @@
     "time_label": "Tiempo",
     "no_data": "No hay datos de reproducción para este período",
     "total_listening_time": "Tiempo total de escucha · {{period}}",
-    "total_plays": "Total de reproducciones · {{period}}"
+    "total_plays": "Total de reproducciones · {{period}}",
+    "none": "Ninguno",
+    "min_suffix": "min",
+    "hour_suffix": "h",
+    "locale_code": "es-ES",
+    "all_activity": "Toda la actividad",
+    "unknown_artist": "Artista desconocido",
+    "periods": {
+      "day": "Día",
+      "week": "Semana",
+      "month": "Mes",
+      "year": "Año",
+      "all": "Todo"
+    }
   },
   "sleep_timer": {
     "title": "Temporizador de apagado",

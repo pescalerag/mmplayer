@@ -178,9 +178,9 @@ export const HistoryService = {
     const totalHours = totalSeconds / 3600;
     const uniqueTrackIds = Object.keys(trackDurations);
 
-    let topArtistObj = { id: '', name: 'Ninguno', imageUrl: null as string | null, duration: 0 };
-    let topAlbumObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, duration: 0 };
-    let topSongObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, artistName: 'Ninguno', duration: 0 };
+    let topArtistObj = { id: '', name: '', imageUrl: null as string | null, duration: 0 };
+    let topAlbumObj = { id: '', title: '', coverUrl: null as string | null, duration: 0 };
+    let topSongObj = { id: '', title: '', coverUrl: null as string | null, artistName: '', duration: 0 };
 
     if (uniqueTrackIds.length > 0) {
       try {
@@ -332,9 +332,9 @@ export const HistoryService = {
     const totalHours = totalSeconds / 3600;
     const uniqueTrackIds = Object.keys(trackDurations);
 
-    let topArtistObj = { id: '', name: 'Ninguno', imageUrl: null as string | null, duration: 0, plays: 0 };
-    let topAlbumObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, duration: 0, plays: 0 };
-    let topSongObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, artistName: 'Ninguno', duration: 0, plays: 0 };
+    let topArtistObj = { id: '', name: '', imageUrl: null as string | null, duration: 0, plays: 0 };
+    let topAlbumObj = { id: '', title: '', coverUrl: null as string | null, duration: 0, plays: 0 };
+    let topSongObj = { id: '', title: '', coverUrl: null as string | null, artistName: '', duration: 0, plays: 0 };
 
     if (uniqueTrackIds.length > 0) {
       try {
@@ -375,7 +375,7 @@ export const HistoryService = {
               id: track.id,
               title: track.title,
               coverUrl: album?.coverUrl || null,
-              artistName: artist?.name || 'Artista desconocido',
+              artistName: artist?.name || '',
               duration: 0,
               plays: 0,
             };

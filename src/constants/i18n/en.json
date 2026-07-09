@@ -508,7 +508,20 @@
     "time_label": "Time",
     "no_data": "No playback data for this period",
     "total_listening_time": "Total listening time · {{period}}",
-    "total_plays": "Total plays · {{period}}"
+    "total_plays": "Total plays · {{period}}",
+    "none": "None",
+    "min_suffix": "min",
+    "hour_suffix": "h",
+    "locale_code": "en-US",
+    "all_activity": "All activity",
+    "unknown_artist": "Unknown artist",
+    "periods": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "all": "All"
+    }
   },
   "sleep_timer": {
     "title": "Sleep Timer",

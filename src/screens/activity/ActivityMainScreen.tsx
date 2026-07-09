@@ -23,26 +23,18 @@ import Track from '../../database/models/Track';
 type Period = 'day' | 'week' | 'month' | 'year' | 'all';
 type Metric = 'duration' | 'plays';
 
-const PERIOD_LABELS: Record<Period, string> = {
-  day: 'Día',
-  week: 'Semana',
-  month: 'Mes',
-  year: 'Año',
-  all: 'Todo',
-};
-
 const PERIODS: Period[] = ['day', 'week', 'month', 'year', 'all'];
 
-function formatDateRange(period: Period): string {
+function formatDateRange(period: Period, t: any, locale: string): string {
   const now = new Date();
 
   const fmt = (d: Date) =>
-    d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   const fmtYear = (d: Date) =>
-    d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+    d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 
   if (period === 'day') {
-    return now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    return now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   }
   if (period === 'week') {
     const from = new Date(now);
@@ -50,21 +42,21 @@ function formatDateRange(period: Period): string {
     return `${fmt(from)} – ${fmt(now)}`;
   }
   if (period === 'month') {
-    return now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    return now.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   }
   if (period === 'year') {
     const from = new Date(now.getFullYear(), 0, 1);
     return `${fmtYear(from)} – ${fmtYear(now)}`;
   }
-  return 'Toda la actividad';
+  return t('activity.all_activity');
 }
 
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return '0 min';
+function formatDuration(seconds: number, t: any): string {
+  if (!seconds || seconds <= 0) return `0 ${t('activity.min_suffix')}`;
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return `${minutes} ${t('activity.min_suffix')}`;
   const hours = (seconds / 3600).toFixed(1);
-  return `${hours} h`;
+  return `${hours} ${t('activity.hour_suffix')}`;
 }
 
 interface StatsResult {
@@ -91,20 +83,20 @@ interface StatsResult {
 const EMPTY_STATS: StatsResult = {
   totalHours: 0,
   totalPlays: 0,
-  topArtist: 'Ninguno',
+  topArtist: '',
   topArtistId: '',
   topArtistImg: null,
   topArtistDuration: 0,
   topArtistPlays: 0,
-  topAlbum: 'Ninguno',
+  topAlbum: '',
   topAlbumId: '',
   topAlbumImg: null,
   topAlbumDuration: 0,
   topAlbumPlays: 0,
-  topSong: 'Ninguno',
+  topSong: '',
   topSongId: '',
   topSongImg: null,
-  topSongArtist: 'Ninguno',
+  topSongArtist: '',
   topSongDuration: 0,
   topSongPlays: 0,
 };
@@ -161,28 +153,28 @@ export default function ActivityMainScreen() {
   const hasActivity = stats.totalHours > 0 || stats.totalPlays > 0;
 
   const statLabel = metric === 'duration'
-    ? formatDuration(stats.totalHours * 3600)
+    ? formatDuration(stats.totalHours * 3600, t)
     : stats.totalPlays === 1 
       ? t('activity.reproduction_singular', { count: stats.totalPlays })
       : t('activity.reproduction_plural', { count: stats.totalPlays });
 
   const artistStatLabel = metric === 'duration'
-    ? t('activity.listening_time', { time: formatDuration(stats.topArtistDuration) })
+    ? t('activity.listening_time', { time: formatDuration(stats.topArtistDuration, t) })
     : stats.topArtistPlays === 1
       ? t('activity.reproduction_singular', { count: stats.topArtistPlays })
       : t('activity.reproduction_plural', { count: stats.topArtistPlays });
 
   const albumStatLabel = metric === 'duration'
-    ? t('activity.listening_time', { time: formatDuration(stats.topAlbumDuration) })
+    ? t('activity.listening_time', { time: formatDuration(stats.topAlbumDuration, t) })
     : stats.topAlbumPlays === 1
       ? t('activity.reproduction_singular', { count: stats.topAlbumPlays })
       : t('activity.reproduction_plural', { count: stats.topAlbumPlays });
 
   const songStatLabel = metric === 'duration'
-    ? `${stats.topSongArtist} · ${formatDuration(stats.topSongDuration)}`
+    ? `${stats.topSongArtist || t('activity.unknown_artist')} · ${formatDuration(stats.topSongDuration, t)}`
     : stats.topSongPlays === 1
-      ? `${stats.topSongArtist} · ${t('activity.reproduction_singular', { count: stats.topSongPlays })}`
-      : `${stats.topSongArtist} · ${t('activity.reproduction_plural', { count: stats.topSongPlays })}`;
+      ? `${stats.topSongArtist || t('activity.unknown_artist')} · ${t('activity.reproduction_singular', { count: stats.topSongPlays })}`
+      : `${stats.topSongArtist || t('activity.unknown_artist')} · ${t('activity.reproduction_plural', { count: stats.topSongPlays })}`;
 
   const SECTION_LABEL = period === 'day'
     ? t('activity.today_highlights')
@@ -240,7 +232,7 @@ export default function ActivityMainScreen() {
                   isActive ? { color: '#FFFFFF' } : { color: colors.textSecondary },
                 ]}
               >
-                {PERIOD_LABELS[p]}
+                {t(`activity.periods.${p}`)}
               </Text>
             </TouchableOpacity>
           );
@@ -250,7 +242,7 @@ export default function ActivityMainScreen() {
       {/* DATE RANGE + METRIC TOGGLE */}
       <View style={styles.controlsRow}>
         <Text style={[styles.dateRangeText, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-          {formatDateRange(period)}
+          {formatDateRange(period, t, t('activity.locale_code') || 'es-ES')}
         </Text>
         <View style={styles.metricToggle}>
           <TouchableOpacity
@@ -336,7 +328,7 @@ export default function ActivityMainScreen() {
                       ? `${stats.totalHours.toFixed(1)} `
                       : `${stats.totalPlays} `}
                     <Text style={{ fontSize: 16, fontWeight: '500' }}>
-                      {metric === 'duration' ? 'h' : t('activity.plays')}
+                      {metric === 'duration' ? t('activity.hour_suffix') : t('activity.plays')}
                     </Text>
                   </Text>
                 </View>
@@ -347,8 +339,8 @@ export default function ActivityMainScreen() {
                   ]}
                 >
                   {metric === 'duration'
-                    ? t('activity.total_listening_time', { period: formatDateRange(period) })
-                    : t('activity.total_plays', { period: formatDateRange(period) })}
+                    ? t('activity.total_listening_time', { period: formatDateRange(period, t, t('activity.locale_code') || 'es-ES') })
+                    : t('activity.total_plays', { period: formatDateRange(period, t, t('activity.locale_code') || 'es-ES') })}
                 </Text>
               </View>
 
@@ -383,7 +375,7 @@ export default function ActivityMainScreen() {
                     {t('home.weekly_stats_artist')}
                   </Text>
                   <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                    {stats.topArtist}
+                    {stats.topArtist || t('activity.none')}
                   </Text>
                   <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
                     {artistStatLabel}
@@ -416,7 +408,7 @@ export default function ActivityMainScreen() {
                     {t('home.weekly_stats_album')}
                   </Text>
                   <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                    {stats.topAlbum}
+                    {stats.topAlbum || t('activity.none')}
                   </Text>
                   <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
                     {albumStatLabel}
@@ -449,7 +441,7 @@ export default function ActivityMainScreen() {
                     {t('home.weekly_stats_song')}
                   </Text>
                   <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                    {stats.topSong}
+                    {stats.topSong || t('activity.none')}
                   </Text>
                   <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
                     {songStatLabel}
