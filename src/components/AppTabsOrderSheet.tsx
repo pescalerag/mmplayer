@@ -1,20 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import RNRestart from 'react-native-restart';
+import { Ionicons } from '@expo/vector-icons';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { AppTabType, useSettingsStore } from '../store/useSettingsStore';
+import { saveSettingsAndRestart } from '../utils/restartHelper';
+import { DraggableTabItem } from './DraggableTabItem';
 
 const ALL_TABS: { id: AppTabType, labelKey: string, icon: any }[] = [
   { id: 'Inicio', labelKey: 'navigation.home', icon: 'home' },
@@ -27,7 +20,7 @@ const ALL_TABS: { id: AppTabType, labelKey: string, icon: any }[] = [
 export default function AppTabsOrderSheet() {
   const { t } = useTranslation();
   const { close: closeSheet } = useSheetProps('app-tabs-order');
-  const { appTabsOrder, setAppTabsOrder, initialAppRoute, setInitialAppRoute } = useSettingsStore();
+  const { appTabsOrder, initialAppRoute } = useSettingsStore();
 
   const [data, setData] = useState(ALL_TABS);
   const [selectedInitial, setSelectedInitial] = useState<AppTabType>(initialAppRoute);
@@ -49,57 +42,22 @@ export default function AppTabsOrderSheet() {
     if (isRestarting) return;
     setIsRestarting(true);
 
-    setAppTabsOrder(data.map(t => t.id));
-    setInitialAppRoute(selectedInitial);
+    await saveSettingsAndRestart({
+      appTabsOrder: data.map(t => t.id),
+      initialAppRoute: selectedInitial,
+    });
 
-    try {
-      const state = useSettingsStore.getState();
-      const rawState: any = {};
-      for (const key of Object.keys(state)) {
-        if (typeof (state as any)[key] !== 'function') {
-          rawState[key] = (state as any)[key];
-        }
-      }
-      rawState.appTabsOrder = data.map(t => t.id);
-      rawState.initialAppRoute = selectedInitial;
-
-      await AsyncStorage.setItem('mmplayer-settings', JSON.stringify({
-        state: rawState,
-        version: 0
-      }));
-    } catch (e) {
-      console.error("Error persisting settings before restart:", e);
-    }
-
-    setTimeout(() => {
-      closeSheet();
-      RNRestart.restart();
-    }, 800);
+    closeSheet();
   };
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<typeof ALL_TABS[0]>) => {
     return (
-      <ScaleDecorator>
-        <View
-          style={[
-            styles.itemContainer,
-            { backgroundColor: isActive ? '#252525' : 'transparent' }
-          ]}
-        >
-          <View style={styles.itemLeft}>
-            <Ionicons name={item.icon} size={24} color="#8B5CF6" style={styles.itemIcon} />
-            <Text style={styles.itemText}>{t(item.labelKey) || item.id}</Text>
-          </View>
-          <TouchableOpacity
-            onLongPress={drag}
-            delayLongPress={350}
-            style={{ paddingLeft: 16, paddingVertical: 8 }}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
-            <Ionicons name="menu" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </ScaleDecorator>
+      <DraggableTabItem
+        icon={item.icon}
+        label={t(item.labelKey) || item.id}
+        drag={drag}
+        isActive={isActive}
+      />
     );
   };
 
@@ -237,25 +195,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: 0,
     paddingBottom: 20,
-  },
-  itemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itemIcon: {
-    marginRight: 16,
-  },
-  itemText: {
-    fontSize: 16,
-    fontFamily: 'Montserrat',
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   footer: {
     paddingTop: 10,
