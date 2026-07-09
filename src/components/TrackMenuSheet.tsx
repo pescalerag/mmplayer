@@ -1,36 +1,23 @@
-import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
-import { useAppTheme } from "@/hooks/useAppTheme";
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Alert } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import { getActiveTabName, navigationRef } from '../navigation/navigationRef';
 import { PlaylistService } from '../services/PlaylistService';
 import { ScannerService } from '../services/ScannerService';
-
-
 import { useMultiSelectStore } from '../store/useMultiSelectStore';
 import { usePlayerStore } from '../store/usePlayerStore';
-
 import { useSettingsStore } from '../store/useSettingsStore';
-
 import { useToastStore } from '../store/useToastStore';
 import { useSheetProps } from '@/hooks/useSheetProps';
+import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { BaseMenuSheet, MenuOption, MenuSeparator } from './BaseMenuSheet';
 
 export default function TrackMenuSheet() {
-  const { colors, fonts, layout } = useAppTheme();
-  const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
   const { props: { track: selectedTrack, callbacks: navCallbacks, playlistId }, close: closeMenu } = useSheetProps<{ track: any; callbacks?: any; playlistId?: string }>('track-menu');
   const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
@@ -99,305 +86,175 @@ export default function TrackMenuSheet() {
   };
 
   return (
-    <>
-      {/* Menu Header */}
-      <View style={styles.header}>
-        {imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.thumbnail}
-            contentFit="cover"
-            transition={200}
-          />
-        ) : (
-          <View style={[styles.thumbnail, styles.placeholder]}>
-            <Ionicons name="musical-notes" size={24} color={colors.textSecondary} />
-          </View>
-        )}
-        <View style={styles.headerText}>
-          <Text style={styles.title} numberOfLines={1}>{selectedTrack.title}</Text>
-          <Text style={styles.subtitle} numberOfLines={1}>{artistName}</Text>
-        </View>
-      </View>
+    <BaseMenuSheet
+      title={selectedTrack.title}
+      subtitle={artistName}
+      coverUrl={imageUrl}
+      placeholderIcon="musical-notes"
+    >
+      {/* OPTION: Play Next */}
+      <MenuOption
+        icon="return-down-forward"
+        text={t('actions.add_next')}
+        onPress={() => {
+          addToQueueNext(selectedTrack);
+          useToastStore.getState().showToast(t('toasts.playing_next'), 'return-down-forward');
+          closeMenu();
+        }}
+      />
 
-      {/* Options list */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* OPTION: Play Next */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={() => {
-            addToQueueNext(selectedTrack);
-            useToastStore.getState().showToast(t('toasts.playing_next'), 'return-down-forward');
+      {/* OPTION: Add to Queue */}
+      <MenuOption
+        icon="list"
+        text={t('actions.add_to_queue')}
+        onPress={() => {
+          addToQueueEnd(selectedTrack);
+          useToastStore.getState().showToast(t('toasts.added_to_queue'), 'list');
+          closeMenu();
+        }}
+      />
+
+      {/* OPTION: Select */}
+      <MenuOption
+        icon="checkmark-circle-outline"
+        text={t('actions.select') || 'Seleccionar'}
+        onPress={() => {
+          closeMenu();
+          useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
+        }}
+      />
+
+      {/* OPTION: Edit Metadata */}
+      <MenuOption
+        icon="pencil"
+        text={t('metadata_editor.title_single') || 'Editar metadatos'}
+        onPress={() => {
+          closeMenu();
+          openMetadataEditor([selectedTrack]);
+        }}
+      />
+
+      {/* OPTION: Manage Tags */}
+      <MenuOption
+        icon="pricetag-outline"
+        text={t('tags.manage')}
+        onPress={() => {
+          closeMenu();
+          openTagManager('track', selectedTrack.id, selectedTrack.title);
+        }}
+      />
+
+      {/* OPTION: Add to Playlist */}
+      <MenuOption
+        icon="add-circle-outline"
+        text={t('actions.add_to_playlist')}
+        onPress={() => {
+          closeMenu();
+          openPlaylistSelector(selectedTrack);
+        }}
+      />
+
+      {/* OPTION: Remove from Playlist */}
+      {playlistId && (
+        <MenuOption
+          icon="trash-outline"
+          text={t('actions.remove_from_playlist')}
+          iconColor={colors.heartIcon}
+          textStyle={{ color: colors.heartIcon }}
+          onPress={async () => {
+            const pId = playlistId!;
             closeMenu();
+            await PlaylistService.removeTrackFromPlaylist(pId, selectedTrack.id);
           }}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="return-down-forward" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.add_next')}</Text>
-        </TouchableOpacity>
+        />
+      )}
 
-        {/* OPTION: Add to Queue */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={() => {
-            addToQueueEnd(selectedTrack);
-            useToastStore.getState().showToast(t('toasts.added_to_queue'), 'list');
-            closeMenu();
-          }}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="list" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.add_to_queue')}</Text>
-        </TouchableOpacity>
+      {/* OPTION: Share */}
+      <MenuOption
+        icon="share-social-outline"
+        text={t('actions.share')}
+        onPress={handleShare}
+      />
 
-        {/* OPTION: Select */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={() => {
-            closeMenu();
-            useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
-          }}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="checkmark-circle-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.select') || 'Seleccionar'}</Text>
-        </TouchableOpacity>
+      {/* separator */}
+      {(albumId || artistId) && <MenuSeparator />}
 
-        {/* OPTION: Edit Metadata */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={() => {
-            closeMenu();
-            openMetadataEditor([selectedTrack]);
-          }}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="pencil" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('metadata_editor.title_single') || 'Editar metadatos'}</Text>
-        </TouchableOpacity>
-
-        {/* OPTION: Manage Tags */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={() => {
-            closeMenu();
-            openTagManager('track', selectedTrack.id, selectedTrack.title);
-          }}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="pricetag-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('tags.manage')}</Text>
-        </TouchableOpacity>
-
-        {/* OPTION: Add to Playlist */}
-        <TouchableOpacity
-          style={styles.optionRow}
+      {/* OPTION: Go to Album */}
+      {albumId && (
+        <MenuOption
+          icon="disc-outline"
+          text={t('actions.go_to_album')}
           onPress={() => {
             closeMenu();
-            openPlaylistSelector(selectedTrack);
-          }}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="add-circle-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
-        </TouchableOpacity>
+            if (navCallbacks.album) {
+              navCallbacks.album(albumId);
+            } else if (navigationRef.isReady()) {
+              const rootState = navigationRef.getRootState();
+              const activeRoute = rootState.routes[rootState.index];
+              const isPlayerActive = activeRoute?.name === 'Player';
 
-        {/* OPTION: Remove from Playlist */}
-        {playlistId && (
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={async () => {
-              const pId = playlistId!;
-              closeMenu();
-              await PlaylistService.removeTrackFromPlaylist(pId, selectedTrack.id);
-            }}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
-            </View>
-            <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.remove_from_playlist')}</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* OPTION: Share */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={handleShare}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="share-social-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.share')}</Text>
-        </TouchableOpacity>
-
-        {/* separator */}
-        <View style={styles.separator} />
-
-        {/* OPTION: Go to Album */}
-        {albumId && (
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => {
-              closeMenu();
-              if (navCallbacks.album) {
-                navCallbacks.album(albumId);
-              } else if (navigationRef.isReady()) {
-                const rootState = navigationRef.getRootState();
-                const activeRoute = rootState.routes[rootState.index];
-                const isPlayerActive = activeRoute?.name === 'Player';
-
-                let tabName = getActiveTabName();
-                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                  tabName = 'Biblioteca';
-                }
-
-                const currentTab = getActiveTabName();
-                if (isPlayerActive || tabName === currentTab) {
-                  navigationRef.navigate('AlbumDetail', { albumId });
-                } else {
-                  navigationRef.navigate('Main', {
-                    screen: tabName,
-                    params: { screen: 'AlbumDetail', params: { albumId } }
-                  });
-                }
+              let tabName = getActiveTabName();
+              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                tabName = 'Biblioteca';
               }
-            }}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name="disc-outline" size={24} color={colors.text} />
-            </View>
-            <Text style={styles.optionText}>{t('actions.go_to_album')}</Text>
-          </TouchableOpacity>
-        )}
 
-        {/* OPTION: Go to Artist */}
-        {artistId && (
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => {
-              closeMenu();
-              if (artistsList.length > 1) {
-                openArtistsList(artistsList);
-              } else if (navCallbacks.artist) {
-                navCallbacks.artist(artistId);
-              } else if (navigationRef.isReady()) {
-                const rootState = navigationRef.getRootState();
-                const activeRoute = rootState.routes[rootState.index];
-                const isPlayerActive = activeRoute?.name === 'Player';
-
-                let tabName = getActiveTabName();
-                if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                  tabName = 'Biblioteca';
-                }
-
-                const currentTab = getActiveTabName();
-                if (isPlayerActive || tabName === currentTab) {
-                  navigationRef.navigate('ArtistDetail', { artistId });
-                } else {
-                  navigationRef.navigate('Main', {
-                    screen: tabName,
-                    params: { screen: 'ArtistDetail', params: { artistId } }
-                  });
-                }
+              const currentTab = getActiveTabName();
+              if (isPlayerActive || tabName === currentTab) {
+                navigationRef.navigate('AlbumDetail', { albumId });
+              } else {
+                navigationRef.navigate('Main', {
+                  screen: tabName,
+                  params: { screen: 'AlbumDetail', params: { albumId } }
+                });
               }
-            }}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name="person-outline" size={24} color={colors.text} />
-            </View>
-            <Text style={styles.optionText}>{t('actions.go_to_artist')}</Text>
-          </TouchableOpacity>
-        )}
+            }
+          }}
+        />
+      )}
 
-        {/* OPTION: Exclude song */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={handleExclude}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="eye-off-outline" size={24} color={colors.heartIcon} />
-          </View>
-          <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('actions.exclude_song')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </>
+      {/* OPTION: Go to Artist */}
+      {artistId && (
+        <MenuOption
+          icon="person-outline"
+          text={t('actions.go_to_artist')}
+          onPress={() => {
+            closeMenu();
+            if (artistsList.length > 1) {
+              openArtistsList(artistsList);
+            } else if (navCallbacks.artist) {
+              navCallbacks.artist(artistId);
+            } else if (navigationRef.isReady()) {
+              const rootState = navigationRef.getRootState();
+              const activeRoute = rootState.routes[rootState.index];
+              const isPlayerActive = activeRoute?.name === 'Player';
+
+              let tabName = getActiveTabName();
+              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                tabName = 'Biblioteca';
+              }
+
+              const currentTab = getActiveTabName();
+              if (isPlayerActive || tabName === currentTab) {
+                navigationRef.navigate('ArtistDetail', { artistId });
+              } else {
+                navigationRef.navigate('Main', {
+                  screen: tabName,
+                  params: { screen: 'ArtistDetail', params: { artistId } }
+                });
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* OPTION: Exclude song */}
+      <MenuOption
+        icon="eye-off-outline"
+        text={t('actions.exclude_song')}
+        iconColor={colors.heartIcon}
+        textStyle={{ color: colors.heartIcon }}
+        onPress={handleExclude}
+      />
+    </BaseMenuSheet>
   );
 }
-
-const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBackground,
-    paddingBottom: 20,
-  },
-  thumbnail: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    marginRight: 16,
-  },
-  placeholder: {
-    backgroundColor: colors.cardBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    flex: 1,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 18,
-    fontFamily: fonts.regular,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  optionText: {
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: fonts.regular,
-    fontWeight: '700',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.cardBackground,
-    marginVertical: 8,
-  },
-});

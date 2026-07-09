@@ -1,26 +1,16 @@
-import { useSheetProps } from '@/hooks/useSheetProps';
-import { openTrackMenu } from '@/store/useUIStore';
-import { useAppTheme } from "@/hooks/useAppTheme";
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { LyricsService } from '../services/LyricsService';
-
-
+import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openTrackMenu } from '@/store/useUIStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { LyricsService } from '../services/LyricsService';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { BaseMenuSheet, MenuOption } from './BaseMenuSheet';
 
 export default function LyricsMenuSheet() {
-  const { colors, fonts, layout } = useAppTheme();
-  const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const { colors } = useAppTheme();
   const { props: { track, onImportSuccess }, close: closeMenu } = useSheetProps<{ track: any; onImportSuccess: (lyrics: string) => void }>('lyrics-menu');
   const hasLyrics = !!track?.lyricsLRC?.trim();
   const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
@@ -100,104 +90,54 @@ export default function LyricsMenuSheet() {
   };
 
   return (
-    <>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
-      >
-        <TouchableOpacity onPress={handleMorePress} style={styles.optionRow}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="information-circle-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.more_info') || 'Más info'}</Text>
-        </TouchableOpacity>
+    <BaseMenuSheet>
+      <MenuOption
+        icon="information-circle-outline"
+        text={t('actions.more_info') || 'Más info'}
+        onPress={handleMorePress}
+      />
 
-        <TouchableOpacity
-          onPress={handleImportLRC}
-          disabled={isFetchingLyrics}
-          style={[styles.optionRow, isFetchingLyrics && { opacity: 0.4 }]}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="cloud-upload-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
-        </TouchableOpacity>
+      <MenuOption
+        icon="cloud-upload-outline"
+        text={t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}
+        disabled={isFetchingLyrics}
+        containerStyle={isFetchingLyrics ? { opacity: 0.4 } : undefined}
+        onPress={handleImportLRC}
+      />
 
-        <TouchableOpacity
-          onPress={handleSearchLyrics}
-          disabled={isFetchingLyrics}
-          style={[styles.optionRow, isFetchingLyrics && { opacity: 0.4 }]}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="search-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('lyrics.search_lyrics') || 'Buscar letras en internet'}</Text>
-        </TouchableOpacity>
+      <MenuOption
+        icon="search-outline"
+        text={t('lyrics.search_lyrics') || 'Buscar letras en internet'}
+        disabled={isFetchingLyrics}
+        containerStyle={isFetchingLyrics ? { opacity: 0.4 } : undefined}
+        onPress={handleSearchLyrics}
+      />
 
-        <TouchableOpacity
-          onPress={() => { closeMenu(); navigation.navigate('LyricsEditor'); }}
-          disabled={isFetchingLyrics}
-          style={[styles.optionRow, isFetchingLyrics && { opacity: 0.4 }]}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="create-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('lyrics.edit') || 'Editar letras'}</Text>
-        </TouchableOpacity>
+      <MenuOption
+        icon="create-outline"
+        text={t('lyrics.edit') || 'Editar letras'}
+        disabled={isFetchingLyrics}
+        containerStyle={isFetchingLyrics ? { opacity: 0.4 } : undefined}
+        onPress={() => { closeMenu(); navigation.navigate('LyricsEditor'); }}
+      />
 
-        <TouchableOpacity
-          onPress={() => { closeMenu(); navigation.navigate('LyricsSync'); }}
-          disabled={!hasLyrics || isFetchingLyrics}
-          style={[styles.optionRow, (!hasLyrics || isFetchingLyrics) && { opacity: 0.4 }]}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="time-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('lyrics.sync') || 'Sincronizar letras'}</Text>
-        </TouchableOpacity>
+      <MenuOption
+        icon="time-outline"
+        text={t('lyrics.sync') || 'Sincronizar letras'}
+        disabled={!hasLyrics || isFetchingLyrics}
+        containerStyle={(!hasLyrics || isFetchingLyrics) ? { opacity: 0.4 } : undefined}
+        onPress={() => { closeMenu(); navigation.navigate('LyricsSync'); }}
+      />
 
-        <TouchableOpacity
-          onPress={handleDeleteLyrics}
-          disabled={!hasLyrics || isFetchingLyrics}
-          style={[styles.optionRow, { borderBottomWidth: 0 }, (!hasLyrics || isFetchingLyrics) && { opacity: 0.4 }]}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
-          </View>
-          <Text style={[styles.optionText, { color: colors.heartIcon }]}>{t('lyrics.delete_lyrics') || 'Eliminar letras'}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </>
+      <MenuOption
+        icon="trash-outline"
+        text={t('lyrics.delete_lyrics') || 'Eliminar letras'}
+        iconColor={colors.heartIcon}
+        textStyle={{ color: colors.heartIcon }}
+        disabled={!hasLyrics || isFetchingLyrics}
+        containerStyle={(!hasLyrics || isFetchingLyrics) ? { opacity: 0.4 } : undefined}
+        onPress={handleDeleteLyrics}
+      />
+    </BaseMenuSheet>
   );
 }
-
-const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  optionText: {
-    color: colors.text,
-    fontSize: 16,
-    fontFamily: fonts.regular,
-    fontWeight: '700',
-  },
-});

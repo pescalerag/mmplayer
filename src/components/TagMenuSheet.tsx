@@ -1,33 +1,19 @@
-import { useSheetProps } from '@/hooks/useSheetProps';
-import { openTagForm } from '@/store/useUIStore';
-import { openPlaylistSelector } from '@/store/useUIStore';
-import { useAppTheme } from '@/hooks/useAppTheme';
-import { Ionicons } from '@expo/vector-icons';
-import { Q } from '@nozbe/watermelondb';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, View } from 'react-native';
+import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { TagService } from '../services/tagService';
-
-
-
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openTagForm, openPlaylistSelector } from '@/store/useUIStore';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { BaseMenuSheet, MenuOption, MenuSeparator } from './BaseMenuSheet';
 
 export default function TagMenuSheet() {
-  const { colors, fonts, layout } = useAppTheme();
-  const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const { colors } = useAppTheme();
   const { t } = useTranslation();
-  const { props: { tag: selectedTag, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ tag: any; callbacks?: any }>('tag-menu');
-  
-
+  const { props: { tag: selectedTag }, close: closeMenu } = useSheetProps<{ tag: any; callbacks?: any }>('tag-menu');
   const [tracks, setTracks] = useState<Track[]>([]);
 
   // Load tracks for the selected tag
@@ -84,123 +70,43 @@ export default function TagMenuSheet() {
   };
 
   return (
-    <>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={[styles.tagColorDot, { backgroundColor: selectedTag.color || '#8B5CF6' }]} />
-        <View style={styles.headerText}>
-          <Text style={styles.title} numberOfLines={1}>
-            {selectedTag.name}
-          </Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {tracks.length} {tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}
-          </Text>
-        </View>
-      </View>
+    <BaseMenuSheet
+      title={selectedTag.name}
+      subtitle={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`}
+      headerLeft={
+        <View style={{
+          width: 56,
+          height: 56,
+          borderRadius: 12,
+          backgroundColor: selectedTag.color || '#8B5CF6'
+        }} />
+      }
+    >
+      {/* OPTION: Edit */}
+      <MenuOption
+        icon="pencil-outline"
+        text={t('tags.edit')}
+        onPress={handleEdit}
+      />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* OPTION: Edit */}
-        <TouchableOpacity style={styles.optionRow} onPress={handleEdit}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="pencil-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('tags.edit')}</Text>
-        </TouchableOpacity>
+      {/* OPTION: Add to playlist */}
+      <MenuOption
+        icon="add-circle-outline"
+        text={t('actions.add_to_playlist')}
+        onPress={handleAddToPlaylist}
+      />
 
-        {/* OPTION: Add to playlist */}
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={handleAddToPlaylist}
-        >
-          <View style={styles.iconContainer}>
-            <Ionicons name="add-circle-outline" size={24} color={colors.text} />
-          </View>
-          <Text style={styles.optionText}>{t('actions.add_to_playlist')}</Text>
-        </TouchableOpacity>
+      {/* Separator */}
+      <MenuSeparator />
 
-        {/* Separator */}
-        <View style={styles.separator} />
-
-        {/* OPTION: Delete */}
-        <TouchableOpacity style={styles.optionRow} onPress={handleDelete}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
-          </View>
-          <Text style={[styles.optionText, { color: colors.heartIcon }]}>
-            {t('tags.delete_tag_title')}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </>
+      {/* OPTION: Delete */}
+      <MenuOption
+        icon="trash-outline"
+        text={t('tags.delete_tag_title')}
+        iconColor={colors.heartIcon}
+        textStyle={{ color: colors.heartIcon }}
+        onPress={handleDelete}
+      />
+    </BaseMenuSheet>
   );
 }
-
-const getStyles = (colors: any, fonts: any, layout: any) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 24,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.cardBackground,
-      paddingBottom: 20,
-    },
-    tagColorDot: {
-      width: 48,
-      height: 48,
-      borderRadius: 12,
-      marginRight: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    headerText: {
-      flex: 1,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 18,
-      fontFamily: fonts.regular,
-      fontWeight: '800',
-    },
-    subtitle: {
-      color: colors.textSecondary,
-      fontSize: 14,
-      fontFamily: fonts.regular,
-      fontWeight: '700',
-      marginTop: 4,
-    },
-    scrollContent: {
-      paddingBottom: 20,
-    },
-    optionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 14,
-    },
-    iconContainer: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
-    },
-    optionText: {
-      color: colors.text,
-      fontSize: 16,
-      fontFamily: fonts.regular,
-      fontWeight: '700',
-    },
-    separator: {
-      height: 1,
-      backgroundColor: colors.cardBackground,
-      marginVertical: 8,
-    },
-  });
