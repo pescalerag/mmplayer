@@ -1,17 +1,16 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
-import SettingsScreen from '../screens/SettingsScreen';
-import ChangelogScreen from '../screens/ChangelogScreen';
-import ExcludedFoldersScreen from '../screens/ExcludedFoldersScreen';
-import ExcludedSongsScreen from '../screens/ExcludedSongsScreen';
-import SettingsAppearanceScreen from '../screens/SettingsAppearanceScreen';
-import SettingsLanguageScreen from '../screens/SettingsLanguageScreen';
-import SettingsAudioScreen from '../screens/SettingsAudioScreen';
-import SettingsGesturesScreen from '../screens/SettingsGesturesScreen';
-import SettingsExclusionsScreen from '../screens/SettingsExclusionsScreen';
-import SettingsDebugScreen from '../screens/SettingsDebugScreen';
-import SettingsArtistImagesScreen from '../screens/SettingsArtistImagesScreen';
+import SettingsScreen from '../screens/settings/SettingsScreen';
+import ChangelogScreen from '../screens/settings/ChangelogScreen';
+import ExcludedMediaScreen from '../screens/settings/ExcludedMediaScreen';
+import SettingsAppearanceScreen from '../screens/settings/SettingsAppearanceScreen';
+import SettingsLanguageScreen from '../screens/settings/SettingsLanguageScreen';
+import SettingsAudioScreen from '../screens/settings/SettingsAudioScreen';
+import SettingsGesturesScreen from '../screens/settings/SettingsGesturesScreen';
+import SettingsExclusionsScreen from '../screens/settings/SettingsExclusionsScreen';
+import SettingsDebugScreen from '../screens/settings/SettingsDebugScreen';
+import SettingsArtistImagesScreen from '../screens/settings/SettingsArtistImagesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,8 +19,7 @@ export default function SettingsNavigator() {
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="ChangelogScreen" component={ChangelogScreen} />
-            <Stack.Screen name="ExcludedFolders" component={ExcludedFoldersScreen} />
-            <Stack.Screen name="ExcludedSongs" component={ExcludedSongsScreen} />
+            <Stack.Screen name="ExcludedMedia" component={ExcludedMediaScreen} />
             <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
             <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
             <Stack.Screen name="SettingsAudio" component={SettingsAudioScreen} />

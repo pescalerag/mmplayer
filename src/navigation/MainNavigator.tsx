@@ -5,16 +5,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import { AppState, AppStateStatus, Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import GlobalSyncIndicator from "../components/GlobalSyncIndicator";
+import GlobalSyncIndicator from '@/components/common/GlobalSyncIndicator';
 import { ScannerService } from "../services/ScannerService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors } from "../theme/theme";
 
-import MiniPlayer from "../components/MiniPlayer";
+import MiniPlayer from '@/components/player/MiniPlayer';
 import { useCastStore } from "../store/useCastStore";
-import { useCastSheetStore } from "../store/useCastSheetStore";
+import { openLocalCast } from "../store/useUIStore";
 import { useTranslation } from "react-i18next";
-import DebugHistoryScreen from "../screens/DebugHistoryScreen";
+import DebugHistoryScreen from "../screens/settings/DebugHistoryScreen";
 import TagsNavigator from "./TagsNavigator";
 import HomeNavigator from "./HomeNavigator";
 import LibraryNavigator from "./LibraryNavigator";
@@ -22,7 +22,7 @@ import PlayerNavigator from "./PlayerNavigator";
 import SearchNavigator from "./SearchNavigator";
 import SettingsNavigator from "./SettingsNavigator";
 import { RootStackParamList } from "./types";
-import MultiSelectActionBar from "../components/MultiSelectActionBar";
+import MultiSelectActionBar from '@/components/common/MultiSelectActionBar';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -30,7 +30,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 // --- BANNER DE CASTEO ---
 const CastingBanner = () => {
   const isServerRunning = useCastStore(state => state.isServerRunning);
-  const openCastSheet = useCastSheetStore(state => state.openSheet);
+  const openCastSheet = openLocalCast;
   const { t } = useTranslation();
   const opacity = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(12)).current;

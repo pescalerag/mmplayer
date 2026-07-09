@@ -1,11 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import AlbumDetailScreen from '../screens/AlbumDetailScreen';
-import ArtistDetailScreen from '../screens/ArtistDetailScreen';
-import FavoritesDetailScreen from '../screens/FavoritesDetailScreen';
-import HomeScreen from '../screens/HomeScreen';
-import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
-import ActivityMainScreen from '../screens/ActivityMainScreen';
+import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
+import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
+import FavoritesDetailScreen from '../screens/library/FavoritesDetailScreen';
+import HomeScreen from '../screens/home/HomeScreen';
+import PlaylistDetailScreen from '../screens/library/PlaylistDetailScreen';
+import ActivityMainScreen from '../screens/activity/ActivityMainScreen';
 
 const Stack = createNativeStackNavigator();
 
