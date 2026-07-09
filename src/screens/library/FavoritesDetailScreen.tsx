@@ -14,18 +14,18 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { usePlaybackState } from '../hooks/usePlaybackState';
-import DetailHeaderLayout from '../components/DetailHeaderLayout';
-import SectionHeader from '../components/SectionHeader';
-import TrackRow from '../components/TrackRow';
-import { database } from '../database';
-import Album from '../database/models/Album';
-import Artist from '../database/models/Artist';
-import Track from '../database/models/Track';
-import { HistoryService } from '../services/HistoryService';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { Layout } from '../theme/theme';
-import { formatAlbumDuration } from '../utils/time';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
+import DetailHeaderLayout from '../../components/DetailHeaderLayout';
+import SectionHeader from '../../components/SectionHeader';
+import TrackRow from '../../components/TrackRow';
+import { database } from '../../database';
+import Album from '../../database/models/Album';
+import Artist from '../../database/models/Artist';
+import Track from '../../database/models/Track';
+import { HistoryService } from '../../services/HistoryService';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { Layout } from '../../theme/theme';
+import { formatAlbumDuration } from '../../utils/time';
 
 // ─── FAVORITES TRACK ROW COMPONENT ───
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({

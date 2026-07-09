@@ -77,6 +77,7 @@ export function BaseMenuSheet({
       )}
 
       <ScrollView
+        style={{ flexShrink: 1 }}
         showsVerticalScrollIndicator={false}
         bounces={false}
         keyboardShouldPersistTaps="handled"
@@ -134,7 +135,8 @@ export function MenuSeparator() {
 const getStyles = (colors: any, fonts: any, layout: any) =>
   StyleSheet.create({
     container: {
-      flex: 1,
+      width: '100%',
+      maxHeight: '100%',
     },
     header: {
       flexDirection: 'row',

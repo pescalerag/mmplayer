@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { ScannerService } from '../services/ScannerService';
-import { useSyncStore } from '../store/useSyncStore';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { ScannerService } from '../../services/ScannerService';
+import { useSyncStore } from '../../store/useSyncStore';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 
 export default function SettingsDebugScreen() {
     const navigation = useNavigation<any>();

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,9 +14,9 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { database } from '../database';
-import { Colors, Layout } from '../theme/theme';
-import { BackupService } from '../services/BackupService';
+import { database } from '../../database';
+import { Colors, Layout } from '../../theme/theme';
+import { BackupService } from '../../services/BackupService';
 
 interface SettingsProps {
     readonly tracksCount: number;

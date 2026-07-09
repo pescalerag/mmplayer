@@ -15,10 +15,10 @@ import { useTranslation } from 'react-i18next';
 import TrackPlayer, { State, useProgress } from 'react-native-track-player';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { usePlayerStore } from '../store/usePlayerStore';
-import { usePlaybackState } from '../hooks/usePlaybackState';
-import { LyricsService } from '../services/LyricsService';
-import { formatTrackTime } from '../utils/time';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
+import { LyricsService } from '../../services/LyricsService';
+import { formatTrackTime } from '../../utils/time';
 
 interface SyncLine {
     text: string;

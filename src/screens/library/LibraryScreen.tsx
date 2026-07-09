@@ -12,31 +12,31 @@ import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { usePlaybackState } from '../hooks/usePlaybackState';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import LibraryCard from '../components/LibraryCard';
-import PlaylistCover from '../components/PlaylistCover';
-import TrackRow from '../components/TrackRow';
-import { database } from '../database';
-import Album from '../database/models/Album';
-import Artist from '../database/models/Artist';
-import Playlist from '../database/models/Playlist';
-import Track from '../database/models/Track';
-import { LibraryNavigationProp } from '../navigation/types';
-import { ScannerService } from '../services/ScannerService';
+import LibraryCard from '../../components/LibraryCard';
+import PlaylistCover from '../../components/PlaylistCover';
+import TrackRow from '../../components/TrackRow';
+import { database } from '../../database';
+import Album from '../../database/models/Album';
+import Artist from '../../database/models/Artist';
+import Playlist from '../../database/models/Playlist';
+import Track from '../../database/models/Track';
+import { LibraryNavigationProp } from '../../navigation/types';
+import { ScannerService } from '../../services/ScannerService';
 
 
 
-import { SortOption, useLibraryStore } from '../store/useLibraryStore';
-import { usePlayerStore } from '../store/usePlayerStore';
+import { SortOption, useLibraryStore } from '../../store/useLibraryStore';
+import { usePlayerStore } from '../../store/usePlayerStore';
 
 
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { Colors, Layout } from '../theme/theme';
+import { Colors, Layout } from '../../theme/theme';
 
-import { getSafeFileName, safeDecodeURIComponent } from '../utils/safeDecode';
+import { getSafeFileName, safeDecodeURIComponent } from '../../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----

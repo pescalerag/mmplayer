@@ -2,9 +2,9 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SwipeAction, useSettingsStore } from '../store/useSettingsStore';
+import { SwipeAction, useSettingsStore } from '../../store/useSettingsStore';
 import { openSwipeAction } from '@/store/useUIStore';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 
 export default function SettingsGesturesScreen() {
     const { t } = useTranslation();

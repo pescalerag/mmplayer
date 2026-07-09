@@ -1,10 +1,10 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
-import AlbumDetailScreen from '../screens/AlbumDetailScreen';
-import ArtistDetailScreen from '../screens/ArtistDetailScreen';
-import TagManagementScreen from '../screens/TagManagementScreen';
-import TagDetailScreen from '../screens/TagDetailScreen';
+import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
+import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
+import TagManagementScreen from '../screens/tags/TagManagementScreen';
+import TagDetailScreen from '../screens/tags/TagDetailScreen';
 import { TagsStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<TagsStackParamList>();

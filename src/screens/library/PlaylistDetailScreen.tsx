@@ -21,25 +21,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TrackPlayer, {
   State,
 } from "react-native-track-player";
-import { usePlaybackState } from "../hooks/usePlaybackState";
-import DetailHeaderLayout from "../components/DetailHeaderLayout";
-import PlaylistCover from "../components/PlaylistCover";
-import SectionHeader from "../components/SectionHeader";
-import TrackRow from "../components/TrackRow";
-import { database } from "../database";
-import Album from "../database/models/Album";
-import Artist from "../database/models/Artist";
-import Playlist from "../database/models/Playlist";
-import PlaylistTrack from "../database/models/PlaylistTrack";
-import Track from "../database/models/Track";
-import { HistoryService } from "../services/HistoryService";
-import { PlaylistService } from "../services/PlaylistService";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlaybackState } from "../../hooks/usePlaybackState";
+import DetailHeaderLayout from "../../components/DetailHeaderLayout";
+import PlaylistCover from "../../components/PlaylistCover";
+import SectionHeader from "../../components/SectionHeader";
+import TrackRow from "../../components/TrackRow";
+import { database } from "../../database";
+import Album from "../../database/models/Album";
+import Artist from "../../database/models/Artist";
+import Playlist from "../../database/models/Playlist";
+import PlaylistTrack from "../../database/models/PlaylistTrack";
+import Track from "../../database/models/Track";
+import { HistoryService } from "../../services/HistoryService";
+import { PlaylistService } from "../../services/PlaylistService";
+import { usePlayerStore } from "../../store/usePlayerStore";
 
 
-import { useSettingsStore } from "../store/useSettingsStore";
-import { Colors, Layout } from "../theme/theme";
-import { formatAlbumDuration } from "../utils/time";
+import { useSettingsStore } from "../../store/useSettingsStore";
+import { Colors, Layout } from "../../theme/theme";
+import { formatAlbumDuration } from "../../utils/time";
 
 const { width } = Dimensions.get("window");
 

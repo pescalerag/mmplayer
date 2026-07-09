@@ -3,9 +3,9 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SectionHeader from '../components/SectionHeader';
-import { changelogs } from '../constants/changelogs';
-import { Colors, Layout } from '../theme/theme';
+import SectionHeader from '../../components/SectionHeader';
+import { changelogs } from '../../constants/changelogs';
+import { Colors, Layout } from '../../theme/theme';
 
 export default function ChangelogScreen() {
   const insets = useSafeAreaInsets();

@@ -9,25 +9,25 @@ import { useTranslation } from 'react-i18next';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
-import { usePlaybackState } from '../hooks/usePlaybackState';
-import { PlayingIndicator } from '../components/PlayingIndicator';
-import { database } from '../database';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
+import { PlayingIndicator } from '../../components/PlayingIndicator';
+import { database } from '../../database';
 import { Q } from '@nozbe/watermelondb';
-import Album from '../database/models/Album';
-import Track from '../database/models/Track';
-import Artist from '../database/models/Artist';
-import { HistoryService } from '../services/HistoryService';
+import Album from '../../database/models/Album';
+import Track from '../../database/models/Track';
+import Artist from '../../database/models/Artist';
+import { HistoryService } from '../../services/HistoryService';
 
 
-import { usePlayerStore } from '../store/usePlayerStore';
+import { usePlayerStore } from '../../store/usePlayerStore';
 
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { StatsWidget } from '../components/StatsWidget';
-import { HorizontalCarousel } from '../components/HorizontalCarousel';
-import { GlobalShuffleButton } from '../components/GlobalShuffleButton';
-import { MediaCard } from '../components/MediaCard';
-import { useStatsStore } from '../store/useStatsStore';
+import { StatsWidget } from '../../components/StatsWidget';
+import { HorizontalCarousel } from '../../components/HorizontalCarousel';
+import { GlobalShuffleButton } from '../../components/GlobalShuffleButton';
+import { MediaCard } from '../../components/MediaCard';
+import { useStatsStore } from '../../store/useStatsStore';
 
 const { width } = Dimensions.get('window');
 

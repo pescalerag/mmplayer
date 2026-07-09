@@ -18,28 +18,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TrackPlayer, {
   State,
 } from "react-native-track-player";
-import { usePlaybackState } from "../hooks/usePlaybackState";
-import DetailHeaderLayout from "../components/DetailHeaderLayout";
-import { getDynamicTagTextColor } from "../utils/color";
-import { formatAlbumDuration } from "../utils/time";
+import { usePlaybackState } from "../../hooks/usePlaybackState";
+import DetailHeaderLayout from "../../components/DetailHeaderLayout";
+import { getDynamicTagTextColor } from "../../utils/color";
+import { formatAlbumDuration } from "../../utils/time";
 
-import SectionHeader from "../components/SectionHeader";
-import TrackRow from "../components/TrackRow";
+import SectionHeader from "../../components/SectionHeader";
+import TrackRow from "../../components/TrackRow";
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useTranslation } from "react-i18next";
-import { database } from "../database";
-import Album from "../database/models/Album";
-import Artist from "../database/models/Artist";
-import Tag from "../database/models/Tag";
-import Track from "../database/models/Track";
-import { AlbumDetailRouteProp } from "../navigation/types";
-import { HistoryService } from "../services/HistoryService";
+import { database } from "../../database";
+import Album from "../../database/models/Album";
+import Artist from "../../database/models/Artist";
+import Tag from "../../database/models/Tag";
+import Track from "../../database/models/Track";
+import { AlbumDetailRouteProp } from "../../navigation/types";
+import { HistoryService } from "../../services/HistoryService";
 
-import { usePlayerStore } from "../store/usePlayerStore";
-import { useSettingsStore } from "../store/useSettingsStore";
+import { usePlayerStore } from "../../store/usePlayerStore";
+import { useSettingsStore } from "../../store/useSettingsStore";
 
-import { Layout } from "../theme/theme";
+import { Layout } from "../../theme/theme";
 
 const AlbumTrackRow = withObservables(
   ["track"],

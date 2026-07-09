@@ -22,32 +22,32 @@ import TrackPlayer, {
     usePlaybackState,
     useProgress,
 } from 'react-native-track-player';
-import { NativeVisualizer, extractColorFromImage } from '../../modules/native-equalizer';
-import BlurredBackground from '../components/BlurredBackground';
-import PlayerMenuSheet from '../components/PlayerMenuSheet';
+import { NativeVisualizer, extractColorFromImage } from '../../../modules/native-equalizer';
+import BlurredBackground from '../../components/BlurredBackground';
+import PlayerMenuSheet from '../../components/PlayerMenuSheet';
 import { openQueueSheet, openSpeedPitch, openPlayerMenu, openTrackMenu, openArtistsList, openTagManagerForTrack, openPlaylistSelector, openSleepTimer, openLocalCast } from '@/store/useUIStore';
 
-import Album from '../database/models/Album';
-import Artist from '../database/models/Artist';
-import Tag from '../database/models/Tag';
-import { useCastStore } from '../store/useCastStore';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { useSleepTimerStore } from '../store/useSleepTimerStore';
+import Album from '../../database/models/Album';
+import Artist from '../../database/models/Artist';
+import Tag from '../../database/models/Tag';
+import { useCastStore } from '../../store/useCastStore';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
-import { ABSliderMarkers } from '../components/ABSliderMarkers';
-import MarqueeText from '../components/MarqueeText';
-import PlayPauseButton from '../components/PlayPauseButton';
-import Track from '../database/models/Track';
-import { useABRepeatStore } from '../store/useABRepeatStore';
-import { useArtistsListSheetStore } from '../store/useArtistsListSheetStore';
-import { useToastStore } from '../store/useToastStore';
-import { getDynamicTagTextColor } from '../utils/color';
-import { formatTrackTime } from '../utils/time';
+import { ABSliderMarkers } from '../../components/ABSliderMarkers';
+import MarqueeText from '../../components/MarqueeText';
+import PlayPauseButton from '../../components/PlayPauseButton';
+import Track from '../../database/models/Track';
+import { useABRepeatStore } from '../../store/useABRepeatStore';
+import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
+import { useToastStore } from '../../store/useToastStore';
+import { getDynamicTagTextColor } from '../../utils/color';
+import { formatTrackTime } from '../../utils/time';
 
 const { width } = Dimensions.get('window');
 
@@ -495,8 +495,8 @@ const PlayerScreenUI = ({
                                 }, spinStyle]}>
                                     <Image
                                         source={playerCoverStyle === 'cd'
-                                            ? require('../assets/cd.svg')
-                                            : require('../assets/vinyl.svg')
+                                            ? require('../../assets/cd.svg')
+                                            : require('../../assets/vinyl.svg')
                                         }
                                         style={{ width: '100%', height: '100%' }}
                                         contentFit="contain"

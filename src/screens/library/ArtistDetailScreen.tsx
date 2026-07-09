@@ -20,25 +20,25 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DetailHeaderLayout from '../components/DetailHeaderLayout';
+import DetailHeaderLayout from '../../components/DetailHeaderLayout';
 
 import { useTranslation } from 'react-i18next';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { usePlaybackState } from '../hooks/usePlaybackState';
-import LibraryCard from '../components/LibraryCard';
-import SectionHeader from '../components/SectionHeader';
-import TrackRow from '../components/TrackRow';
-import { database } from '../database';
-import Album from '../database/models/Album';
-import Artist from '../database/models/Artist';
-import Track from '../database/models/Track';
-import { ArtistDetailRouteProp } from '../navigation/types';
-import { HistoryService } from '../services/HistoryService';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
+import LibraryCard from '../../components/LibraryCard';
+import SectionHeader from '../../components/SectionHeader';
+import TrackRow from '../../components/TrackRow';
+import { database } from '../../database';
+import Album from '../../database/models/Album';
+import Artist from '../../database/models/Artist';
+import Track from '../../database/models/Track';
+import { ArtistDetailRouteProp } from '../../navigation/types';
+import { HistoryService } from '../../services/HistoryService';
 
 
-import { usePlayerStore } from '../store/usePlayerStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { Colors, Layout } from '../theme/theme';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { Colors, Layout } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;

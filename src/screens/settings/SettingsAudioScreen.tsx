@@ -4,13 +4,13 @@ import { Alert, Animated, ScrollView, StyleSheet, Switch, Text, TouchableOpacity
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import TrackPlayer from 'react-native-track-player';
-import { database } from '../database';
-import Track from '../database/models/Track';
-import { ScannerService } from '../services/ScannerService';
-import { EqualizerService } from '../services/EqualizerService';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { useSyncStore } from '../store/useSyncStore';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { database } from '../../database';
+import Track from '../../database/models/Track';
+import { ScannerService } from '../../services/ScannerService';
+import { EqualizerService } from '../../services/EqualizerService';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSyncStore } from '../../store/useSyncStore';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 
 export default function SettingsAudioScreen() {
     const { t } = useTranslation();

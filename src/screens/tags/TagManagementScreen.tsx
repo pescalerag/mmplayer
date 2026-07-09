@@ -7,10 +7,10 @@ import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { openTagForm, openTagMenu } from '@/store/useUIStore';
-import { database } from '../database';
-import Tag from '../database/models/Tag';
-import { TagsNavigationProp } from '../navigation/types';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { database } from '../../database';
+import Tag from '../../database/models/Tag';
+import { TagsNavigationProp } from '../../navigation/types';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 
 interface TagManagementContentProps {
     tags: Tag[];

@@ -13,12 +13,12 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { database } from '../database';
-import Album from '../database/models/Album';
-import Artist from '../database/models/Artist';
-import PlaybackHistory from '../database/models/PlaybackHistory';
-import Track from '../database/models/Track';
-import { Layout } from '../theme/theme';
+import { database } from '../../database';
+import Album from '../../database/models/Album';
+import Artist from '../../database/models/Artist';
+import PlaybackHistory from '../../database/models/PlaybackHistory';
+import Track from '../../database/models/Track';
+import { Layout } from '../../theme/theme';
 
 interface HistoryRowProps {
     historyItem: PlaybackHistory;

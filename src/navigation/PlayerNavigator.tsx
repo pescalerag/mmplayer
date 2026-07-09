@@ -1,12 +1,12 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
-import AlbumDetailScreen from '../screens/AlbumDetailScreen';
-import ArtistDetailScreen from '../screens/ArtistDetailScreen';
-import PlayerScreen from '../screens/PlayerScreen';
-import LyricsScreen from '../screens/LyricsScreen';
-import LyricsEditorScreen from '../screens/LyricsEditorScreen';
-import LyricsSyncScreen from '../screens/LyricsSyncScreen';
+import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
+import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
+import PlayerScreen from '../screens/player/PlayerScreen';
+import LyricsScreen from '../screens/player/LyricsScreen';
+import LyricsEditorScreen from '../screens/player/LyricsEditorScreen';
+import LyricsSyncScreen from '../screens/player/LyricsSyncScreen';
 import { PlayerStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();

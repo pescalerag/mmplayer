@@ -6,11 +6,11 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useAppTheme } from '../hooks/useAppTheme';
-import { useStatsStore } from '../store/useStatsStore';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { database } from '../database';
-import Track from '../database/models/Track';
+import { useAppTheme } from '../../hooks/useAppTheme';
+import { useStatsStore } from '../../store/useStatsStore';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { database } from '../../database';
+import Track from '../../database/models/Track';
 
 const { width } = Dimensions.get('window');
 

@@ -15,8 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { usePlayerStore } from '../store/usePlayerStore';
-import { LyricsService } from '../services/LyricsService';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { LyricsService } from '../../services/LyricsService';
 
 export default function LyricsEditorScreen() {
     const { colors, fonts, fontWeights, spacing } = useAppTheme();

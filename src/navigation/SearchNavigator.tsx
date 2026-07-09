@@ -1,11 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
-import AlbumDetailScreen from '../screens/AlbumDetailScreen';
-import ArtistDetailScreen from '../screens/ArtistDetailScreen';
-import SearchScreen from '../screens/SearchScreen';
-import TagDetailScreen from '../screens/TagDetailScreen';
-import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
+import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
+import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
+import SearchScreen from '../screens/search/SearchScreen';
+import TagDetailScreen from '../screens/tags/TagDetailScreen';
+import PlaylistDetailScreen from '../screens/library/PlaylistDetailScreen';
 import { SearchStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<SearchStackParamList>();

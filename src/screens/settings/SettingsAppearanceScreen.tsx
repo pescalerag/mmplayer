@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections } from '@/store/useUIStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 
 export default function SettingsAppearanceScreen() {
     const { t } = useTranslation();

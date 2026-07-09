@@ -14,7 +14,7 @@ import MiniPlayer from "../components/MiniPlayer";
 import { useCastStore } from "../store/useCastStore";
 import { openLocalCast } from "../store/useUIStore";
 import { useTranslation } from "react-i18next";
-import DebugHistoryScreen from "../screens/DebugHistoryScreen";
+import DebugHistoryScreen from "../screens/settings/DebugHistoryScreen";
 import TagsNavigator from "./TagsNavigator";
 import HomeNavigator from "./HomeNavigator";
 import LibraryNavigator from "./LibraryNavigator";

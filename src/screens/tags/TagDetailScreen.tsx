@@ -16,21 +16,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { usePlaybackState } from '../hooks/usePlaybackState';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 
 import { useTranslation } from 'react-i18next';
-import LibraryCard from '../components/LibraryCard';
-import SectionHeader from '../components/SectionHeader';
-import TrackRow from '../components/TrackRow';
-import { database } from '../database';
-import Album from '../database/models/Album';
-import Artist from '../database/models/Artist';
-import Tag from '../database/models/Tag';
-import Track from '../database/models/Track';
-import { SearchNavigationProp } from '../navigation/types';
+import LibraryCard from '../../components/LibraryCard';
+import SectionHeader from '../../components/SectionHeader';
+import TrackRow from '../../components/TrackRow';
+import { database } from '../../database';
+import Album from '../../database/models/Album';
+import Artist from '../../database/models/Artist';
+import Tag from '../../database/models/Tag';
+import Track from '../../database/models/Track';
+import { SearchNavigationProp } from '../../navigation/types';
 
-import { usePlayerStore } from '../store/usePlayerStore';
-import { Colors, Layout } from '../theme/theme';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { Colors, Layout } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 320;

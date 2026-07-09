@@ -14,11 +14,11 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { useAppTheme } from '../hooks/useAppTheme';
-import { usePlayerStore } from '../store/usePlayerStore';
-import { HistoryService } from '../services/HistoryService';
-import { database } from '../database';
-import Track from '../database/models/Track';
+import { useAppTheme } from '../../hooks/useAppTheme';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { HistoryService } from '../../services/HistoryService';
+import { database } from '../../database';
+import Track from '../../database/models/Track';
 
 type Period = 'day' | 'week' | 'month' | 'year' | 'all';
 type Metric = 'duration' | 'plays';

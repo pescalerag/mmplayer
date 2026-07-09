@@ -4,11 +4,11 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { ScannerService } from '../services/ScannerService';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { useSyncStore } from '../store/useSyncStore';
-import { getSafeFileName } from '../utils/safeDecode';
-import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
+import { ScannerService } from '../../services/ScannerService';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSyncStore } from '../../store/useSyncStore';
+import { getSafeFileName } from '../../utils/safeDecode';
+import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
 
 export default function ExcludedMediaScreen() {
     const { colors, fonts, layout } = useAppTheme();
