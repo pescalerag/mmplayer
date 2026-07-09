@@ -1,6 +1,5 @@
 import { NavigationContainer } from "@react-navigation/native";
 import * as Font from "expo-font";
-import * as MediaLibrary from "expo-media-library";
 import * as NavigationBar from "expo-navigation-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -40,7 +39,6 @@ export default function App() {
         if (Platform.OS === "android") {
           await NavigationBar.setBackgroundColorAsync("black");
           await NavigationBar.setButtonStyleAsync("light");
-          await MediaLibrary.requestPermissionsAsync(false, ['audio']);
         }
 
         await Font.loadAsync({
