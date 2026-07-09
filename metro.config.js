@@ -3,6 +3,13 @@ const path = require('node:path');
 
 const config = getDefaultConfig(__dirname);
 
+// Exclude native android/ios build and project folders to prevent Metro watcher crashes during Gradle builds
+config.resolver.blockList = [
+  /[\\/]android[\\/]/,
+  /[\\/]ios[\\/]/,
+  ...(config.resolver.blockList || []),
+];
+
 // 1. Stub out Node.js modules for the web/react-native
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,

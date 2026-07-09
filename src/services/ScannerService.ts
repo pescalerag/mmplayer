@@ -944,7 +944,7 @@ export const ScannerService = {
         coverExistsCache.clear();
 
         onProgress?.(0, 0, 'Solicitando permisos...');
-        const { status } = await MediaLibrary.requestPermissionsAsync();
+        const { status } = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
         if (status !== 'granted') {
             throw new Error('Permiso de lectura de medios denegado.');
         }

@@ -46,6 +46,8 @@ dependencies {
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${safeExtGet('kotlinVersion', '1.8.10')}"
   implementation project(':expo-modules-core')
   implementation 'com.github.AdrienPoupa:jaudiotagger:2.2.3'
+  implementation 'androidx.media3:media3-session:1.8.0'
+  implementation 'com.google.guava:guava:33.0.0-android'
 }
 
 def safeExtGet(prop, fallback) {

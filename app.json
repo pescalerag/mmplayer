@@ -20,9 +20,7 @@
     "android": {
       "permissions": [
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.CAMERA",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.ACCESS_WIFI_STATE",
@@ -55,7 +53,12 @@
           "photosPermission": "The app accesses your photos to allow you to set artist and album covers."
         }
       ],
-      "expo-media-library",
+      [
+        "expo-media-library",
+        {
+          "granularPermissions": ["audio"]
+        }
+      ],
       [
         "expo-build-properties",
         {

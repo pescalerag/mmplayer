@@ -40,7 +40,7 @@ export default function App() {
         if (Platform.OS === "android") {
           await NavigationBar.setBackgroundColorAsync("black");
           await NavigationBar.setButtonStyleAsync("light");
-          await MediaLibrary.requestPermissionsAsync();
+          await MediaLibrary.requestPermissionsAsync(false, ['audio']);
         }
 
         await Font.loadAsync({

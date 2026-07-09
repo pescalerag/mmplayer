@@ -14,9 +14,10 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
-import android.view.KeyEvent
 import android.view.View
 import android.widget.RemoteViews
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 
 import java.net.URL
 import java.util.concurrent.Executors
@@ -25,6 +26,9 @@ class WidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_UPDATE_STATE = "com.pescalerag.mmplayer.ACTION_UPDATE_STATE"
+        const val ACTION_PLAY_PAUSE = "com.pescalerag.mmplayer.ACTION_PLAY_PAUSE"
+        const val ACTION_NEXT = "com.pescalerag.mmplayer.ACTION_NEXT"
+        const val ACTION_PREV = "com.pescalerag.mmplayer.ACTION_PREV"
         
         private var lastTitle = "MMPlayer"
         private var lastArtist = "No se está reproduciendo"
@@ -94,40 +98,22 @@ class WidgetProvider : AppWidgetProvider() {
         private fun setupButtonPendingIntents(context: Context, views: RemoteViews) {
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
-            val playPauseIntent = Intent().apply {
-                setClassName(context.packageName, "com.doublesymmetry.trackplayer.service.MusicService")
-                action = Intent.ACTION_MEDIA_BUTTON
-                putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            val playPauseIntent = Intent(context, WidgetProvider::class.java).apply {
+                action = ACTION_PLAY_PAUSE
             }
-            val playPausePending = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                PendingIntent.getForegroundService(context, 10, playPauseIntent, flags)
-            } else {
-                PendingIntent.getService(context, 10, playPauseIntent, flags)
-            }
+            val playPausePending = PendingIntent.getBroadcast(context, 10, playPauseIntent, flags)
             views.setOnClickPendingIntent(R.id.btn_play_pause, playPausePending)
 
-            val nextIntent = Intent().apply {
-                setClassName(context.packageName, "com.doublesymmetry.trackplayer.service.MusicService")
-                action = Intent.ACTION_MEDIA_BUTTON
-                putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT))
+            val nextIntent = Intent(context, WidgetProvider::class.java).apply {
+                action = ACTION_NEXT
             }
-            val nextPending = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                PendingIntent.getForegroundService(context, 11, nextIntent, flags)
-            } else {
-                PendingIntent.getService(context, 11, nextIntent, flags)
-            }
+            val nextPending = PendingIntent.getBroadcast(context, 11, nextIntent, flags)
             views.setOnClickPendingIntent(R.id.btn_next, nextPending)
 
-            val prevIntent = Intent().apply {
-                setClassName(context.packageName, "com.doublesymmetry.trackplayer.service.MusicService")
-                action = Intent.ACTION_MEDIA_BUTTON
-                putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PREVIOUS))
+            val prevIntent = Intent(context, WidgetProvider::class.java).apply {
+                action = ACTION_PREV
             }
-            val prevPending = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                PendingIntent.getForegroundService(context, 12, prevIntent, flags)
-            } else {
-                PendingIntent.getService(context, 12, prevIntent, flags)
-            }
+            val prevPending = PendingIntent.getBroadcast(context, 12, prevIntent, flags)
             views.setOnClickPendingIntent(R.id.btn_prev, prevPending)
 
             val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -241,6 +227,75 @@ class WidgetProvider : AppWidgetProvider() {
             val coverUri = intent.getStringExtra("coverUri")
             val isPlaying = intent.getBooleanExtra("isPlaying", false)
             updateWidget(context, title, artist, coverUri, isPlaying)
+        } else if (intent.action == ACTION_PLAY_PAUSE || intent.action == ACTION_NEXT || intent.action == ACTION_PREV) {
+            val pendingResult = goAsync()
+            val appContext = context.applicationContext
+
+            try {
+                val sessionToken = SessionToken(appContext, ComponentName(appContext, "com.doublesymmetry.trackplayer.service.MusicService"))
+                val controllerFuture = androidx.media3.session.MediaController.Builder(appContext, sessionToken).buildAsync()
+
+                // SOLUCIÓN 1: Usamos el MainExecutor para evitar la excepción de hilo cruzado de Media3
+                controllerFuture.addListener(Runnable {
+                    try {
+                        val controller = controllerFuture.get()
+                        when (intent.action) {
+                            ACTION_PLAY_PAUSE -> {
+                                if (controller.isPlaying) {
+                                    controller.pause()
+                                    updateWidget(appContext, lastTitle, lastArtist, lastCoverUri, false)
+                                } else {
+                                    controller.play()
+                                    updateWidget(appContext, lastTitle, lastArtist, lastCoverUri, true)
+                                }
+                            }
+                            ACTION_NEXT -> {
+                                controller.seekToNextMediaItem()
+                            }
+                            ACTION_PREV -> {
+                                controller.seekToPreviousMediaItem()
+                            }
+                        }
+                        controller.release()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        // SOLUCIÓN 2 (INFALIBLE): Si MediaController falla, usamos el AudioManager del sistema operativo
+                        fallbackToAudioManager(appContext, intent.action)
+                        
+                        // Actualización optimista de UI local
+                        if (intent.action == ACTION_PLAY_PAUSE) {
+                            updateWidget(appContext, lastTitle, lastArtist, lastCoverUri, !lastIsPlaying)
+                        }
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }, androidx.core.content.ContextCompat.getMainExecutor(appContext))
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                fallbackToAudioManager(appContext, intent.action)
+                pendingResult.finish()
+            }
+        }
+    }
+
+    /**
+     * Respaldo infalible: Emula una pulsación de auriculares físicos (Bluetooth/Cable) 
+     * que el sistema operativo enviará directamente a React Native Track Player.
+     */
+    private fun fallbackToAudioManager(context: Context, action: String?) {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            val keyCode = when (action) {
+                ACTION_PLAY_PAUSE -> android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+                ACTION_NEXT -> android.view.KeyEvent.KEYCODE_MEDIA_NEXT
+                ACTION_PREV -> android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS
+                else -> return
+            }
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode))
+            audioManager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode))
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
