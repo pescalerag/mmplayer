@@ -1,28 +1,12 @@
-import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections } from '@/store/useUIStore';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-
-
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections } from '@/store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Colors, Layout } from '../theme/theme';
+import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
 
 export default function SettingsAppearanceScreen() {
-    const insets = useSafeAreaInsets();
-    const navigation = useNavigation();
-    const [headerHeight, setHeaderHeight] = useState(100);
     const { t } = useTranslation();
 
     const {
@@ -37,204 +21,144 @@ export default function SettingsAppearanceScreen() {
     } = useSettingsStore();
 
     const openLibraryTabsOrderSheet = openLibraryTabsOrder;
-    // Safe hook fetch for app tabs order sheet, handling standard and typescript variants
     const openAppTabsOrderSheet = openAppTabsOrder;
     const openHomeSectionsSheet = openHomeSections;
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.background }]}>
-            {/* CAPA DEL HUMO */}
-            <LinearGradient
-                colors={['#000000', 'rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'transparent']}
-                locations={[0, 0.4, 0.7, 1]}
-                style={[styles.smokeEffect, { height: headerHeight + 30 }]}
-                pointerEvents="none"
-            />
+        <ScreenHeaderLayout title={t('settings.visualization') || 'Apariencia'}>
+            {({ headerHeight, bottomPadding }) => (
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingTop: headerHeight + 20,
+                            paddingBottom: bottomPadding
+                        }
+                    ]}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.sectionCard}>
+                        <TouchableOpacity
+                            style={styles.buttonRow}
+                            onPress={() => setForceWelcomeModal(true)}
+                        >
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('welcome.subtitle') || 'Cambiar alias'}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {userAlias ? `Actual: ${userAlias}` : 'No tienes alias configurado'}
+                                </Text>
+                            </View>
+                            <Ionicons name="person" size={20} color="#8B5CF6" />
+                        </TouchableOpacity>
 
-            {/* CAPA DE ILUMINACIÓN MORADA */}
-            <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
-                pointerEvents="none"
-            />
+                        <View style={styles.separator} />
 
-            {/* INTERFAZ HEADER */}
-            <View
-                onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-                style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}
-            >
-                <View style={styles.headerRow}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={28} color="#8B5CF6" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{t('settings.visualization') || 'Apariencia'}</Text>
-                </View>
-            </View>
-
-            {/* CONTENIDO */}
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={[
-                    styles.scrollContent,
-                    {
-                        paddingTop: headerHeight + 20,
-                        paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom
-                    }
-                ]}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-            >
-                <View style={styles.sectionCard}>
-                    <TouchableOpacity
-                        style={styles.buttonRow}
-                        onPress={() => setForceWelcomeModal(true)}
-                    >
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('welcome.subtitle') || 'Cambiar alias'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {userAlias ? `Actual: ${userAlias}` : 'No tienes alias configurado'}
-                            </Text>
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.tag_colors')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.tag_colors_desc')}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={showTagColors}
+                                onValueChange={setShowTagColors}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={showTagColors ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
                         </View>
-                        <Ionicons name="person" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
 
-                    <View style={styles.separator} />
+                        <View style={styles.separator} />
 
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.tag_colors')}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.tag_colors_desc')}
-                            </Text>
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.silent_sync')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.silent_sync_desc')}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={hideSyncToastOnResume}
+                                onValueChange={setHideSyncToastOnResume}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={hideSyncToastOnResume ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
                         </View>
-                        <Switch
-                            value={showTagColors}
-                            onValueChange={setShowTagColors}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={showTagColors ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
+
+                        <View style={styles.separator} />
+
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.keep_awake') || 'Reproductor persistente'}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.keep_awake_desc') || 'Evita que la pantalla se apague mientras el reproductor o las letras están abiertos'}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={isKeepAwakeEnabled}
+                                onValueChange={setIsKeepAwakeEnabled}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={isKeepAwakeEnabled ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.buttonRow}
+                            onPress={openLibraryTabsOrderSheet}
+                        >
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.tab_order')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.tab_order_desc')}
+                                </Text>
+                            </View>
+                            <Ionicons name="list" size={20} color="#8B5CF6" />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.buttonRow}
+                            onPress={openAppTabsOrderSheet}
+                        >
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.app_tabs_order') || 'Navegación principal'}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.app_tabs_desc') || 'Personaliza la barra inferior'}
+                                </Text>
+                            </View>
+                            <Ionicons name="apps" size={20} color="#8B5CF6" />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.buttonRow}
+                            onPress={openHomeSectionsSheet}
+                        >
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.home_sections') || 'Secciones de inicio'}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.home_sections_desc') || 'Elige qué secciones se muestran en la pantalla de inicio'}
+                                </Text>
+                            </View>
+                            <Ionicons name="grid-outline" size={20} color="#8B5CF6" />
+                        </TouchableOpacity>
                     </View>
-
-                    <View style={styles.separator} />
-
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.silent_sync')}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.silent_sync_desc')}
-                            </Text>
-                        </View>
-                        <Switch
-                            value={hideSyncToastOnResume}
-                            onValueChange={setHideSyncToastOnResume}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={hideSyncToastOnResume ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
-                    </View>
-
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.keep_awake') || 'Reproductor persistente'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.keep_awake_desc') || 'Evita que la pantalla se apague mientras el reproductor o las letras están abiertos'}
-                            </Text>
-                        </View>
-                        <Switch
-                            value={isKeepAwakeEnabled}
-                            onValueChange={setIsKeepAwakeEnabled}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={isKeepAwakeEnabled ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
-                    </View>
-
-                    <View style={styles.separator} />
-
-                    <TouchableOpacity
-                        style={styles.buttonRow}
-                        onPress={openLibraryTabsOrderSheet}
-                    >
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.tab_order')}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.tab_order_desc')}
-                            </Text>
-                        </View>
-                        <Ionicons name="list" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
-
-                    <View style={styles.separator} />
-
-                    <TouchableOpacity
-                        style={styles.buttonRow}
-                        onPress={openAppTabsOrderSheet}
-                    >
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.app_tabs_order') || 'Navegación principal'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.app_tabs_desc') || 'Personaliza la barra inferior'}
-                            </Text>
-                        </View>
-                        <Ionicons name="apps" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
-
-                    <View style={styles.separator} />
-
-                    <TouchableOpacity
-                        style={styles.buttonRow}
-                        onPress={openHomeSectionsSheet}
-                    >
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.home_sections') || 'Secciones de inicio'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.home_sections_desc') || 'Elige qué secciones se muestran en la pantalla de inicio'}
-                            </Text>
-                        </View>
-                        <Ionicons name="grid-outline" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </View>
+                </ScrollView>
+            )}
+        </ScreenHeaderLayout>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    smokeEffect: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1,
-    },
-    headerContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 20,
-        zIndex: 10,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    backBtn: {
-        padding: 4,
-        marginLeft: -8,
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontFamily: 'Montserrat',
-        fontWeight: '900',
-        color: '#FFFFFF',
-        flex: 1,
-    },
     scrollContent: {
         paddingHorizontal: 20,
     },
@@ -248,7 +172,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 4,
+        paddingVertical: 12,
     },
     settingLabel: {
         fontSize: 16,
@@ -258,7 +182,8 @@ const styles = StyleSheet.create({
     },
     settingDescription: {
         fontSize: 12,
-        fontFamily: 'Montserrat', fontWeight: '700',
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
         color: '#888',
         marginTop: 4,
         lineHeight: 16,

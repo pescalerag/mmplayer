@@ -1,34 +1,25 @@
-import { openTagForm } from '@/store/useUIStore';
-import { openTagMenu } from '@/store/useUIStore';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { openTagForm, openTagMenu } from '@/store/useUIStore';
 import { database } from '../database';
 import Tag from '../database/models/Tag';
 import { TagsNavigationProp } from '../navigation/types';
-
-
-import { Colors, Layout } from '../theme/theme';
+import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
 
 interface TagManagementContentProps {
     tags: Tag[];
 }
 
 function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
-    const insets = useSafeAreaInsets();
     const openForCreate = () => openTagForm();
     const { t } = useTranslation();
-    const navigation = useNavigation<TagsNavigationProp>();
-
-    // Altura dinámica del header para el smoke y padding del contenido
-    const [headerHeight, setHeaderHeight] = useState(100);
+    const navigation = useNavigation<any>();
 
     const renderItem = ({ item }: { item: Tag }) => {
         return (
@@ -54,71 +45,39 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
         );
     };
 
-    const bottomOffset = Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom;
-
     return (
-        <View style={[styles.container, { backgroundColor: Colors.background }]}>
-
-            {/* 1. CONTENIDO - LISTA */}
-            <View style={StyleSheet.absoluteFill}>
-                <FlashList
-                    data={tags}
-                    keyExtractor={t => t.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={[
-                        styles.listContent,
-                        {
-                            paddingTop: headerHeight + 30,
-                            paddingBottom: bottomOffset,
+        <ScreenHeaderLayout title={t('tags.manager')} showBackButton={false} titleStyle={styles.headerTitle}>
+            {({ headerHeight, bottomPadding }) => (
+                <View style={StyleSheet.absoluteFill}>
+                    <FlashList
+                        data={tags}
+                        keyExtractor={t => t.id}
+                        renderItem={renderItem}
+                        contentContainerStyle={[
+                            styles.listContent,
+                            {
+                                paddingTop: headerHeight + 30,
+                                paddingBottom: bottomPadding,
+                            }
+                        ]}
+                        ListHeaderComponent={
+                            <TouchableOpacity
+                                style={styles.createTagButton}
+                                onPress={() => {
+                                    openForCreate();
+                                }}
+                            >
+                                <Ionicons name="add" size={22} color="#FFF" />
+                                <Text style={styles.createTagButtonText}>{t('tags.create')}</Text>
+                            </TouchableOpacity>
                         }
-                    ]}
-                    ListHeaderComponent={
-                        <TouchableOpacity
-                            style={styles.createTagButton}
-                            onPress={() => {
-                                openForCreate();
-                            }}
-                        >
-                            <Ionicons name="add" size={22} color="#FFF" />
-                            <Text style={styles.createTagButtonText}>{t('tags.create')}</Text>
-                        </TouchableOpacity>
-                    }
-                    ListEmptyComponent={
-                        <Text style={styles.empty}>{t('tags.empty_tags')}</Text>
-                    }
-
-                />
-            </View>
-
-            {/* 2. HUMO / DEGRADE HEADER */}
-            <LinearGradient
-                colors={[
-                    '#000000',
-                    'rgba(0, 0, 0, 0.95)',
-                    'rgba(0, 0, 0, 0.8)',
-                    'transparent'
-                ]}
-                locations={[0, 0.45, 0.8, 1]}
-                style={[styles.smokeEffect, { height: headerHeight + 30 }]}
-                pointerEvents="none"
-            />
-
-            {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
-            <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
-                pointerEvents="none"
-            />
-
-            {/* 3. HEADER DE LA INTERFAZ */}
-            <View
-                onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-                style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}
-            >
-                <Text style={styles.headerTitle}>{t('tags.manager')}</Text>
-            </View>
-
-        </View>
+                        ListEmptyComponent={
+                            <Text style={styles.empty}>{t('tags.empty_tags')}</Text>
+                        }
+                    />
+                </View>
+            )}
+        </ScreenHeaderLayout>
     );
 }
 
@@ -131,33 +90,14 @@ export default function TagManagementScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
     listContent: {
         paddingHorizontal: 20,
-    },
-    headerContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 20,
-        zIndex: 10,
     },
     headerTitle: {
         fontSize: 28,
         fontFamily: 'Montserrat',
         fontWeight: '900',
         color: '#FFFFFF',
-    },
-    smokeEffect: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1,
     },
     createTagButton: {
         flexDirection: 'row',

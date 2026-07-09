@@ -1,20 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Alert,
-    Animated,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Animated, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { Ionicons } from '@expo/vector-icons';
 import TrackPlayer from 'react-native-track-player';
 import { database } from '../database';
 import Track from '../database/models/Track';
@@ -22,12 +10,9 @@ import { ScannerService } from '../services/ScannerService';
 import { EqualizerService } from '../services/EqualizerService';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useSyncStore } from '../store/useSyncStore';
-import { Colors, Layout } from '../theme/theme';
+import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
 
 export default function SettingsAudioScreen() {
-    const insets = useSafeAreaInsets();
-    const navigation = useNavigation();
-    const [headerHeight, setHeaderHeight] = useState(100);
     const { t } = useTranslation();
     const isScanning = useSyncStore(state => state.isScanning);
 
@@ -68,112 +53,35 @@ export default function SettingsAudioScreen() {
     }, [isEqualizerEnabled]);
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.background }]}>
-            {/* CAPA DEL HUMO */}
-            <LinearGradient
-                colors={['#000000', 'rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'transparent']}
-                locations={[0, 0.4, 0.7, 1]}
-                style={[styles.smokeEffect, { height: headerHeight + 30 }]}
-                pointerEvents="none"
-            />
-
-            {/* CAPA DE ILUMINACIÓN MORADA */}
-            <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
-                pointerEvents="none"
-            />
-
-            {/* INTERFAZ HEADER */}
-            <View
-                onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-                style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}
-            >
-                <View style={styles.headerRow}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={28} color="#8B5CF6" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{t('settings.audio_section') || 'Audio'}</Text>
-                </View>
-            </View>
-
-            {/* CONTENIDO */}
-            <ScrollView
-                style={{ flex: 1 }}
-                scrollEnabled={scrollEnabled}
-                contentContainerStyle={[
-                    styles.scrollContent,
-                    {
-                        paddingTop: headerHeight + 20,
-                        paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom
-                    }
-                ]}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-            >
-                <View style={styles.sectionCard}>
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.normalization')}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.normalization_desc')}
-                            </Text>
-                        </View>
-                        <Switch
-                            value={isNormalizationEnabled}
-                            onValueChange={async (value) => {
-                                setNormalizationEnabled(value);
-                                try {
-                                    if (value) {
-                                        const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-                                        if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
-                                            const track = await TrackPlayer.getTrack(activeTrackIndex);
-                                            if (track && track.id) {
-                                                const cleanId = track.id.toString().split('-')[0];
-                                                const trackModel = await database.get<Track>('tracks').find(cleanId);
-                                                const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
-                                                const totalTargetDB = trackGainDB + preampLevel;
-                                                let linearVolume = Math.pow(10, totalTargetDB / 20);
-                                                linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
-                                                await TrackPlayer.setVolume(linearVolume);
-                                            }
-                                        }
-                                    } else {
-                                        await TrackPlayer.setVolume(1.0);
-                                    }
-                                } catch (err) {
-                                    console.error("Error actualizando volumen al activar/desactivar normalización:", err);
-                                }
-                            }}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={isNormalizationEnabled ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
-                    </View>
-
-                    {isNormalizationEnabled && (
-                        <>
-                            <View style={styles.separator} />
-
-                            <View style={{ marginVertical: 8 }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Text style={styles.settingLabel}>{t('settings.preamp')}</Text>
-                                    <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
-                                        {preampLevel >= 0 ? `+${preampLevel.toFixed(1)}` : preampLevel.toFixed(1)} dB
-                                    </Text>
-                                </View>
+        <ScreenHeaderLayout title={t('settings.audio_section') || 'Audio'}>
+            {({ headerHeight, bottomPadding }) => (
+                <ScrollView
+                    style={{ flex: 1 }}
+                    scrollEnabled={scrollEnabled}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingTop: headerHeight + 20,
+                            paddingBottom: bottomPadding
+                        }
+                    ]}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.sectionCard}>
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.normalization')}</Text>
                                 <Text style={styles.settingDescription}>
-                                    {t('settings.preamp_desc')}
+                                    {t('settings.normalization_desc')}
                                 </Text>
-                                <Slider
-                                    style={{ width: '100%', height: 40, marginTop: 8 }}
-                                    minimumValue={0}
-                                    maximumValue={6}
-                                    step={0.5}
-                                    value={preampLevel}
-                                    onValueChange={async (value) => {
-                                        setPreampLevel(value);
-                                        try {
+                            </View>
+                            <Switch
+                                value={isNormalizationEnabled}
+                                onValueChange={async (value) => {
+                                    setNormalizationEnabled(value);
+                                    try {
+                                        if (value) {
                                             const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
                                             if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
                                                 const track = await TrackPlayer.getTrack(activeTrackIndex);
@@ -181,311 +89,327 @@ export default function SettingsAudioScreen() {
                                                     const cleanId = track.id.toString().split('-')[0];
                                                     const trackModel = await database.get<Track>('tracks').find(cleanId);
                                                     const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
-                                                    const totalTargetDB = trackGainDB + value;
+                                                    const totalTargetDB = trackGainDB + preampLevel;
                                                     let linearVolume = Math.pow(10, totalTargetDB / 20);
                                                     linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
                                                     await TrackPlayer.setVolume(linearVolume);
                                                 }
                                             }
-                                        } catch (err) {
-                                            console.error("Error actualizando volumen en tiempo real:", err);
+                                        } else {
+                                            await TrackPlayer.setVolume(1.0);
                                         }
-                                    }}
-                                    minimumTrackTintColor="#8B5CF6"
-                                    maximumTrackTintColor="#282828"
-                                    thumbTintColor="#FFFFFF"
-                                />
-                            </View>
+                                    } catch (err) {
+                                        console.error("Error actualizando volumen al activar/desactivar normalización:", err);
+                                    }
+                                }}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={isNormalizationEnabled ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
 
-                            <View style={styles.separator} />
+                        {isNormalizationEnabled && (
+                            <>
+                                <View style={styles.separator} />
 
-                            <View style={{ marginVertical: 8 }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Text style={styles.settingLabel}>{t('settings.fallback_gain')}</Text>
-                                    <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
-                                        {fallbackGainDB.toFixed(0)} dB
+                                <View style={{ marginVertical: 8 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={styles.settingLabel}>{t('settings.preamp')}</Text>
+                                        <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                            {preampLevel >= 0 ? `+${preampLevel.toFixed(1)}` : preampLevel.toFixed(1)} dB
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.preamp_desc')}
                                     </Text>
-                                </View>
-                                <Text style={styles.settingDescription}>
-                                    {t('settings.fallback_gain_desc')}
-                                </Text>
-                                <Slider
-                                    style={{ width: '100%', height: 40, marginTop: 8 }}
-                                    minimumValue={-10}
-                                    maximumValue={0}
-                                    step={1}
-                                    value={fallbackGainDB}
-                                    onValueChange={async (value) => {
-                                        setFallbackGain(value);
-                                        try {
-                                            const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-                                            if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
-                                                const track = await TrackPlayer.getTrack(activeTrackIndex);
-                                                if (track && track.id) {
-                                                    const cleanId = track.id.toString().split('-')[0];
-                                                    const trackModel = await database.get<Track>('tracks').find(cleanId);
-                                                    if (trackModel.replayGain === null || trackModel.replayGain === undefined) {
-                                                        const totalTargetDB = value + preampLevel;
+                                    <Slider
+                                        style={{ width: '100%', height: 40, marginTop: 8 }}
+                                        minimumValue={0}
+                                        maximumValue={6}
+                                        step={0.5}
+                                        value={preampLevel}
+                                        onValueChange={async (value) => {
+                                            setPreampLevel(value);
+                                            try {
+                                                const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+                                                if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
+                                                    const track = await TrackPlayer.getTrack(activeTrackIndex);
+                                                    if (track && track.id) {
+                                                        const cleanId = track.id.toString().split('-')[0];
+                                                        const trackModel = await database.get<Track>('tracks').find(cleanId);
+                                                        const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
+                                                        const totalTargetDB = trackGainDB + value;
                                                         let linearVolume = Math.pow(10, totalTargetDB / 20);
                                                         linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
                                                         await TrackPlayer.setVolume(linearVolume);
                                                     }
                                                 }
-                                            }
-                                        } catch (err) {
-                                            console.error("Error actualizando volumen fallback en tiempo real:", err);
-                                        }
-                                    }}
-                                    minimumTrackTintColor="#8B5CF6"
-                                    maximumTrackTintColor="#282828"
-                                    thumbTintColor="#FFFFFF"
-                                />
-                            </View>
-                        </>
-                    )}
-
-                    <View style={styles.separator} />
-
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.fade') || 'Atenuación suave (Fade)'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.fade_desc') || 'Baja y sube el volumen suavemente al pausar y reproducir'}
-                            </Text>
-                        </View>
-                        <Switch
-                            value={isFadeEnabled}
-                            onValueChange={(value) => {
-                                setIsFadeEnabled(value);
-                            }}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={isFadeEnabled ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
-                    </View>
-
-                    <View style={styles.separator} />
-
-                    <TouchableOpacity
-                        style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
-                        disabled={isScanning}
-                        onPress={() => {
-                            Alert.alert(
-                                t('settings.scan_replaygain_alert_title') || 'Analizar volumen de canciones',
-                                t('settings.scan_replaygain_alert_desc') || 'Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?',
-                                [
-                                    { text: t('actions.cancel'), style: "cancel" },
-                                    {
-                                        text: t('actions.continue'),
-                                        style: "default",
-                                        onPress: async () => {
-                                            if (useSyncStore.getState().isScanning) return;
-                                            try {
-                                                useSyncStore.getState().setIsScanning(true, false);
-                                                const scannedCount = await ScannerService.runDeepReplayGainScan();
-                                                Alert.alert(
-                                                    t('settings.success'),
-                                                    t('settings.scan_replaygain_success', { count: scannedCount }) || `Se han analizado y guardado las ganancias de ${scannedCount} canciones.`
-                                                );
                                             } catch (err) {
-                                                console.error("Error al escanear ReplayGain:", err);
-                                                Alert.alert(t('actions.error'), 'No se pudo completar el análisis.');
-                                            } finally {
-                                                useSyncStore.getState().setIsScanning(false, false);
-                                            }
-                                        }
-                                    }
-                                ]
-                            );
-                        }}
-                    >
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.scan_replaygain') || 'Escanear ganancias de volumen'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.scan_replaygain_desc') || 'Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos'}
-                            </Text>
-                        </View>
-                        <Ionicons name="volume-high" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.sectionCard}>
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1, paddingRight: 15 }}>
-                            <Text style={styles.settingLabel}>{t('settings.equalizer')}</Text>
-                            <Text style={styles.settingDescription}>
-                                {t('settings.equalizer_desc')}
-                            </Text>
-                        </View>
-                        <Switch
-                            value={isEqualizerEnabled}
-                            onValueChange={async (value) => {
-                                setIsEqualizerEnabled(value);
-                                await EqualizerService.setEnabled(value);
-                                if (value) {
-                                    await EqualizerService.applyCurrentSettings();
-                                }
-                            }}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={isEqualizerEnabled ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
-                    </View>
-
-                    {isEqualizerEnabled && (
-                        <>
-                            <View style={styles.separator} />
-
-                            <View style={{ marginVertical: 8 }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                    <Text style={styles.settingLabel}>{t('settings.equalizer')}</Text>
-                                    <TouchableOpacity
-                                        onPress={async () => {
-                                            const zeros = new Array(equalizerBands.length).fill(0);
-                                            setEqualizerBands(zeros);
-                                            for (let i = 0; i < zeros.length; i++) {
-                                                await EqualizerService.setBandLevel(i, 0);
+                                                console.error("Error actualizando volumen en tiempo real:", err);
                                             }
                                         }}
-                                        style={styles.eqResetBtn}
-                                    >
-                                        <Text style={styles.eqResetText}>{t('settings.eq_reset')}</Text>
-                                    </TouchableOpacity>
+                                        minimumTrackTintColor="#8B5CF6"
+                                        maximumTrackTintColor="#282828"
+                                        thumbTintColor="#FFFFFF"
+                                    />
                                 </View>
 
-                                <View style={styles.eqBandsContainer}>
-                                    {equalizerBands.map((level, index) => {
-                                        const freq = bandFreqs[index];
-                                        const freqLabel = freq === undefined
-                                            ? `B${index + 1}`
-                                            : freq >= 1000
-                                                ? `${(freq / 1000).toFixed(0)}${t('settings.eq_khz')}`
-                                                : `${Math.round(freq)}${t('settings.eq_hz')}`;
-                                        const dbValue = (level / 100).toFixed(1);
-                                        const isPositive = level > 0;
-                                        return (
-                                            <View key={index} style={styles.eqBand}>
-                                                <Text style={[styles.eqBandDb, { color: isPositive ? '#8B5CF6' : level < 0 ? '#999' : '#555' }]}>
-                                                    {isPositive ? `+${dbValue}` : dbValue}
-                                                </Text>
-                                                <View style={styles.eqSliderTrack}>
-                                                    <View style={[
-                                                        styles.eqSliderFill,
-                                                        {
-                                                            height: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
-                                                            backgroundColor: isPositive ? '#8B5CF6' : '#444',
-                                                        }
-                                                    ]} />
-                                                    <Animated.View
-                                                        style={[
-                                                            styles.eqSliderThumb,
-                                                            {
-                                                                bottom: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
-                                                                marginBottom: -8,
-                                                            }
-                                                        ]}
-                                                    />
-                                                </View>
-                                                <View style={styles.eqTouchArea}
-                                                    onStartShouldSetResponder={() => true}
-                                                    onMoveShouldSetResponder={() => true}
-                                                    onResponderGrant={(e) => {
-                                                        setScrollEnabled(false);
-                                                        const { locationY } = e.nativeEvent;
-                                                        e.target.measure((_fx, _fy, _w, h) => {
-                                                            const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
-                                                            const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
-                                                            setEqualizerBand(index, newLevel);
-                                                            EqualizerService.setBandLevel(index, newLevel);
-                                                        });
-                                                    }}
-                                                    onResponderMove={(e) => {
-                                                        const { locationY } = e.nativeEvent;
-                                                        e.target.measure((_fx, _fy, _w, h) => {
-                                                            const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
-                                                            const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
-                                                            setEqualizerBand(index, newLevel);
-                                                            EqualizerService.setBandLevel(index, newLevel);
-                                                        });
-                                                    }}
-                                                    onResponderRelease={() => setScrollEnabled(true)}
-                                                    onResponderTerminate={() => setScrollEnabled(true)}
-                                                />
-                                                <Text style={styles.eqBandFreq}>{freqLabel}</Text>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            </View>
+                                <View style={styles.separator} />
 
-                            <View style={styles.separator} />
-
-                            <View style={{ marginVertical: 8 }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Text style={styles.settingLabel}>{t('settings.bass_boost')}</Text>
-                                    <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
-                                        {Math.round(bassBoostStrength / 10)}%
+                                <View style={{ marginVertical: 8 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={styles.settingLabel}>{t('settings.fallback_gain')}</Text>
+                                        <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                            {fallbackGainDB.toFixed(0)} dB
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.fallback_gain_desc')}
                                     </Text>
+                                    <Slider
+                                        style={{ width: '100%', height: 40, marginTop: 8 }}
+                                        minimumValue={-10}
+                                        maximumValue={0}
+                                        step={1}
+                                        value={fallbackGainDB}
+                                        onValueChange={async (value) => {
+                                            setFallbackGain(value);
+                                            try {
+                                                const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+                                                if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
+                                                    const track = await TrackPlayer.getTrack(activeTrackIndex);
+                                                    if (track && track.id) {
+                                                        const cleanId = track.id.toString().split('-')[0];
+                                                        const trackModel = await database.get<Track>('tracks').find(cleanId);
+                                                        if (trackModel.replayGain === null || trackModel.replayGain === undefined) {
+                                                            const totalTargetDB = value + preampLevel;
+                                                            let linearVolume = Math.pow(10, totalTargetDB / 20);
+                                                            linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
+                                                            await TrackPlayer.setVolume(linearVolume);
+                                                        }
+                                                    }
+                                                }
+                                            } catch (err) {
+                                                console.error("Error actualizando volumen fallback en tiempo real:", err);
+                                            }
+                                        }}
+                                        minimumTrackTintColor="#8B5CF6"
+                                        maximumTrackTintColor="#282828"
+                                        thumbTintColor="#FFFFFF"
+                                    />
                                 </View>
-                                <Text style={styles.settingDescription}>{t('settings.bass_boost_desc')}</Text>
-                                <Slider
-                                    style={{ width: '100%', height: 40, marginTop: 8 }}
-                                    minimumValue={0}
-                                    maximumValue={1000}
-                                    step={10}
-                                    value={bassBoostStrength}
-                                    onValueChange={async (value) => {
-                                        setBassBoostStrength(value);
-                                        await EqualizerService.setBassBoost(value);
-                                    }}
-                                    minimumTrackTintColor="#8B5CF6"
-                                    maximumTrackTintColor="#282828"
-                                    thumbTintColor="#FFFFFF"
-                                />
+                            </>
+                        )}
+
+                        <View style={styles.separator} />
+
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.fade') || 'Atenuación suave (Fade)'}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.fade_desc') || 'Baja y sube el volumen suavemente al pausar y reproducir'}
+                                </Text>
                             </View>
-                        </>
-                    )}
-                </View>
-            </ScrollView>
-        </View>
+                            <Switch
+                                value={isFadeEnabled}
+                                onValueChange={(value) => {
+                                    setIsFadeEnabled(value);
+                                }}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={isFadeEnabled ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}
+                            disabled={isScanning}
+                            onPress={() => {
+                                Alert.alert(
+                                    t('settings.scan_replaygain_alert_title') || 'Analizar volumen de canciones',
+                                    t('settings.scan_replaygain_alert_desc') || 'Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?',
+                                    [
+                                        { text: t('actions.cancel'), style: "cancel" },
+                                        {
+                                            text: t('actions.continue'),
+                                            style: "default",
+                                            onPress: async () => {
+                                                if (useSyncStore.getState().isScanning) return;
+                                                try {
+                                                    useSyncStore.getState().setIsScanning(true, false);
+                                                    const scannedCount = await ScannerService.runDeepReplayGainScan();
+                                                    Alert.alert(
+                                                        t('settings.success'),
+                                                        t('settings.scan_replaygain_success', { count: scannedCount }) || `Se han analizado y guardado las ganancias de ${scannedCount} canciones.`
+                                                    );
+                                                } catch (err) {
+                                                    console.error("Error al escanear ReplayGain:", err);
+                                                    Alert.alert(t('actions.error'), 'No se pudo completar el análisis.');
+                                                } finally {
+                                                    useSyncStore.getState().setIsScanning(false, false);
+                                                }
+                                            }
+                                        }
+                                    ]
+                                );
+                            }}
+                        >
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.scan_replaygain') || 'Escanear ganancias de volumen'}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.scan_replaygain_desc') || 'Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos'}
+                                </Text>
+                            </View>
+                            <Ionicons name="volume-high" size={20} color="#8B5CF6" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.sectionCard}>
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.equalizer')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.equalizer_desc')}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={isEqualizerEnabled}
+                                onValueChange={async (value) => {
+                                    setIsEqualizerEnabled(value);
+                                    await EqualizerService.setEnabled(value);
+                                    if (value) {
+                                        await EqualizerService.applyCurrentSettings();
+                                    }
+                                }}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={isEqualizerEnabled ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
+
+                        {isEqualizerEnabled && (
+                            <>
+                                <View style={styles.separator} />
+
+                                <View style={{ marginVertical: 8 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                        <Text style={styles.settingLabel}>{t('settings.equalizer')}</Text>
+                                        <TouchableOpacity
+                                            onPress={async () => {
+                                                const zeros = new Array(equalizerBands.length).fill(0);
+                                                setEqualizerBands(zeros);
+                                                for (let i = 0; i < zeros.length; i++) {
+                                                    await EqualizerService.setBandLevel(i, 0);
+                                                }
+                                            }}
+                                            style={styles.eqResetBtn}
+                                        >
+                                            <Text style={styles.eqResetText}>{t('settings.eq_reset')}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.eqBandsContainer}>
+                                        {equalizerBands.map((level, index) => {
+                                            const freq = bandFreqs[index];
+                                            const freqLabel = freq === undefined
+                                                ? `B${index + 1}`
+                                                : freq >= 1000
+                                                    ? `${(freq / 1000).toFixed(0)}${t('settings.eq_khz')}`
+                                                    : `${Math.round(freq)}${t('settings.eq_hz')}`;
+                                            const dbValue = (level / 100).toFixed(1);
+                                            const isPositive = level > 0;
+                                            return (
+                                                <View key={index} style={styles.eqBand}>
+                                                    <Text style={[styles.eqBandDb, { color: isPositive ? '#8B5CF6' : level < 0 ? '#999' : '#555' }]}>
+                                                        {isPositive ? `+${dbValue}` : dbValue}
+                                                    </Text>
+                                                    <View style={styles.eqSliderTrack}>
+                                                        <View style={[
+                                                            styles.eqSliderFill,
+                                                            {
+                                                                height: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
+                                                                backgroundColor: isPositive ? '#8B5CF6' : '#444',
+                                                            }
+                                                        ]} />
+                                                        <Animated.View
+                                                            style={[
+                                                                styles.eqSliderThumb,
+                                                                {
+                                                                    bottom: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
+                                                                    marginBottom: -8,
+                                                                }
+                                                            ]}
+                                                        />
+                                                    </View>
+                                                    <View style={styles.eqTouchArea}
+                                                        onStartShouldSetResponder={() => true}
+                                                        onMoveShouldSetResponder={() => true}
+                                                        onResponderGrant={(e) => {
+                                                            setScrollEnabled(false);
+                                                            const { locationY } = e.nativeEvent;
+                                                            e.target.measure((_fx, _fy, _w, h) => {
+                                                                const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
+                                                                const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
+                                                                setEqualizerBand(index, newLevel);
+                                                                EqualizerService.setBandLevel(index, newLevel);
+                                                            });
+                                                        }}
+                                                        onResponderMove={(e) => {
+                                                            const { locationY } = e.nativeEvent;
+                                                            e.target.measure((_fx, _fy, _w, h) => {
+                                                                const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
+                                                                const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
+                                                                setEqualizerBand(index, newLevel);
+                                                                EqualizerService.setBandLevel(index, newLevel);
+                                                            });
+                                                        }}
+                                                        onResponderRelease={() => setScrollEnabled(true)}
+                                                        onResponderTerminate={() => setScrollEnabled(true)}
+                                                    />
+                                                    <Text style={styles.eqBandFreq}>{freqLabel}</Text>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                </View>
+
+                                <View style={styles.separator} />
+
+                                <View style={{ marginVertical: 8 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={styles.settingLabel}>{t('settings.bass_boost')}</Text>
+                                        <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                            {Math.round(bassBoostStrength / 10)}%
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.settingDescription}>{t('settings.bass_boost_desc')}</Text>
+                                    <Slider
+                                        style={{ width: '100%', height: 40, marginTop: 8 }}
+                                        minimumValue={0}
+                                        maximumValue={1000}
+                                        step={10}
+                                        value={bassBoostStrength}
+                                        onValueChange={async (value) => {
+                                            setBassBoostStrength(value);
+                                            await EqualizerService.setBassBoost(value);
+                                        }}
+                                        minimumTrackTintColor="#8B5CF6"
+                                        maximumTrackTintColor="#282828"
+                                        thumbTintColor="#FFFFFF"
+                                    />
+                                </View>
+                            </>
+                        )}
+                    </View>
+                </ScrollView>
+            )}
+        </ScreenHeaderLayout>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    smokeEffect: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1,
-    },
-    headerContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 20,
-        zIndex: 10,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    backBtn: {
-        padding: 4,
-        marginLeft: -8,
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontFamily: 'Montserrat',
-        fontWeight: '900',
-        color: '#FFFFFF',
-        flex: 1,
-    },
     scrollContent: {
         paddingHorizontal: 20,
     },
@@ -509,7 +433,8 @@ const styles = StyleSheet.create({
     },
     settingDescription: {
         fontSize: 12,
-        fontFamily: 'Montserrat', fontWeight: '700',
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
         color: '#888',
         marginTop: 4,
         lineHeight: 16,

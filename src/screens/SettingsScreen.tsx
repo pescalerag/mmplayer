@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ScreenHeaderLayout } from '../components/ScreenHeaderLayout';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,50 +25,24 @@ interface SettingsProps {
 }
 
 function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsProps) {
-    const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
-    const [headerHeight, setHeaderHeight] = useState(100);
     const { t } = useTranslation();
 
     return (
-        <View style={[styles.container, { backgroundColor: Colors.background }]}>
-
-            {/* CAPA DEL HUMO (INTERMEDIO) */}
-            <LinearGradient
-                colors={['#000000', 'rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'transparent']}
-                locations={[0, 0.4, 0.7, 1]}
-                style={[styles.smokeEffect, { height: headerHeight + 30 }]}
-                pointerEvents="none"
-            />
-
-            {/* CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
-            <LinearGradient
-                colors={["#8B5CF633", "transparent"]}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
-                pointerEvents="none"
-            />
-
-            {/* CAPA DE LA INTERFAZ (FRENTE) */}
-            <View
-                onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 10, paddingHorizontal: 20, zIndex: 10 }}
-            >
-                <Text style={styles.headerTitle}>{t('settings.title')}</Text>
-            </View>
-
-            {/* CAPA DE CONTENIDO (AL FONDO) */}
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={[
-                    styles.scrollContent,
-                    {
-                        paddingTop: headerHeight + 20,
-                        paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom
-                    }
-                ]}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-            >
+        <ScreenHeaderLayout title={t('settings.title')} showBackButton={false} titleStyle={styles.headerTitle}>
+            {({ headerHeight, bottomPadding }) => (
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingTop: headerHeight + 20,
+                            paddingBottom: bottomPadding
+                        }
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                 {/* --- SECCIÓN DE ESTADÍSTICAS --- */}
                 <View style={styles.statsCard}>
                     <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
@@ -350,8 +324,8 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>
-
-        </View>
+           )}
+        </ScreenHeaderLayout>
     );
 }
 
