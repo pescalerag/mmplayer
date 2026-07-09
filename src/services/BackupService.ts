@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import RNRestart from 'react-native-restart';
 import { database } from '../database';
 import { useBackupStore } from '../store/useBackupStore';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -217,10 +218,15 @@ export const BackupService = {
                 (phase) => store.setReconciling(`Reconciliando: ${phase}`)
             );
 
-            store.setSuccess('Copia de seguridad restaurada y biblioteca reconciliada con éxito.');
+            store.setSuccess('Copia de seguridad restaurada y biblioteca reconciliada con éxito. Reiniciando...');
 
             // Limpiar archivo temporal
-            FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
+            await FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
+
+            // Reiniciar la aplicación para recargar las conexiones y limpiar la memoria
+            setTimeout(() => {
+                RNRestart.restart();
+            }, 1000);
         } catch (error: any) {
             console.error('Error al importar base de datos:', error);
             FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
