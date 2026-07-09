@@ -65,7 +65,7 @@ export default function SettingsExclusionsScreen() {
                 <View style={styles.sectionCard}>
                     <TouchableOpacity
                         style={styles.buttonRow}
-                        onPress={() => navigation.navigate('ExcludedFolders')}
+                        onPress={() => navigation.navigate('ExcludedMedia', { type: 'folders' })}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
                             <Text style={styles.settingLabel}>{t('settings.excluded_folders')}</Text>
@@ -75,7 +75,7 @@ export default function SettingsExclusionsScreen() {
                     <View style={styles.separator} />
                     <TouchableOpacity
                         style={styles.buttonRow}
-                        onPress={() => navigation.navigate('ExcludedSongs')}
+                        onPress={() => navigation.navigate('ExcludedMedia', { type: 'songs' })}
                     >
                         <View style={{ flex: 1, paddingRight: 15 }}>
                             <Text style={styles.settingLabel}>{t('settings.excluded_songs')}</Text>

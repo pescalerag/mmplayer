@@ -1,6 +1,6 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,17 +18,30 @@ import { useSyncStore } from '../store/useSyncStore';
 import { Layout } from '../theme/theme';
 import { getSafeFileName } from '../utils/safeDecode';
 
-export default function ExcludedSongsScreen() {
+export default function ExcludedMediaScreen() {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
+    const route = useRoute<any>();
+    const { type } = route.params || { type: 'folders' };
+    const isFolders = type === 'folders';
+
     const [headerHeight, setHeaderHeight] = useState(100);
-    const { excludedSongs, includeSong } = useSettingsStore();
+    const { excludedFolders, includeFolder, excludedSongs, includeSong } = useSettingsStore();
     const isScanning = useSyncStore(state => state.isScanning);
     const { t } = useTranslation();
 
-    const songs = excludedSongs || [];
+    const items = isFolders ? (excludedFolders || []) : (excludedSongs || []);
+
+    const handleRestore = async (itemPath: string) => {
+        if (isFolders) {
+            includeFolder(itemPath);
+        } else {
+            includeSong(itemPath);
+        }
+        await ScannerService.syncLibrary();
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -57,7 +70,9 @@ export default function ExcludedSongsScreen() {
                     <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
                         <Ionicons name="chevron-back" size={28} color={colors.accent} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{t('settings.excluded_songs')}</Text>
+                    <Text style={styles.headerTitle} numberOfLines={1}>
+                        {isFolders ? t('settings.excluded_folders') : t('settings.excluded_songs')}
+                    </Text>
                 </View>
             </View>
 
@@ -75,24 +90,23 @@ export default function ExcludedSongsScreen() {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.sectionCard}>
-                    {songs.length === 0 ? (
-                        <Text style={styles.noExcludedText}>{t('settings.no_excluded_songs')}</Text>
+                    {items.length === 0 ? (
+                        <Text style={styles.noExcludedText}>
+                            {isFolders ? t('settings.no_excluded_folders') : t('settings.no_excluded_songs')}
+                        </Text>
                     ) : (
-                        songs.map((songPath) => {
-                            const songName = getSafeFileName(songPath);
+                        items.map((itemPath) => {
+                            const itemName = getSafeFileName(itemPath);
                             return (
-                                <View key={songPath} style={styles.excludedSongRow}>
+                                <View key={itemPath} style={styles.excludedRow}>
                                     <View style={{ flex: 1, paddingRight: 10 }}>
-                                        <Text style={styles.songNameText} numberOfLines={1}>{songName}</Text>
-                                        <Text style={styles.songPathText} numberOfLines={1}>{songPath}</Text>
+                                        <Text style={styles.itemNameText} numberOfLines={1}>{itemName}</Text>
+                                        <Text style={styles.itemPathText} numberOfLines={1}>{itemPath}</Text>
                                     </View>
                                     <TouchableOpacity
                                         style={styles.restoreButton}
                                         disabled={isScanning}
-                                        onPress={async () => {
-                                            includeSong(songPath);
-                                            await ScannerService.syncLibrary();
-                                        }}
+                                        onPress={() => handleRestore(itemPath)}
                                         activeOpacity={0.7}
                                     >
                                         <Ionicons name="refresh-outline" size={16} color={colors.accent} />
@@ -165,7 +179,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         textAlign: 'center',
         paddingVertical: 20,
     },
-    excludedSongRow: {
+    excludedRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -173,13 +187,13 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: colors.overlayAlpha05,
     },
-    songNameText: {
+    itemNameText: {
         color: colors.text,
         fontSize: 14,
         fontFamily: fonts.regular,
         fontWeight: '700',
     },
-    songPathText: {
+    itemPathText: {
         color: colors.textSecondary,
         fontSize: 11,
         fontFamily: fonts.regular,
