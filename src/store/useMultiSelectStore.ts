@@ -15,15 +15,27 @@ export const useMultiSelectStore = create<MultiSelectState>((set, get) => ({
     isSelectionMode: false,
     selectedTracks: [],
     
-    enterSelectionMode: (initialTrack) => set({ 
-        isSelectionMode: true, 
-        selectedTracks: [initialTrack] 
-    }),
+    enterSelectionMode: (initialTrack) => {
+        const { isSelectionMode, selectedTracks } = get();
+        if (isSelectionMode) {
+            const exists = selectedTracks.some(t => t.id === initialTrack.id);
+            if (!exists) {
+                set({ selectedTracks: [...selectedTracks, initialTrack] });
+            }
+        } else {
+            set({ isSelectionMode: true, selectedTracks: [initialTrack] });
+        }
+    },
 
-    selectMultipleTracks: (tracks) => set({
-        isSelectionMode: true,
-        selectedTracks: tracks
-    }),
+    selectMultipleTracks: (tracks) => {
+        const { isSelectionMode, selectedTracks } = get();
+        if (isSelectionMode) {
+            const toAdd = tracks.filter(t => !selectedTracks.some(st => st.id === t.id));
+            set({ selectedTracks: [...selectedTracks, ...toAdd] });
+        } else {
+            set({ isSelectionMode: true, selectedTracks: tracks });
+        }
+    },
     
     toggleTrack: (track) => {
         const { selectedTracks } = get();

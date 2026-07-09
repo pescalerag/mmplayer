@@ -17,6 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GlobalToast from "./src/components/common/GlobalToast";
 import GlobalBottomSheet from "./src/components/sheets/GlobalBottomSheet";
+import QueueSheet from "./src/components/sheets/QueueSheet";
 import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
@@ -120,6 +121,7 @@ export default function App() {
           {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
           <GlobalBottomSheet />
+          <QueueSheet />
           <UpdatedAppModal />
           <WelcomeModal />
           <GlobalToast />

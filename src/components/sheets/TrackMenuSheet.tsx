@@ -29,6 +29,13 @@ export default function TrackMenuSheet() {
   const [albumId, setAlbumId] = useState<string | null>(null);
   const [artistId, setArtistId] = useState<string | null>(null);
   const [artistsList, setArtistsList] = useState<Artist[]>([]);
+  const [isFavorite, setIsFavorite] = useState(selectedTrack?.isFavorite ?? false);
+
+  useEffect(() => {
+    if (selectedTrack) {
+      setIsFavorite(selectedTrack.isFavorite);
+    }
+  }, [selectedTrack]);
 
   // Load basic metadata for the menu header
   useEffect(() => {
@@ -82,6 +89,21 @@ export default function TrackMenuSheet() {
       }
     } catch (error) {
       console.error('Error al compartir:', error);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!selectedTrack) return;
+    try {
+      const wasFavorite = isFavorite;
+      await selectedTrack.toggleLike();
+      closeMenu();
+      useToastStore.getState().showToast(
+        wasFavorite ? t('toasts.removed_from_favourites') : t('toasts.added_to_favourites'),
+        wasFavorite ? 'heart-dislike' : 'heart'
+      );
+    } catch (error) {
+      console.error('Error al cambiar favorito:', error);
     }
   };
 
@@ -168,6 +190,15 @@ export default function TrackMenuSheet() {
           }}
         />
       )}
+
+      {/* OPTION: Favorite */}
+      <MenuOption
+        icon={isFavorite ? "heart" : "heart-outline"}
+        text={isFavorite ? t('actions.remove_from_favorites') : t('actions.add_to_favorites')}
+        iconColor={isFavorite ? colors.heartIcon : colors.text}
+        textStyle={isFavorite ? { color: colors.heartIcon } : undefined}
+        onPress={handleToggleFavorite}
+      />
 
       {/* OPTION: Share */}
       <MenuOption

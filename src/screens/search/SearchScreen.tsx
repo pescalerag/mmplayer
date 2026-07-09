@@ -479,7 +479,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       {!isSearching && (
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
-            <Text style={styles.resultsTitle}>{t('search.explore_tags')}</Text>
+            <Text style={styles.tagsSectionTitle}>{t('search.explore_tags')}</Text>
             <View style={styles.layoutSwitchContainer}>
               <Text style={styles.layoutSwitchLabel}>
                 {isCompactTags ? t('search.compact') : t('search.normal')}
@@ -1063,13 +1063,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingRight: 20,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  tagsSectionTitle: {
+    fontSize: 24,
+    fontFamily: "Montserrat",
+    fontWeight: "900",
+    color: "#FFFFFF",
+    flex: 1,
+    marginRight: 10,
   },
   layoutSwitchContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 8,
   },
   layoutSwitchLabel: {
     fontSize: 12,
