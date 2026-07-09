@@ -15,12 +15,12 @@ import {
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import GlobalToast from "./src/components/GlobalToast";
-import GlobalBottomSheet from "./src/components/GlobalBottomSheet";
-import { TrackPlayerSync } from "./src/components/TrackPlayerSync";
-import UpdatedAppModal from "./src/components/UpdatedAppModal";
-import WelcomeModal from "./src/components/WelcomeModal";
-import BackupBlockingModal from "./src/components/BackupBlockingModal";
+import GlobalToast from "./src/components/common/GlobalToast";
+import GlobalBottomSheet from "./src/components/sheets/GlobalBottomSheet";
+import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
+import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
+import WelcomeModal from "./src/components/modals/WelcomeModal";
+import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";

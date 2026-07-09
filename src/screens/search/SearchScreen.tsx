@@ -19,10 +19,10 @@ import {
   Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import LibraryCard from "../../components/LibraryCard";
-import SectionHeader from "../../components/SectionHeader";
-import TopMatchCard from "../../components/TopMatchCard";
-import TrackRow from "../../components/TrackRow";
+import LibraryCard from '@/components/cards/LibraryCard';
+import SectionHeader from '@/components/common/SectionHeader';
+import TopMatchCard from '@/components/cards/TopMatchCard';
+import TrackRow from '@/components/player/TrackRow';
 import { database } from "../../database";
 import Album from "../../database/models/Album";
 import Artist from "../../database/models/Artist";

@@ -19,12 +19,12 @@ import TrackPlayer, {
   State,
 } from "react-native-track-player";
 import { usePlaybackState } from "../../hooks/usePlaybackState";
-import DetailHeaderLayout from "../../components/DetailHeaderLayout";
+import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import { getDynamicTagTextColor } from "../../utils/color";
 import { formatAlbumDuration } from "../../utils/time";
 
-import SectionHeader from "../../components/SectionHeader";
-import TrackRow from "../../components/TrackRow";
+import SectionHeader from '@/components/common/SectionHeader';
+import TrackRow from '@/components/player/TrackRow';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useTranslation } from "react-i18next";

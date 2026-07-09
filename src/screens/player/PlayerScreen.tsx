@@ -23,8 +23,8 @@ import TrackPlayer, {
     useProgress,
 } from 'react-native-track-player';
 import { NativeVisualizer, extractColorFromImage } from '../../../modules/native-equalizer';
-import BlurredBackground from '../../components/BlurredBackground';
-import PlayerMenuSheet from '../../components/PlayerMenuSheet';
+import BlurredBackground from '@/components/layouts/BlurredBackground';
+import PlayerMenuSheet from '@/components/sheets/PlayerMenuSheet';
 import { openQueueSheet, openSpeedPitch, openPlayerMenu, openTrackMenu, openArtistsList, openTagManagerForTrack, openPlaylistSelector, openSleepTimer, openLocalCast } from '@/store/useUIStore';
 
 import Album from '../../database/models/Album';
@@ -39,9 +39,9 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
-import { ABSliderMarkers } from '../../components/ABSliderMarkers';
-import MarqueeText from '../../components/MarqueeText';
-import PlayPauseButton from '../../components/PlayPauseButton';
+import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
+import MarqueeText from '@/components/common/MarqueeText';
+import PlayPauseButton from '@/components/common/PlayPauseButton';
 import Track from '../../database/models/Track';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';

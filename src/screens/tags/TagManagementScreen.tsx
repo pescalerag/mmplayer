@@ -10,7 +10,7 @@ import { openTagForm, openTagMenu } from '@/store/useUIStore';
 import { database } from '../../database';
 import Tag from '../../database/models/Tag';
 import { TagsNavigationProp } from '../../navigation/types';
-import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 
 interface TagManagementContentProps {
     tags: Tag[];

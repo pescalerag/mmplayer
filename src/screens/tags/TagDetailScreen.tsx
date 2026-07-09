@@ -19,9 +19,9 @@ import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 
 import { useTranslation } from 'react-i18next';
-import LibraryCard from '../../components/LibraryCard';
-import SectionHeader from '../../components/SectionHeader';
-import TrackRow from '../../components/TrackRow';
+import LibraryCard from '@/components/cards/LibraryCard';
+import SectionHeader from '@/components/common/SectionHeader';
+import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';

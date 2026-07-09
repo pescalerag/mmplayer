@@ -20,14 +20,14 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DetailHeaderLayout from '../../components/DetailHeaderLayout';
+import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 
 import { useTranslation } from 'react-i18next';
 import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
-import LibraryCard from '../../components/LibraryCard';
-import SectionHeader from '../../components/SectionHeader';
-import TrackRow from '../../components/TrackRow';
+import LibraryCard from '@/components/cards/LibraryCard';
+import SectionHeader from '@/components/common/SectionHeader';
+import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';

@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 
 export default function SettingsLanguageScreen() {
     const { language, setLanguage } = useSettingsStore();

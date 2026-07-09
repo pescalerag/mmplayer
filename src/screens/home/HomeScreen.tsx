@@ -10,7 +10,7 @@ import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
-import { PlayingIndicator } from '../../components/PlayingIndicator';
+import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { database } from '../../database';
 import { Q } from '@nozbe/watermelondb';
 import Album from '../../database/models/Album';
@@ -23,10 +23,10 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { StatsWidget } from '../../components/StatsWidget';
-import { HorizontalCarousel } from '../../components/HorizontalCarousel';
-import { GlobalShuffleButton } from '../../components/GlobalShuffleButton';
-import { MediaCard } from '../../components/MediaCard';
+import { StatsWidget } from '@/components/cards/StatsWidget';
+import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
+import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
+import { MediaCard } from '@/components/cards/MediaCard';
 import { useStatsStore } from '../../store/useStatsStore';
 
 const { width } = Dimensions.get('window');

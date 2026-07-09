@@ -22,10 +22,10 @@ import TrackPlayer, {
   State,
 } from "react-native-track-player";
 import { usePlaybackState } from "../../hooks/usePlaybackState";
-import DetailHeaderLayout from "../../components/DetailHeaderLayout";
-import PlaylistCover from "../../components/PlaylistCover";
-import SectionHeader from "../../components/SectionHeader";
-import TrackRow from "../../components/TrackRow";
+import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
+import PlaylistCover from '@/components/player/PlaylistCover';
+import SectionHeader from '@/components/common/SectionHeader';
+import TrackRow from '@/components/player/TrackRow';
 import { database } from "../../database";
 import Album from "../../database/models/Album";
 import Artist from "../../database/models/Artist";

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ArtistImageService } from '../../services/ArtistImageService';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSyncStore } from '../../store/useSyncStore';
-import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 
 export default function SettingsArtistImagesScreen() {
     const { t } = useTranslation();

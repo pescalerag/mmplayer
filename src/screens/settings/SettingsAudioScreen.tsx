@@ -10,7 +10,7 @@ import { ScannerService } from '../../services/ScannerService';
 import { EqualizerService } from '../../services/EqualizerService';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSyncStore } from '../../store/useSyncStore';
-import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 
 export default function SettingsAudioScreen() {
     const { t } = useTranslation();

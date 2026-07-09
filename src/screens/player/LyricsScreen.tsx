@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, { RepeatMode, useProgress } from 'react-native-track-player';
-import BlurredBackground from '../../components/BlurredBackground';
+import BlurredBackground from '@/components/layouts/BlurredBackground';
 
 
 
@@ -36,8 +36,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
 import { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
-import MarqueeText from '../../components/MarqueeText';
-import PlayPauseButton from '../../components/PlayPauseButton';
+import MarqueeText from '@/components/common/MarqueeText';
+import PlayPauseButton from '@/components/common/PlayPauseButton';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
@@ -45,7 +45,7 @@ import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { LyricsService } from '../../services/LyricsService';
 import { formatTrackTime } from '../../utils/time';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
-import { ABSliderMarkers } from '../../components/ABSliderMarkers';
+import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { extractColorFromImage } from '../../../modules/native-equalizer';

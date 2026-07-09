@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
 import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
-import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {

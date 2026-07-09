@@ -8,7 +8,7 @@ import { ScannerService } from '../../services/ScannerService';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { getSafeFileName } from '../../utils/safeDecode';
-import { ScreenHeaderLayout } from '../../components/ScreenHeaderLayout';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 
 export default function ExcludedMediaScreen() {
     const { colors, fonts, layout } = useAppTheme();
