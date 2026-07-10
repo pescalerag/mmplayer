@@ -8,6 +8,7 @@ export type HomeStackParamList = {
     FavoritesDetail: undefined;
     ChangelogScreen: undefined;
     WeeklyActivity: undefined;
+    SmartListDetail: { smartListId: string };
 };
 
 export type LibraryStackParamList = {
@@ -17,6 +18,7 @@ export type LibraryStackParamList = {
     TagDetail: { tagId: string; tagName: string; tagColor: string };
     FavoritesDetail: undefined;
     PlaylistDetail: { playlistId: string };
+    SmartListDetail: { smartListId: string };
 };
 
 export type SearchStackParamList = {
@@ -25,6 +27,7 @@ export type SearchStackParamList = {
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     TagDetail: { tagId: string; tagName: string; tagColor: string };
     PlaylistDetail: { playlistId: string };
+    SmartListDetail: { smartListId: string };
 };
 
 export type TagsStackParamList = {

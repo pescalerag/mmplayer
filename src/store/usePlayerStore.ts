@@ -122,12 +122,13 @@ async function flushCurrentTrackToHistory() {
       const trackingId = activeTPTrack?.id ? activeTPTrack.id.toString() : activeTrack.id.toString();
 
       const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackingId);
+      const requiredSeconds = activeTrack.duration ? activeTrack.duration * 0.5 : 20;
 
-      if (durationPlayed >= 20) {
+      if (durationPlayed >= requiredSeconds) {
         console.log(`[Historial] Guardando en historial. Canción: ${activeTrack.id.toString()}, Duración: ${Math.floor(durationPlayed)}s.`);
         await HistoryService.logToDatabase(activeTrack.id.toString(), durationPlayed, "manual");
       } else {
-        console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
+        console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${Math.floor(requiredSeconds)}s).`);
       }
 
       PlaybackTimeTracker.clearAccumulated(trackingId);

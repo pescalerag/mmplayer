@@ -219,6 +219,7 @@ const CanvasVideo = React.memo(({
     return (
         <View style={StyleSheet.absoluteFillObject}>
             <VideoView
+                key={sourceUri}
                 player={player}
                 style={StyleSheet.absoluteFillObject}
                 contentFit="cover"
@@ -547,6 +548,7 @@ const PlayerScreenUI = ({
 
             {isFocused && !isTransitioning && showCanvas && !!track.bgVideo && (
                 <CanvasVideo
+                    key={track.bgVideo}
                     sourceUri={track.bgVideo}
                     isPlaying={isPlaying}
                     blurIntensity={20}

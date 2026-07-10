@@ -11,7 +11,6 @@ import { updateWidget } from "../../modules/native-audio-scanner";
 import { useABRepeatStore } from "../store/useABRepeatStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 
-const MIN_SECONDS_FOR_HISTORY = 20;
 const SKIP_PREVIOUS_THRESHOLD = 3;
 
 const storage = createMMKV();
@@ -222,7 +221,17 @@ export const PlaybackService = async function () {
 
       if (previousTrackId) {
         const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId);
-        if (durationPlayed >= MIN_SECONDS_FOR_HISTORY) {
+        let requiredSeconds = 20;
+        try {
+          const cleanId = previousTrackId.split('-')[0];
+          const track = await database.get<Track>('tracks').find(cleanId);
+          if (track && track.duration) {
+            requiredSeconds = track.duration * 0.5;
+          }
+        } catch (e) {
+          console.warn('[PlaybackService] Failed to find previous track for duration:', e);
+        }
+        if (durationPlayed >= requiredSeconds) {
           console.log(`[Historial] Guardando en historial. Canción: ${previousTrackId}, Duración: ${Math.floor(durationPlayed)}s.`);
           await HistoryService.logToDatabase(
             previousTrackId,
@@ -230,7 +239,7 @@ export const PlaybackService = async function () {
             "queue",
           );
         } else {
-          console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${MIN_SECONDS_FOR_HISTORY}s).`);
+          console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${Math.floor(requiredSeconds)}s).`);
         }
         PlaybackTimeTracker.clearAccumulated(previousTrackId);
       }
@@ -282,11 +291,22 @@ export const PlaybackService = async function () {
                 
                 const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackId);
                 
-                if (durationPlayed >= MIN_SECONDS_FOR_HISTORY) {
+                let requiredSeconds = 20;
+                try {
+                  const cleanId = trackId.split('-')[0];
+                  const track = await database.get<Track>('tracks').find(cleanId);
+                  if (track && track.duration) {
+                    requiredSeconds = track.duration * 0.5;
+                  }
+                } catch (e) {
+                  console.warn('[PlaybackService] Failed to find loop track for duration:', e);
+                }
+                
+                if (durationPlayed >= requiredSeconds) {
                   console.log(`[Historial] Guardando en historial (bucle). Canción: ${trackId}, Duración: ${Math.floor(durationPlayed)}s.`);
                   await HistoryService.logToDatabase(trackId, durationPlayed, "queue");
                 } else {
-                  console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${MIN_SECONDS_FOR_HISTORY}s).`);
+                  console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${Math.floor(requiredSeconds)}s).`);
                 }
                 
                 PlaybackTimeTracker.clearAccumulated(trackId);

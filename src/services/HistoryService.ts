@@ -278,7 +278,7 @@ export const HistoryService = {
    * Returns date range boundaries for a given period type.
    */
   getPeriodRange(period: 'day' | 'week' | 'month' | 'year' | 'all'): { from: Date | null; to: Date } {
-    const to = new Date();
+    let to = new Date();
     to.setHours(23, 59, 59, 999);
     if (period === 'all') return { from: null, to };
 
@@ -286,8 +286,14 @@ export const HistoryService = {
     if (period === 'day') {
       from.setHours(0, 0, 0, 0);
     } else if (period === 'week') {
-      from.setDate(from.getDate() - 6);
+      const day = from.getDay();
+      const diff = from.getDate() - day + (day === 0 ? -6 : 1);
+      from.setDate(diff);
       from.setHours(0, 0, 0, 0);
+
+      to = new Date(from);
+      to.setDate(from.getDate() + 6);
+      to.setHours(23, 59, 59, 999);
     } else if (period === 'month') {
       from.setDate(1);
       from.setHours(0, 0, 0, 0);
