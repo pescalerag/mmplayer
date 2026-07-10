@@ -932,6 +932,76 @@ export const ScannerService = {
         }
     },
 
+    deleteMultipleSongsContents: async (songPaths: string[], onProgress?: (phase: string) => void) => {
+        if (useSyncStore.getState().isScanning) return;
+        try {
+            useSyncStore.getState().setIsScanning(true);
+            onProgress?.('Buscando canciones a eliminar...');
+            const tracksCollection = database.collections.get<Track>('tracks');
+
+            const tracksToDelete = await tracksCollection.query(
+                Q.where('file_url', Q.oneOf(songPaths))
+            ).fetch();
+
+            if (tracksToDelete.length > 0) {
+                onProgress?.('Eliminando canciones...');
+                const trackIdsToDelete = tracksToDelete.map(t => t.id);
+
+                const affectedAlbumIds = new Set<string>();
+                const affectedArtistIds = new Set<string>();
+                tracksToDelete.forEach((t: Track) => {
+                    const albId = (t._raw as any).album_id as string | undefined;
+                    const artId = (t._raw as any).artist_id as string | undefined;
+                    if (albId) affectedAlbumIds.add(albId);
+                    if (artId) affectedArtistIds.add(artId);
+                });
+
+                const playlistTracksCollection = database.collections.get('playlist_tracks');
+                const trackTagsCollection = database.collections.get('track_tags');
+                const trackCollaboratorsCollection = database.collections.get('track_collaborators');
+                const playbackHistoryCollection = database.collections.get('playback_history');
+
+                const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
+                    playlistTracksCollection.query(Q.where('track_id', Q.oneOf(trackIdsToDelete))).fetch(),
+                    trackTagsCollection.query(Q.where('track_id', Q.oneOf(trackIdsToDelete))).fetch(),
+                    trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(trackIdsToDelete))).fetch(),
+                    playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(trackIdsToDelete))).fetch()
+                ]);
+
+                trackCollaborators.forEach((tc: any) => {
+                    const artId = (tc._raw as any).artist_id as string | undefined;
+                    if (artId) affectedArtistIds.add(artId);
+                });
+
+                await database.write(async () => {
+                    const batchOps = [
+                        ...tracksToDelete.map((t: Track) => t.prepareDestroyPermanently()),
+                        ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
+                        ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
+                        ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
+                        ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                    ];
+                    await database.batch(batchOps);
+                });
+
+                // Inform player store of immediate track deletions
+                await usePlayerStore.getState().handleDeletedEntities(trackIdsToDelete, [], []);
+
+                // Limpiamos los álbumes y artistas que se hayan quedado huérfanos
+                onProgress?.('Limpiando la biblioteca...');
+                await ScannerService.cleanDeletedFiles({
+                    targetAlbumIds: Array.from(affectedAlbumIds),
+                    targetArtistIds: Array.from(affectedArtistIds),
+                    skipFileCheck: true
+                }, onProgress);
+            }
+        } catch (error) {
+            console.error("Error al borrar las canciones excluidas:", error);
+        } finally {
+            useSyncStore.getState().setIsScanning(false);
+        }
+    },
+
     autoScanAndroid: async (
         onProgress?: (current: number, total: number, phase: string) => void
     ): Promise<{ total: number; added: number; skipped: number }> => {

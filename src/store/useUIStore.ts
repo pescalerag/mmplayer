@@ -22,7 +22,8 @@ export type SheetType =
   | 'playlist-selector'
   | 'tag-manager'
   | 'player-menu'
-  | 'tag-form';
+  | 'tag-form'
+  | 'batch-menu';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -128,3 +129,14 @@ export const openTagManagerForAlbum = (album: any) =>
 
 export const openPlayerMenu = () =>
   useUIStore.getState().openSheet('player-menu');
+
+export const openBatchMenu = (tracks: any[]) =>
+  useUIStore.getState().openSheet('batch-menu', { tracks });
+
+export const openTagManagerForBatch = (tracks: any[]) =>
+  useUIStore.getState().openSheet('tag-manager', {
+    targetType: 'batch',
+    targetId: 'batch',
+    targetTitle: `${tracks.length} canciones`,
+    tracks,
+  });

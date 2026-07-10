@@ -36,6 +36,7 @@ import SpeedPitchSheet from '@/components/sheets/SpeedPitchSheet';
 import SwipeActionSheet from '@/components/sheets/SwipeActionSheet';
 import TagMenuSheet from '@/components/sheets/TagMenuSheet';
 import TrackMenuSheet from '@/components/sheets/TrackMenuSheet';
+import BatchMenuSheet from '@/components/sheets/BatchMenuSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -179,6 +180,8 @@ export default function GlobalBottomSheet() {
         return <MetadataEditorSheet />;
       case 'player-menu':
         return <PlayerMenuSheet />;
+      case 'batch-menu':
+        return <BatchMenuSheet />;
       default:
         return null;
     }
