@@ -1,27 +1,18 @@
-import { useSheetProps } from '@/hooks/useSheetProps';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Animated,
-    BackHandler,
-    Dimensions,
     PermissionsAndroid,
     Platform,
-    ScrollView,
     StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { useSettingsStore } from '../../store/useSettingsStore';
-
-const { height } = Dimensions.get('window');
+import { BaseMenuSheet } from './BaseMenuSheet';
 
 const requestAudioPermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
@@ -48,7 +39,6 @@ const requestAudioPermission = async (): Promise<boolean> => {
 export default function PlayerMenuSheet() {
     const { colors, fonts, layout, spacing, radii } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii), [colors, fonts, layout, spacing, radii]);
-    const { isVisible, close: closeSheet } = useSheetProps('player-menu');
     const {
         showPlayerVisualizer,
         setShowPlayerVisualizer,
@@ -60,44 +50,11 @@ export default function PlayerMenuSheet() {
         setPlayerCoverStyle,
         playerBackgroundStyle,
         setPlayerBackgroundStyle,
+        showCanvas,
+        setShowCanvas,
     } = useSettingsStore();
 
     const { t } = useTranslation();
-    const insets = useSafeAreaInsets();
-
-    const slideAnim = useRef(new Animated.Value(height)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        if (isVisible) {
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-                Animated.spring(slideAnim, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true })
-            ]).start();
-        } else {
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-                Animated.timing(slideAnim, { toValue: height, duration: 220, useNativeDriver: true })
-            ]).start();
-        }
-    }, [isVisible, fadeAnim, slideAnim]);
-
-    useEffect(() => {
-        if (!isVisible) return;
-        const onBackPress = () => { closeSheet(); return true; };
-        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-        return () => subscription.remove();
-    }, [isVisible, closeSheet]);
-
-    const [shouldRender, setShouldRender] = useState(isVisible);
-    useEffect(() => {
-        if (isVisible) {
-            setShouldRender(true);
-        } else {
-            const timer = setTimeout(() => setShouldRender(false), 250);
-            return () => clearTimeout(timer);
-        }
-    }, [isVisible]);
 
     const handleVisualizerToggle = async (value: boolean) => {
         if (value) {
@@ -110,39 +67,12 @@ export default function PlayerMenuSheet() {
         }
     };
 
-    if (!shouldRender && !isVisible) return null;
-
     return (
-        <View
-            style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
-            pointerEvents={isVisible ? 'auto' : 'none'}
+        <BaseMenuSheet
+            title={t('visualizer.menu_title') || 'Opciones de Visualización'}
+            subtitle={t('visualizer.menu_desc') || 'Personaliza el visualizador en tiempo real'}
         >
-            <TouchableWithoutFeedback onPress={closeSheet}>
-                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
-            </TouchableWithoutFeedback>
-
-            <Animated.View style={[
-                styles.sheetContainer,
-                {
-                    paddingBottom: insets.bottom + 20,
-                    transform: [{ translateY: slideAnim }]
-                }
-            ]}>
-                <View style={styles.dragIndicator} />
-
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>{t('visualizer.menu_title') || 'Opciones de Visualización'}</Text>
-                    <Text style={styles.headerSubtitle}>{t('visualizer.menu_desc') || 'Personaliza el visualizador en tiempo real'}</Text>
-                </View>
-
-                <ScrollView
-                    style={styles.contentContainer}
-                    contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                    keyboardShouldPersistTaps="handled"
-                >
-
+        
                     {/* Cover Art Style */}
                     <Text style={styles.sectionLabel}>{t('visualizer.cover_style') || 'Estilo de Carátula'}</Text>
                     <View style={styles.optionsGroup}>
@@ -220,6 +150,23 @@ export default function PlayerMenuSheet() {
                         />
                     </View>
 
+                    <View style={styles.separator} />
+
+                    {/* Canvas toggle */}
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.settingLabel}>{t('visualizer.show_canvas')}</Text>
+                            <Text style={styles.settingDescription}>{t('visualizer.show_canvas_desc')}</Text>
+                        </View>
+                        <Switch
+                            value={showCanvas}
+                            onValueChange={setShowCanvas}
+                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            thumbColor={showCanvas ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
                     <View style={[styles.separator]} />
 
                     <View style={[styles.optionsSection, !showPlayerVisualizer && styles.optionsSectionDisabled]}
@@ -293,57 +240,11 @@ export default function PlayerMenuSheet() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </ScrollView>
-            </Animated.View>
-        </View>
+        </BaseMenuSheet>
     );
 }
 
 const getStyles = (colors: any, fonts: any, layout: any, spacing: any, radii: any) => StyleSheet.create({
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-    },
-    sheetContainer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#0F0F0F',
-        borderTopLeftRadius: radii?.lg || 24,
-        borderTopRightRadius: radii?.lg || 24,
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        maxHeight: height * 0.72,
-    },
-    dragIndicator: {
-        width: 40,
-        height: 4,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 16,
-    },
-    header: {
-        marginBottom: 20,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontFamily: fonts?.regular,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
-    },
-    headerSubtitle: {
-        fontSize: 12,
-        fontFamily: fonts?.regular,
-        color: 'rgba(255,255,255,0.4)',
-        marginTop: 4,
-    },
-    contentContainer: {
-        marginBottom: 10,
-    },
     optionsSection: {
         opacity: 1,
     },

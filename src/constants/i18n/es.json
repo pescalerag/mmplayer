@@ -369,7 +369,16 @@
     "duplicate_songs_partial": "{{duplicateCount}} de las {{totalCount}} canciones ya están en esta lista de reproducción. ¿Quieres añadir solo las nuevas o todas?",
     "duplicate_songs_all": "Todas las canciones ({{count}}) ya están en esta lista de reproducción. ¿Quieres añadirlas de todos modos?",
     "add_song_to": "Añadir \"{{title}}\" a...",
-    "add_songs_to": "Añadir {{count}} canciones a..."
+    "add_songs_to": "Añadir {{count}} canciones a...",
+    "canvas_add": "Añadir vídeo de fondo (Canvas)",
+    "canvas_change": "Cambiar vídeo de fondo (Canvas)",
+    "canvas_remove": "Eliminar vídeo de fondo (Canvas)",
+    "canvas_gallery_permission": "Se requieren permisos de galería para seleccionar un vídeo.",
+    "canvas_saved": "Vídeo de fondo guardado correctamente",
+    "canvas_removed": "Vídeo de fondo eliminado",
+    "canvas_error": "Hubo un error al seleccionar el vídeo.",
+    "rating_label": "VALORACIÓN",
+    "rating_none": "Sin valorar"
   },
   "toasts": {
     "syncing": "Sincronizando Biblioteca...",
@@ -649,6 +658,8 @@
     "cover_style_vinyl": "Vinilo Giratorio",
     "background_style": "Estilo de Fondo",
     "background_style_cover": "Carátula Difuminada",
-    "background_style_gradient": "Degradado de Color"
+    "background_style_gradient": "Degradado de Color",
+    "show_canvas": "Mostrar Canvas",
+    "show_canvas_desc": "Reproducir vídeos de fondo en bucle si están disponibles"
   }
 }

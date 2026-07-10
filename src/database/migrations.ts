@@ -149,5 +149,17 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 14,
+      steps: [
+        addColumns({
+          table: "tracks",
+          columns: [
+            { name: "bg_video", type: "string", isOptional: true },
+            { name: "rating", type: "number", isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

@@ -23,6 +23,8 @@ export default class Track extends Model {
     @field('replay_gain') replayGain: number | null;
     @field('lyrics_lrc') lyricsLRC: string | null;
     @field('lyrics_fetch_failed') lyricsFetchFailed: boolean;
+    @text('bg_video') bgVideo: string | null;
+    @field('rating') rating: number | null;
 
     @relation('albums', 'album_id') album: any;
     @relation('artists', 'artist_id') artist: any;
@@ -42,6 +44,22 @@ export default class Track extends Model {
         await this.database.write(async () => {
             await this.update(t => {
                 t.isFavorite = !t.isFavorite;
+            });
+        });
+    }
+
+    async updateRating(value: number | null): Promise<void> {
+        await this.database.write(async () => {
+            await this.update(t => {
+                t.rating = value;
+            });
+        });
+    }
+
+    async updateBgVideo(uri: string | null): Promise<void> {
+        await this.database.write(async () => {
+            await this.update(t => {
+                t.bgVideo = uri;
             });
         });
     }

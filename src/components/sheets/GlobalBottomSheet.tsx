@@ -29,6 +29,7 @@ import LocalCastSheet from '@/components/sheets/LocalCastSheet';
 import LyricsMenuSheet from '@/components/sheets/LyricsMenuSheet';
 import MetadataEditorSheet from '@/components/sheets/MetadataEditorSheet';
 import PlaylistMenuSheet from '@/components/sheets/PlaylistMenuSheet';
+import PlayerMenuSheet from '@/components/sheets/PlayerMenuSheet';
 import SleepTimerSheet from '@/components/sheets/SleepTimerSheet';
 import SortModalSheet from '@/components/sheets/SortModalSheet';
 import SpeedPitchSheet from '@/components/sheets/SpeedPitchSheet';
@@ -176,6 +177,8 @@ export default function GlobalBottomSheet() {
         return <SwipeActionSheet />;
       case 'metadata-editor':
         return <MetadataEditorSheet />;
+      case 'player-menu':
+        return <PlayerMenuSheet />;
       default:
         return null;
     }

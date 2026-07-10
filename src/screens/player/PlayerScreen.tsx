@@ -4,6 +4,9 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
@@ -11,7 +14,10 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    AppState,
+    AppStateStatus,
+    InteractionManager
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
@@ -24,7 +30,6 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 import { NativeVisualizer, extractColorFromImage } from '../../../modules/native-equalizer';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
-import PlayerMenuSheet from '@/components/sheets/PlayerMenuSheet';
 import { openQueueSheet, openSpeedPitch, openPlayerMenu, openTrackMenu, openArtistsList, openTagManagerForTrack, openPlaylistSelector, openSleepTimer, openLocalCast } from '@/store/useUIStore';
 
 import Album from '../../database/models/Album';
@@ -64,6 +69,7 @@ interface PlayerScreenUIProps {
     formatTimestamp: (s: number) => string;
     hasNext: boolean;
     hasPrevious: boolean;
+    isFocused: boolean;
 }
 
 
@@ -167,8 +173,74 @@ const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
     }
 };
 
+const CanvasVideo = React.memo(({ 
+    sourceUri, 
+    isPlaying,
+    blurIntensity = 10,
+    gradientColors
+}: { 
+    sourceUri: string; 
+    isPlaying: boolean; 
+    blurIntensity?: number;
+    gradientColors: string[];
+}) => {
+    const player = useVideoPlayer(sourceUri, (playerInstance) => {
+        playerInstance.loop = true;
+        playerInstance.muted = true;
+        if (isPlaying) {
+            playerInstance.play();
+        } else {
+            playerInstance.pause();
+        }
+    });
+
+    useEffect(() => {
+        if (isPlaying) {
+            player.play();
+        } else {
+            player.pause();
+        }
+    }, [isPlaying, player]);
+
+    // NUEVO EFECTO: Detecta cuando la app vuelve de segundo plano
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            // Si la app vuelve a estar activa y la canción se estaba reproduciendo, forzamos el play del vídeo
+            if (nextAppState === 'active' && isPlaying) {
+                player.play();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [isPlaying, player]);
+
+    return (
+        <View style={StyleSheet.absoluteFillObject}>
+            <VideoView
+                player={player}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+                nativeControls={false}
+                allowsFullscreen={false}
+            />
+            <BlurView
+                intensity={blurIntensity}
+                tint="dark"
+                style={StyleSheet.absoluteFillObject}
+            />
+            <LinearGradient
+                colors={gradientColors as any}
+                style={StyleSheet.absoluteFillObject}
+            />
+        </View>
+    );
+});
+CanvasVideo.displayName = 'CanvasVideo';
+
 const PlayerScreenUI = ({
-    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious
+    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
 }: PlayerScreenUIProps) => {
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
@@ -178,6 +250,35 @@ const PlayerScreenUI = ({
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
+
+    const [isTransitioning, setIsTransitioning] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!isFocused) {
+            setIsTransitioning(false);
+            return;
+        }
+
+        setIsTransitioning(true);
+
+        const unsubscribeEnd = navigation.addListener('transitionEnd', () => {
+            setIsTransitioning(false);
+        });
+
+        const task = InteractionManager.runAfterInteractions(() => {
+            setIsTransitioning(false);
+        });
+
+        const timeout = setTimeout(() => {
+            setIsTransitioning(false);
+        }, 600);
+
+        return () => {
+            unsubscribeEnd();
+            task.cancel();
+            clearTimeout(timeout);
+        };
+    }, [isFocused, navigation]);
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
     const showPlayerVisualizer = useSettingsStore(state => state.showPlayerVisualizer);
@@ -185,9 +286,10 @@ const PlayerScreenUI = ({
     const playerVisualizerColorMode = useSettingsStore(state => state.playerVisualizerColorMode);
     const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
     const playerBackgroundStyle = useSettingsStore(state => state.playerBackgroundStyle);
+    const showCanvas = useSettingsStore(state => state.showCanvas);
 
-    // Is something replacing the big cover? (visualizer OR cd/vinyl spinning)
-    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl';
+    // Is something replacing the big cover? (visualizer OR cd/vinyl spinning OR background canvas)
+    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
 
     const pointA = useABRepeatStore(state => state.pointA);
     const pointB = useABRepeatStore(state => state.pointB);
@@ -443,6 +545,15 @@ const PlayerScreenUI = ({
                 }
             />
 
+            {isFocused && !isTransitioning && showCanvas && !!track.bgVideo && (
+                <CanvasVideo
+                    sourceUri={track.bgVideo}
+                    isPlaying={isPlaying}
+                    blurIntensity={20}
+                    gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                />
+            )}
+
             <View style={styles.safeArea}>
                 {/* Header */}
                 <View style={[styles.header, { marginTop: insets.top }]}>
@@ -514,6 +625,8 @@ const PlayerScreenUI = ({
                                         />
                                     )}
                                 </Animated.View>
+                            ) : (showCanvas && !!track.bgVideo) ? (
+                                <View style={{ width: width - 64, height: width - 64 }} />
                             ) : (
                                 artworkSource && !imageError ? (
                                     <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
@@ -854,8 +967,8 @@ const PlayerScreen = () => {
                 formatTimestamp={formatTrackTime}
                 hasNext={hasNext}
                 hasPrevious={hasPrevious}
+                isFocused={isFocused}
             />
-            <PlayerMenuSheet />
         </>
     );
 };

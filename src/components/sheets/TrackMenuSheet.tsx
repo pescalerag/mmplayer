@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
+import { Alert, View, Text, TouchableOpacity } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
+import { Ionicons } from '@expo/vector-icons';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
 import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
@@ -15,6 +17,142 @@ import { useSheetProps } from '@/hooks/useSheetProps';
 import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
+
+const TrackRatingRow = React.memo(({
+  rating,
+  onRatingChange,
+  colors
+}: {
+  rating: number | null;
+  onRatingChange: (val: number | null) => void;
+  colors: any;
+}) => {
+  const { t } = useTranslation();
+  const [localRating, setLocalRating] = useState<number | null>(rating);
+
+  useEffect(() => {
+    setLocalRating(rating);
+  }, [rating]);
+
+  const handleStarPress = (starIndex: number, isHalf: boolean) => {
+    const newRating = isHalf ? starIndex - 0.5 : starIndex;
+    // Si se pulsa la misma estrella que ya está seleccionada, limpia la valoración
+    if (newRating === localRating) {
+      setLocalRating(null);
+      onRatingChange(null);
+    } else {
+      setLocalRating(newRating);
+      onRatingChange(newRating);
+    }
+  };
+
+  const handleClear = () => {
+    setLocalRating(null);
+    onRatingChange(null);
+  };
+
+  const renderStars = () => {
+    const stars = [];
+    const currentRating = localRating || 0;
+    for (let i = 1; i <= 5; i++) {
+      let iconName: "star" | "star-half" | "star-outline" = "star-outline";
+      if (i <= currentRating) {
+        iconName = "star";
+      } else if (i - 0.5 === currentRating) {
+        iconName = "star-half";
+      }
+      const isFilled = currentRating >= i - 0.5;
+      stars.push(
+        <View key={i} style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+          <Ionicons
+            name={iconName}
+            size={44}
+            color={isFilled ? '#FFD700' : '#888888'}
+          />
+          {/* Left half touchable for half rating */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 22,
+            }}
+            onPress={() => handleStarPress(i, true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8 }}
+          />
+          {/* Right half touchable for full rating */}
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: 22,
+            }}
+            onPress={() => handleStarPress(i, false)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8 }}
+          />
+        </View>
+      );
+    }
+    return stars;
+  };
+
+  return (
+    <View style={{
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+    }}>
+      <Text style={{
+        color: '#888888',
+        fontSize: 12,
+        fontWeight: '700',
+        marginBottom: 8,
+        letterSpacing: 1
+      }}>
+        {t('actions.rating_label')}: {localRating ? localRating.toFixed(1) : t('actions.rating_none')}
+      </Text>
+
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+      }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {renderStars()}
+        </View>
+
+        {/* Botón X para limpiar la valoración */}
+        <TouchableOpacity
+          onPress={handleClear}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+          style={{
+            marginLeft: 4,
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: localRating ? 'rgba(255,255,255,0.15)' : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons
+            name="close"
+            size={16}
+            color={localRating ? '#AAAAAA' : 'rgba(100,100,100,0.4)'}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+TrackRatingRow.displayName = 'TrackRatingRow';
 
 export default function TrackMenuSheet() {
   const { colors } = useAppTheme();
@@ -114,6 +252,20 @@ export default function TrackMenuSheet() {
       coverUrl={imageUrl}
       placeholderIcon="musical-notes"
     >
+      <MenuSeparator />
+      <TrackRatingRow
+        rating={selectedTrack.rating}
+        colors={colors}
+        onRatingChange={async (newRating) => {
+          try {
+            await selectedTrack.updateRating(newRating);
+          } catch (e) {
+            console.error('Error updating track rating:', e);
+          }
+        }}
+      />
+      <MenuSeparator />
+
       {/* OPTION: Play Next */}
       <MenuOption
         icon="return-down-forward"
@@ -155,6 +307,45 @@ export default function TrackMenuSheet() {
           openMetadataEditor([selectedTrack]);
         }}
       />
+
+      {/* OPTION: Add Background Video / Canvas */}
+      <MenuOption
+        icon="videocam-outline"
+        text={selectedTrack.bgVideo ? t('actions.canvas_change') : t('actions.canvas_add')}
+        onPress={async () => {
+          try {
+            const result = await DocumentPicker.getDocumentAsync({
+              type: 'video/*',
+              copyToCacheDirectory: true,
+            });
+
+            const asset = result.assets?.[0];
+            if (asset) {
+              await selectedTrack.updateBgVideo(asset.uri);
+              useToastStore.getState().showToast(t('actions.canvas_saved'), 'videocam');
+              closeMenu();
+            }
+          } catch (error) {
+            console.error('Error al seleccionar vídeo:', error);
+            Alert.alert(t('actions.error'), t('actions.canvas_error'));
+          }
+        }}
+      />
+
+      {/* OPTION: Remove Background Video if exists */}
+      {selectedTrack.bgVideo && (
+        <MenuOption
+          icon="videocam-off-outline"
+          text={t('actions.canvas_remove')}
+          iconColor={colors.heartIcon}
+          textStyle={{ color: colors.heartIcon }}
+          onPress={async () => {
+            await selectedTrack.updateBgVideo(null);
+            useToastStore.getState().showToast(t('actions.canvas_removed'), 'trash');
+            closeMenu();
+          }}
+        />
+      )}
 
       {/* OPTION: Manage Tags */}
       <MenuOption

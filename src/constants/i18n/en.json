@@ -369,7 +369,16 @@
     "duplicate_songs_partial": "{{duplicateCount}} of {{totalCount}} songs are already in this playlist. Do you want to add only the new ones or all of them?",
     "duplicate_songs_all": "All songs ({{count}}) are already in this playlist. Do you want to add them anyway?",
     "add_song_to": "Add \"{{title}}\" to...",
-    "add_songs_to": "Add {{count}} songs to..."
+    "add_songs_to": "Add {{count}} songs to...",
+    "canvas_add": "Add background video (Canvas)",
+    "canvas_change": "Change background video (Canvas)",
+    "canvas_remove": "Remove background video (Canvas)",
+    "canvas_gallery_permission": "Gallery permissions are required to pick a video.",
+    "canvas_saved": "Background video saved successfully",
+    "canvas_removed": "Background video removed",
+    "canvas_error": "There was an error selecting the video.",
+    "rating_label": "RATING",
+    "rating_none": "Unrated"
   },
   "toasts": {
     "syncing": "Syncing Library...",
@@ -649,6 +658,8 @@
     "cover_style_vinyl": "Spinning Vinyl",
     "background_style": "Background Style",
     "background_style_cover": "Blurred Artwork",
-    "background_style_gradient": "Color Gradient"
+    "background_style_gradient": "Color Gradient",
+    "show_canvas": "Show Canvas",
+    "show_canvas_desc": "Play looping background videos when available"
   }
 }
