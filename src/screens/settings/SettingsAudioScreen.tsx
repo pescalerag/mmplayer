@@ -348,18 +348,18 @@ export default function SettingsAudioScreen() {
                                                         onMoveShouldSetResponder={() => true}
                                                         onResponderGrant={(e) => {
                                                             setScrollEnabled(false);
-                                                            const { locationY } = e.nativeEvent;
-                                                            e.target.measure((_fx, _fy, _w, h) => {
-                                                                const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
+                                                            const { pageY: touchY } = e.nativeEvent;
+                                                            e.target.measure((_x, _y, _w, h, _px, pageY) => {
+                                                                const ratio = 1 - Math.max(0, Math.min(1, (touchY - pageY) / h));
                                                                 const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
                                                                 setEqualizerBand(index, newLevel);
                                                                 EqualizerService.setBandLevel(index, newLevel);
                                                             });
                                                         }}
                                                         onResponderMove={(e) => {
-                                                            const { locationY } = e.nativeEvent;
-                                                            e.target.measure((_fx, _fy, _w, h) => {
-                                                                const ratio = 1 - Math.max(0, Math.min(1, locationY / h));
+                                                            const { pageY: touchY } = e.nativeEvent;
+                                                            e.target.measure((_x, _y, _w, h, _px, pageY) => {
+                                                                const ratio = 1 - Math.max(0, Math.min(1, (touchY - pageY) / h));
                                                                 const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
                                                                 setEqualizerBand(index, newLevel);
                                                                 EqualizerService.setBandLevel(index, newLevel);
