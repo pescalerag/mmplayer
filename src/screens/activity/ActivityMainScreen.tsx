@@ -501,6 +501,7 @@ export default function ActivityMainScreen() {
                           title={list.name}
                           subtitle={`${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
                           placeholderIcon={list.placeholderIcon as any}
+                          smartListId={list.id}
                           onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id })}
                         />
                       </View>

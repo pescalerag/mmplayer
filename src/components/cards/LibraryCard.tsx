@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface LibraryCardProps {
     readonly title: string;
@@ -13,6 +14,7 @@ interface LibraryCardProps {
     readonly onPress?: () => void;
     readonly onLongPress?: () => void;
     readonly isPinned?: boolean;
+    readonly smartListId?: string;
 }
 
 const { width } = Dimensions.get('window');
@@ -20,7 +22,7 @@ const { width } = Dimensions.get('window');
 // Dividido entre 3 queda aprox 30-32% del ancho.
 const cardWidth = (width - 70) / 3;
 
-export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned }: Readonly<LibraryCardProps>) {
+export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned, smartListId }: Readonly<LibraryCardProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [imageError, setImageError] = useState(false);
@@ -31,6 +33,23 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
     }, [imageUrl]);
 
     const showImage = !!imageUrl && !imageError;
+
+    const gradientColors = React.useMemo(() => {
+        if (!smartListId) return ['#1A1A1A', '#0D0D0D'] as const;
+        if (smartListId.includes('week')) {
+            return ['#3B82F6', '#1D4ED8'] as const; // Blue
+        }
+        if (smartListId.includes('month')) {
+            return ['#10B981', '#047857'] as const; // Green
+        }
+        if (smartListId.includes('rating')) {
+            return ['#EC4899', '#BE185D'] as const; // Pink
+        }
+        if (smartListId === 'top_50') {
+            return ['#8B5CF6', '#6D28D9'] as const; // Violet
+        }
+        return ['#F59E0B', '#D97706'] as const; // Gold default
+    }, [smartListId]);
 
     return (
         <Pressable
@@ -49,6 +68,15 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
                             setImageError(true);
                         }}
                     />
+                ) : smartListId ? (
+                    <LinearGradient
+                        colors={gradientColors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.placeholder}
+                    >
+                        <Ionicons name={placeholderIcon} size={32} color={colors.text} />
+                    </LinearGradient>
                 ) : (
                     <View style={styles.placeholder}>
                         <Ionicons name={placeholderIcon} size={28} color={colors.textSecondary} />
