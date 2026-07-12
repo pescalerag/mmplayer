@@ -513,7 +513,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       {!isSearching && isSmartListsLoaded && smartLists.length > 0 && (
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
-            <Text style={styles.tagsSectionTitle}>Playlists para ti</Text>
+            <Text style={styles.tagsSectionTitle}>{t('search.smart_lists_for_you')}</Text>
           </View>
           <View style={styles.smartListsGrid}>
             {smartLists.map((list, index) => {

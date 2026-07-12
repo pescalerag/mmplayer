@@ -12,6 +12,7 @@ import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { openMetadataEditor, openPlaylistSelector, openTagManagerForBatch } from '@/store/useUIStore';
 import { database } from '../../database';
 import { ScannerService } from '../../services/ScannerService';
+import { zipAndShareTracks } from '../../utils/zipHelper';
 
 export default function BatchMenuSheet() {
   const { colors } = useAppTheme();
@@ -101,6 +102,16 @@ export default function BatchMenuSheet() {
     openPlaylistSelector(selectedTracks);
   };
 
+  const handleShareAsZip = async () => {
+    closeMenu();
+    try {
+      await zipAndShareTracks(selectedTracks);
+      exitSelectionMode();
+    } catch {
+      Alert.alert(t('actions.error') || 'Error', 'No se pudieron compartir las canciones como ZIP.');
+    }
+  };
+
   const handleAddToFavorites = async () => {
     const tracksToLike = selectedTracks.filter(t => !t.isFavorite);
     if (tracksToLike.length > 0) {
@@ -134,27 +145,29 @@ export default function BatchMenuSheet() {
   };
 
   const handleExclude = () => {
-    Alert.alert(
-      t('actions.exclude_song_title'),
-      `¿Estás seguro de que deseas excluir estas ${selectedTracks.length} canciones del escaneo? Se borrarán de la biblioteca.`,
-      [
-        { text: t('actions.cancel'), style: "cancel" },
-        {
-          text: t('actions.exclude'),
-          style: "destructive",
-          onPress: async () => {
-            closeMenu();
-            const songPaths = selectedTracks.map(t => t.fileUrl);
-            const excludeSong = useSettingsStore.getState().excludeSong;
-            for (const path of songPaths) {
-              excludeSong(path);
+    setTimeout(() => {
+      Alert.alert(
+        t('actions.exclude_song_title'),
+        `¿Estás seguro de que deseas excluir estas ${selectedTracks.length} canciones del escaneo? Se borrarán de la biblioteca.`,
+        [
+          { text: t('actions.cancel'), style: "cancel" },
+          {
+            text: t('actions.exclude'),
+            style: "destructive",
+            onPress: async () => {
+              closeMenu();
+              const songPaths = selectedTracks.map(t => t.fileUrl);
+              const excludeSong = useSettingsStore.getState().excludeSong;
+              for (const path of songPaths) {
+                excludeSong(path);
+              }
+              await ScannerService.deleteMultipleSongsContents(songPaths);
+              exitSelectionMode();
             }
-            await ScannerService.deleteMultipleSongsContents(songPaths);
-            exitSelectionMode();
           }
-        }
-      ]
-    );
+        ]
+      );
+    }, 100);
   };
 
   return (
@@ -203,6 +216,13 @@ export default function BatchMenuSheet() {
         icon="add-circle-outline"
         text={t('actions.add_to_playlist')}
         onPress={handleAddToPlaylist}
+      />
+
+      {/* OPTION: Share selection as ZIP */}
+      <MenuOption
+        icon="share-social-outline"
+        text={t('actions.share_as_zip') || 'Compartir selección como ZIP'}
+        onPress={handleShareAsZip}
       />
 
       {/* OPTION: Add to Favorites */}

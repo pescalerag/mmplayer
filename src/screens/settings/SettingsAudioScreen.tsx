@@ -246,7 +246,7 @@ export default function SettingsAudioScreen() {
                                                     );
                                                 } catch (err) {
                                                     console.error("Error al escanear ReplayGain:", err);
-                                                    Alert.alert(t('actions.error'), 'No se pudo completar el análisis.');
+                                                    Alert.alert(t('actions.error'), t('settings.scan_replaygain_error'));
                                                 } finally {
                                                     useSyncStore.getState().setIsScanning(false, false);
                                                 }

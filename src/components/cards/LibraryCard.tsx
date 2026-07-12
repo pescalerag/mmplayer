@@ -2,7 +2,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface LibraryCardProps {
     readonly title: string;
@@ -33,7 +33,11 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
     const showImage = !!imageUrl && !imageError;
 
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
+        <Pressable
+            style={({ pressed }) => [styles.card, { opacity: pressed ? 0.7 : 1 }]}
+            onPress={onPress}
+            onLongPress={onLongPress}
+        >
             <View style={styles.imageContainer}>
                 {showImage ? (
                     <ExpoImage
@@ -63,7 +67,7 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
             {duration && (
                 <Text style={styles.subtitle} numberOfLines={1}>{duration}</Text>
             )}
-        </TouchableOpacity>
+        </Pressable>
     );
 }
 

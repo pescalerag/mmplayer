@@ -292,7 +292,7 @@ export default function LyricsSyncScreen() {
             ]);
         } catch (e) {
             console.error('Error saving synced lyrics:', e);
-            Alert.alert(t('actions.error') || 'Error', 'No se pudieron guardar los cambios.');
+            Alert.alert(t('actions.error') || 'Error', t('lyrics.save_error') || 'No se pudieron guardar los cambios.');
         }
     };
 

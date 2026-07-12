@@ -225,7 +225,6 @@ function MainTabs() {
       },
       tabBarBackground: TabBarBackground,
       headerShown: false,
-      unmountOnBlur: true,
     }),
     [insets],
   );

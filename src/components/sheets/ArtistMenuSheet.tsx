@@ -93,7 +93,7 @@ export default function ArtistMenuSheet() {
         text={t('actions.add_to_playlist') || 'Añadir a playlist'}
         onPress={() => {
           if (tracks.length === 0) {
-            useToastStore.getState().showToast('El artista no tiene canciones', 'close-circle', '#EF4444');
+            useToastStore.getState().showToast(t('toasts.artist_no_songs'), 'close-circle', '#EF4444');
             closeMenu();
             return;
           }

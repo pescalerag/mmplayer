@@ -21,6 +21,7 @@ import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
+import ZipProgressModal from "./src/components/modals/ZipProgressModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -124,6 +125,7 @@ export default function App() {
           <WelcomeModal />
           <GlobalToast />
           <BackupBlockingModal />
+          <ZipProgressModal />
         </NavigationContainer>
       </View>
       </SafeAreaProvider>

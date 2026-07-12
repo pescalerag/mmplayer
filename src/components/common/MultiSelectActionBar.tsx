@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 export default function MultiSelectActionBar() {
     const { colors, fonts, fontWeights } = useAppTheme();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     
     const { isSelectionMode, selectedTracks, exitSelectionMode } = useMultiSelectStore();
     
@@ -62,7 +64,7 @@ export default function MultiSelectActionBar() {
                     <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.countText, { color: colors.text, fontFamily: fonts.regular, fontWeight: fontWeights.bold }]}>
-                    {selectedTracks.length} seleccionadas
+                    {t('actions.selected_count', { count: selectedTracks.length })}
                 </Text>
             </View>
 

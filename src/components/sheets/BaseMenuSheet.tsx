@@ -1,14 +1,13 @@
 import React from 'react';
 import {
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   StyleProp,
   ViewStyle,
   TextStyle
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useAppTheme } from '@/hooks/useAppTheme';

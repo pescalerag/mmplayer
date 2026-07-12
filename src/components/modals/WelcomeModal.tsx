@@ -227,7 +227,7 @@ export default function WelcomeModal() {
                     activeOpacity={0.8}
                 >
                     <Text style={styles.buttonOutlineText}>
-                        {Platform.OS === 'ios' ? 'Abrir Ajustes' : 'Configuración de la App'}
+                        {Platform.OS === 'ios' ? t('welcome.open_settings_ios') : t('welcome.open_settings_android')}
                     </Text>
                 </TouchableOpacity>
             )}
@@ -375,9 +375,9 @@ export default function WelcomeModal() {
                     <View style={styles.row}>
                         <View style={{ flex: 1, paddingRight: 10 }}>
                             <Text style={styles.settingLabel}>{t('settings.audio_section')}</Text>
-                            <Text style={styles.settingLabelSub}>Atenuación suave (Fade)</Text>
+                            <Text style={styles.settingLabelSub}>{t('settings.fade')}</Text>
                             <Text style={styles.settingDesc}>
-                                Activa una atenuación suave del volumen al pausar, reanudar o cambiar de canción.
+                                {t('welcome.fade_desc')}
                             </Text>
                         </View>
                         <Switch

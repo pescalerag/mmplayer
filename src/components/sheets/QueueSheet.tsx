@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Alert,
     Animated,
@@ -40,6 +41,7 @@ type ActiveTab = 'queue' | 'recent';
 
 export default function QueueSheet() {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const activeSheet = useUIStore(state => state.activeSheet);
     const closeQueue = useUIStore(state => state.closeSheet);
     const isVisible = activeSheet === 'queue';
@@ -373,7 +375,7 @@ export default function QueueSheet() {
                                 style={{ marginRight: 6 }}
                             />
                             <Text style={[styles.tabLabel, activeTab === 'queue' && styles.tabLabelActive]}>
-                                Cola
+                                {t('queue.title')}
                             </Text>
                             {totalUpcomingCount > 0 && (
                                 <View style={[styles.badge, activeTab === 'queue' && styles.badgeActive]}>
@@ -394,7 +396,7 @@ export default function QueueSheet() {
                                 style={{ marginRight: 6 }}
                             />
                             <Text style={[styles.tabLabel, activeTab === 'recent' && styles.tabLabelActive]}>
-                                Anterior
+                                {t('queue.history_tab')}
                             </Text>
                             {recentTracks.length > 0 && (
                                 <View style={[styles.badge, activeTab === 'recent' && styles.badgeActive]}>
@@ -433,14 +435,16 @@ export default function QueueSheet() {
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
                                     <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
-                                    <Text style={styles.emptyText}>No hay canciones en la cola</Text>
+                                    <Text style={styles.emptyText}>{t('queue.empty')}</Text>
                                 </View>
                             }
                             ListFooterComponent={
                                 hiddenUpcomingCount > 0 ? (
                                     <View style={styles.footerContainer}>
                                         <Text style={styles.footerText}>
-                                            y {hiddenUpcomingCount} {hiddenUpcomingCount === 1 ? 'canción más' : 'canciones más'} en la cola
+                                            {hiddenUpcomingCount === 1
+                                                ? t('queue.hidden_upcoming', { count: hiddenUpcomingCount })
+                                                : t('queue.hidden_upcoming_plural', { count: hiddenUpcomingCount })}
                                         </Text>
                                     </View>
                                 ) : null
@@ -457,7 +461,7 @@ export default function QueueSheet() {
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
                                 <Ionicons name="time-outline" size={40} color={Colors.disabled} />
-                                <Text style={styles.emptyText}>Aún no hay historial</Text>
+                                <Text style={styles.emptyText}>{t('queue.history_empty')}</Text>
                             </View>
                         }
                         contentContainerStyle={styles.listContent}
@@ -476,7 +480,7 @@ export default function QueueSheet() {
                         <View style={styles.trashMenuOverlay}>
                             <TouchableWithoutFeedback>
                                 <View style={[styles.trashMenuPanel, { backgroundColor: '#121212', borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
-                                    <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>Gestionar cola</Text>
+                                    <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>{t('queue.manage')}</Text>
                                     {hasManualUpcoming && (
                                         <TouchableOpacity
                                             style={styles.trashMenuButton}
@@ -495,7 +499,7 @@ export default function QueueSheet() {
                                             <View style={styles.trashMenuIconContainer}>
                                                 <Ionicons name="list-outline" size={24} color={colors.text} />
                                             </View>
-                                            <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>Borrar cola añadida</Text>
+                                            <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.clear_manual')}</Text>
                                         </TouchableOpacity>
                                     )}
                                     {hasContextUpcoming && (
@@ -516,7 +520,7 @@ export default function QueueSheet() {
                                             <View style={styles.trashMenuIconContainer}>
                                                 <Ionicons name="albums-outline" size={24} color={colors.text} />
                                             </View>
-                                            <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>Borrar contexto</Text>
+                                            <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.clear_context')}</Text>
                                         </TouchableOpacity>
                                     )}
                                  <TouchableOpacity
@@ -531,7 +535,7 @@ export default function QueueSheet() {
                                     <View style={styles.trashMenuIconContainer}>
                                         <Ionicons name="stop-circle-outline" size={24} color={colors.text} />
                                     </View>
-                                    <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>Parar reproducción</Text>
+                                    <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.stop_playback')}</Text>
                                 </TouchableOpacity>
                                 <View style={[styles.trashMenuDivider, { backgroundColor: colors.cardBackground || '#282828' }]} />
                                 <TouchableOpacity
@@ -539,7 +543,7 @@ export default function QueueSheet() {
                                     onPress={() => setShowTrashMenu(false)}
                                     activeOpacity={0.7}
                                 >
-                                    <Text style={[styles.trashMenuButtonText, { color: colors.textSecondary }]}>Cancelar</Text>
+                                    <Text style={[styles.trashMenuButtonText, { color: colors.textSecondary }]}>{t('actions.cancel')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </TouchableWithoutFeedback>

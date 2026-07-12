@@ -194,6 +194,7 @@ const LyricLine = React.memo(({ item, isActive, onPress, styles }: LyricLineProp
         prevProps.styles === nextProps.styles
     );
 });
+LyricLine.displayName = 'LyricLine';
 
 interface LyricsScreenUIProps {
     track: Track;
@@ -334,10 +335,10 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         try {
             const imported = await LyricsService.importCustomLyrics(track);
             if (imported) {
-                Alert.alert(t('actions.success') || 'Éxito', 'Letras importadas correctamente.');
+                Alert.alert(t('actions.success') || 'Éxito', t('lyrics.import_success') || 'Letras importadas correctamente.');
             }
         } catch {
-            Alert.alert(t('actions.error') || 'Error', 'No se pudo leer el archivo de letras.');
+            Alert.alert(t('actions.error') || 'Error', t('lyrics.read_error') || 'No se pudo leer el archivo de letras.');
         }
     };
 

@@ -6,6 +6,7 @@ import { database } from '../database';
 import { useBackupStore } from '../store/useBackupStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { ScannerService } from './ScannerService';
+import i18n from '../constants/i18n';
 
 const COLLECTIONS_TO_BACKUP = [
     'tracks',
@@ -89,19 +90,19 @@ async function readBackupFile(uri: string): Promise<string> {
 export const BackupService = {
     exportDatabase: async () => {
         const store = useBackupStore.getState();
-        store.startExport('Preparando datos para la copia de seguridad...');
+        store.startExport(i18n.t('backup.preparing'));
         try {
             const backupData: Record<string, any[]> = {};
 
             for (const collectionName of COLLECTIONS_TO_BACKUP) {
-                store.startExport(`Exportando tabla ${collectionName}...`);
+                store.startExport(i18n.t('backup.exporting_table', { table: collectionName }));
                 const collection = database.collections.get(collectionName);
                 const records = await collection.query().fetch();
                 // Extraemos solo la data cruda (_raw)
                 backupData[collectionName] = records.map(r => r._raw);
             }
 
-            store.startExport('Escribiendo archivo de copia de seguridad...');
+            store.startExport(i18n.t('backup.writing_file'));
             const jsonString = JSON.stringify(backupData, null, 2);
 
             // ✅ Usamos Base64 para garantizar que todos los caracteres
@@ -115,20 +116,20 @@ export const BackupService = {
             // Verificar si el compartir está disponible en la plataforma
             const isSharingAvailable = await Sharing.isAvailableAsync();
             if (!isSharingAvailable) {
-                throw new Error('El servicio de compartir no está disponible en este dispositivo.');
+                throw new Error(i18n.t('backup.sharing_unavailable'));
             }
 
-            store.startExport('Abriendo selector para guardar copia...');
+            store.startExport(i18n.t('backup.opening_share'));
             await Sharing.shareAsync(fileUri, {
                 mimeType: 'application/json',
-                dialogTitle: 'Exportar Copia de Seguridad',
+                dialogTitle: i18n.t('backup.export_title'),
                 UTI: 'public.json',
             });
 
-            store.setSuccess('Copia de seguridad exportada correctamente.');
+            store.setSuccess(i18n.t('backup.export_success'));
         } catch (error: any) {
             console.error('Error al exportar base de datos:', error);
-            store.setError(error?.message || String(error) || 'Error desconocido al exportar.');
+            store.setError(error?.message || String(error) || i18n.t('backup.export_error'));
         }
     },
 
@@ -145,12 +146,12 @@ export const BackupService = {
                 return;
             }
 
-            store.startImport('Deteniendo reproductor de música...');
+            store.startImport(i18n.t('backup.stopping_player'));
             await usePlayerStore.getState().clearPlayer().catch(err => {
                 console.warn('No se pudo detener el reproductor durante la importación:', err);
             });
 
-            store.startImport('Leyendo archivo de copia de seguridad...');
+            store.startImport(i18n.t('backup.reading_file'));
             const fileAsset = pickerResult.assets[0];
 
             // Copiamos primero a cache para obtener un file:// URI limpio.
@@ -160,19 +161,19 @@ export const BackupService = {
             // ✅ Usamos nuestro helper que detecta Base64 (nuevo) o plain-UTF-8 (legado)
             const fileContent = await readBackupFile(cachedUri);
 
-            store.startImport('Procesando datos del archivo...');
+            store.startImport(i18n.t('backup.processing_data'));
             const backupData = JSON.parse(fileContent);
 
             if (!backupData || typeof backupData !== 'object') {
-                throw new Error('El archivo no tiene un formato JSON válido.');
+                throw new Error(i18n.t('backup.invalid_format'));
             }
 
             const hasRequiredCollections = COLLECTIONS_TO_BACKUP.some(col => Array.isArray(backupData[col]));
             if (!hasRequiredCollections) {
-                throw new Error('El archivo seleccionado no contiene datos compatibles de copia de seguridad.');
+                throw new Error(i18n.t('backup.incompatible_data'));
             }
 
-            store.startImport('Limpiando base de datos actual...');
+            store.startImport(i18n.t('backup.clearing_db'));
             await database.write(async () => {
                 await database.unsafeResetDatabase();
             });
@@ -183,7 +184,7 @@ export const BackupService = {
                 console.warn('No se pudieron limpiar las escuchas recientes:', err);
             });
 
-            store.startImport('Restaurando datos desde la copia de seguridad...');
+            store.startImport(i18n.t('backup.restoring_data'));
             const batchOperations: any[] = [];
 
             await database.write(async () => {
@@ -198,27 +199,32 @@ export const BackupService = {
                             if (collectionName === 'artists') {
                                 record._raw.image_url = null;
                             }
+                            if (collectionName === 'tracks') {
+                                if (record._raw.rating === undefined) {
+                                    record._raw.rating = null;
+                                }
+                            }
                         });
                         batchOperations.push(op);
                     }
                 }
 
                 if (batchOperations.length > 0) {
-                    store.startImport(`Guardando ${batchOperations.length} registros en la base de datos...`);
+                    store.startImport(i18n.t('backup.saving_records', { count: batchOperations.length }));
                     await database.batch(batchOperations);
                 }
             });
 
-            store.setReconciling('Reconciliando biblioteca local...');
+            store.setReconciling(i18n.t('backup.reconciling'));
 
             // NOTA: usamos skipFileCheck=true para no borrar los tracks del backup
             // (sus file_url no existen en este dispositivo pero los datos son válidos).
             await ScannerService.cleanDeletedFiles(
                 { skipFileCheck: true },
-                (phase) => store.setReconciling(`Reconciliando: ${phase}`)
+                (phase) => store.setReconciling(i18n.t('backup.reconciling_phase', { phase }))
             );
 
-            store.setSuccess('Copia de seguridad restaurada y biblioteca reconciliada con éxito. Reiniciando...');
+            store.setSuccess(i18n.t('backup.import_success'));
 
             // Limpiar archivo temporal
             await FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
@@ -230,7 +236,7 @@ export const BackupService = {
         } catch (error: any) {
             console.error('Error al importar base de datos:', error);
             FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
-            store.setError(error?.message || String(error) || 'Error desconocido al importar.');
+            store.setError(error?.message || String(error) || i18n.t('backup.import_error'));
         }
     },
 };

@@ -225,6 +225,7 @@ const CanvasVideo = React.memo(({
                 contentFit="cover"
                 nativeControls={false}
                 allowsFullscreen={false}
+                surfaceType="textureView"
             />
             <BlurView
                 intensity={blurIntensity}

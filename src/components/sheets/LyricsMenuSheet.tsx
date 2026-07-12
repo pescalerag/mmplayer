@@ -33,10 +33,10 @@ export default function LyricsMenuSheet() {
       const imported = await LyricsService.importCustomLyrics(track);
       if (imported) {
         onImportSuccess(imported);
-        Alert.alert(t('actions.success') || 'Éxito', 'Letras importadas correctamente.');
+        Alert.alert(t('actions.success') || 'Éxito', t('lyrics.import_success') || 'Letras importadas correctamente.');
       }
     } catch {
-      Alert.alert(t('actions.error') || 'Error', 'No se pudo leer el archivo de letras.');
+      Alert.alert(t('actions.error') || 'Error', t('lyrics.read_error') || 'No se pudo leer el archivo de letras.');
     }
   };
 
@@ -60,7 +60,7 @@ export default function LyricsMenuSheet() {
       }
     } catch (e) {
       console.error('Error searching lyrics online:', e);
-      Alert.alert(t('actions.error') || 'Error', 'Ocurrió un error al buscar las letras.');
+      Alert.alert(t('actions.error') || 'Error', t('lyrics.search_error') || 'Ocurrió un error al buscar las letras.');
     }
   };
 
@@ -81,7 +81,7 @@ export default function LyricsMenuSheet() {
               Alert.alert(t('actions.success') || 'Éxito', t('lyrics.delete_success') || 'Letras eliminadas correctamente.');
             } catch (e) {
               console.error('Error deleting lyrics:', e);
-              Alert.alert(t('actions.error') || 'Error', 'No se pudieron eliminar las letras.');
+              Alert.alert(t('actions.error') || 'Error', t('lyrics.delete_error') || 'No se pudieron eliminar las letras.');
             }
           }
         }

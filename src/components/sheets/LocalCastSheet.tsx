@@ -28,7 +28,7 @@ export default function LocalCastSheet() {
       .catch((err: any) => {
         setIsLoading(false);
         useToastStore.getState().showToast(
-          err?.message || 'No se pudo iniciar el casteo.',
+          err?.message || t('cast.start_error'),
           'alert-circle-outline'
         );
       });

@@ -98,7 +98,7 @@ export default function PlaylistMenuSheet() {
             const trackIds = playlistTracks.map((pt: any) => pt.track.id);
 
             if (trackIds.length === 0) {
-              useToastStore.getState().showToast('La Playlist no tiene canciones', 'close-circle', '#EF4444');
+              useToastStore.getState().showToast(t('toasts.playlist_no_songs'), 'close-circle', '#EF4444');
               closeMenu();
               return;
             }

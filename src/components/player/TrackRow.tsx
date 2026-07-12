@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import React, { memo } from "react";
-import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Keyboard, StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { clamp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { State } from "react-native-track-player";
@@ -104,6 +104,7 @@ function TrackRow({
   const panGesture = Gesture.Pan()
     .enabled(!isSelectionMode)
     .activeOffsetX([-20, 20])
+    .failOffsetY([-5, 5])
     .onUpdate((event) => {
       const canSwipeRight = swipeRightAction !== 'none';
       const canSwipeLeft = swipeLeftAction !== 'none';
@@ -188,6 +189,7 @@ function TrackRow({
         <Animated.View style={[animatedStyle, { backgroundColor: colors.background }]}>
           <TouchableOpacity
             style={[styles.row, isCurrentTrack && !isSelectionMode && styles.rowActive]}
+            delayPressIn={85}
             onPress={() => {
               if (isSelectionMode) {
                 useMultiSelectStore.getState().toggleTrack(track);
