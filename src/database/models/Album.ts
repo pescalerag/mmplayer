@@ -27,6 +27,7 @@ export default class Album extends Model {
   @children("album_tags") albumTags: any;
 
   @lazy queryTags = this.collections.get('tags').query(
-      Q.on('album_tags', 'album_id', this.id)
+      Q.on('album_tags', 'album_id', this.id),
+      Q.sortBy('name', Q.asc)
   );
 }

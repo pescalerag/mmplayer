@@ -37,7 +37,8 @@ export default class Track extends Model {
     );
 
     @lazy queryTags = this.collections.get('tags').query(
-        Q.on('track_tags', 'track_id', this.id)
+        Q.on('track_tags', 'track_id', this.id),
+        Q.sortBy('name', Q.asc)
     );
 
     async toggleLike(): Promise<void> {

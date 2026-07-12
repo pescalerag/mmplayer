@@ -46,6 +46,9 @@ export default function AlbumMenuSheet() {
     loadTracksAndMetadata();
   }, [selectedAlbum, t]);
 
+  const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute() : null;
+  const isAlreadyOnArtistScreen = currentRoute?.name === 'ArtistDetail' && (currentRoute.params as any)?.artistId === artistId;
+
   if (!selectedAlbum) return null;
 
   return (
@@ -133,7 +136,7 @@ export default function AlbumMenuSheet() {
       {artistId && artistName !== "Varios Artistas" && <MenuSeparator />}
 
       {/* OPTION: Go to Artist */}
-      {artistId && artistName !== "Varios Artistas" && (
+      {artistId && artistName !== "Varios Artistas" && !isAlreadyOnArtistScreen && (
         <MenuOption
           icon="person-outline"
           text={t('actions.go_to_artist')}

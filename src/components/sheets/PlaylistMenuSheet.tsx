@@ -53,6 +53,11 @@ export default function PlaylistMenuSheet() {
     }
   };
 
+  const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute() : null;
+  const isAlreadyOnPlaylistScreen =
+    (currentRoute?.name === 'PlaylistDetail' && (currentRoute.params as any)?.playlistId === selectedPlaylist?.id) ||
+    (currentRoute?.name === 'FavoritesDetail' && selectedPlaylist?.id === 'favorites');
+
   if (!selectedPlaylist) return null;
 
   return (
@@ -116,11 +121,13 @@ export default function PlaylistMenuSheet() {
       />
 
       {/* OPTION: View Playlist */}
-      <MenuOption
-        icon="list-outline"
-        text={t('playlist.view')}
-        onPress={handleViewPlaylist}
-      />
+      {!isAlreadyOnPlaylistScreen && (
+        <MenuOption
+          icon="list-outline"
+          text={t('playlist.view')}
+          onPress={handleViewPlaylist}
+        />
+      )}
     </BaseMenuSheet>
   );
 }
