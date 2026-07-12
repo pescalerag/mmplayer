@@ -835,6 +835,8 @@ export default function LibraryScreen() {
 
     const navigation = useNavigation<LibraryNavigationProp>();
 
+
+
     useEffect(() => {
         const tabNavigator: any = navigation.getParent();
         if (!tabNavigator) return;

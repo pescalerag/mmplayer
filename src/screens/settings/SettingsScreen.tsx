@@ -44,7 +44,11 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     keyboardShouldPersistTaps="handled"
                 >
                 {/* --- SECCIÓN DE ESTADÍSTICAS --- */}
-                <View style={styles.statsCard}>
+                <TouchableOpacity
+                    style={styles.statsCard}
+                    onPress={() => navigation.navigate('Biblioteca')}
+                    activeOpacity={0.7}
+                >
                     <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
@@ -62,7 +66,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             <Text style={styles.statLabel}>{t('library.artists')}</Text>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* --- MENÚ DE OPCIONES DE CONFIGURACIÓN --- */}
                 <View style={styles.sectionCard}>
@@ -381,7 +385,7 @@ const styles = StyleSheet.create({
     statLabel: {
         fontSize: 12,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '800',
         color: '#9A9A9A',
         marginTop: 4,
     },
