@@ -16,7 +16,6 @@ import { SheetType, useUIStore } from '../../store/useUIStore';
 
 // Components
 import PlaylistSelectorModal from '@/components/modals/PlaylistSelectorModal';
-import TagFormModal from '@/components/modals/TagFormModal';
 import TagManagerModal from '@/components/modals/TagManagerModal';
 import AlbumMenuSheet from '@/components/sheets/AlbumMenuSheet';
 import AppTabsOrderSheet from '@/components/sheets/AppTabsOrderSheet';
@@ -150,8 +149,6 @@ export default function GlobalBottomSheet() {
         return <SortModalSheet />;
       case 'tag-manager':
         return <TagManagerModal />;
-      case 'tag-form':
-        return <TagFormModal />;
       case 'tag-menu':
         return <TagMenuSheet />;
       case 'playlist-selector':
@@ -193,7 +190,6 @@ export default function GlobalBottomSheet() {
     if (renderedSheet === 'queue') return SCREEN_HEIGHT * 0.90;
     if (renderedSheet === 'metadata-editor') return SCREEN_HEIGHT * 0.92;
     if (renderedSheet === 'playlist-selector') return SCREEN_HEIGHT * 0.85;
-    if (renderedSheet === 'tag-form') return SCREEN_HEIGHT * 0.85;
     return SCREEN_HEIGHT * 0.80;
   };
 

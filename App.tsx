@@ -22,6 +22,7 @@ import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import ZipProgressModal from "./src/components/modals/ZipProgressModal";
+import TagFormModal from "./src/components/modals/TagFormModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -126,6 +127,7 @@ export default function App() {
           <GlobalToast />
           <BackupBlockingModal />
           <ZipProgressModal />
+          <TagFormModal />
         </NavigationContainer>
       </View>
       </SafeAreaProvider>
