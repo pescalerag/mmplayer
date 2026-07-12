@@ -8,6 +8,7 @@ import { database } from '../../database';
 import PlaylistTrack from '../../database/models/PlaylistTrack';
 import Playlist from '../../database/models/Playlist';
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { SmartListService } from '../../services/SmartListService';
 
 interface PlaylistCoverProps {
     readonly playlistId: string;
@@ -39,6 +40,32 @@ export default function PlaylistCover({
     useEffect(() => {
         if (isFavorites || customCoverUrl) {
             setLoading(false);
+            return;
+        }
+
+        if (playlistId.startsWith('smart-list-')) {
+            const loadSmartListCover = async () => {
+                try {
+                    const id = playlistId.replace('smart-list-', '');
+                    const smartList = SmartListService.getSmartLists().find(l => l.id === id);
+                    if (smartList) {
+                        const tracks = await smartList.getTracks();
+                        for (const track of tracks) {
+                            const album = await track.album.fetch();
+                            const url = album?.coverUrl;
+                            if (url && url !== 'null' && url.trim() !== '') {
+                                setFirstCover(url);
+                                break;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error al cargar portada de smart list en PlaylistCover:', e);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadSmartListCover();
             return;
         }
 

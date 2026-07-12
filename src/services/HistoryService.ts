@@ -158,13 +158,15 @@ export const HistoryService = {
   },
 
   async getWeeklyStats() {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const from = new Date();
+    const day = from.getDay();
+    const diff = from.getDate() - day + (day === 0 ? -6 : 1);
+    from.setDate(diff);
+    from.setHours(0, 0, 0, 0);
 
     const historyRecords = await database.collections
       .get<PlaybackHistory>('playback_history')
-      .query(Q.where('played_at', Q.gte(sevenDaysAgo.getTime())))
+      .query(Q.where('played_at', Q.gte(from.getTime())))
       .fetch();
 
     let totalSeconds = 0;
