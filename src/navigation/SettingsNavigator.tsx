@@ -16,7 +16,11 @@ const Stack = createNativeStackNavigator();
 
 export default function SettingsNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Navigator screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            freezeOnBlur: false
+        }}>
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="ChangelogScreen" component={ChangelogScreen} />
             <Stack.Screen name="ExcludedMedia" component={ExcludedMediaScreen} />

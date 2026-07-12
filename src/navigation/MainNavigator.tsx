@@ -314,7 +314,7 @@ export default function MainNavigator() {
   return (
     <View style={{ flex: 1 }}>
       <GlobalSyncIndicator />
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
         <RootStack.Screen
           name="Player"
