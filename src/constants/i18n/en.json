@@ -409,7 +409,9 @@
     "rating_none": "Unrated",
     "share_as_zip": "Share selection as ZIP",
     "error": "Error",
-    "selected_count": "{{count}} selected"
+    "selected_count": "{{count}} selected",
+    "longPressCoverToCustomize": "Long press cover to customize",
+    "customize_cd": "Customize CD image"
   },
   "toasts": {
     "syncing": "Syncing Library...",

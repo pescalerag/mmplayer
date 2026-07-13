@@ -409,7 +409,9 @@
     "rating_none": "Sin valorar",
     "share_as_zip": "Compartir selección como ZIP",
     "error": "Error",
-    "selected_count": "{{count}} seleccionadas"
+    "selected_count": "{{count}} seleccionadas",
+    "longPressCoverToCustomize": "Mantén pulsado para personalizar",
+    "customize_cd": "Personalizar imagen de CD"
   },
   "toasts": {
     "syncing": "Sincronizando Biblioteca...",

@@ -802,12 +802,10 @@ const PlayerScreenUI = ({
                             style={[
                                 {
                                     position: 'absolute',
-                                    bottom: isAltDisplay ? 15 : 35,
-                                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                                    paddingHorizontal: 62,
+                                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                                    paddingHorizontal: 50,
                                     paddingVertical: 8,
-                                    borderBottomLeftRadius: 10,
-                                    borderBottomRightRadius: 10,
+                                    borderRadius: 20,
                                     flexDirection: 'row',
                                     alignItems: 'center',
                                     gap: 8,
@@ -817,7 +815,7 @@ const PlayerScreenUI = ({
                         >
                             <Ionicons name="color-palette-outline" size={16} color="#FFFFFF" />
                             <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600', fontFamily: fonts.regular }}>
-                                Mantén pulsado para personalizar
+                                {t('actions.longPressCoverToCustomize')}
                             </Text>
                         </Animated.View>
                     )}
