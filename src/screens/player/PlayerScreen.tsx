@@ -4,6 +4,9 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
@@ -11,7 +14,10 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    AppState,
+    AppStateStatus,
+    InteractionManager
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
@@ -24,7 +30,6 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 import { NativeVisualizer, extractColorFromImage } from '../../../modules/native-equalizer';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
-import PlayerMenuSheet from '@/components/sheets/PlayerMenuSheet';
 import { openQueueSheet, openSpeedPitch, openPlayerMenu, openTrackMenu, openArtistsList, openTagManagerForTrack, openPlaylistSelector, openSleepTimer, openLocalCast } from '@/store/useUIStore';
 
 import Album from '../../database/models/Album';
@@ -64,6 +69,7 @@ interface PlayerScreenUIProps {
     formatTimestamp: (s: number) => string;
     hasNext: boolean;
     hasPrevious: boolean;
+    isFocused: boolean;
 }
 
 
@@ -167,8 +173,106 @@ const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
     }
 };
 
+const CanvasVideo = React.memo(({ 
+    sourceUri, 
+    isPlaying,
+    isImmersive,
+    gradientColors
+}: { 
+    sourceUri: string; 
+    isPlaying: boolean; 
+    isImmersive: boolean;
+    gradientColors: string[];
+}) => {
+    const player = useVideoPlayer(sourceUri, (playerInstance) => {
+        playerInstance.loop = true;
+        playerInstance.muted = true;
+        if (isPlaying) {
+            playerInstance.play();
+        } else {
+            playerInstance.pause();
+        }
+    });
+
+    useEffect(() => {
+        if (isPlaying) {
+            player.play();
+        } else {
+            player.pause();
+        }
+    }, [isPlaying, player]);
+
+    // NUEVO EFECTO: Detecta cuando la app vuelve de segundo plano
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            // Si la app vuelve a estar activa y la canción se estaba reproduciendo, forzamos el play del vídeo
+            if (nextAppState === 'active' && isPlaying) {
+                player.play();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [isPlaying, player]);
+
+    const blurOpacity = useSharedValue(isImmersive ? 0 : 1);
+    const immersiveGradientOpacity = useSharedValue(isImmersive ? 1 : 0);
+
+    useEffect(() => {
+        blurOpacity.value = withTiming(isImmersive ? 0 : 1, { duration: 350, easing: Easing.bezier(0.25, 0.1, 0.25, 1.0) });
+        immersiveGradientOpacity.value = withTiming(isImmersive ? 1 : 0, { duration: 350, easing: Easing.bezier(0.25, 0.1, 0.25, 1.0) });
+    }, [isImmersive]);
+
+    const blurAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: blurOpacity.value,
+    }));
+
+    const normalGradientAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: 1 - immersiveGradientOpacity.value,
+    }));
+
+    const immersiveGradientAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: immersiveGradientOpacity.value,
+    }));
+
+    return (
+        <View style={StyleSheet.absoluteFillObject}>
+            <VideoView
+                key={sourceUri}
+                player={player}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+                nativeControls={false}
+                allowsFullscreen={false}
+                surfaceType="textureView"
+            />
+            <Animated.View style={[StyleSheet.absoluteFillObject, blurAnimatedStyle]}>
+                <BlurView
+                    intensity={20}
+                    tint="dark"
+                    style={StyleSheet.absoluteFillObject}
+                />
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFillObject, normalGradientAnimatedStyle]}>
+                <LinearGradient
+                    colors={gradientColors as any}
+                    style={StyleSheet.absoluteFillObject}
+                />
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFillObject, immersiveGradientAnimatedStyle]}>
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.78)'] as any}
+                    style={StyleSheet.absoluteFillObject}
+                />
+            </Animated.View>
+        </View>
+    );
+});
+CanvasVideo.displayName = 'CanvasVideo';
+
 const PlayerScreenUI = ({
-    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious
+    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
 }: PlayerScreenUIProps) => {
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
@@ -178,6 +282,35 @@ const PlayerScreenUI = ({
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
+
+    const [isTransitioning, setIsTransitioning] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!isFocused) {
+            setIsTransitioning(false);
+            return;
+        }
+
+        setIsTransitioning(true);
+
+        const unsubscribeEnd = navigation.addListener('transitionEnd', () => {
+            setIsTransitioning(false);
+        });
+
+        const task = InteractionManager.runAfterInteractions(() => {
+            setIsTransitioning(false);
+        });
+
+        const timeout = setTimeout(() => {
+            setIsTransitioning(false);
+        }, 600);
+
+        return () => {
+            unsubscribeEnd();
+            task.cancel();
+            clearTimeout(timeout);
+        };
+    }, [isFocused, navigation]);
     const { position, duration } = useProgress();
     const showTagColors = useSettingsStore(state => state.showTagColors);
     const showPlayerVisualizer = useSettingsStore(state => state.showPlayerVisualizer);
@@ -185,9 +318,10 @@ const PlayerScreenUI = ({
     const playerVisualizerColorMode = useSettingsStore(state => state.playerVisualizerColorMode);
     const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
     const playerBackgroundStyle = useSettingsStore(state => state.playerBackgroundStyle);
+    const showCanvas = useSettingsStore(state => state.showCanvas);
 
-    // Is something replacing the big cover? (visualizer OR cd/vinyl spinning)
-    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl';
+    // Is something replacing the big cover? (visualizer OR cd/vinyl spinning OR background canvas)
+    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
 
     const pointA = useABRepeatStore(state => state.pointA);
     const pointB = useABRepeatStore(state => state.pointB);
@@ -291,6 +425,46 @@ const PlayerScreenUI = ({
         transform: [{ rotate: `${spinDeg.value}deg` }],
     }));
 
+    const [isImmersive, setIsImmersive] = useState(false);
+    const toggleImmersiveMode = () => {
+        if (showCanvas && !!track.bgVideo) {
+            setIsImmersive(prev => !prev);
+        }
+    };
+
+    useEffect(() => {
+        if (!showCanvas || !track.bgVideo) {
+            setIsImmersive(false);
+        }
+    }, [track.bgVideo, showCanvas]);
+
+    const immersiveProgress = useSharedValue(0);
+
+    useEffect(() => {
+        immersiveProgress.value = withTiming(isImmersive ? 1 : 0, {
+            duration: 350,
+            easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
+        });
+    }, [isImmersive]);
+
+    const bottomControlsAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            opacity: 1 - immersiveProgress.value,
+            transform: [
+                { translateY: immersiveProgress.value * 60 }
+            ],
+            maxHeight: (1 - immersiveProgress.value) * 270,
+            overflow: 'hidden',
+        };
+    });
+
+    const infoContainerAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            // Animates to elegant position above the bottom safely (so it's not too low)
+            marginBottom: 8 + immersiveProgress.value * (insets.bottom + 62),
+        };
+    });
+
     const triggerHaptic = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
@@ -319,7 +493,6 @@ const PlayerScreenUI = ({
             hasTriggeredHaptic.value = false;
         });
 
-
     const longPressGesture = Gesture.LongPress()
         .minDuration(450)
         .onStart(() => {
@@ -327,7 +500,17 @@ const PlayerScreenUI = ({
             runOnJS(openPlayerMenu)();
         });
 
-    const composedGesture = Gesture.Simultaneous(panGesture, longPressGesture);
+    const tapGesture = Gesture.Tap()
+        .numberOfTaps(1)
+        .onStart(() => {
+            runOnJS(toggleImmersiveMode)();
+        });
+
+    const composedGesture = Gesture.Exclusive(
+        panGesture,
+        longPressGesture,
+        tapGesture
+    );
 
     const swipeAnimatedStyle = useAnimatedStyle(() => {
         return {
@@ -443,6 +626,16 @@ const PlayerScreenUI = ({
                 }
             />
 
+            {isFocused && !isTransitioning && showCanvas && !!track.bgVideo && (
+                <CanvasVideo
+                    key={track.bgVideo}
+                    sourceUri={track.bgVideo}
+                    isPlaying={isPlaying}
+                    isImmersive={isImmersive}
+                    gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                />
+            )}
+
             <View style={styles.safeArea}>
                 {/* Header */}
                 <View style={[styles.header, { marginTop: insets.top }]}>
@@ -472,10 +665,16 @@ const PlayerScreenUI = ({
                 </View>
 
                 {/* Artwork / Visualizer / CD / Vinyl Container */}
-                <View style={[styles.artworkContainer, isAltDisplay && { paddingHorizontal: 0 }]}>
+                <View style={[
+                    styles.artworkContainer, 
+                    isAltDisplay && { paddingHorizontal: 0 },
+                    isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
+                ]}>
                     <GestureDetector gesture={composedGesture}>
-                        <Animated.View style={[swipeAnimatedStyle, { width: '100%' }]}>
-                            {showPlayerVisualizer ? (
+                        <Animated.View style={[swipeAnimatedStyle, { width: '100%', height: '100%', justifyContent: 'center' }]}>
+                            {isImmersive ? (
+                                <View style={StyleSheet.absoluteFillObject} />
+                            ) : showPlayerVisualizer ? (
                                 <NativeVisualizer
                                     active={true}
                                     type={playerVisualizerType}
@@ -514,6 +713,8 @@ const PlayerScreenUI = ({
                                         />
                                     )}
                                 </Animated.View>
+                            ) : (showCanvas && !!track.bgVideo) ? (
+                                <View style={{ width: width - 64, height: width - 64 }} />
                             ) : (
                                 artworkSource && !imageError ? (
                                     <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
@@ -538,7 +739,7 @@ const PlayerScreenUI = ({
                 </View>
 
                 {/* Info */}
-                <View style={styles.infoContainer}>
+                <Animated.View style={[styles.infoContainer, infoContainerAnimatedStyle]}>
                     <View style={styles.infoTextContainer}>
                         {/* Tags row */}
                         <View style={styles.tagsRow}>
@@ -626,197 +827,201 @@ const PlayerScreenUI = ({
                             <Ionicons name="add" size={28} color={colors.text} />
                         </TouchableOpacity>
                     </View>
-                </View>
+                </Animated.View>
 
-                {/* Progress Slider */}
-                <View style={styles.progressSection}>
-                    <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
-                        <ABSliderMarkers duration={duration} />
-                        <Slider
-                            style={{ width: '100%', height: 40 }}
-                            minimumValue={0}
-                            maximumValue={duration > 0 ? duration : 1}
-                            value={isSeeking ? seekValue : position}
-                            minimumTrackTintColor={colors.text}
-                            maximumTrackTintColor={colors.overlayAlpha20}
-                            thumbTintColor={colors.text}
-                            onSlidingStart={(value) => {
-                                setIsSeeking(true);
-                                setSeekValue(value);
-                            }}
-                            onValueChange={(value) => {
-                                setSeekValue(value);
-                            }}
-                            onSlidingComplete={(value) => {
-                                setIsSeeking(false);
-                                TrackPlayer.seekTo(value).catch(() => { });
-                            }}
-                        />
-                    </View>
-                    <View style={styles.timeContainer}>
-                        <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
-                        <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
-                    </View>
-                </View>
-
-                {/* Controls */}
-                <View style={styles.controlsContainer}>
-
-                    {/* ── SHUFFLE ── */}
-                    <TouchableOpacity
-                        onPress={toggleShuffle}
-                        style={styles.secondaryControlButton}
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                    >
-                        <Ionicons
-                            name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
-                            size={24}
-                            color={isShuffleEnabled ? colors.accentLight : colors.disabled}
-                        />
-                    </TouchableOpacity>
-
-                    {/* ── ANTERIOR ── */}
-                    <TouchableOpacity
-                        onPress={() => {
-                            if (position > SKIP_PREVIOUS_THRESHOLD) {
-                                TrackPlayer.seekTo(0).catch(() => { });
-                            } else {
-                                TrackPlayer.skipToPrevious().catch(() => { });
-                            }
-                        }}
-                        style={styles.controlButton}
-                        disabled={!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD}
-                    >
-                        <Ionicons name="play-back" size={38} color={(hasPrevious || position > SKIP_PREVIOUS_THRESHOLD) ? colors.text : colors.disabled} />
-                    </TouchableOpacity>
-
-                    <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
-
-                    {/* ── SIGUIENTE ── */}
-                    <TouchableOpacity
-                        onPress={() => TrackPlayer.skipToNext().catch(() => { })}
-                        style={styles.controlButton}
-                        disabled={!hasNext}
-                    >
-                        <Ionicons name="play-forward" size={38} color={hasNext ? colors.text : colors.disabled} />
-                    </TouchableOpacity>
-
-                    {/* ── REPEAT ── */}
-                    <TouchableOpacity
-                        onPress={cycleRepeatMode}
-                        style={styles.secondaryControlButton}
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                    >
-                        <View>
-                            <Ionicons
-                                name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
-                                size={24}
-                                color={
-                                    repeatMode === RepeatMode.Off ? colors.disabled : colors.accentLight
-                                }
+                {/* Animated Bottom Controls Group */}
+                <Animated.View 
+                    style={[bottomControlsAnimatedStyle]} 
+                    pointerEvents={isImmersive ? 'none' : 'auto'}
+                >
+                    {/* Progress Slider */}
+                    <View style={styles.progressSection}>
+                        <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+                            <ABSliderMarkers duration={duration} />
+                            <Slider
+                                style={{ width: '100%', height: 40 }}
+                                minimumValue={0}
+                                maximumValue={duration > 0 ? duration : 1}
+                                value={isSeeking ? seekValue : position}
+                                minimumTrackTintColor={colors.text}
+                                maximumTrackTintColor={colors.overlayAlpha20}
+                                thumbTintColor={colors.text}
+                                onSlidingStart={(value) => {
+                                    setIsSeeking(true);
+                                    setSeekValue(value);
+                                }}
+                                onValueChange={(value) => {
+                                    setSeekValue(value);
+                                }}
+                                onSlidingComplete={(value) => {
+                                    setIsSeeking(false);
+                                    TrackPlayer.seekTo(value).catch(() => { });
+                                }}
                             />
-                            {repeatMode === RepeatMode.Track && (
-                                <Text style={styles.repeatOneBadge}>1</Text>
-                            )}
                         </View>
-                    </TouchableOpacity>
+                        <View style={styles.timeContainer}>
+                            <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
+                            <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
+                        </View>
+                    </View>
 
-                </View>
+                    {/* Controls */}
+                    <View style={styles.controlsContainer}>
+                        {/* Shuffle */}
+                        <TouchableOpacity
+                            onPress={toggleShuffle}
+                            style={styles.secondaryControlButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
+                                size={24}
+                                color={isShuffleEnabled ? colors.accentLight : colors.disabled}
+                            />
+                        </TouchableOpacity>
 
-                {/* Footer / Secondary Actions */}
-                <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
-                    {/* Left group: Sleep Timer + Speedometer + Lyrics + Cast */}
-                    <View style={styles.footerLeftGroup}>
+                        {/* Back */}
                         <TouchableOpacity
-                            onPress={openSleepTimer}
-                            style={styles.footerButton}
-                            disabled={isServerRunning}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name="timer-outline"
-                                size={24}
-                                color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={openSpeedPitch}
-                            style={styles.footerButton}
-                            disabled={isServerRunning}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name="speedometer-outline"
-                                size={24}
-                                color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Lyrics')}
-                            style={styles.footerButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name="mic-outline"
-                                size={24}
-                                color={colors.textSecondary}
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={openCastSheet}
-                            style={styles.footerButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name={isServerRunning ? "desktop" : "desktop-outline"}
-                                size={24}
-                                color={isServerRunning ? colors.accentLight : colors.textSecondary}
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => handleABButtonPress(position)}
-                            style={styles.footerButton}
-                            disabled={isServerRunning}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name={pointA !== null ? "infinite" : "infinite-outline"}
-                                size={24}
-                                color={
-                                    isServerRunning
-                                        ? colors.disabled
-                                        : pointB !== null
-                                            ? colors.accentLight
-                                            : pointA !== null
-                                                ? "rgba(167, 139, 250, 0.5)"
-                                                : colors.textSecondary
+                            onPress={() => {
+                                if (position > SKIP_PREVIOUS_THRESHOLD) {
+                                    TrackPlayer.seekTo(0).catch(() => { });
+                                } else {
+                                    TrackPlayer.skipToPrevious().catch(() => { });
                                 }
-                            />
+                            }}
+                            style={styles.controlButton}
+                            disabled={!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD}
+                        >
+                            <Ionicons name="play-back" size={38} color={(hasPrevious || position > SKIP_PREVIOUS_THRESHOLD) ? colors.text : colors.disabled} />
+                        </TouchableOpacity>
+
+                        <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
+
+                        {/* Forward */}
+                        <TouchableOpacity
+                            onPress={() => TrackPlayer.skipToNext().catch(() => { })}
+                            style={styles.controlButton}
+                            disabled={!hasNext}
+                        >
+                            <Ionicons name="play-forward" size={38} color={hasNext ? colors.text : colors.disabled} />
+                        </TouchableOpacity>
+
+                        {/* Repeat */}
+                        <TouchableOpacity
+                            onPress={cycleRepeatMode}
+                            style={styles.secondaryControlButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <View>
+                                <Ionicons
+                                    name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
+                                    size={24}
+                                    color={
+                                        repeatMode === RepeatMode.Off ? colors.disabled : colors.accentLight
+                                    }
+                                />
+                                {repeatMode === RepeatMode.Track && (
+                                    <Text style={styles.repeatOneBadge}>1</Text>
+                                )}
+                            </View>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Right group: Share + Queue */}
-                    <View style={styles.footerRightGroup}>
-                        <TouchableOpacity
-                            onPress={handleShare}
-                            style={styles.footerButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name="share-social-outline"
-                                size={24}
-                                color={colors.textSecondary}
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={openQueue}
-                            style={styles.footerButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons name="list" size={24} color={colors.textSecondary} />
-                        </TouchableOpacity>
+                    {/* Footer */}
+                    <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
+                        {/* Left group */}
+                        <View style={styles.footerLeftGroup}>
+                            <TouchableOpacity
+                                onPress={openSleepTimer}
+                                style={styles.footerButton}
+                                disabled={isServerRunning}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name="timer-outline"
+                                    size={24}
+                                    color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={openSpeedPitch}
+                                style={styles.footerButton}
+                                disabled={isServerRunning}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name="speedometer-outline"
+                                    size={24}
+                                    color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Lyrics')}
+                                style={styles.footerButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name="mic-outline"
+                                    size={24}
+                                    color={colors.textSecondary}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={openCastSheet}
+                                style={styles.footerButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name={isServerRunning ? "desktop" : "desktop-outline"}
+                                    size={24}
+                                    color={isServerRunning ? colors.accentLight : colors.textSecondary}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => handleABButtonPress(position)}
+                                style={styles.footerButton}
+                                disabled={isServerRunning}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name={pointA !== null ? "infinite" : "infinite-outline"}
+                                    size={24}
+                                    color={
+                                        isServerRunning
+                                            ? colors.disabled
+                                            : pointB !== null
+                                                ? colors.accentLight
+                                                : pointA !== null
+                                                    ? "rgba(167, 139, 250, 0.5)"
+                                                    : colors.textSecondary
+                                    }
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Right group */}
+                        <View style={styles.footerRightGroup}>
+                            <TouchableOpacity
+                                onPress={handleShare}
+                                style={styles.footerButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons
+                                    name="share-social-outline"
+                                    size={24}
+                                    color={colors.textSecondary}
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={openQueue}
+                                style={styles.footerButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Ionicons name="list" size={24} color={colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                </Animated.View>
             </View>
         </View>
     );
@@ -854,8 +1059,8 @@ const PlayerScreen = () => {
                 formatTimestamp={formatTrackTime}
                 hasNext={hasNext}
                 hasPrevious={hasPrevious}
+                isFocused={isFocused}
             />
-            <PlayerMenuSheet />
         </>
     );
 };

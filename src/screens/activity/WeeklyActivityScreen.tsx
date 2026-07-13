@@ -44,13 +44,13 @@ export default function WeeklyActivityScreen() {
   );
 
   const formatDuration = (seconds: number) => {
-    if (!seconds || seconds <= 0) return '0 min';
+    if (!seconds || seconds <= 0) return `0 ${t('activity.min_suffix')}`;
     const minutes = Math.round(seconds / 60);
     if (minutes < 60) {
-      return `${minutes} min`;
+      return `${minutes} ${t('activity.min_suffix')}`;
     }
     const hours = (seconds / 3600).toFixed(1);
-    return `${hours} h`;
+    return `${hours} ${t('activity.hour_suffix')}`;
   };
 
   const handleArtistPress = () => {
@@ -98,7 +98,7 @@ export default function WeeklyActivityScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { fontFamily: fonts.bold, color: colors.text }]}>
-          {t('home.weekly_stats_title') || 'ACTIVIDAD SEMANAL'}
+          {t('home.weekly_stats_title')}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -115,16 +115,16 @@ export default function WeeklyActivityScreen() {
               <View style={styles.heroRow}>
                 <Ionicons name="time-outline" size={28} color={colors.accentLight} />
                 <Text style={[styles.heroValue, { fontFamily: fonts.bold, color: colors.text }]}>
-                  {totalHours.toFixed(1)} <Text style={{ fontSize: 16, fontWeight: '500' }}>h</Text>
+                  {totalHours.toFixed(1)} <Text style={{ fontSize: 16, fontWeight: '500' }}>{t('activity.hour_suffix')}</Text>
                 </Text>
               </View>
               <Text style={[styles.heroLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                {t('home.weekly_stats_hours_desc') || 'Tiempo total de escucha en los últimos 7 días'}
+                {t('home.weekly_stats_hours_desc')}
               </Text>
             </View>
 
             <Text style={[styles.sectionHeading, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
-              {t('home.weekly_highlights') || 'TUS DESTACADOS DE LA SEMANA'}
+              {t('home.weekly_highlights')}
             </Text>
 
             {/* TOP ARTIST CARD */}
@@ -143,13 +143,13 @@ export default function WeeklyActivityScreen() {
               )}
               <View style={styles.cardInfo}>
                 <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_artist') || 'Artista top'}
+                  {t('home.weekly_stats_artist')}
                 </Text>
                 <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                  {topArtist}
+                  {topArtist || t('activity.none')}
                 </Text>
                 <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_play_time', { time: formatDuration(topArtistDuration) }) || `Tiempo de escucha: ${formatDuration(topArtistDuration)}`}
+                  {t('home.weekly_stats_play_time', { time: formatDuration(topArtistDuration) })}
                 </Text>
               </View>
               {topArtistId ? (
@@ -173,13 +173,13 @@ export default function WeeklyActivityScreen() {
               )}
               <View style={styles.cardInfo}>
                 <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_album') || 'Álbum top'}
+                  {t('home.weekly_stats_album')}
                 </Text>
                 <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                  {topAlbum}
+                  {topAlbum || t('activity.none')}
                 </Text>
                 <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_play_time', { time: formatDuration(topAlbumDuration) }) || `Tiempo de escucha: ${formatDuration(topAlbumDuration)}`}
+                  {t('home.weekly_stats_play_time', { time: formatDuration(topAlbumDuration) })}
                 </Text>
               </View>
               {topAlbumId ? (
@@ -203,13 +203,13 @@ export default function WeeklyActivityScreen() {
               )}
               <View style={styles.cardInfo}>
                 <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_song') || 'Canción top'}
+                  {t('home.weekly_stats_song')}
                 </Text>
                 <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                  {topSong}
+                  {topSong || t('activity.none')}
                 </Text>
                 <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
-                  {topSongArtist} · {formatDuration(topSongDuration)}
+                  {topSongArtist || t('activity.unknown_artist')} · {formatDuration(topSongDuration)}
                 </Text>
               </View>
               {topSongId ? (
@@ -221,7 +221,7 @@ export default function WeeklyActivityScreen() {
           <View style={styles.emptyContainer}>
             <Ionicons name="bar-chart-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16, opacity: 0.5 }} />
             <Text style={[styles.emptyText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
-              {t('home.weekly_stats_empty') || 'No hay suficientes datos de reproducción esta semana'}
+              {t('home.weekly_stats_empty')}
             </Text>
           </View>
         )}

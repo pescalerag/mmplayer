@@ -7,6 +7,7 @@ import LibraryScreen from '../screens/library/LibraryScreen';
 import TagDetailScreen from '../screens/tags/TagDetailScreen';
 import FavoritesDetailScreen from '../screens/library/FavoritesDetailScreen';
 import PlaylistDetailScreen from '../screens/library/PlaylistDetailScreen';
+import SmartListDetailScreen from '../screens/library/SmartListDetailScreen';
 import { LibraryStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<LibraryStackParamList>();
@@ -25,6 +26,7 @@ export default function LibraryNavigator() {
             <Stack.Screen name="TagDetail" component={TagDetailScreen} getId={({ params }) => params.tagId} />
             <Stack.Screen name="FavoritesDetail" component={FavoritesDetailScreen} />
             <Stack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} getId={({ params }) => params.playlistId} />
+            <Stack.Screen name="SmartListDetail" component={SmartListDetailScreen} getId={({ params }) => params.smartListId} />
         </Stack.Navigator>
     );
 }

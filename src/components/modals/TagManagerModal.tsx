@@ -13,7 +13,10 @@ import {
   View,
 } from 'react-native';
 import Tag from '../../database/models/Tag';
+import TrackTag from '../../database/models/TrackTag';
 import { TagService } from '../../services/tagService';
+import { database } from '../../database';
+import { Q } from '@nozbe/watermelondb';
 
 
 
@@ -21,7 +24,12 @@ export default function TagManagerModal() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { isVisible, props: { targetType, targetId, targetTitle } } = useSheetProps<{ targetType: 'track' | 'album' | null; targetId: string | null; targetTitle: string | null }>('tag-manager');
+  const { isVisible, props: { targetType, targetId, targetTitle, tracks } } = useSheetProps<{
+    targetType: 'track' | 'album' | 'batch' | null;
+    targetId: string | null;
+    targetTitle: string | null;
+    tracks?: any[];
+  }>('tag-manager');
   
 
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -37,6 +45,17 @@ export default function TagManagerModal() {
       let selectedIds: string[] = [];
       if (targetType === 'track') {
         selectedIds = await TagService.getTagIdsForTrack(targetId);
+      } else if (targetType === 'batch' && tracks && tracks.length > 0) {
+        // Find tag IDs for each track
+        const trackTagIdsPromises = tracks.map(track => TagService.getTagIdsForTrack(track.id));
+        const tracksTagIds = await Promise.all(trackTagIdsPromises);
+        
+        // Intersection: tags that are associated with ALL selected tracks
+        if (tracksTagIds.length > 0) {
+          selectedIds = tracksTagIds[0].filter(id => 
+            tracksTagIds.every(idsList => idsList.includes(id))
+          );
+        }
       } else {
         selectedIds = await TagService.getTagIdsForAlbum(targetId);
       }
@@ -44,7 +63,7 @@ export default function TagManagerModal() {
     } catch (e) {
       console.error('Error cargando tags:', e);
     }
-  }, [targetId, targetType]);
+  }, [targetId, targetType, tracks]);
 
   useEffect(() => {
     if (isVisible) {
@@ -103,6 +122,43 @@ export default function TagManagerModal() {
       } catch (e) {
         console.error('Error toggling track tag:', e);
       }
+    } else if (targetType === 'batch' && tracks) {
+      try {
+        if (isAssociated) {
+          // Remove from all tracks
+          await database.write(async () => {
+            const trackTagsCollection = database.collections.get<TrackTag>('track_tags');
+            for (const track of tracks) {
+              const existingLinks = await trackTagsCollection
+                .query(Q.where('track_id', track.id), Q.where('tag_id', tagId))
+                .fetch();
+              for (const link of existingLinks) {
+                await link.destroyPermanently();
+              }
+            }
+          });
+          removeTagFromLocalSelection(tagId);
+        } else {
+          // Add to all tracks that don't have it yet
+          await database.write(async () => {
+            const trackTagsCollection = database.collections.get<TrackTag>('track_tags');
+            for (const track of tracks) {
+              const existingLinks = await trackTagsCollection
+                .query(Q.where('track_id', track.id), Q.where('tag_id', tagId))
+                .fetch();
+              if (existingLinks.length === 0) {
+                await trackTagsCollection.create(tt => {
+                  tt.track.id = track.id;
+                  tt.tag.id = tagId;
+                });
+              }
+            }
+          });
+          addTagToLocalSelection(tagId);
+        }
+      } catch (e) {
+        console.error('Error toggling batch track tags:', e);
+      }
     } else {
       handleAlbumTagToggle(targetId, tagId, isAssociated);
     }
@@ -112,7 +168,7 @@ export default function TagManagerModal() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {targetType === 'track' ? t('tags.song_tags') : t('tags.album_tags')}
+          {targetType === 'track' ? t('tags.song_tags') : targetType === 'batch' ? 'Etiquetas en lote' : t('tags.album_tags')}
         </Text>
         <Text style={styles.headerSubtitle} numberOfLines={1}>
           {targetTitle}

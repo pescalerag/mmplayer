@@ -53,22 +53,24 @@ export default function FolderMenuSheet() {
   if (!selectedFolderPath) return null;
 
   const handleExclude = () => {
-    Alert.alert(
-      t('actions.exclude_folder_title'),
-      t('actions.exclude_folder_confirm'),
-      [
-        { text: t('actions.cancel'), style: "cancel" },
-        {
-          text: t('actions.exclude'),
-          style: "destructive",
-          onPress: async () => {
-            closeMenu();
-            excludeFolder(selectedFolderPath);
-            await ScannerService.deleteFolderContents(selectedFolderPath);
+    setTimeout(() => {
+      Alert.alert(
+        t('actions.exclude_folder_title'),
+        t('actions.exclude_folder_confirm'),
+        [
+          { text: t('actions.cancel'), style: "cancel" },
+          {
+            text: t('actions.exclude'),
+            style: "destructive",
+            onPress: async () => {
+              closeMenu();
+              excludeFolder(selectedFolderPath);
+              await ScannerService.deleteFolderContents(selectedFolderPath);
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }, 100);
   };
 
   return (

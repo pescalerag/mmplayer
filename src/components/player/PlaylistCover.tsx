@@ -8,6 +8,7 @@ import { database } from '../../database';
 import PlaylistTrack from '../../database/models/PlaylistTrack';
 import Playlist from '../../database/models/Playlist';
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { SmartListService } from '../../services/SmartListService';
 
 interface PlaylistCoverProps {
     readonly playlistId: string;
@@ -35,6 +36,34 @@ export default function PlaylistCover({
 
     const w = propWidth ?? size;
     const h = propHeight ?? size;
+
+    if (playlistId.startsWith('smart-list-')) {
+        const id = playlistId.replace('smart-list-', '');
+        const smartList = SmartListService.getSmartLists().find(l => l.id === id);
+        const iconName = smartList?.placeholderIcon || 'musical-notes';
+        
+        let gradientColors: readonly [string, string] = ['#F59E0B', '#D97706']; // Gold default
+        if (id.includes('week')) {
+            gradientColors = ['#3B82F6', '#1D4ED8']; // Blue
+        } else if (id.includes('month')) {
+            gradientColors = ['#10B981', '#047857']; // Green
+        } else if (id.includes('rating')) {
+            gradientColors = ['#EC4899', '#BE185D']; // Pink
+        } else if (id === 'top_50') {
+            gradientColors = ['#8B5CF6', '#6D28D9']; // Violet
+        }
+
+        return (
+            <LinearGradient
+                colors={gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.container, { width: w, height: h, borderRadius }]}
+            >
+                <Ionicons name={iconName} size={Math.min(w, h) * 0.45} color={colors.text} />
+            </LinearGradient>
+        );
+    }
 
     useEffect(() => {
         if (isFavorites || customCoverUrl) {

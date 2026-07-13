@@ -1,19 +1,17 @@
-import { openMetadataEditor, openPlaylistSelector } from '@/store/useUIStore';
+import { openMetadataEditor, openPlaylistSelector, openBatchMenu } from '@/store/useUIStore';
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 
-import { usePlayerStore } from '../../store/usePlayerStore';
-import { useToastStore } from '../../store/useToastStore';
-
 import { useAppTheme } from '@/hooks/useAppTheme';
-import i18n from '../../constants/i18n';
+import { useTranslation } from 'react-i18next';
 
 export default function MultiSelectActionBar() {
     const { colors, fonts, fontWeights } = useAppTheme();
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
     
     const { isSelectionMode, selectedTracks, exitSelectionMode } = useMultiSelectStore();
     
@@ -42,10 +40,8 @@ export default function MultiSelectActionBar() {
         openPlaylistSelector(selectedTracks);
     };
 
-    const handleAddToQueue = async () => {
-        await usePlayerStore.getState().addMultipleToQueueEnd(selectedTracks);
-        useToastStore.getState().showToast(i18n.t('toasts.added_to_queue'), 'list');
-        exitSelectionMode();
+    const handleOpenBatchMenu = () => {
+        openBatchMenu(selectedTracks);
     };
 
     const handleEditMetadata = () => {
@@ -68,13 +64,13 @@ export default function MultiSelectActionBar() {
                     <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.countText, { color: colors.text, fontFamily: fonts.regular, fontWeight: fontWeights.bold }]}>
-                    {selectedTracks.length} seleccionadas
+                    {t('actions.selected_count', { count: selectedTracks.length })}
                 </Text>
             </View>
 
             <View style={styles.actionsRow}>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handleAddToQueue}>
-                    <Ionicons name="list" size={24} color={colors.text} />
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handleOpenBatchMenu}>
+                    <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handleEditMetadata}>

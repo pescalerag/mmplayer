@@ -6,6 +6,7 @@ import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
 import SearchScreen from '../screens/search/SearchScreen';
 import TagDetailScreen from '../screens/tags/TagDetailScreen';
 import PlaylistDetailScreen from '../screens/library/PlaylistDetailScreen';
+import SmartListDetailScreen from '../screens/library/SmartListDetailScreen';
 import { SearchStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<SearchStackParamList>();
@@ -16,7 +17,7 @@ export default function SearchNavigator() {
             headerShown: false,
             animation: 'slide_from_right',
             contentStyle: { backgroundColor: '#121212' },
-            freezeOnBlur: true
+            freezeOnBlur: false
         }}>
             <Stack.Screen name="Search" component={SearchScreen} />
             <Stack.Screen
@@ -38,6 +39,11 @@ export default function SearchNavigator() {
                 name="PlaylistDetail"
                 component={PlaylistDetailScreen}
                 getId={({ params }) => params.playlistId}
+            />
+            <Stack.Screen
+                name="SmartListDetail"
+                component={SmartListDetailScreen}
+                getId={({ params }) => params.smartListId}
             />
         </Stack.Navigator>
     );

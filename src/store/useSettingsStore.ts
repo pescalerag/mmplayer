@@ -72,6 +72,8 @@ interface SettingsState {
     setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl') => void;
     playerBackgroundStyle: 'cover' | 'gradient';
     setPlayerBackgroundStyle: (value: 'cover' | 'gradient') => void;
+    showCanvas: boolean;
+    setShowCanvas: (value: boolean) => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -146,6 +148,8 @@ export const useSettingsStore = create<SettingsState>()(
             setPlayerCoverStyle: (value) => set({ playerCoverStyle: value }),
             playerBackgroundStyle: 'cover',
             setPlayerBackgroundStyle: (value) => set({ playerBackgroundStyle: value }),
+            showCanvas: true,
+            setShowCanvas: (value) => set({ showCanvas: value }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

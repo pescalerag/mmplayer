@@ -36,7 +36,36 @@
     "title": "¡Bienvenido a MMPlayer!",
     "subtitle": "¿Cómo te llamas?",
     "placeholder": "Tu alias...",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "permission_title": "Permisos de Almacenamiento",
+    "permission_subtitle": "Para poder escanear y reproducir la música de tu dispositivo, necesitamos acceder al almacenamiento de archivos de audio.",
+    "permission_grant_btn": "Conceder permiso",
+    "permission_granted": "¡Permiso concedido!",
+    "permission_required_warning": "Se requieren permisos de almacenamiento para poder listar y reproducir música. Por favor, concede los permisos.",
+    "settings_title": "Ajustes Iniciales",
+    "settings_subtitle": "Personaliza tu experiencia. Podrás cambiar esto más tarde en la pantalla de Configuración.",
+    "settings_notice": "Nota: Estos ajustes los puedes cambiar en la pantalla de configuración.",
+    "settings_swipe_title": "Acciones de deslizamiento",
+    "settings_finish_btn": "Finalizar y entrar",
+    "features_title": "Descubre MMPlayer",
+    "features_subtitle": "Saca el máximo partido a tu reproductor de música local",
+    "features_list_scanner": "Escáner de audio rápido e inteligente",
+    "features_list_eq": "Ecualizador con refuerzo de graves",
+    "features_list_exclusion": "Exclusión de carpetas (oculta audios de otras apps)",
+    "features_list_cast": "Transmisión (Cast a dispositivos de red)",
+    "features_list_timer": "Temporizador de apagado automático",
+    "features_list_artists": "Soporte real de artistas colaboradores",
+    "features_list_images": "Descarga automática de imágenes de artistas",
+    "features_list_playlists": "Playlists personalizadas y etiquetas de colores",
+    "features_list_multiselect": "Selección múltiple para acciones por lotes",
+    "features_list_queue": "Gestión avanzada de la cola de reproducción",
+    "features_list_visualizers": "Visualizadores interactivos en el reproductor",
+    "tip_title": "Consejo de Experto",
+    "tip_desc": "Mantén presionado cualquier elemento (canción, álbum o artista) o toca el botón de tres puntos siempre que puedas para descubrir opciones ocultas, accesos rápidos y herramientas avanzadas.",
+    "and_much_more": "¡Y mucho más!...",
+    "open_settings_ios": "Abrir Ajustes",
+    "open_settings_android": "Configuración de la App",
+    "fade_desc": "Activa una atenuación suave del volumen al pausar, reanudar o cambiar de canción."
   },
   "navigation": {
     "home": "Inicio",
@@ -90,7 +119,8 @@
     "no_results": "No hemos encontrado nada para \"{{query}}\"",
     "no_tags": "No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum.",
     "compact": "Compacto",
-    "normal": "Normal"
+    "normal": "Normal",
+    "smart_lists_for_you": "Playlists para ti"
   },
   "tags": {
     "manager": "Gestión de etiquetas",
@@ -248,14 +278,21 @@
     "bass_boost_desc": "Añade potencia extra a las frecuencias bajas",
     "eq_reset": "Restablecer",
     "eq_hz": "Hz",
-    "eq_khz": "kHz"
+    "eq_khz": "kHz",
+    "scan_replaygain_error": "No se pudo completar el análisis."
   },
   "queue": {
     "title": "Cola",
     "manage": "Gestionar cola",
     "what_to_do": "¿Qué deseas hacer?",
     "stop_playback": "Parar la reproducción",
-    "clear_manual": "Borrar la cola añadida"
+    "clear_manual": "Borrar la cola añadida",
+    "empty": "No hay canciones en la cola",
+    "history_empty": "Aún no hay historial",
+    "clear_context": "Borrar contexto",
+    "history_tab": "Anterior",
+    "hidden_upcoming": "y {{count}} canción más en la cola",
+    "hidden_upcoming_plural": "y {{count}} canciones más en la cola"
   },
   "playlist": {
     "new": "Nueva playlist",
@@ -287,6 +324,8 @@
     "add_to_queue": "Añadir al final de la cola",
     "add_to_playlist": "Añadir a playlist",
     "remove_from_playlist": "Eliminar de esta lista",
+    "add_to_favorites": "Añadir a favoritos",
+    "remove_from_favorites": "Quitar de favoritos",
     "unknown": "Desconocido",
     "pin_library": "Fijar en la biblioteca",
     "unpin_library": "Desfijar de la biblioteca",
@@ -341,7 +380,19 @@
     "duplicate_songs_partial": "{{duplicateCount}} de las {{totalCount}} canciones ya están en esta lista de reproducción. ¿Quieres añadir solo las nuevas o todas?",
     "duplicate_songs_all": "Todas las canciones ({{count}}) ya están en esta lista de reproducción. ¿Quieres añadirlas de todos modos?",
     "add_song_to": "Añadir \"{{title}}\" a...",
-    "add_songs_to": "Añadir {{count}} canciones a..."
+    "add_songs_to": "Añadir {{count}} canciones a...",
+    "canvas_add": "Añadir vídeo de fondo (Canvas)",
+    "canvas_change": "Cambiar vídeo de fondo (Canvas)",
+    "canvas_remove": "Eliminar vídeo de fondo (Canvas)",
+    "canvas_gallery_permission": "Se requieren permisos de galería para seleccionar un vídeo.",
+    "canvas_saved": "Vídeo de fondo guardado correctamente",
+    "canvas_removed": "Vídeo de fondo eliminado",
+    "canvas_error": "Hubo un error al seleccionar el vídeo.",
+    "rating_label": "VALORACIÓN",
+    "rating_none": "Sin valorar",
+    "share_as_zip": "Compartir selección como ZIP",
+    "error": "Error",
+    "selected_count": "{{count}} seleccionadas"
   },
   "toasts": {
     "syncing": "Sincronizando Biblioteca...",
@@ -350,6 +401,7 @@
     "playing_next": "Añadido a continuación",
     "added_to_queue": "Añadido a la cola",
     "added_to_favourites": "Añadido a favoritos",
+    "removed_from_favourites": "Eliminado de favoritos",
     "added_to_new_playlist": "Añadido a la nueva playlist",
     "added_to_playlist": "Añadido a la playlist",
     "folder_next": "Carpeta añadida a continuación",
@@ -360,7 +412,26 @@
     "added_to_new_playlist_plural": "{{count}} añadidas a la nueva playlist",
     "playlist_created": "Playlist creada",
     "tag_already_exists": "Ya existe una etiqueta con ese nombre",
-    "cast_stopped": "Casteo detenido"
+    "cast_stopped": "Casteo detenido",
+    "preparing_zip": "Preparando archivos...",
+    "copying_zip": "Copiando canción {{index}} de {{total}}...",
+    "compressing_zip": "Comprimiendo selección...",
+    "sharing_zip": "Abriendo selector para compartir...",
+    "sharing_unavailable": "El servicio de compartir no está disponible.",
+    "share_zip_title": "Compartir canciones",
+    "cleaning_zip": "Limpiando archivos temporales...",
+    "library_reconciled": "{{count}} canción reubicada",
+    "library_reconciled_plural": "{{count}} canciones reubicadas",
+    "library_updated": "Biblioteca actualizada",
+    "library_added_tracks": "{{count}} nuevas canciones añadidas",
+    "library_deleted_tracks": "{{count}} canciones eliminadas",
+    "library_up_to_date": "Biblioteca al día",
+    "ab_point_a_set": "Punto A fijado",
+    "ab_point_b_set": "Punto B fijado. Bucle activado",
+    "ab_point_a_updated": "Punto A actualizado",
+    "ab_deactivated": "Bucle A-B desactivado",
+    "playlist_no_songs": "La Playlist no tiene canciones",
+    "artist_no_songs": "El artista no tiene canciones"
   },
   "changelog": {
     "history_title": "Historial de versiones",
@@ -505,7 +576,20 @@
     "time_label": "Tiempo",
     "no_data": "No hay datos de reproducción para este período",
     "total_listening_time": "Tiempo total de escucha · {{period}}",
-    "total_plays": "Total de reproducciones · {{period}}"
+    "total_plays": "Total de reproducciones · {{period}}",
+    "none": "Ninguno",
+    "min_suffix": "min",
+    "hour_suffix": "h",
+    "locale_code": "es-ES",
+    "all_activity": "Toda la actividad",
+    "unknown_artist": "Artista desconocido",
+    "periods": {
+      "day": "Día",
+      "week": "Semana",
+      "month": "Mes",
+      "year": "Año",
+      "all": "Todo"
+    }
   },
   "sleep_timer": {
     "title": "Temporizador de apagado",
@@ -526,7 +610,8 @@
     "starting": "Iniciando...",
     "stopping": "Deteniendo...",
     "banner_label": "Casteando a tu PC",
-    "banner_tap": "Toca para gestionar"
+    "banner_tap": "Toca para gestionar",
+    "start_error": "No se pudo iniciar el casteo."
   },
   "audio_effects": {
     "title": "Efectos de Audio",
@@ -586,7 +671,12 @@
     "delete_confirm": "¿Estás seguro de que quieres eliminar las letras de esta canción?",
     "delete_success": "Letras eliminadas correctamente.",
     "search_success": "Letras encontradas e importadas correctamente.",
-    "search_not_found": "No se encontraron letras para esta canción en internet."
+    "search_not_found": "No se encontraron letras para esta canción en internet.",
+    "import_success": "Letras importadas correctamente.",
+    "read_error": "No se pudo leer el archivo de letras.",
+    "save_error": "No se pudieron guardar los cambios.",
+    "search_error": "Ocurrió un error al buscar las letras.",
+    "delete_error": "No se pudieron eliminar las letras."
   },
   "visualizer": {
     "menu_title": "Opciones de Visualización",
@@ -607,6 +697,41 @@
     "cover_style_vinyl": "Vinilo Giratorio",
     "background_style": "Estilo de Fondo",
     "background_style_cover": "Carátula Difuminada",
-    "background_style_gradient": "Degradado de Color"
+    "background_style_gradient": "Degradado de Color",
+    "show_canvas": "Mostrar Canvas",
+    "show_canvas_desc": "Reproducir vídeos de fondo en bucle si están disponibles"
+  },
+  "sort": {
+    "title": "Ordenar por",
+    "az": "A-Z",
+    "za": "Z-A",
+    "year_desc": "Año (Reciente)",
+    "year_asc": "Año (Antiguo)",
+    "duration_desc": "Mayor Duración",
+    "duration_asc": "Menor Duración",
+    "recent_desc": "Más recientes",
+    "recent_asc": "Más antiguas"
+  },
+  "backup": {
+    "preparing": "Preparando datos para la copia de seguridad...",
+    "exporting_table": "Exportando tabla {{table}}...",
+    "writing_file": "Escribiendo archivo de copia de seguridad...",
+    "sharing_unavailable": "El servicio de compartir no está disponible en este dispositivo.",
+    "opening_share": "Abriendo selector para guardar copia...",
+    "export_title": "Exportar Copia de Seguridad",
+    "export_success": "Copia de seguridad exportada correctamente.",
+    "export_error": "Error desconocido al exportar.",
+    "stopping_player": "Deteniendo reproductor de música...",
+    "reading_file": "Leyendo archivo de copia de seguridad...",
+    "processing_data": "Procesando datos del archivo...",
+    "invalid_format": "El archivo no tiene un formato JSON válido.",
+    "incompatible_data": "El archivo seleccionado no contiene datos compatibles de copia de seguridad.",
+    "clearing_db": "Limpiando base de datos actual...",
+    "restoring_data": "Restaurando datos desde la copia de seguridad...",
+    "import_success": "Copia de seguridad restaurada correctamente.",
+    "import_error": "Error al importar la copia de seguridad.",
+    "saving_records": "Guardando {{count}} registros en la base de datos...",
+    "reconciling": "Reconciliando biblioteca local...",
+    "reconciling_phase": "Reconciliando: {{phase}}"
   }
 }

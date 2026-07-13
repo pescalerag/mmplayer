@@ -24,12 +24,14 @@ export type TopMatch =
 
 const TRACKS_PER_PAGE = 50;
 
-const normalizeText = (text: string) =>
-    text
+const normalizeText = (text: string | null | undefined) => {
+    if (!text) return "";
+    return text
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s]/g, "");
+};
 
 const buildTrackConditions = async (
     searchPattern: string,
@@ -187,6 +189,13 @@ export function useMusicSearch(query: string) {
                 const trackConditions = await buildTrackConditions(searchPattern, artistIds, albumIds);
                 trackConditionsRef.current = trackConditions;
 
+                const queryClauses: any[] = [];
+                if (trackConditions.length > 1) {
+                    queryClauses.push(Q.or(...trackConditions));
+                } else if (trackConditions.length === 1) {
+                    queryClauses.push(trackConditions[0]);
+                }
+
                 // Also query tracks starting with query directly to ensure they are returned first, 
                 // in case they got cut off by pagination limits.
                 const startsWithPattern = `${Q.sanitizeLikeString(normalizedQuery)}%`;
@@ -196,7 +205,7 @@ export function useMusicSearch(query: string) {
                         Q.take(10)
                     ).fetch(),
                     database.collections.get<Track>('tracks').query(
-                        Q.or(...trackConditions),
+                        ...queryClauses,
                         Q.sortBy('title', Q.asc),
                         Q.skip(0),
                         Q.take(TRACKS_PER_PAGE)
@@ -282,8 +291,16 @@ export function useMusicSearch(query: string) {
             const nextPage = page + 1;
             const nextOffset = nextPage * TRACKS_PER_PAGE;
 
+            const conditions = trackConditionsRef.current;
+            const queryClauses: any[] = [];
+            if (conditions.length > 1) {
+                queryClauses.push(Q.or(...conditions));
+            } else if (conditions.length === 1) {
+                queryClauses.push(conditions[0]);
+            }
+
             const newTracks = await database.collections.get<Track>('tracks').query(
-                Q.or(...trackConditionsRef.current),
+                ...queryClauses,
                 Q.sortBy('title', Q.asc),
                 Q.skip(nextOffset),
                 Q.take(TRACKS_PER_PAGE)

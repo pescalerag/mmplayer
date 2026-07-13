@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
+import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -11,31 +12,30 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as NavigationBar from 'expo-navigation-bar';
 import { SheetType, useUIStore } from '../../store/useUIStore';
 
 // Components
-import TrackMenuSheet from '@/components/sheets/TrackMenuSheet';
-import LyricsMenuSheet from '@/components/sheets/LyricsMenuSheet';
-import AlbumMenuSheet from '@/components/sheets/AlbumMenuSheet';
-import ArtistMenuSheet from '@/components/sheets/ArtistMenuSheet';
-import SortModalSheet from '@/components/sheets/SortModalSheet';
-import QueueSheet from '@/components/sheets/QueueSheet';
-import TagManagerModal from '@/components/modals/TagManagerModal';
-import TagFormModal from '@/components/modals/TagFormModal';
-import TagMenuSheet from '@/components/sheets/TagMenuSheet';
 import PlaylistSelectorModal from '@/components/modals/PlaylistSelectorModal';
-import PlaylistMenuSheet from '@/components/sheets/PlaylistMenuSheet';
-import FolderMenuSheet from '@/components/sheets/FolderMenuSheet';
-import ArtistsListSheet from '@/components/sheets/ArtistsListSheet';
-import SleepTimerSheet from '@/components/sheets/SleepTimerSheet';
-import LocalCastSheet from '@/components/sheets/LocalCastSheet';
-import SpeedPitchSheet from '@/components/sheets/SpeedPitchSheet';
-import LibraryTabsOrderSheet from '@/components/sheets/LibraryTabsOrderSheet';
+import TagManagerModal from '@/components/modals/TagManagerModal';
+import AlbumMenuSheet from '@/components/sheets/AlbumMenuSheet';
 import AppTabsOrderSheet from '@/components/sheets/AppTabsOrderSheet';
+import ArtistMenuSheet from '@/components/sheets/ArtistMenuSheet';
+import ArtistsListSheet from '@/components/sheets/ArtistsListSheet';
+import FolderMenuSheet from '@/components/sheets/FolderMenuSheet';
 import HomeSectionsSheet from '@/components/sheets/HomeSectionsSheet';
-import SwipeActionSheet from '@/components/sheets/SwipeActionSheet';
+import LibraryTabsOrderSheet from '@/components/sheets/LibraryTabsOrderSheet';
+import LocalCastSheet from '@/components/sheets/LocalCastSheet';
+import LyricsMenuSheet from '@/components/sheets/LyricsMenuSheet';
 import MetadataEditorSheet from '@/components/sheets/MetadataEditorSheet';
+import PlaylistMenuSheet from '@/components/sheets/PlaylistMenuSheet';
+import PlayerMenuSheet from '@/components/sheets/PlayerMenuSheet';
+import SleepTimerSheet from '@/components/sheets/SleepTimerSheet';
+import SortModalSheet from '@/components/sheets/SortModalSheet';
+import SpeedPitchSheet from '@/components/sheets/SpeedPitchSheet';
+import SwipeActionSheet from '@/components/sheets/SwipeActionSheet';
+import TagMenuSheet from '@/components/sheets/TagMenuSheet';
+import TrackMenuSheet from '@/components/sheets/TrackMenuSheet';
+import BatchMenuSheet from '@/components/sheets/BatchMenuSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -49,7 +49,8 @@ export default function GlobalBottomSheet() {
 
   const [renderedSheet, setRenderedSheet] = useState<SheetType | null>(null);
 
-  const isVisible = activeSheet !== null;
+  const effectiveSheet = activeSheet === 'queue' ? null : activeSheet;
+  const isVisible = effectiveSheet !== null;
 
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -58,10 +59,10 @@ export default function GlobalBottomSheet() {
 
   // Track activeSheet changes to handle mount/unmount and transitions
   useEffect(() => {
-    if (activeSheet) {
-      setRenderedSheet(activeSheet);
+    if (effectiveSheet) {
+      setRenderedSheet(effectiveSheet);
       if (Platform.OS === 'android') {
-        NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
+        NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
       }
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -92,7 +93,7 @@ export default function GlobalBottomSheet() {
         setRenderedSheet(null);
       });
     }
-  }, [activeSheet, fadeAnim, slideAnim]);
+  }, [effectiveSheet, fadeAnim, slideAnim]);
 
   // Handle hardware back press on Android
   useEffect(() => {
@@ -146,12 +147,8 @@ export default function GlobalBottomSheet() {
         return <ArtistMenuSheet />;
       case 'sort-modal':
         return <SortModalSheet />;
-      case 'queue':
-        return <QueueSheet />;
       case 'tag-manager':
         return <TagManagerModal />;
-      case 'tag-form':
-        return <TagFormModal />;
       case 'tag-menu':
         return <TagMenuSheet />;
       case 'playlist-selector':
@@ -178,6 +175,10 @@ export default function GlobalBottomSheet() {
         return <SwipeActionSheet />;
       case 'metadata-editor':
         return <MetadataEditorSheet />;
+      case 'player-menu':
+        return <PlayerMenuSheet />;
+      case 'batch-menu':
+        return <BatchMenuSheet />;
       default:
         return null;
     }
@@ -189,7 +190,6 @@ export default function GlobalBottomSheet() {
     if (renderedSheet === 'queue') return SCREEN_HEIGHT * 0.90;
     if (renderedSheet === 'metadata-editor') return SCREEN_HEIGHT * 0.92;
     if (renderedSheet === 'playlist-selector') return SCREEN_HEIGHT * 0.85;
-    if (renderedSheet === 'tag-form') return SCREEN_HEIGHT * 0.85;
     return SCREEN_HEIGHT * 0.80;
   };
 

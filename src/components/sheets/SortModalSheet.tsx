@@ -1,7 +1,8 @@
 import { useSheetProps } from '@/hooks/useSheetProps';
 
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   StyleSheet,
   Text,
@@ -12,36 +13,37 @@ import { SortOption, useLibraryStore } from "../../store/useLibraryStore";
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 
-type SortOptionItem = { value: SortOption; label: string };
+type SortOptionItem = { value: SortOption; labelKey: string };
 
 const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
   albums: [
-    { value: "name_asc", label: "A-Z" },
-    { value: "name_desc", label: "Z-A" },
-    { value: "year_desc", label: "Año (Reciente)" },
-    { value: "year_asc", label: "Año (Antiguo)" },
+    { value: "name_asc", labelKey: "sort.az" },
+    { value: "name_desc", labelKey: "sort.za" },
+    { value: "year_desc", labelKey: "sort.year_desc" },
+    { value: "year_asc", labelKey: "sort.year_asc" },
   ],
   artists: [
-    { value: "name_asc", label: "A-Z" },
-    { value: "name_desc", label: "Z-A" },
+    { value: "name_asc", labelKey: "sort.az" },
+    { value: "name_desc", labelKey: "sort.za" },
   ],
   tracks: [
-    { value: "name_asc", label: "A-Z" },
-    { value: "name_desc", label: "Z-A" },
-    { value: "duration_desc", label: "Mayor Duración" },
-    { value: "duration_asc", label: "Menor Duración" },
+    { value: "name_asc", labelKey: "sort.az" },
+    { value: "name_desc", labelKey: "sort.za" },
+    { value: "duration_desc", labelKey: "sort.duration_desc" },
+    { value: "duration_asc", labelKey: "sort.duration_asc" },
   ],
   playlists: [
-    { value: "recent_desc", label: "Más recientes" },
-    { value: "recent_asc", label: "Más antiguas" },
-    { value: "name_asc", label: "A-Z" },
-    { value: "name_desc", label: "Z-A" },
+    { value: "recent_desc", labelKey: "sort.recent_desc" },
+    { value: "recent_asc", labelKey: "sort.recent_asc" },
+    { value: "name_asc", labelKey: "sort.az" },
+    { value: "name_desc", labelKey: "sort.za" },
   ],
 };
 
 export default function SortModalSheet() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+  const { t } = useTranslation();
   const { props: { activeTab = 'albums', activeSort }, close: closeModal } = useSheetProps<{ activeTab: any; activeSort: any }>('sort-modal');
 
   const options = SORT_OPTIONS[activeTab] ?? [];
@@ -58,12 +60,12 @@ export default function SortModalSheet() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Ordenar por</Text>
+        <Text style={styles.title}>{t('sort.title')}</Text>
         <Text style={styles.subtitle}>
-          {activeTab === "albums" && "Álbumes"}
-          {activeTab === "artists" && "Artistas"}
-          {activeTab === "tracks" && "Canciones"}
-          {activeTab === "playlists" && "Playlists"}
+          {activeTab === "albums" && t('library.albums')}
+          {activeTab === "artists" && t('library.artists')}
+          {activeTab === "tracks" && t('library.songs')}
+          {activeTab === "playlists" && t('library.playlists')}
         </Text>
       </View>
 
@@ -78,15 +80,18 @@ export default function SortModalSheet() {
           >
             <View style={styles.iconContainer}>
               <Ionicons
-                name={isActive ? "checkmark-circle" : "ellipse-outline"}
+                name={isActive ? "radio-button-on" : "radio-button-off"}
                 size={22}
-                color={isActive ? colors.accent : "#555"}
+                color={isActive ? colors.accent : colors.textSecondary}
               />
             </View>
             <Text
-              style={[styles.optionText, isActive && styles.optionTextActive]}
+              style={[
+                styles.optionText,
+                { color: isActive ? colors.accent : colors.text, fontFamily: fonts.regular },
+              ]}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
           </TouchableOpacity>
         );

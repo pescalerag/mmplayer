@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useTagFormStore } from './useTagFormStore';
 
 export type SheetType =
   | 'track-menu'
@@ -22,7 +23,7 @@ export type SheetType =
   | 'playlist-selector'
   | 'tag-manager'
   | 'player-menu'
-  | 'tag-form';
+  | 'batch-menu';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -60,8 +61,13 @@ export const openQueueSheet = () =>
 export const openTagManager = (targetType: 'track' | 'album', targetId: string, targetTitle: string) =>
   useUIStore.getState().openSheet('tag-manager', { targetType, targetId, targetTitle });
 
-export const openTagForm = (tag: any = null, onSave?: () => void) =>
-  useUIStore.getState().openSheet('tag-form', { tag, onSaveCallback: onSave || null });
+export const openTagForm = (tag: any = null, onSave?: () => void) => {
+  if (tag) {
+    useTagFormStore.getState().openForEdit(tag, onSave);
+  } else {
+    useTagFormStore.getState().openForCreate(onSave);
+  }
+};
 
 export const openTagMenu = (tag: any, callbacks: any = {}) =>
   useUIStore.getState().openSheet('tag-menu', { tag, callbacks });
@@ -128,3 +134,14 @@ export const openTagManagerForAlbum = (album: any) =>
 
 export const openPlayerMenu = () =>
   useUIStore.getState().openSheet('player-menu');
+
+export const openBatchMenu = (tracks: any[]) =>
+  useUIStore.getState().openSheet('batch-menu', { tracks });
+
+export const openTagManagerForBatch = (tracks: any[]) =>
+  useUIStore.getState().openSheet('tag-manager', {
+    targetType: 'batch',
+    targetId: 'batch',
+    targetTitle: `${tracks.length} canciones`,
+    tracks,
+  });

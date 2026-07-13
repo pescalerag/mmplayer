@@ -22,18 +22,18 @@ interface StatsState {
 
 export const useStatsStore = create<StatsState>((set) => ({
     totalHours: 0,
-    topArtist: 'Ninguno',
+    topArtist: '',
     topArtistId: '',
     topArtistImg: null,
     topArtistDuration: 0,
-    topAlbum: 'Ninguno',
+    topAlbum: '',
     topAlbumId: '',
     topAlbumImg: null,
     topAlbumDuration: 0,
-    topSong: 'Ninguno',
+    topSong: '',
     topSongId: '',
     topSongImg: null,
-    topSongArtist: 'Ninguno',
+    topSongArtist: '',
     topSongDuration: 0,
     isLoading: false,
     fetchStats: async () => {

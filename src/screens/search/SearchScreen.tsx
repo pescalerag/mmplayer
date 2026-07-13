@@ -1,7 +1,7 @@
 import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import withObservables from "@nozbe/with-observables";
-import { useNavigation, useScrollToTop } from "@react-navigation/native";
+import { useNavigation, useScrollToTop, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from "expo-linear-gradient";
@@ -43,6 +43,7 @@ import { getDynamicTagTextColor } from '../../utils/color';
 
 import { useTranslation } from "react-i18next";
 import { HistoryService } from "../../services/HistoryService";
+import { SmartListService } from "../../services/SmartListService";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -277,6 +278,39 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const navigation = useNavigation<SearchNavigationProp>();
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const [smartLists, setSmartLists] = useState<{ id: string; name: string; placeholderIcon: string; trackCount: number }[]>([]);
+  const [isSmartListsLoaded, setIsSmartListsLoaded] = useState(false);
+
+  const loadSmartLists = useCallback(async () => {
+    try {
+      const lists = SmartListService.getSmartLists();
+      const loaded = await Promise.all(
+        lists.map(async (list) => {
+          const tracks = await list.getTracks();
+          return {
+            id: list.id,
+            name: list.name,
+            placeholderIcon: list.placeholderIcon,
+            trackCount: tracks.length,
+          };
+        })
+      );
+      setSmartLists(loaded.filter(item => item.trackCount > 0));
+    } catch (e) {
+      console.error('[SearchScreen] Error loading smart lists:', e);
+    } finally {
+      setIsSmartListsLoaded(true);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // We only reset isSmartListsLoaded to false on initial mount or when the screen focus resets
+      // to keep switching tabs smooth and fast.
+      loadSmartLists();
+    }, [loadSmartLists])
+  );
+
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { isCompactTags, setIsCompactTags } = useSettingsStore();
   const {
@@ -475,11 +509,39 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         </View>
       )}
 
-      {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
-      {!isSearching && (
+      {/* Playlists para ti */}
+      {!isSearching && isSmartListsLoaded && smartLists.length > 0 && (
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
-            <Text style={styles.resultsTitle}>{t('search.explore_tags')}</Text>
+            <Text style={styles.tagsSectionTitle}>{t('search.smart_lists_for_you')}</Text>
+          </View>
+          <View style={styles.smartListsGrid}>
+            {smartLists.map((list, index) => {
+              const rem = index % 3;
+              const alignSelf = rem === 0 ? 'flex-start' : rem === 1 ? 'center' : 'flex-end';
+              return (
+                <View key={list.id} style={{ width: '33.33%', alignItems: alignSelf }}>
+                  <LibraryCard
+                    title={list.name}
+                    subtitle={`${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
+                    placeholderIcon={list.placeholderIcon as any}
+                    smartListId={list.id}
+                    onPress={() => {
+                      navigation.navigate('SmartListDetail', { smartListId: list.id });
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
+      {!isSearching && isSmartListsLoaded && (
+        <View style={styles.tagsSection}>
+          <View style={styles.tagsSectionHeader}>
+            <Text style={styles.tagsSectionTitle}>{t('search.explore_tags')}</Text>
             <View style={styles.layoutSwitchContainer}>
               <Text style={styles.layoutSwitchLabel}>
                 {isCompactTags ? t('search.compact') : t('search.normal')}
@@ -1026,6 +1088,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 20,
   },
+  smartListsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    marginTop: 10,
+    width: '100%',
+  },
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1063,13 +1132,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingRight: 20,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  tagsSectionTitle: {
+    fontSize: 24,
+    fontFamily: "Montserrat",
+    fontWeight: "900",
+    color: "#FFFFFF",
+    flex: 1,
+    marginRight: 10,
   },
   layoutSwitchContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 8,
   },
   layoutSwitchLabel: {
     fontSize: 12,

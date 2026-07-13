@@ -64,6 +64,7 @@ interface PlayerState {
   setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
   decrementUserQueue: () => void;
   clearUserQueue: () => Promise<void>;
+  clearContextQueue: () => Promise<void>;
   savePlaybackState: () => Promise<void>;
   restorePlaybackState: () => Promise<void>;
   saveRecentsState: () => Promise<void>;
@@ -82,6 +83,8 @@ interface PlayerState {
   setIsSyncingLyrics: (value: boolean) => void;
   isFetchingLyrics: boolean;
   setIsFetchingLyrics: (value: boolean) => void;
+  queueVersion: number;
+  updateTrackMetadata: (trackId: string) => Promise<void>;
 }
 
 export type RecentItem = {
@@ -119,12 +122,13 @@ async function flushCurrentTrackToHistory() {
       const trackingId = activeTPTrack?.id ? activeTPTrack.id.toString() : activeTrack.id.toString();
 
       const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackingId);
+      const requiredSeconds = activeTrack.duration ? activeTrack.duration * 0.5 : 20;
 
-      if (durationPlayed >= 20) {
+      if (durationPlayed >= requiredSeconds) {
         console.log(`[Historial] Guardando en historial. Canción: ${activeTrack.id.toString()}, Duración: ${Math.floor(durationPlayed)}s.`);
         await HistoryService.logToDatabase(activeTrack.id.toString(), durationPlayed, "manual");
       } else {
-        console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere 20s).`);
+        console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${Math.floor(requiredSeconds)}s).`);
       }
 
       PlaybackTimeTracker.clearAccumulated(trackingId);
@@ -156,6 +160,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setIsSyncingLyrics: (value) => set({ isSyncingLyrics: value }),
   isFetchingLyrics: false,
   setIsFetchingLyrics: (value) => set({ isFetchingLyrics: value }),
+  queueVersion: 0,
 
   loadQueue: async (tracks, index, context = "unknown") => {
     const loadId = ++currentLoadId;
@@ -169,7 +174,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId !== loadId) return;
 
       await flushCurrentTrackToHistory();
+      await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.setRate(get().playbackSpeed);
       const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
@@ -258,7 +265,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId !== loadId) return;
 
       await flushCurrentTrackToHistory();
+      await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.setRate(get().playbackSpeed);
       const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
@@ -325,7 +334,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const tpTrack = await mapToTPTrack(track);
       if (currentLoadId !== loadId) return;
       await flushCurrentTrackToHistory();
+      await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add([tpTrack]);
       await TrackPlayer.setRate(get().playbackSpeed);
       const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
@@ -547,6 +558,35 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  clearContextQueue: async () => {
+    try {
+      const queue = await TrackPlayer.getQueue();
+      const activeIndex = await TrackPlayer.getActiveTrackIndex();
+
+      if (activeIndex === undefined || activeIndex === null) return;
+
+      const indicesToRemove = queue
+        .map((track, index) => index > activeIndex && !(track as any).isManual ? index : -1)
+        .filter(index => index !== -1);
+
+      if (indicesToRemove.length === 0) return;
+
+      indicesToRemove.sort((a, b) => b - a);
+
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < indicesToRemove.length; i += CHUNK_SIZE) {
+        const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
+        await TrackPlayer.remove(chunk);
+        await new Promise((resolve) => setTimeout(resolve, 16));
+      }
+
+      await get().updateQueueStatus();
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error("Error clearing context queue:", e);
+    }
+  },
+
   // ── Persistencia en disco ──
   // ── Persistencia en disco ──
   savePlaybackState: async () => {
@@ -651,12 +691,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.skip(safeIndex);
 
       if (position > 0) {
-        await TrackPlayer.seekTo(position);
-        console.log(`[Store] Restaurado minutaje a la posición: ${position}s`);
+        // Wait for metadata/duration to load (up to 3 seconds)
+        let loaded = false;
+        for (let i = 0; i < 30; i++) {
+          const progress = await TrackPlayer.getProgress();
+          if (progress.duration > 0) {
+            loaded = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (loaded) {
+          await TrackPlayer.seekTo(position);
+          console.log(`[Store] Restaurado minutaje a la posición: ${position}s`);
+        } else {
+          console.warn(`[Store] No se pudo restaurar el minutaje (posición: ${position}s) porque el track no cargó a tiempo.`);
+        }
       }
 
       // Iniciamos pausado para no sorprender al usuario al abrir la app
-      await (TrackPlayer as any).pause(true);
+      await TrackPlayer.pause();
 
       // 2. Rehidratar el modelo WatermelonDB por ID
       const activeTPTrack = queue[safeIndex];
@@ -863,6 +918,71 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
     } catch (error) {
       console.error("Error handling deleted entities in player store:", error);
+    }
+  },
+
+  updateTrackMetadata: async (trackId: string) => {
+    try {
+      const track = await database.get<Track>("tracks").find(trackId);
+      if (!track) return;
+
+      const album = await track.album.fetch();
+      const artists = (await track.queryCollaborators.fetch()) as Artist[];
+      const artistNames =
+        artists.length > 0
+          ? artists.map((a) => a.name).join(", ")
+          : "Artista desconocido";
+
+      const title = track.title;
+      const artist = artistNames;
+      const albumTitle = album?.title || "Álbum desconocido";
+      const artwork = album?.coverUrl || undefined;
+
+      const activeTrack = get().activeTrack;
+      if (activeTrack && activeTrack.id === trackId) {
+        set({ activeTrack: track });
+      }
+
+      const queue = await TrackPlayer.getQueue();
+      let updatedAny = false;
+      for (let i = 0; i < queue.length; i++) {
+        const tpTrack = queue[i];
+        const tpTrackId = tpTrack.id.toString();
+        if (tpTrackId.startsWith(`${trackId}-`) || tpTrack.url === track.fileUrl) {
+          await TrackPlayer.updateMetadataForTrack(i, {
+            title,
+            artist,
+            album: albumTitle,
+            artwork,
+          });
+          updatedAny = true;
+        }
+      }
+
+      const updatedShuffleQueue = get().shuffleOriginalQueue.map((tpTrack) => {
+        const tpTrackId = tpTrack.id.toString();
+        if (tpTrackId.startsWith(`${trackId}-`) || tpTrack.url === track.fileUrl) {
+          updatedAny = true;
+          return {
+            ...tpTrack,
+            title,
+            artist,
+            album: albumTitle,
+            artwork,
+          };
+        }
+        return tpTrack;
+      });
+
+      if (updatedAny) {
+        set((state) => ({
+          shuffleOriginalQueue: updatedShuffleQueue,
+          queueVersion: state.queueVersion + 1,
+        }));
+        await get().savePlaybackState();
+      }
+    } catch (e) {
+      console.error("Error updating track metadata in player store:", e);
     }
   }
 }));

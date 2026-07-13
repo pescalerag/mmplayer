@@ -83,9 +83,7 @@
                 android:layout_height="36dp"
                 android:padding="6dp"
                 android:src="@drawable/ic_prev"
-                android:contentDescription="Anterior"
-                android:focusable="true"
-                android:clickable="true" />
+                android:contentDescription="Anterior" />
 
             <ImageView
                 android:id="@+id/btn_play_pause"
@@ -95,9 +93,7 @@
                 android:src="@drawable/ic_play"
                 android:contentDescription="Reproducir"
                 android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:focusable="true"
-                android:clickable="true" />
+                android:layout_marginEnd="4dp" />
 
             <ImageView
                 android:id="@+id/btn_next"
@@ -105,9 +101,7 @@
                 android:layout_height="36dp"
                 android:padding="6dp"
                 android:src="@drawable/ic_next"
-                android:contentDescription="Siguiente"
-                android:focusable="true"
-                android:clickable="true" />
+                android:contentDescription="Siguiente" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

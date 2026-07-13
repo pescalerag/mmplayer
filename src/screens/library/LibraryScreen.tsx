@@ -8,7 +8,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State } from 'react-native-track-player';
@@ -129,11 +129,11 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
         if (sortedTracks.length === 0) return null;
         return (
             <View style={styles.listHeaderButtons}>
-                <TouchableOpacity style={styles.shuffleBtn} onPress={handleShufflePress}>
+                <TouchableOpacity style={[styles.shuffleBtn, { flex: 1 }]} onPress={handleShufflePress}>
                     <Ionicons name="shuffle" size={20} color="#FFFFFF" />
                     <Text style={styles.shuffleBtnText}>{t('actions.shuffle')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.playBtn} onPress={handlePlayPress}>
+                <TouchableOpacity style={[styles.playBtn, { flex: 1 }]} onPress={handlePlayPress}>
                     <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={isCurrentContextPlaying ? {} : { marginLeft: 4 }} />
                     <Text style={styles.playBtnText}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
                 </TouchableOpacity>
@@ -354,7 +354,8 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            artistFilter === 'album' && styles.artistSelectorBtnActive
+                            artistFilter === 'album' && styles.artistSelectorBtnActive,
+                            { flex: 1 }
                         ]}
                         onPress={() => setArtistFilter('album')}
                         activeOpacity={0.8}
@@ -369,7 +370,8 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            artistFilter === 'all' && styles.artistSelectorBtnActive
+                            artistFilter === 'all' && styles.artistSelectorBtnActive,
+                            { flex: 1 }
                         ]}
                         onPress={() => setArtistFilter('all')}
                         activeOpacity={0.8}
@@ -833,6 +835,8 @@ export default function LibraryScreen() {
 
     const navigation = useNavigation<LibraryNavigationProp>();
 
+
+
     useEffect(() => {
         const tabNavigator: any = navigation.getParent();
         if (!tabNavigator) return;
@@ -1036,6 +1040,7 @@ const styles = StyleSheet.create({
     },
     listHeaderButtons: {
         flexDirection: 'row',
+        width: '100%',
         paddingHorizontal: 20,
         marginBottom: 16,
         gap: 12,

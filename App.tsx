@@ -1,6 +1,5 @@
 import { NavigationContainer } from "@react-navigation/native";
 import * as Font from "expo-font";
-import * as MediaLibrary from "expo-media-library";
 import * as NavigationBar from "expo-navigation-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -17,10 +16,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GlobalToast from "./src/components/common/GlobalToast";
 import GlobalBottomSheet from "./src/components/sheets/GlobalBottomSheet";
+import QueueSheet from "./src/components/sheets/QueueSheet";
 import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
 import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
+import ZipProgressModal from "./src/components/modals/ZipProgressModal";
+import TagFormModal from "./src/components/modals/TagFormModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -39,7 +41,6 @@ export default function App() {
         if (Platform.OS === "android") {
           await NavigationBar.setBackgroundColorAsync("black");
           await NavigationBar.setButtonStyleAsync("light");
-          await MediaLibrary.requestPermissionsAsync();
         }
 
         await Font.loadAsync({
@@ -120,10 +121,13 @@ export default function App() {
           {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
           <GlobalBottomSheet />
+          <QueueSheet />
           <UpdatedAppModal />
           <WelcomeModal />
           <GlobalToast />
           <BackupBlockingModal />
+          <ZipProgressModal />
+          <TagFormModal />
         </NavigationContainer>
       </View>
       </SafeAreaProvider>

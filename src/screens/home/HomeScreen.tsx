@@ -225,12 +225,16 @@ export default function HomeScreen() {
     const handlePlaylistPress = React.useCallback((id: string) => {
         if (id === 'favorites') {
             navigation.navigate('FavoritesDetail');
+        } else if (id.startsWith('smart-list-')) {
+            const smartListId = id.replace('smart-list-', '');
+            navigation.navigate('SmartListDetail', { smartListId });
         } else {
             navigation.navigate('PlaylistDetail', { playlistId: id });
         }
     }, [navigation]);
 
     const handlePlaylistLongPress = React.useCallback((id: string) => {
+        if (id.startsWith('smart-list-')) return;
         const playlist = recentPlaylists.find(p => p.id === id);
         if (playlist) {
             openPlaylistMenu(playlist as any);

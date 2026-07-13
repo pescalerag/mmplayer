@@ -44,7 +44,11 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     keyboardShouldPersistTaps="handled"
                 >
                 {/* --- SECCIÓN DE ESTADÍSTICAS --- */}
-                <View style={styles.statsCard}>
+                <TouchableOpacity
+                    style={styles.statsCard}
+                    onPress={() => navigation.navigate('Biblioteca')}
+                    activeOpacity={0.7}
+                >
                     <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
@@ -62,7 +66,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                             <Text style={styles.statLabel}>{t('library.artists')}</Text>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* --- MENÚ DE OPCIONES DE CONFIGURACIÓN --- */}
                 <View style={styles.sectionCard}>
@@ -296,28 +300,6 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </TouchableOpacity>
                 </View>
 
-                {/* --- SECCIÓN DE INFORMACIÓN --- */}
-                <View style={styles.sectionCard}>
-                    <TouchableOpacity
-                        style={styles.menuRow}
-                        onPress={() => navigation.navigate('ChangelogScreen')}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.menuRowLeft}>
-                            <View style={styles.iconContainer}>
-                                <Ionicons name="information-circle-outline" size={22} color="#8B5CF6" />
-                            </View>
-                            <View style={styles.menuTextContainer}>
-                                <Text style={styles.settingLabel}>{t('settings.about_version')}</Text>
-                                <Text style={styles.settingDescription}>
-                                    {t('settings.release_notes')}
-                                </Text>
-                            </View>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
-                    </TouchableOpacity>
-                </View>
-
                 {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
                     <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.0.0-beta.5'}</Text>
@@ -381,7 +363,7 @@ const styles = StyleSheet.create({
     statLabel: {
         fontSize: 12,
         fontFamily: 'Montserrat',
-        fontWeight: '600',
+        fontWeight: '800',
         color: '#9A9A9A',
         marginTop: 4,
     },

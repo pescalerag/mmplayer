@@ -158,13 +158,15 @@ export const HistoryService = {
   },
 
   async getWeeklyStats() {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const from = new Date();
+    const day = from.getDay();
+    const diff = from.getDate() - day + (day === 0 ? -6 : 1);
+    from.setDate(diff);
+    from.setHours(0, 0, 0, 0);
 
     const historyRecords = await database.collections
       .get<PlaybackHistory>('playback_history')
-      .query(Q.where('played_at', Q.gte(sevenDaysAgo.getTime())))
+      .query(Q.where('played_at', Q.gte(from.getTime())))
       .fetch();
 
     let totalSeconds = 0;
@@ -178,9 +180,9 @@ export const HistoryService = {
     const totalHours = totalSeconds / 3600;
     const uniqueTrackIds = Object.keys(trackDurations);
 
-    let topArtistObj = { id: '', name: 'Ninguno', imageUrl: null as string | null, duration: 0 };
-    let topAlbumObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, duration: 0 };
-    let topSongObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, artistName: 'Ninguno', duration: 0 };
+    let topArtistObj = { id: '', name: '', imageUrl: null as string | null, duration: 0 };
+    let topAlbumObj = { id: '', title: '', coverUrl: null as string | null, duration: 0 };
+    let topSongObj = { id: '', title: '', coverUrl: null as string | null, artistName: '', duration: 0 };
 
     if (uniqueTrackIds.length > 0) {
       try {
@@ -278,7 +280,7 @@ export const HistoryService = {
    * Returns date range boundaries for a given period type.
    */
   getPeriodRange(period: 'day' | 'week' | 'month' | 'year' | 'all'): { from: Date | null; to: Date } {
-    const to = new Date();
+    let to = new Date();
     to.setHours(23, 59, 59, 999);
     if (period === 'all') return { from: null, to };
 
@@ -286,14 +288,22 @@ export const HistoryService = {
     if (period === 'day') {
       from.setHours(0, 0, 0, 0);
     } else if (period === 'week') {
-      from.setDate(from.getDate() - 6);
+      const day = from.getDay();
+      const diff = from.getDate() - day + (day === 0 ? -6 : 1);
+      from.setDate(diff);
       from.setHours(0, 0, 0, 0);
+
+      to = new Date(from);
+      to.setDate(from.getDate() + 6);
+      to.setHours(23, 59, 59, 999);
     } else if (period === 'month') {
       from.setDate(1);
       from.setHours(0, 0, 0, 0);
+      to = new Date(from.getFullYear(), from.getMonth() + 1, 0, 23, 59, 59, 999);
     } else if (period === 'year') {
       from.setMonth(0, 1);
       from.setHours(0, 0, 0, 0);
+      to = new Date(from.getFullYear(), 11, 31, 23, 59, 59, 999);
     }
     return { from, to };
   },
@@ -305,12 +315,15 @@ export const HistoryService = {
     period: 'day' | 'week' | 'month' | 'year' | 'all',
     metric: 'duration' | 'plays'
   ) {
-    const { from } = this.getPeriodRange(period);
+    const { from, to } = this.getPeriodRange(period);
 
     const query = from
       ? database.collections
           .get<PlaybackHistory>('playback_history')
-          .query(Q.where('played_at', Q.gte(from.getTime())))
+          .query(
+            Q.where('played_at', Q.gte(from.getTime())),
+            Q.where('played_at', Q.lte(to.getTime()))
+          )
       : database.collections
           .get<PlaybackHistory>('playback_history')
           .query();
@@ -332,9 +345,9 @@ export const HistoryService = {
     const totalHours = totalSeconds / 3600;
     const uniqueTrackIds = Object.keys(trackDurations);
 
-    let topArtistObj = { id: '', name: 'Ninguno', imageUrl: null as string | null, duration: 0, plays: 0 };
-    let topAlbumObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, duration: 0, plays: 0 };
-    let topSongObj = { id: '', title: 'Ninguno', coverUrl: null as string | null, artistName: 'Ninguno', duration: 0, plays: 0 };
+    let topArtistObj = { id: '', name: '', imageUrl: null as string | null, duration: 0, plays: 0 };
+    let topAlbumObj = { id: '', title: '', coverUrl: null as string | null, duration: 0, plays: 0 };
+    let topSongObj = { id: '', title: '', coverUrl: null as string | null, artistName: '', duration: 0, plays: 0 };
 
     if (uniqueTrackIds.length > 0) {
       try {
@@ -375,7 +388,7 @@ export const HistoryService = {
               id: track.id,
               title: track.title,
               coverUrl: album?.coverUrl || null,
-              artistName: artist?.name || 'Artista desconocido',
+              artistName: artist?.name || '',
               duration: 0,
               plays: 0,
             };

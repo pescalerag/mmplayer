@@ -137,6 +137,17 @@ export const MetadataEditorService = {
         
         // After finishing all writes, run scanner service silently to update local WatermelonDB database
         await ScannerService.syncLibrary(undefined, true);
+
+        // Update playback queue for edited tracks
+        try {
+            const { usePlayerStore } = require('../store/usePlayerStore');
+            const playerStore = usePlayerStore.getState();
+            for (const track of tracks) {
+                await playerStore.updateTrackMetadata(track.id);
+            }
+        } catch (playerErr) {
+            console.error("Error updating player store metadata after save:", playerErr);
+        }
     },
 
     cancelSave: async (): Promise<void> => {

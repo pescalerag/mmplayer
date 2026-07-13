@@ -37,6 +37,9 @@ export default function ArtistMenuSheet() {
     loadTracks();
   }, [selectedArtist]);
 
+  const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute() : null;
+  const isAlreadyOnArtistScreen = currentRoute?.name === 'ArtistDetail' && (currentRoute.params as any)?.artistId === selectedArtist?.id;
+
   if (!selectedArtist) return null;
 
   return (
@@ -93,7 +96,7 @@ export default function ArtistMenuSheet() {
         text={t('actions.add_to_playlist') || 'Añadir a playlist'}
         onPress={() => {
           if (tracks.length === 0) {
-            useToastStore.getState().showToast('El artista no tiene canciones', 'close-circle', '#EF4444');
+            useToastStore.getState().showToast(t('toasts.artist_no_songs'), 'close-circle', '#EF4444');
             closeMenu();
             return;
           }
@@ -103,36 +106,38 @@ export default function ArtistMenuSheet() {
       />
 
       {/* OPTION: Go to Artist Details */}
-      <MenuOption
-        icon="person-outline"
-        text={t('actions.go_to_artist')}
-        onPress={() => {
-          closeMenu();
-          const artistId = selectedArtist.id;
-          if (navCallbacks.detail) {
-            navCallbacks.detail(artistId);
-          } else if (navigationRef.isReady()) {
-            const rootState = navigationRef.getRootState();
-            const activeRoute = rootState.routes[rootState.index];
-            const isPlayerActive = activeRoute?.name === 'Player';
+      {!isAlreadyOnArtistScreen && (
+        <MenuOption
+          icon="person-outline"
+          text={t('actions.go_to_artist')}
+          onPress={() => {
+            closeMenu();
+            const artistId = selectedArtist.id;
+            if (navCallbacks.detail) {
+              navCallbacks.detail(artistId);
+            } else if (navigationRef.isReady()) {
+              const rootState = navigationRef.getRootState();
+              const activeRoute = rootState.routes[rootState.index];
+              const isPlayerActive = activeRoute?.name === 'Player';
 
-            let tabName = getActiveTabName();
-            if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-              tabName = 'Biblioteca';
-            }
+              let tabName = getActiveTabName();
+              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
+                tabName = 'Biblioteca';
+              }
 
-            const currentTab = getActiveTabName();
-            if (isPlayerActive || tabName === currentTab) {
-              navigationRef.navigate('ArtistDetail', { artistId });
-            } else {
-              navigationRef.navigate('Main', {
-                screen: tabName,
-                params: { screen: 'ArtistDetail', params: { artistId } }
-              });
+              const currentTab = getActiveTabName();
+              if (isPlayerActive || tabName === currentTab) {
+                navigationRef.navigate('ArtistDetail', { artistId });
+              } else {
+                navigationRef.navigate('Main', {
+                  screen: tabName,
+                  params: { screen: 'ArtistDetail', params: { artistId } }
+                });
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      )}
     </BaseMenuSheet>
   );
 }

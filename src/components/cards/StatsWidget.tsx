@@ -29,7 +29,7 @@ export const StatsWidget: React.FC = () => {
         <View style={styles.header}>
           <Ionicons name="stats-chart" size={20} color={colors.accentLight} />
           <Text style={[styles.title, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-            {t('home.weekly_stats_title') || 'ACTIVIDAD SEMANAL'}
+            {t('home.weekly_stats_title')}
           </Text>
         </View>
 
@@ -41,7 +41,7 @@ export const StatsWidget: React.FC = () => {
                 {totalHours.toFixed(1)}
               </Text>
               <Text style={[styles.statLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                {t('home.weekly_stats_hours') || 'Horas escuchadas'}
+                {t('home.weekly_stats_hours')}
               </Text>
             </View>
 
@@ -50,12 +50,12 @@ export const StatsWidget: React.FC = () => {
             <View style={styles.statBox}>
               <View style={styles.marqueeContainer}>
                 <MarqueeText
-                  text={topArtist || t('actions.unknown') || 'Ninguno'}
+                  text={topArtist || t('activity.none')}
                   style={[styles.statValue, { fontFamily: fonts.regular, color: colors.accentLight, marginBottom: 0 }]}
                 />
               </View>
               <Text style={[styles.statLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                {t('home.weekly_stats_artist') || 'Artista top'}
+                {t('home.weekly_stats_artist')}
               </Text>
             </View>
           </View>
@@ -68,12 +68,12 @@ export const StatsWidget: React.FC = () => {
             <View style={styles.statBox}>
               <View style={styles.marqueeContainer}>
                 <MarqueeText
-                  text={topAlbum || t('actions.unknown') || 'Ninguno'}
+                  text={topAlbum || t('activity.none')}
                   style={[styles.statValue, { fontFamily: fonts.regular, color: colors.accentLight, marginBottom: 0 }]}
                 />
               </View>
               <Text style={[styles.statLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                {t('home.weekly_stats_album') || 'Álbum top'}
+                {t('home.weekly_stats_album')}
               </Text>
             </View>
 
@@ -82,12 +82,12 @@ export const StatsWidget: React.FC = () => {
             <View style={styles.statBox}>
               <View style={styles.marqueeContainer}>
                 <MarqueeText
-                  text={topSong || t('actions.unknown') || 'Ninguno'}
+                  text={topSong || t('activity.none')}
                   style={[styles.statValue, { fontFamily: fonts.regular, color: colors.accentLight, marginBottom: 0 }]}
                 />
               </View>
               <Text style={[styles.statLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                {t('home.weekly_stats_song') || 'Canción top'}
+                {t('home.weekly_stats_song')}
               </Text>
             </View>
           </View>

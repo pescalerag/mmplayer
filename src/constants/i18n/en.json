@@ -36,7 +36,36 @@
     "title": "Welcome to MMPlayer!",
     "subtitle": "What should we call you?",
     "placeholder": "Your alias...",
-    "continue": "Continue"
+    "continue": "Continue",
+    "permission_title": "Storage Permissions",
+    "permission_subtitle": "In order to scan and play audio files from your device, we need permission to access audio storage.",
+    "permission_grant_btn": "Grant Permission",
+    "permission_granted": "Permission granted!",
+    "permission_required_warning": "Storage permissions are required to scan and play music. Please grant permissions to proceed.",
+    "settings_title": "Basic Settings",
+    "settings_subtitle": "Customize your initial setup. You can change these later at any time from Settings.",
+    "settings_notice": "Note: You can change these options in the settings screen.",
+    "settings_swipe_title": "Swipe Actions",
+    "settings_finish_btn": "Finish & Enter",
+    "features_title": "Discover MMPlayer",
+    "features_subtitle": "Get the most out of your local music player",
+    "features_list_scanner": "Fast & smart audio scanner",
+    "features_list_eq": "Equalizer with bass boost support",
+    "features_list_exclusion": "Folder exclusion (hide audios from other apps)",
+    "features_list_cast": "Cast (stream to network devices)",
+    "features_list_timer": "Sleep timer for auto-shutdown",
+    "features_list_artists": "True support for collaborative artists",
+    "features_list_images": "Automatic artist image downloader",
+    "features_list_playlists": "Playlists and colored custom tags",
+    "features_list_multiselect": "Multi-selection for batch actions",
+    "features_list_queue": "Advanced playback queue manager",
+    "features_list_visualizers": "Interactive visualizers in the player",
+    "tip_title": "Expert Tip",
+    "tip_desc": "Long-press any item (track, album, or artist) or tap the three dots (menu) whenever possible to reveal hidden options, quick actions, and advanced tools.",
+    "and_much_more": "And much more!...",
+    "open_settings_ios": "Open Settings",
+    "open_settings_android": "App Settings",
+    "fade_desc": "Enable smooth volume fading when pausing, resuming, or changing tracks."
   },
   "navigation": {
     "home": "Home",
@@ -90,7 +119,8 @@
     "no_results": "No results found for \"{{query}}\"",
     "no_tags": "No tags created. Add tags from the player or from a song/album menu.",
     "compact": "Compact",
-    "normal": "Normal"
+    "normal": "Normal",
+    "smart_lists_for_you": "Playlists for you"
   },
   "tags": {
     "manager": "Tag Manager",
@@ -248,14 +278,21 @@
     "bass_boost_desc": "Add extra power to low frequencies",
     "eq_reset": "Reset",
     "eq_hz": "Hz",
-    "eq_khz": "kHz"
+    "eq_khz": "kHz",
+    "scan_replaygain_error": "Could not complete analysis."
   },
   "queue": {
     "title": "Queue",
     "manage": "Manage queue",
     "what_to_do": "Options",
     "stop_playback": "Stop playback",
-    "clear_manual": "Clear queue"
+    "clear_manual": "Clear queue",
+    "empty": "No songs in queue",
+    "history_empty": "No history yet",
+    "clear_context": "Clear context",
+    "history_tab": "Previous",
+    "hidden_upcoming": "and {{count}} more song in queue",
+    "hidden_upcoming_plural": "and {{count}} more songs in queue"
   },
   "playlist": {
     "new": "New playlist",
@@ -287,6 +324,8 @@
     "add_to_queue": "Add to queue",
     "add_to_playlist": "Add to playlist",
     "remove_from_playlist": "Remove from this playlist",
+    "add_to_favorites": "Add to favorites",
+    "remove_from_favorites": "Remove from favorites",
     "unknown": "Unknown",
     "pin_library": "Pin to library",
     "unpin_library": "Unpin from library",
@@ -341,7 +380,19 @@
     "duplicate_songs_partial": "{{duplicateCount}} of {{totalCount}} songs are already in this playlist. Do you want to add only the new ones or all of them?",
     "duplicate_songs_all": "All songs ({{count}}) are already in this playlist. Do you want to add them anyway?",
     "add_song_to": "Add \"{{title}}\" to...",
-    "add_songs_to": "Add {{count}} songs to..."
+    "add_songs_to": "Add {{count}} songs to...",
+    "canvas_add": "Add background video (Canvas)",
+    "canvas_change": "Change background video (Canvas)",
+    "canvas_remove": "Remove background video (Canvas)",
+    "canvas_gallery_permission": "Gallery permissions are required to pick a video.",
+    "canvas_saved": "Background video saved successfully",
+    "canvas_removed": "Background video removed",
+    "canvas_error": "There was an error selecting the video.",
+    "rating_label": "RATING",
+    "rating_none": "Unrated",
+    "share_as_zip": "Share selection as ZIP",
+    "error": "Error",
+    "selected_count": "{{count}} selected"
   },
   "toasts": {
     "syncing": "Syncing Library...",
@@ -350,6 +401,7 @@
     "playing_next": "Playing next",
     "added_to_queue": "Added to queue",
     "added_to_favourites": "Added to Favorites",
+    "removed_from_favourites": "Removed from Favorites",
     "added_to_new_playlist": "Added to new playlist",
     "added_to_playlist": "Added to playlist",
     "folder_next": "Folder will play next",
@@ -360,7 +412,26 @@
     "added_to_new_playlist_plural": "{{count}} songs added to new playlist",
     "playlist_created": "Playlist created",
     "tag_already_exists": "Tag name already exists",
-    "cast_stopped": "Casting stopped"
+    "cast_stopped": "Casting stopped",
+    "preparing_zip": "Preparing files...",
+    "copying_zip": "Copying song {{index}} of {{total}}...",
+    "compressing_zip": "Compressing selection...",
+    "sharing_zip": "Opening share dialog...",
+    "sharing_unavailable": "Sharing service is unavailable.",
+    "share_zip_title": "Share songs",
+    "cleaning_zip": "Cleaning up temporary files...",
+    "library_reconciled": "{{count}} song relocated",
+    "library_reconciled_plural": "{{count}} songs relocated",
+    "library_updated": "Library updated",
+    "library_added_tracks": "{{count}} new songs added",
+    "library_deleted_tracks": "{{count}} songs removed",
+    "library_up_to_date": "Library up to date",
+    "ab_point_a_set": "Point A set",
+    "ab_point_b_set": "Point B set. Loop enabled",
+    "ab_point_a_updated": "Point A updated",
+    "ab_deactivated": "A-B Loop disabled",
+    "playlist_no_songs": "The Playlist has no songs",
+    "artist_no_songs": "The artist has no songs"
   },
   "changelog": {
     "history_title": "Version History",
@@ -505,7 +576,20 @@
     "time_label": "Time",
     "no_data": "No playback data for this period",
     "total_listening_time": "Total listening time · {{period}}",
-    "total_plays": "Total plays · {{period}}"
+    "total_plays": "Total plays · {{period}}",
+    "none": "None",
+    "min_suffix": "min",
+    "hour_suffix": "h",
+    "locale_code": "en-US",
+    "all_activity": "All activity",
+    "unknown_artist": "Unknown artist",
+    "periods": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "all": "All"
+    }
   },
   "sleep_timer": {
     "title": "Sleep Timer",
@@ -526,7 +610,8 @@
     "starting": "Starting...",
     "stopping": "Stopping...",
     "banner_label": "Casting to your PC",
-    "banner_tap": "Tap to manage"
+    "banner_tap": "Tap to manage",
+    "start_error": "Could not start casting."
   },
   "audio_effects": {
     "title": "Audio Effects",
@@ -586,7 +671,12 @@
     "delete_confirm": "Are you sure you want to delete the lyrics for this song?",
     "delete_success": "Lyrics deleted successfully.",
     "search_success": "Lyrics found and imported successfully.",
-    "search_not_found": "No lyrics found for this song online."
+    "search_not_found": "No lyrics found for this song online.",
+    "import_success": "Lyrics imported successfully.",
+    "read_error": "Could not read lyrics file.",
+    "save_error": "Could not save changes.",
+    "search_error": "An error occurred while searching for lyrics.",
+    "delete_error": "Could not delete lyrics."
   },
   "visualizer": {
     "menu_title": "Visualization Options",
@@ -607,6 +697,41 @@
     "cover_style_vinyl": "Spinning Vinyl",
     "background_style": "Background Style",
     "background_style_cover": "Blurred Artwork",
-    "background_style_gradient": "Color Gradient"
+    "background_style_gradient": "Color Gradient",
+    "show_canvas": "Show Canvas",
+    "show_canvas_desc": "Play looping background videos when available"
+  },
+  "sort": {
+    "title": "Sort by",
+    "az": "A-Z",
+    "za": "Z-A",
+    "year_desc": "Year (Newest)",
+    "year_asc": "Year (Oldest)",
+    "duration_desc": "Longest Duration",
+    "duration_asc": "Shortest Duration",
+    "recent_desc": "Most recent",
+    "recent_asc": "Oldest"
+  },
+  "backup": {
+    "preparing": "Preparing data for backup...",
+    "exporting_table": "Exporting table {{table}}...",
+    "writing_file": "Writing backup file...",
+    "sharing_unavailable": "Sharing service is not available on this device.",
+    "opening_share": "Opening file sharing dialog...",
+    "export_title": "Export Backup",
+    "export_success": "Backup exported successfully.",
+    "export_error": "Unknown error during export.",
+    "stopping_player": "Stopping music player...",
+    "reading_file": "Reading backup file...",
+    "processing_data": "Processing file data...",
+    "invalid_format": "The file does not contain valid JSON format.",
+    "incompatible_data": "The selected file does not contain compatible backup data.",
+    "clearing_db": "Clearing current database...",
+    "restoring_data": "Restoring data from backup...",
+    "import_success": "Backup restored successfully.",
+    "import_error": "Error importing backup.",
+    "saving_records": "Saving {{count}} records in the database...",
+    "reconciling": "Reconciling local library...",
+    "reconciling_phase": "Reconciling: {{phase}}"
   }
 }

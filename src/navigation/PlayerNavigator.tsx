@@ -17,6 +17,7 @@ export default function PlayerNavigator() {
             headerShown: false,
             animation: 'slide_from_right',
             contentStyle: { backgroundColor: '#121212' },
+            freezeOnBlur: false
         }}>
             <Stack.Screen name="PlayerHome" component={PlayerScreen} />
             <Stack.Screen name="ArtistDetail" component={ArtistDetailScreen} getId={({ params }) => params.artistId} />
