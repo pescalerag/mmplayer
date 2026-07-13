@@ -174,7 +174,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId !== loadId) return;
 
       await flushCurrentTrackToHistory();
+      await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.setRate(get().playbackSpeed);
       const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
@@ -263,7 +265,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId !== loadId) return;
 
       await flushCurrentTrackToHistory();
+      await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await TrackPlayer.setRate(get().playbackSpeed);
       const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
@@ -330,7 +334,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const tpTrack = await mapToTPTrack(track);
       if (currentLoadId !== loadId) return;
       await flushCurrentTrackToHistory();
+      await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add([tpTrack]);
       await TrackPlayer.setRate(get().playbackSpeed);
       const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;

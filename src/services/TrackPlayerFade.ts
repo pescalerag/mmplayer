@@ -57,25 +57,16 @@ TrackPlayer.getPlaybackState = async () => {
 
 // Override setVolume
 TrackPlayer.setVolume = async (volume: number) => {
-  clearFadeInterval();
-  setIsFadingOut(false);
   targetVolume = volume;
 
-  let isPlaying = false;
-  try {
-    const state = await originalGetPlaybackState();
-    isPlaying = state.state === State.Playing || state.state === State.Buffering;
-  } catch (e) {
-    console.warn("[TrackPlayerFade] Error checking playback state in setVolume:", e);
+  // Si hay un fade en progreso (in o out), dejamos que el intervalo de fade continúe
+  // actualizando el volumen hasta targetVolume de forma progresiva.
+  if (fadeIntervalId !== null || getIsFadingOut()) {
+    return;
   }
 
-  if (isPlaying) {
-    currentVolume = volume;
-    return originalSetVolume(volume);
-  } else {
-    currentVolume = 0;
-    return originalSetVolume(0);
-  }
+  currentVolume = volume;
+  return originalSetVolume(volume);
 };
 
 // Override getVolume - returns the logical volume (targetVolume)
