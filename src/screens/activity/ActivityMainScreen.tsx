@@ -49,8 +49,7 @@ function formatDateRange(period: Period, t: any, locale: string): string {
     return now.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   }
   if (period === 'year') {
-    const from = new Date(now.getFullYear(), 0, 1);
-    return `${fmtYear(from)} – ${fmtYear(now)}`;
+    return now.getFullYear().toString();
   }
   return t('activity.all_activity');
 }

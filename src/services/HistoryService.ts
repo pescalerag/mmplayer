@@ -299,9 +299,11 @@ export const HistoryService = {
     } else if (period === 'month') {
       from.setDate(1);
       from.setHours(0, 0, 0, 0);
+      to = new Date(from.getFullYear(), from.getMonth() + 1, 0, 23, 59, 59, 999);
     } else if (period === 'year') {
       from.setMonth(0, 1);
       from.setHours(0, 0, 0, 0);
+      to = new Date(from.getFullYear(), 11, 31, 23, 59, 59, 999);
     }
     return { from, to };
   },
@@ -313,12 +315,15 @@ export const HistoryService = {
     period: 'day' | 'week' | 'month' | 'year' | 'all',
     metric: 'duration' | 'plays'
   ) {
-    const { from } = this.getPeriodRange(period);
+    const { from, to } = this.getPeriodRange(period);
 
     const query = from
       ? database.collections
           .get<PlaybackHistory>('playback_history')
-          .query(Q.where('played_at', Q.gte(from.getTime())))
+          .query(
+            Q.where('played_at', Q.gte(from.getTime())),
+            Q.where('played_at', Q.lte(to.getTime()))
+          )
       : database.collections
           .get<PlaybackHistory>('playback_history')
           .query();
