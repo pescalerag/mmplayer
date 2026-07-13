@@ -79,7 +79,7 @@ interface SettingsState {
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
-export type HomeSection = 'stats' | 'recent_media' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore';
+export type HomeSection = 'stats' | 'recent_media' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -104,11 +104,12 @@ export const useSettingsStore = create<SettingsState>()(
             setAppTabsOrder: (order) => set({ appTabsOrder: order }),
             initialAppRoute: 'Inicio',
             setInitialAppRoute: (route) => set({ initialAppRoute: route }),
-            homeSectionsOrder: ['stats', 'recent_media', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
+            homeSectionsOrder: ['stats', 'recent_media', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
             setHomeSectionsOrder: (order) => set({ homeSectionsOrder: order }),
             homeSectionsVisibility: {
                 stats: true,
                 recent_media: true,
+                smart_playlists: true,
                 recent_playlists: true,
                 recently_added: true,
                 most_played: true,

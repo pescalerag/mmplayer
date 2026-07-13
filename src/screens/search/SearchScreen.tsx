@@ -43,7 +43,6 @@ import { getDynamicTagTextColor } from '../../utils/color';
 
 import { useTranslation } from "react-i18next";
 import { HistoryService } from "../../services/HistoryService";
-import { SmartListService } from "../../services/SmartListService";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -278,38 +277,15 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const navigation = useNavigation<SearchNavigationProp>();
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [smartLists, setSmartLists] = useState<{ id: string; name: string; placeholderIcon: string; trackCount: number }[]>([]);
-  const [isSmartListsLoaded, setIsSmartListsLoaded] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
-  const loadSmartLists = useCallback(async () => {
-    try {
-      const lists = SmartListService.getSmartLists();
-      const loaded = await Promise.all(
-        lists.map(async (list) => {
-          const tracks = await list.getTracks();
-          return {
-            id: list.id,
-            name: list.name,
-            placeholderIcon: list.placeholderIcon,
-            trackCount: tracks.length,
-          };
-        })
-      );
-      setSmartLists(loaded.filter(item => item.trackCount > 0));
-    } catch (e) {
-      console.error('[SearchScreen] Error loading smart lists:', e);
-    } finally {
-      setIsSmartListsLoaded(true);
-    }
+  useEffect(() => {
+    // A brief delay to allow WatermelonDB query to settle and populate tags
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 150);
+    return () => clearTimeout(timer);
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      // We only reset isSmartListsLoaded to false on initial mount or when the screen focus resets
-      // to keep switching tabs smooth and fast.
-      loadSmartLists();
-    }, [loadSmartLists])
-  );
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { isCompactTags, setIsCompactTags } = useSettingsStore();
@@ -509,36 +485,8 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         </View>
       )}
 
-      {/* Playlists para ti */}
-      {!isSearching && isSmartListsLoaded && smartLists.length > 0 && (
-        <View style={styles.tagsSection}>
-          <View style={styles.tagsSectionHeader}>
-            <Text style={styles.tagsSectionTitle}>{t('search.smart_lists_for_you')}</Text>
-          </View>
-          <View style={styles.smartListsGrid}>
-            {smartLists.map((list, index) => {
-              const rem = index % 3;
-              const alignSelf = rem === 0 ? 'flex-start' : rem === 1 ? 'center' : 'flex-end';
-              return (
-                <View key={list.id} style={{ width: '33.33%', alignItems: alignSelf }}>
-                  <LibraryCard
-                    title={list.name}
-                    subtitle={`${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
-                    placeholderIcon={list.placeholderIcon as any}
-                    smartListId={list.id}
-                    onPress={() => {
-                      navigation.navigate('SmartListDetail', { smartListId: list.id });
-                    }}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
       {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
-      {!isSearching && isSmartListsLoaded && (
+      {!isSearching && (
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
             <Text style={styles.tagsSectionTitle}>{t('search.explore_tags')}</Text>
@@ -856,78 +804,83 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       </View>
 
       {/* 1. CAPA DE CONTENIDO (AL FONDO) */}
-      <FlashList
-        ref={flatListRef}
-        data={
-          isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
-            ? results.tracks.filter(
-              (track) =>
-                currentTopMatch?.type !== "track" ||
-                track.id !== currentTopMatch.item.id,
-            )
-            : []
-        }
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        onEndReached={() => {
-          if (activeFilter === "tracks") {
-            loadMoreTracks();
+      {isReady ? (
+        <FlashList
+          ref={flatListRef}
+          data={
+            isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
+              ? results.tracks.filter(
+                (track) =>
+                  currentTopMatch?.type !== "track" ||
+                  track.id !== currentTopMatch.item.id,
+              )
+              : []
           }
-        }}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={() => {
-          if (!isLoadingMore) return <View style={{ height: 20 }} />;
-          return (
-            <View style={{ paddingVertical: 20, alignItems: "center" }}>
-              <ActivityIndicator size="small" color="#8B5CF6" />
-            </View>
-          );
-        }}
-        contentContainerStyle={{
-          paddingTop: headerHeight + 10,
-          paddingBottom:
-            Layout.MINI_PLAYER_HEIGHT +
-            Layout.TAB_BAR_HEIGHT +
-            Layout.PLAYER_MARGIN +
-            insets.bottom +
-            20,
-        }}
-        ListEmptyComponent={(() => {
-          if (isLoading || !isSearching) return null;
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          onEndReached={() => {
+            if (activeFilter === "tracks") {
+              loadMoreTracks();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={() => {
+            if (!isLoadingMore) return <View style={{ height: 20 }} />;
+            return (
+              <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#8B5CF6" />
+              </View>
+            );
+          }}
+          contentContainerStyle={{
+            paddingTop: headerHeight + 10,
+            paddingBottom:
+              Layout.MINI_PLAYER_HEIGHT +
+              Layout.TAB_BAR_HEIGHT +
+              Layout.PLAYER_MARGIN +
+              insets.bottom +
+              20,
+          }}
+          ListEmptyComponent={(() => {
+            if (isLoading || !isSearching) return null;
 
-          const hasArtists =
-            (activeFilter === "all" || activeFilter === "artists") &&
-            results.artists.length > 0;
-          const hasAlbums =
-            (activeFilter === "all" || activeFilter === "albums") &&
-            results.albums.length > 0;
-          const hasTracks =
-            (activeFilter === "all" || activeFilter === "tracks") &&
-            results.tracks.length > 0;
-          const hasPlaylists =
-            (activeFilter === "all" || activeFilter === "playlists") &&
-            results.playlists.length > 0;
-          const hasTags =
-            (activeFilter === "all" || activeFilter === "tags") &&
-            results.tags.length > 0;
+            const hasArtists =
+              (activeFilter === "all" || activeFilter === "artists") &&
+              results.artists.length > 0;
+            const hasAlbums =
+              (activeFilter === "all" || activeFilter === "albums") &&
+              results.albums.length > 0;
+            const hasTracks =
+              (activeFilter === "all" || activeFilter === "tracks") &&
+              results.tracks.length > 0;
+            const hasPlaylists =
+              (activeFilter === "all" || activeFilter === "playlists") &&
+              results.playlists.length > 0;
+            const hasTags =
+              (activeFilter === "all" || activeFilter === "tags") &&
+              results.tags.length > 0;
 
-          if (hasArtists || hasAlbums || hasTracks || hasPlaylists || hasTags) return null;
+            if (hasArtists || hasAlbums || hasTracks || hasPlaylists || hasTags) return null;
 
-          return (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={64} color="#333" />
-              <Text style={styles.emptyText}>
-                {t('search.no_results', { query })}
-              </Text>
-            </View>
-          );
-        })()}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-
-      />
+            return (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={64} color="#333" />
+                <Text style={styles.emptyText}>
+                  {t('search.no_results', { query })}
+                </Text>
+              </View>
+            );
+          })()}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        />
+      ) : (
+        <View style={{ flex: 1, paddingTop: headerHeight + 60, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#8B5CF6" />
+        </View>
+      )}
     </View>
   );
 }

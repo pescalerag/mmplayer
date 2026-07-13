@@ -26,6 +26,7 @@ import { HistoryService } from '../../services/HistoryService';
 import { SmartListService } from '../../services/SmartListService';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { Layout } from '../../theme/theme';
+import PlaylistCover from '@/components/player/PlaylistCover';
 import { formatAlbumDuration } from '../../utils/time';
 
 // ─── SMART LIST TRACK ROW COMPONENT ───
@@ -154,6 +155,13 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                 subtitle={listDef?.description || 'Lista inteligente'}
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
+                renderCover={() => (
+                    <PlaylistCover
+                        playlistId={`smart-list-${smartListId}`}
+                        size={380}
+                        borderRadius={0}
+                    />
+                )}
                 renderExtra={() => (
                     tracks.length > 0 && (
                         <>

@@ -3,6 +3,7 @@
     "recent_elements": "Elementos Recientes",
     "recent_playlists": "Playlists Recientes",
     "your_favourites": "Tus Favoritos",
+    "smart_playlists_title": "Listas inteligentes",
     "most_liked_songs": "Las canciones que más te gustan",
     "welcome_morning": "Buenos días",
     "welcome_afternoon": "Buenas tardes",
@@ -28,6 +29,7 @@
     "explore_albums": "Explorar álbumes aleatorios",
     "empty_added": "No hay álbumes añadidos",
     "empty_most_played": "Escucha música para ver tus canciones más escuchadas",
+    "empty_smart_playlists": "Escucha música para activar tus listas inteligentes",
     "empty_explore": "No hay álbumes para explorar",
     "no_tracks_to_shuffle": "No hay canciones para reproducir",
     "shuffling_library": "Reproduciendo biblioteca aleatoriamente"

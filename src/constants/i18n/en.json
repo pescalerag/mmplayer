@@ -3,6 +3,7 @@
     "recent_elements": "Recent Items",
     "recent_playlists": "Recent Playlists",
     "your_favourites": "Your Favorites",
+    "smart_playlists_title": "Smart Playlists",
     "most_liked_songs": "Your most played songs",
     "welcome_morning": "Good morning",
     "welcome_afternoon": "Good afternoon",
@@ -28,6 +29,7 @@
     "explore_albums": "Explore random albums",
     "empty_added": "No recently added albums",
     "empty_most_played": "Play some tracks to see your most played songs",
+    "empty_smart_playlists": "Play some tracks to activate your smart playlists",
     "empty_explore": "No albums available to explore",
     "no_tracks_to_shuffle": "No tracks available to play",
     "shuffling_library": "Playing library in shuffle mode"
