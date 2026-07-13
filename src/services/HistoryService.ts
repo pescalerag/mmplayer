@@ -439,6 +439,129 @@ export const HistoryService = {
     };
   },
 
+  async getDetailedStatsForPeriod(
+    period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom',
+    metric: 'duration' | 'plays',
+    customFrom?: Date | null,
+    customTo?: Date
+  ) {
+    let from: Date | null = null;
+    let to: Date = new Date();
+
+    if (period === 'custom') {
+      from = customFrom || null;
+      to = customTo || new Date();
+    } else {
+      const range = this.getPeriodRange(period as any);
+      from = range.from;
+      to = range.to;
+    }
+
+    const query = from
+      ? database.collections
+          .get<PlaybackHistory>('playback_history')
+          .query(
+            Q.where('played_at', Q.gte(from.getTime())),
+            Q.where('played_at', Q.lte(to.getTime()))
+          )
+      : database.collections
+          .get<PlaybackHistory>('playback_history')
+          .query();
+
+    const historyRecords = await query.fetch();
+
+    let totalSeconds = 0;
+    const trackDurations: Record<string, number> = {};
+    const trackPlayCounts: Record<string, number> = {};
+
+    for (const record of historyRecords) {
+      const seconds = record.durationPlayed || 0;
+      totalSeconds += seconds;
+      trackDurations[record.itemId] = (trackDurations[record.itemId] || 0) + seconds;
+      trackPlayCounts[record.itemId] = (trackPlayCounts[record.itemId] || 0) + 1;
+    }
+
+    const totalHours = totalSeconds / 3600;
+    const totalPlays = historyRecords.length;
+    const uniqueTrackIds = Object.keys(trackDurations);
+
+    const topSongsList: any[] = [];
+    const topAlbumsList: any[] = [];
+    const topArtistsList: any[] = [];
+
+    if (uniqueTrackIds.length > 0) {
+      try {
+        const tracks = await database.collections
+          .get<Track>('tracks')
+          .query(Q.where('id', Q.oneOf(uniqueTrackIds)))
+          .fetch();
+
+        const artistData: Record<string, { id: string; name: string; imageUrl: string | null; duration: number; plays: number }> = {};
+        const albumData: Record<string, { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number }> = {};
+        const songData: Record<string, { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number }> = {};
+
+        for (const track of tracks) {
+          const dur = trackDurations[track.id] || 0;
+          const cnt = trackPlayCounts[track.id] || 0;
+          if (dur <= 0 && cnt <= 0) continue;
+
+          const artist = await track.artist.fetch();
+          if (artist) {
+            if (!artistData[artist.id]) {
+              artistData[artist.id] = { id: artist.id, name: artist.name, imageUrl: artist.imageUrl || null, duration: 0, plays: 0 };
+            }
+            artistData[artist.id].duration += dur;
+            artistData[artist.id].plays += cnt;
+          }
+
+          const album = await track.album.fetch();
+          if (album) {
+            if (!albumData[album.id]) {
+              albumData[album.id] = { id: album.id, title: album.title, coverUrl: album.coverUrl || null, artistName: artist?.name || '', duration: 0, plays: 0 };
+            }
+            albumData[album.id].duration += dur;
+            albumData[album.id].plays += cnt;
+          }
+
+          if (!songData[track.id]) {
+            songData[track.id] = {
+              id: track.id,
+              title: track.title,
+              coverUrl: album?.coverUrl || null,
+              artistName: artist?.name || '',
+              duration: 0,
+              plays: 0,
+            };
+          }
+          songData[track.id].duration += dur;
+          songData[track.id].plays += cnt;
+        }
+
+        const scoreOf = (d: { duration: number; plays: number }) =>
+          metric === 'duration' ? d.duration : d.plays;
+
+        const sortedSongs = Object.values(songData).sort((a, b) => scoreOf(b) - scoreOf(a));
+        const sortedAlbums = Object.values(albumData).sort((a, b) => scoreOf(b) - scoreOf(a));
+        const sortedArtists = Object.values(artistData).sort((a, b) => scoreOf(b) - scoreOf(a));
+
+        topSongsList.push(...sortedSongs.slice(0, 50));
+        topAlbumsList.push(...sortedAlbums.slice(0, 50));
+        topArtistsList.push(...sortedArtists.slice(0, 50));
+
+      } catch (e) {
+        console.warn('[HistoryService] Error calculating detailed stats:', e);
+      }
+    }
+
+    return {
+      totalHours,
+      totalPlays,
+      topSongs: topSongsList,
+      topAlbums: topAlbumsList,
+      topArtists: topArtistsList,
+    };
+  },
+
   async getMostPlayedTracks(limit = 10): Promise<Track[]> {
     try {
       const historyRecords = await database.collections

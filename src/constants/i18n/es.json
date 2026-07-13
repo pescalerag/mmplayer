@@ -583,6 +583,18 @@
     "locale_code": "es-ES",
     "all_activity": "Toda la actividad",
     "unknown_artist": "Artista desconocido",
+    "custom_date_title": "Fecha Personalizada",
+    "custom_date_from": "Desde (Fecha de Inicio)",
+    "custom_date_to": "Hasta (Fecha de Fin)",
+    "day": "Día",
+    "month": "Mes",
+    "year": "Año",
+    "options": {
+      "highlights": "Destacados",
+      "songs": "Top Canciones",
+      "albums": "Top Álbumes",
+      "artists": "Top Artistas"
+    },
     "periods": {
       "day": "Día",
       "week": "Semana",
@@ -733,5 +745,9 @@
     "saving_records": "Guardando {{count}} registros en la base de datos...",
     "reconciling": "Reconciliando biblioteca local...",
     "reconciling_phase": "Reconciliando: {{phase}}"
+  },
+  "common": {
+    "accept": "Aceptar",
+    "cancel": "Cancelar"
   }
 }

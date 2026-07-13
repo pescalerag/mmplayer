@@ -583,6 +583,18 @@
     "locale_code": "en-US",
     "all_activity": "All activity",
     "unknown_artist": "Unknown artist",
+    "custom_date_title": "Custom Date Range",
+    "custom_date_from": "From (Start Date)",
+    "custom_date_to": "To (End Date)",
+    "day": "Day",
+    "month": "Month",
+    "year": "Year",
+    "options": {
+      "highlights": "Highlights",
+      "songs": "Top Songs",
+      "albums": "Top Albums",
+      "artists": "Top Artists"
+    },
     "periods": {
       "day": "Day",
       "week": "Week",
@@ -733,5 +745,9 @@
     "saving_records": "Saving {{count}} records in the database...",
     "reconciling": "Reconciling local library...",
     "reconciling_phase": "Reconciling: {{phase}}"
+  },
+  "common": {
+    "accept": "Accept",
+    "cancel": "Cancel"
   }
 }

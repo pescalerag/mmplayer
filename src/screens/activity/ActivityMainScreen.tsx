@@ -6,6 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
+  Pressable,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +16,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { StatusBar } from 'expo-status-bar';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { HistoryService } from '../../services/HistoryService';
@@ -21,10 +25,10 @@ import Track from '../../database/models/Track';
 import { SmartListService } from '../../services/SmartListService';
 import LibraryCard from '../../components/cards/LibraryCard';
 
-type Period = 'day' | 'week' | 'month' | 'year' | 'all';
+type Period = 'day' | 'week' | 'month' | 'year' | 'all' | 'custom';
 type Metric = 'duration' | 'plays';
 
-const PERIODS: Period[] = ['day', 'week', 'month', 'year', 'all'];
+const PERIODS: ('day' | 'week' | 'month' | 'year' | 'all')[] = ['day', 'week', 'month', 'year', 'all'];
 
 function formatDateRange(period: Period, t: any, locale: string): string {
   const now = new Date();
@@ -112,7 +116,35 @@ export default function ActivityMainScreen() {
 
   const [period, setPeriod] = useState<Period>('week');
   const [metric, setMetric] = useState<Metric>('duration');
-  const [stats, setStats] = useState<StatsResult>(EMPTY_STATS);
+  const [activeOption, setActiveOption] = useState<'highlights' | 'songs' | 'albums' | 'artists'>('highlights');
+
+  // Custom date picker states
+  const [isCustomDatePickerVisible, setIsCustomDatePickerVisible] = useState(false);
+  const [fromDay, setFromDay] = useState(new Date().getDate().toString());
+  const [fromMonth, setFromMonth] = useState((new Date().getMonth() + 1).toString());
+  const [fromYear, setFromYear] = useState(new Date().getFullYear().toString());
+
+  const [toDay, setToDay] = useState(new Date().getDate().toString());
+  const [toMonth, setToMonth] = useState((new Date().getMonth() + 1).toString());
+  const [toYear, setToYear] = useState(new Date().getFullYear().toString());
+
+  const [customFrom, setCustomFrom] = useState<Date | null>(null);
+  const [customTo, setCustomTo] = useState<Date>(new Date());
+
+  const [detailedStats, setDetailedStats] = useState<{
+    totalHours: number;
+    totalPlays: number;
+    topSongs: any[];
+    topAlbums: any[];
+    topArtists: any[];
+  }>({
+    totalHours: 0,
+    totalPlays: 0,
+    topSongs: [],
+    topAlbums: [],
+    topArtists: [],
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [smartLists, setSmartLists] = useState<{ id: string; name: string; placeholderIcon: string; trackCount: number }[]>([]);
 
@@ -150,15 +182,26 @@ export default function ActivityMainScreen() {
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await HistoryService.getStatsForPeriod(period, metric);
-      setStats(result);
+      const result = await HistoryService.getDetailedStatsForPeriod(
+        period,
+        metric,
+        customFrom,
+        customTo
+      );
+      setDetailedStats(result);
     } catch (err) {
       console.error('[ActivityMainScreen] Failed to fetch stats:', err);
-      setStats(EMPTY_STATS);
+      setDetailedStats({
+        totalHours: 0,
+        totalPlays: 0,
+        topSongs: [],
+        topAlbums: [],
+        topArtists: [],
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [period, metric]);
+  }, [period, metric, customFrom, customTo]);
 
   useFocusEffect(
     useCallback(() => {
@@ -166,6 +209,40 @@ export default function ActivityMainScreen() {
       loadStatsSmartLists();
     }, [fetchStats, loadStatsSmartLists])
   );
+
+  const stats = React.useMemo(() => {
+    const topSong = detailedStats.topSongs[0];
+    const topAlbum = detailedStats.topAlbums[0];
+    const topArtist = detailedStats.topArtists[0];
+    return {
+      totalHours: detailedStats.totalHours,
+      totalPlays: detailedStats.totalPlays,
+      topSong: topSong?.title || '',
+      topSongId: topSong?.id || '',
+      topSongImg: topSong?.coverUrl || null,
+      topSongArtist: topSong?.artistName || '',
+      topSongDuration: topSong?.duration || 0,
+      topSongPlays: topSong?.plays || 0,
+      topAlbum: topAlbum?.title || '',
+      topAlbumId: topAlbum?.id || '',
+      topAlbumImg: topAlbum?.coverUrl || null,
+      topAlbumDuration: topAlbum?.duration || 0,
+      topAlbumPlays: topAlbum?.plays || 0,
+      topArtist: topArtist?.name || '',
+      topArtistId: topArtist?.id || '',
+      topArtistImg: topArtist?.imageUrl || null,
+      topArtistDuration: topArtist?.duration || 0,
+      topArtistPlays: topArtist?.plays || 0,
+    };
+  }, [detailedStats]);
+
+  const formattedPeriodText = React.useMemo(() => {
+    if (period === 'custom' && customFrom && customTo) {
+      const locale = t('activity.locale_code') || 'es-ES';
+      return `${customFrom.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} – ${customTo.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+    return formatDateRange(period, t, t('activity.locale_code') || 'es-ES');
+  }, [period, customFrom, customTo, t]);
 
   const handleArtistPress = () => {
     if (stats.topArtistId) navigation.navigate('ArtistDetail', { artistId: stats.topArtistId });
@@ -184,6 +261,37 @@ export default function ActivityMainScreen() {
         console.warn('[ActivityMainScreen] Failed to play top track:', err);
       }
     }
+  };
+
+  const playTrackById = async (id: string) => {
+    try {
+      const track = await database.get<Track>('tracks').find(id);
+      usePlayerStore.getState().playSingleTrack(track, 'activity-stats');
+    } catch (e) {
+      console.warn('[ActivityMainScreen] Failed to play track:', e);
+    }
+  };
+
+  const applyCustomRange = () => {
+    const fd = parseInt(fromDay);
+    const fm = parseInt(fromMonth) - 1;
+    const fy = parseInt(fromYear);
+
+    const td = parseInt(toDay);
+    const tm = parseInt(toMonth) - 1;
+    const ty = parseInt(toYear);
+
+    const fDate = new Date(fy, fm, fd, 0, 0, 0, 0);
+    const tDate = new Date(ty, tm, td, 23, 59, 59, 999);
+
+    if (isNaN(fDate.getTime()) || isNaN(tDate.getTime())) {
+      return;
+    }
+
+    setCustomFrom(fDate);
+    setCustomTo(tDate);
+    setPeriod('custom');
+    setIsCustomDatePickerVisible(false);
   };
 
   const hasActivity = stats.totalHours > 0 || stats.totalPlays > 0;
@@ -271,9 +379,18 @@ export default function ActivityMainScreen() {
 
       {/* DATE RANGE + METRIC TOGGLE */}
       <View style={styles.controlsRow}>
-        <Text style={[styles.dateRangeText, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-          {formatDateRange(period, t, t('activity.locale_code') || 'es-ES')}
-        </Text>
+        <View style={styles.dateRangeSelector}>
+          <Text style={[styles.dateRangeText, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
+            {formattedPeriodText}
+          </Text>
+          <TouchableOpacity
+            style={styles.calendarIconContainer}
+            onPress={() => setIsCustomDatePickerVisible(true)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="calendar-outline" size={16} color={colors.accentLight} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.metricToggle}>
           <TouchableOpacity
             onPress={() => setMetric('duration')}
@@ -327,7 +444,6 @@ export default function ActivityMainScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.accentLight} size="large" />
@@ -369,143 +485,298 @@ export default function ActivityMainScreen() {
                   ]}
                 >
                   {metric === 'duration'
-                    ? t('activity.total_listening_time', { period: formatDateRange(period, t, t('activity.locale_code') || 'es-ES') })
-                    : t('activity.total_plays', { period: formatDateRange(period, t, t('activity.locale_code') || 'es-ES') })}
+                    ? t('activity.total_listening_time', { period: formattedPeriodText })
+                    : t('activity.total_plays', { period: formattedPeriodText })}
                 </Text>
               </View>
 
-              <Text
-                style={[
-                  styles.sectionHeading,
-                  { fontFamily: fonts.bold, color: colors.textSecondary },
-                ]}
-              >
-                {SECTION_LABEL}
-              </Text>
+              {/* TABS OPTION SELECTOR (Highlights | Top Songs | Top Albums | Top Artists) */}
+              <View style={styles.optionTabsRow}>
+                {['highlights', 'songs', 'albums', 'artists'].map((opt) => {
+                  const isActive = opt === activeOption;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      onPress={() => setActiveOption(opt as any)}
+                      activeOpacity={0.75}
+                      style={[
+                        styles.optionTab,
+                        isActive && { borderBottomColor: colors.accent },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionTabText,
+                          { fontFamily: fonts.bold },
+                          isActive ? { color: colors.accentLight } : { color: colors.textSecondary },
+                        ]}
+                      >
+                        {t(`activity.options.${opt}`)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-              {/* TOP ARTIST CARD */}
-              <TouchableOpacity
-                onPress={handleArtistPress}
-                disabled={!stats.topArtistId}
-                activeOpacity={0.8}
-                style={[
-                  styles.highlightCard,
-                  { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md || 8 },
-                ]}
-              >
-                {stats.topArtistImg ? (
-                  <Image source={{ uri: stats.topArtistImg }} style={[styles.avatar, { borderRadius: 32 }]} />
-                ) : (
-                  <View style={[styles.avatarPlaceholder, { borderRadius: 32, backgroundColor: colors.accentAlpha30 }]}>
-                    <Ionicons name="person" size={28} color={colors.accentLight} />
-                  </View>
-                )}
-                <View style={styles.cardInfo}>
-                  <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                    {t('home.weekly_stats_artist')}
-                  </Text>
-                  <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                    {stats.topArtist || t('activity.none')}
-                  </Text>
-                  <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                    {artistStatLabel}
-                  </Text>
-                </View>
-                {stats.topArtistId ? (
-                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={styles.arrow} />
-                ) : null}
-              </TouchableOpacity>
-
-              {/* TOP ALBUM CARD */}
-              <TouchableOpacity
-                onPress={handleAlbumPress}
-                disabled={!stats.topAlbumId}
-                activeOpacity={0.8}
-                style={[
-                  styles.highlightCard,
-                  { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md || 8 },
-                ]}
-              >
-                {stats.topAlbumImg ? (
-                  <Image source={{ uri: stats.topAlbumImg }} style={[styles.cover, { borderRadius: radii.sm || 4 }]} />
-                ) : (
-                  <View style={[styles.coverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
-                    <Ionicons name="albums" size={28} color={colors.accentLight} />
-                  </View>
-                )}
-                <View style={styles.cardInfo}>
-                  <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                    {t('home.weekly_stats_album')}
-                  </Text>
-                  <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                    {stats.topAlbum || t('activity.none')}
-                  </Text>
-                  <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                    {albumStatLabel}
-                  </Text>
-                </View>
-                {stats.topAlbumId ? (
-                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={styles.arrow} />
-                ) : null}
-              </TouchableOpacity>
-
-              {/* TOP SONG CARD */}
-              <TouchableOpacity
-                onPress={handleSongPress}
-                disabled={!stats.topSongId}
-                activeOpacity={0.8}
-                style={[
-                  styles.highlightCard,
-                  { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md || 8 },
-                ]}
-              >
-                {stats.topSongImg ? (
-                  <Image source={{ uri: stats.topSongImg }} style={[styles.cover, { borderRadius: radii.sm || 4 }]} />
-                ) : (
-                  <View style={[styles.coverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
-                    <Ionicons name="musical-note" size={28} color={colors.accentLight} />
-                  </View>
-                )}
-                <View style={styles.cardInfo}>
-                  <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                    {t('home.weekly_stats_song')}
-                  </Text>
-                  <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                    {stats.topSong || t('activity.none')}
-                  </Text>
-                  <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
-                    {songStatLabel}
-                  </Text>
-                </View>
-                {stats.topSongId ? (
-                  <Ionicons name="play" size={20} color={colors.accentLight} style={styles.arrow} />
-                ) : null}
-              </TouchableOpacity>
-
-              {/* Playlists para ti */}
-              {visibleSmartLists.length > 0 && (
-                <View style={styles.smartListsSection}>
-                  <Text style={[styles.sectionHeading, { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 24, marginBottom: 12 }]}>
-                    Playlists para ti
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalScroll}
-                    keyboardShouldPersistTaps="handled"
+              {activeOption === 'highlights' && (
+                <>
+                  <Text
+                    style={[
+                      styles.sectionHeading,
+                      { fontFamily: fonts.bold, color: colors.textSecondary },
+                    ]}
                   >
-                    {visibleSmartLists.map((list) => (
-                      <View key={list.id} style={{ marginRight: 15 }}>
-                        <LibraryCard
-                          title={list.name}
-                          subtitle={`${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
-                          placeholderIcon={list.placeholderIcon as any}
-                          smartListId={list.id}
-                          onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id })}
-                        />
+                    {SECTION_LABEL}
+                  </Text>
+
+                  {/* TOP ARTIST CARD */}
+                  <TouchableOpacity
+                    onPress={handleArtistPress}
+                    disabled={!stats.topArtistId}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.highlightCard,
+                      { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md || 8 },
+                    ]}
+                  >
+                    {stats.topArtistImg ? (
+                      <Image source={{ uri: stats.topArtistImg }} style={[styles.avatar, { borderRadius: 32 }]} />
+                    ) : (
+                      <View style={[styles.avatarPlaceholder, { borderRadius: 32, backgroundColor: colors.accentAlpha30 }]}>
+                        <Ionicons name="person" size={28} color={colors.accentLight} />
                       </View>
-                    ))}
-                  </ScrollView>
+                    )}
+                    <View style={styles.cardInfo}>
+                      <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                        {t('home.weekly_stats_artist')}
+                      </Text>
+                      <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+                        {stats.topArtist || t('activity.none')}
+                      </Text>
+                      <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                        {artistStatLabel}
+                      </Text>
+                    </View>
+                    {stats.topArtistId ? (
+                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={styles.arrow} />
+                    ) : null}
+                  </TouchableOpacity>
+
+                  {/* TOP ALBUM CARD */}
+                  <TouchableOpacity
+                    onPress={handleAlbumPress}
+                    disabled={!stats.topAlbumId}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.highlightCard,
+                      { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md || 8 },
+                    ]}
+                  >
+                    {stats.topAlbumImg ? (
+                      <Image source={{ uri: stats.topAlbumImg }} style={[styles.cover, { borderRadius: radii.sm || 4 }]} />
+                    ) : (
+                      <View style={[styles.coverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
+                        <Ionicons name="albums" size={28} color={colors.accentLight} />
+                      </View>
+                    )}
+                    <View style={styles.cardInfo}>
+                      <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                        {t('home.weekly_stats_album')}
+                      </Text>
+                      <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+                        {stats.topAlbum || t('activity.none')}
+                      </Text>
+                      <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                        {albumStatLabel}
+                      </Text>
+                    </View>
+                    {stats.topAlbumId ? (
+                      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={styles.arrow} />
+                    ) : null}
+                  </TouchableOpacity>
+
+                  {/* TOP SONG CARD */}
+                  <TouchableOpacity
+                    onPress={handleSongPress}
+                    disabled={!stats.topSongId}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.highlightCard,
+                      { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: radii.md || 8 },
+                    ]}
+                  >
+                    {stats.topSongImg ? (
+                      <Image source={{ uri: stats.topSongImg }} style={[styles.cover, { borderRadius: radii.sm || 4 }]} />
+                    ) : (
+                      <View style={[styles.coverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
+                        <Ionicons name="musical-note" size={28} color={colors.accentLight} />
+                      </View>
+                    )}
+                    <View style={styles.cardInfo}>
+                      <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                        {t('home.weekly_stats_song')}
+                      </Text>
+                      <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+                        {stats.topSong || t('activity.none')}
+                      </Text>
+                      <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
+                        {songStatLabel}
+                      </Text>
+                    </View>
+                    {stats.topSongId ? (
+                      <Ionicons name="play" size={20} color={colors.accentLight} style={styles.arrow} />
+                    ) : null}
+                  </TouchableOpacity>
+
+                  {/* Playlists para ti */}
+                  {visibleSmartLists.length > 0 && (
+                    <View style={styles.smartListsSection}>
+                      <Text style={[styles.sectionHeading, { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 24, marginBottom: 12 }]}>
+                        Playlists para ti
+                      </Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.horizontalScroll}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {visibleSmartLists.map((list) => (
+                          <View key={list.id} style={{ marginRight: 15 }}>
+                            <LibraryCard
+                              title={list.name}
+                              subtitle={`${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`}
+                              placeholderIcon={list.placeholderIcon as any}
+                              smartListId={list.id}
+                              onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id })}
+                            />
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {activeOption === 'songs' && (
+                <View style={styles.listContainer}>
+                  {detailedStats.topSongs.map((item, index) => {
+                    const statLabel = metric === 'duration'
+                      ? formatDuration(item.duration, t)
+                      : item.plays === 1
+                        ? t('activity.reproduction_singular', { count: item.plays })
+                        : t('activity.reproduction_plural', { count: item.plays });
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.listItem}
+                        activeOpacity={0.7}
+                        onPress={() => playTrackById(item.id)}
+                      >
+                        <Text style={[styles.rankText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+                          {index + 1}
+                        </Text>
+                        {item.coverUrl ? (
+                          <Image source={{ uri: item.coverUrl }} style={[styles.listCover, { borderRadius: radii.sm || 4 }]} />
+                        ) : (
+                          <View style={[styles.listCoverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
+                            <Ionicons name="musical-note" size={20} color={colors.accentLight} />
+                          </View>
+                        )}
+                        <View style={styles.listItemInfo}>
+                          <Text style={[styles.listItemTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+                            {item.title}
+                          </Text>
+                          <Text style={[styles.listItemSubtitle, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.artistName}
+                          </Text>
+                        </View>
+                        <Text style={[styles.listStatText, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                          {statLabel}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {activeOption === 'albums' && (
+                <View style={styles.listContainer}>
+                  {detailedStats.topAlbums.map((item, index) => {
+                    const statLabel = metric === 'duration'
+                      ? formatDuration(item.duration, t)
+                      : item.plays === 1
+                        ? t('activity.reproduction_singular', { count: item.plays })
+                        : t('activity.reproduction_plural', { count: item.plays });
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.listItem}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('AlbumDetail', { albumId: item.id })}
+                      >
+                        <Text style={[styles.rankText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+                          {index + 1}
+                        </Text>
+                        {item.coverUrl ? (
+                          <Image source={{ uri: item.coverUrl }} style={[styles.listCover, { borderRadius: radii.sm || 4 }]} />
+                        ) : (
+                          <View style={[styles.listCoverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
+                            <Ionicons name="albums" size={20} color={colors.accentLight} />
+                          </View>
+                        )}
+                        <View style={styles.listItemInfo}>
+                          <Text style={[styles.listItemTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+                            {item.title}
+                          </Text>
+                          <Text style={[styles.listItemSubtitle, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.artistName || t('activity.unknown_artist')}
+                          </Text>
+                        </View>
+                        <Text style={[styles.listStatText, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                          {statLabel}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {activeOption === 'artists' && (
+                <View style={styles.listContainer}>
+                  {detailedStats.topArtists.map((item, index) => {
+                    const statLabel = metric === 'duration'
+                      ? formatDuration(item.duration, t)
+                      : item.plays === 1
+                        ? t('activity.reproduction_singular', { count: item.plays })
+                        : t('activity.reproduction_plural', { count: item.plays });
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.listItem}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('ArtistDetail', { artistId: item.id })}
+                      >
+                        <Text style={[styles.rankText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+                          {index + 1}
+                        </Text>
+                        {item.imageUrl ? (
+                          <Image source={{ uri: item.imageUrl }} style={[styles.listAvatar, { borderRadius: 20 }]} />
+                        ) : (
+                          <View style={[styles.listAvatarPlaceholder, { borderRadius: 20, backgroundColor: colors.accentAlpha30 }]}>
+                            <Ionicons name="person" size={20} color={colors.accentLight} />
+                          </View>
+                        )}
+                        <View style={styles.listItemInfo}>
+                          <Text style={[styles.listItemTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                        </View>
+                        <Text style={[styles.listStatText, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+                          {statLabel}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               )}
             </>
@@ -523,6 +794,138 @@ export default function ActivityMainScreen() {
             </View>
           )}
         </ScrollView>
+      )}
+
+      {isCustomDatePickerVisible && (
+        <Modal
+          visible={isCustomDatePickerVisible}
+          transparent={true}
+          animationType="fade"
+          statusBarTranslucent={true}
+          onRequestClose={() => setIsCustomDatePickerVisible(false)}
+        >
+          <StatusBar style="light" />
+          <Pressable
+            style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}
+            onPress={() => setIsCustomDatePickerVisible(false)}
+          >
+            <Pressable onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 340 }}>
+              <View style={[styles.modalCard, { backgroundColor: colors.cardBackground, borderRadius: radii.lg || 12 }]}>
+                <Text style={[styles.modalTitle, { fontFamily: fonts.bold, color: colors.text }]}>
+                  {t('activity.custom_date_title')}
+                </Text>
+
+                {/* START DATE */}
+                <Text style={[styles.modalInputLabel, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+                  {t('activity.custom_date_from')}
+                </Text>
+                <View style={styles.dateInputsRow}>
+                  <View style={styles.inputCol}>
+                    <Text style={styles.miniLabel}>{t('activity.day')}</Text>
+                    <TextInput
+                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      value={fromDay}
+                      onChangeText={setFromDay}
+                      placeholder="DD"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                  <View style={styles.inputCol}>
+                    <Text style={styles.miniLabel}>{t('activity.month')}</Text>
+                    <TextInput
+                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      value={fromMonth}
+                      onChangeText={setFromMonth}
+                      placeholder="MM"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                  <View style={styles.inputCol}>
+                    <Text style={styles.miniLabel}>{t('activity.year')}</Text>
+                    <TextInput
+                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
+                      keyboardType="numeric"
+                      maxLength={4}
+                      value={fromYear}
+                      onChangeText={setFromYear}
+                      placeholder="AAAA"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                </View>
+
+                {/* END DATE */}
+                <Text style={[styles.modalInputLabel, { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 16 }]}>
+                  {t('activity.custom_date_to')}
+                </Text>
+                <View style={styles.dateInputsRow}>
+                  <View style={styles.inputCol}>
+                    <Text style={styles.miniLabel}>{t('activity.day')}</Text>
+                    <TextInput
+                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      value={toDay}
+                      onChangeText={setToDay}
+                      placeholder="DD"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                  <View style={styles.inputCol}>
+                    <Text style={styles.miniLabel}>{t('activity.month')}</Text>
+                    <TextInput
+                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      value={toMonth}
+                      onChangeText={setToMonth}
+                      placeholder="MM"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                  <View style={styles.inputCol}>
+                    <Text style={styles.miniLabel}>{t('activity.year')}</Text>
+                    <TextInput
+                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
+                      keyboardType="numeric"
+                      maxLength={4}
+                      value={toYear}
+                      onChangeText={setToYear}
+                      placeholder="AAAA"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                  </View>
+                </View>
+
+                {/* ACTIONS */}
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.cancelBtn]}
+                    onPress={() => setIsCustomDatePickerVisible(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.cancelBtnText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+                      {t('common.cancel')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.acceptBtn, { backgroundColor: colors.accent }]}
+                    onPress={applyCustomRange}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.acceptBtnText, { fontFamily: fonts.bold, color: '#FFFFFF' }]}>
+                      {t('common.accept')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       )}
     </View>
   );
@@ -585,6 +988,17 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.04)',
     gap: 8,
   },
+  dateRangeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  calendarIconContainer: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
   dateRangeText: {
     fontSize: 11,
     flex: 1,
@@ -607,6 +1021,179 @@ const styles = StyleSheet.create({
   },
   metricBtnText: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  // ---- OPTION TABS ----
+  optionTabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    gap: 8,
+  },
+  optionTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  optionTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  // ---- DETAILED LISTS ----
+  listContainer: {
+    gap: 8,
+    marginTop: 10,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.02)',
+  },
+  rankText: {
+    fontSize: 14,
+    width: 24,
+    textAlign: 'center',
+    marginRight: 8,
+  },
+  listCover: {
+    width: 40,
+    height: 40,
+  },
+  listCoverPlaceholder: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listAvatar: {
+    width: 40,
+    height: 40,
+  },
+  listAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listItemInfo: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  listItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  listItemSubtitle: {
+    fontSize: 12,
+  },
+  listStatText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  // ---- INLINE DATE PICKER ----
+  inlinePickerContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  inlinePickerCard: {
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  // ---- CUSTOM DATE PICKER MODAL ----
+  customModalOverlayWrapper: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  dateInputsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  inputCol: {
+    flex: 1,
+  },
+  miniLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.4)',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    textAlign: 'center',
+    fontSize: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 24,
+  },
+  actionBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: 'transparent',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  acceptBtn: {
+    minWidth: 90,
+  },
+  acceptBtnText: {
+    fontSize: 14,
     fontWeight: '700',
   },
   // ---- LOADING ----
