@@ -23,7 +23,8 @@ export type SheetType =
   | 'playlist-selector'
   | 'tag-manager'
   | 'player-menu'
-  | 'batch-menu';
+  | 'batch-menu'
+  | 'advanced-tag-search';
 
 interface UIState {
   activeSheet: SheetType | null;

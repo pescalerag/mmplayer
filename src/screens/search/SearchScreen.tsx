@@ -1,6 +1,7 @@
-import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTagMenu } from '@/store/useUIStore';
+import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTagMenu, useUIStore } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import withObservables from "@nozbe/with-observables";
+import { Q } from '@nozbe/watermelondb';
 import { useNavigation, useScrollToTop, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { FlashList } from '@shopify/flash-list';
@@ -29,6 +30,8 @@ import Artist from "../../database/models/Artist";
 import Tag from "../../database/models/Tag";
 import Track from "../../database/models/Track";
 import Playlist from "../../database/models/Playlist";
+import TrackTag from "../../database/models/TrackTag";
+import PlaylistTrack from "../../database/models/PlaylistTrack";
 import { TopMatch, useMusicSearch } from "../../hooks/useMusicSearch";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { SearchStackParamList } from "../../navigation/types";
@@ -289,14 +292,132 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { isCompactTags, setIsCompactTags } = useSettingsStore();
+
+  // Advanced Tag Search States
+  const [isAdvancedSearching, setIsAdvancedSearching] = useState(false);
+  const [advancedIncludes, setAdvancedIncludes] = useState<string[]>([]);
+  const [advancedExcludes, setAdvancedExcludes] = useState<string[]>([]);
+  const [advancedMatchAll, setAdvancedMatchAll] = useState(false);
+  const [advancedNoPlaylists, setAdvancedNoPlaylists] = useState(false);
+  const [advancedSearchResults, setAdvancedSearchResults] = useState<Track[]>([]);
+  const [isAdvancedLoading, setIsAdvancedLoading] = useState(false);
+
+  const executeAdvancedTagSearch = useCallback(async (includes: string[], excludes: string[], matchAll: boolean, noPlaylists: boolean) => {
+    setIsAdvancedLoading(true);
+    try {
+      // 1. Get excluded track IDs from tags
+      let excludedTrackIds: string[] = [];
+      if (excludes.length > 0) {
+        const excludedRelations = await database.collections.get<TrackTag>('track_tags')
+          .query(Q.where('tag_id', Q.oneOf(excludes)))
+          .fetch();
+        excludedTrackIds = excludedRelations.map(r => (r as any)._raw.track_id);
+      }
+
+      // 2. Get tracks in playlists if noPlaylists is active
+      if (noPlaylists) {
+        const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks').query().fetch();
+        const trackIdsInPlaylists = playlistTracks.map(pt => (pt as any)._raw.track_id);
+        excludedTrackIds = Array.from(new Set([...excludedTrackIds, ...trackIdsInPlaylists]));
+      }
+
+      // 3. Get included track IDs
+      let matchingTrackIds: string[] = [];
+      if (includes.length > 0) {
+        if (matchAll) {
+          let tempIds: string[] | null = null;
+          for (const tagId of includes) {
+            const tagRelations = await database.collections.get<TrackTag>('track_tags')
+              .query(Q.where('tag_id', tagId))
+              .fetch();
+            const ids = tagRelations.map(r => (r as any)._raw.track_id);
+            if (tempIds === null) {
+              tempIds = ids;
+            } else {
+              tempIds = tempIds.filter(id => ids.includes(id));
+            }
+            if (tempIds.length === 0) break;
+          }
+          matchingTrackIds = tempIds || [];
+        } else {
+          const tagRelations = await database.collections.get<TrackTag>('track_tags')
+            .query(Q.where('tag_id', Q.oneOf(includes)))
+            .fetch();
+          matchingTrackIds = Array.from(new Set(tagRelations.map(r => (r as any)._raw.track_id)));
+        }
+      } else {
+        // No includes: match all tracks in database except excluded ones
+        const allTracks = await database.collections.get<Track>('tracks').query().fetch();
+        matchingTrackIds = allTracks.map(t => t.id);
+      }
+
+      // 4. Subtract excluded IDs
+      if (excludedTrackIds.length > 0) {
+        matchingTrackIds = matchingTrackIds.filter(id => !excludedTrackIds.includes(id));
+      }
+
+      // 5. Fetch actual Track records
+      if (matchingTrackIds.length === 0) {
+        setAdvancedSearchResults([]);
+      } else {
+        const tracks = await database.collections.get<Track>('tracks')
+          .query(Q.where('id', Q.oneOf(matchingTrackIds)))
+          .fetch();
+        setAdvancedSearchResults(tracks);
+      }
+    } catch (e) {
+      console.error('Error executing advanced tag search:', e);
+      setAdvancedSearchResults([]);
+    } finally {
+      setIsAdvancedLoading(false);
+    }
+  }, []);
+
+  const handleClearAdvancedSearch = useCallback(() => {
+    setIsAdvancedSearching(false);
+    setAdvancedIncludes([]);
+    setAdvancedExcludes([]);
+    setAdvancedNoPlaylists(false);
+    setAdvancedSearchResults([]);
+  }, []);
+
+  const openAdvancedSearchSheet = useCallback(() => {
+    useUIStore.getState().openSheet('advanced-tag-search', {
+      initialIncludes: advancedIncludes,
+      initialExcludes: advancedExcludes,
+      initialMatchAll: advancedMatchAll,
+      initialNoPlaylists: advancedNoPlaylists,
+      onSearch: ({ includes, excludes, matchAll, noPlaylists }: any) => {
+        setAdvancedIncludes(includes);
+        setAdvancedExcludes(excludes);
+        setAdvancedMatchAll(matchAll);
+        setAdvancedNoPlaylists(noPlaylists);
+        setIsAdvancedSearching(true);
+        executeAdvancedTagSearch(includes, excludes, matchAll, noPlaylists);
+      }
+    });
+  }, [advancedIncludes, advancedExcludes, advancedMatchAll, advancedNoPlaylists, executeAdvancedTagSearch]);
+
   const {
     results,
     topMatch,
-    isLoading,
-    isSearching,
+    isLoading: isTextSearchLoading,
+    isSearching: isTextSearching,
     loadMoreTracks,
     isLoadingMore,
   } = useMusicSearch(query);
+
+  const isSearching = isTextSearching;
+  const isCurrentlySearching = isSearching || isAdvancedSearching;
+  const isLoading = isTextSearchLoading || isAdvancedLoading;
+
+  // Clear advanced search if query text changes
+  useEffect(() => {
+    if (query.trim().length > 0 && isAdvancedSearching) {
+      handleClearAdvancedSearch();
+    }
+  }, [query, isAdvancedSearching, handleClearAdvancedSearch]);
+
   const { history, saveSearch, clearHistory, deleteHistoryItem } =
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
@@ -439,12 +560,13 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       if (currentRoute.key === e.target) {
         setQuery("");
         setActiveFilter("all");
+        handleClearAdvancedSearch();
         Keyboard.dismiss();
       }
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, handleClearAdvancedSearch]);
 
   const handleSearchSubmit = useCallback(() => {
     if (query.trim()) {
@@ -460,7 +582,29 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      {!isSearching && isKeyboardVisible && history.length > 0 && (
+      {isAdvancedSearching && (
+        <View style={styles.advancedFilterStrip}>
+          <View style={styles.advancedFilterTextContainer}>
+            <Ionicons name="color-filter" size={18} color="#8B5CF6" style={{ marginRight: 8 }} />
+            <Text style={styles.advancedFilterTitle}>
+              {t('search.advanced_search_active') || "Búsqueda de etiquetas activa"}
+              {` (${advancedSearchResults.length})`}
+            </Text>
+          </View>
+          <View style={styles.advancedFilterActions}>
+            <TouchableOpacity onPress={openAdvancedSearchSheet} style={styles.advancedFilterEditBtn}>
+              <Text style={styles.advancedFilterEditBtnText}>
+                {t('actions.edit') || "Editar"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClearAdvancedSearch} style={styles.advancedFilterCloseBtn}>
+              <Ionicons name="close" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {!isCurrentlySearching && isKeyboardVisible && history.length > 0 && (
         <View style={styles.historySection}>
           <View style={styles.sectionHeaderWithAction}>
             <SectionHeader title={t('search.recent')} />
@@ -485,8 +629,21 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         </View>
       )}
 
+      {/* Botón de búsqueda avanzada de etiquetas */}
+      {!isCurrentlySearching && (
+        <TouchableOpacity
+          style={styles.advancedSearchButton}
+          onPress={openAdvancedSearchSheet}
+        >
+          <Ionicons name="options-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.advancedSearchButtonText}>
+            {t('search.advanced_tag_search_btn') || "Búsqueda avanzada de etiquetas"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
-      {!isSearching && (
+      {!isCurrentlySearching && (
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
             <Text style={styles.tagsSectionTitle}>{t('search.explore_tags')}</Text>
@@ -808,19 +965,21 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         <FlashList
           ref={flatListRef}
           data={
-            isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
-              ? results.tracks.filter(
-                (track) =>
-                  currentTopMatch?.type !== "track" ||
-                  track.id !== currentTopMatch.item.id,
-              )
-              : []
+            isAdvancedSearching
+              ? advancedSearchResults
+              : isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
+                ? results.tracks.filter(
+                  (track) =>
+                    currentTopMatch?.type !== "track" ||
+                    track.id !== currentTopMatch.item.id,
+                )
+                : []
           }
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           onEndReached={() => {
-            if (activeFilter === "tracks") {
+            if (activeFilter === "tracks" && !isAdvancedSearching) {
               loadMoreTracks();
             }
           }}
@@ -843,7 +1002,21 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               20,
           }}
           ListEmptyComponent={(() => {
-            if (isLoading || !isSearching) return null;
+            if (isLoading) return null;
+            if (isAdvancedSearching) {
+              if (advancedSearchResults.length === 0) {
+                return (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="color-filter-outline" size={64} color="#333" />
+                    <Text style={styles.emptyText}>
+                      {t('search.no_tag_matches') || "No se encontraron canciones con ese filtro de etiquetas."}
+                    </Text>
+                  </View>
+                );
+              }
+              return null;
+            }
+            if (!isSearching) return null;
 
             const hasArtists =
               (activeFilter === "all" || activeFilter === "artists") &&
@@ -1131,6 +1304,75 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  advancedSearchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  advancedSearchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+  },
+  advancedFilterStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E1A2A',
+    borderWidth: 1,
+    borderColor: '#8B5CF644',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  advancedFilterTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  advancedFilterTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+  },
+  advancedFilterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  advancedFilterEditBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+  },
+  advancedFilterEditBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+  },
+  advancedFilterCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

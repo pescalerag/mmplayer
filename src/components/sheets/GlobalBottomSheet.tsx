@@ -36,6 +36,7 @@ import SwipeActionSheet from '@/components/sheets/SwipeActionSheet';
 import TagMenuSheet from '@/components/sheets/TagMenuSheet';
 import TrackMenuSheet from '@/components/sheets/TrackMenuSheet';
 import BatchMenuSheet from '@/components/sheets/BatchMenuSheet';
+import AdvancedTagSearchSheet from '@/components/sheets/AdvancedTagSearchSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -179,6 +180,8 @@ export default function GlobalBottomSheet() {
         return <PlayerMenuSheet />;
       case 'batch-menu':
         return <BatchMenuSheet />;
+      case 'advanced-tag-search':
+        return <AdvancedTagSearchSheet />;
       default:
         return null;
     }
