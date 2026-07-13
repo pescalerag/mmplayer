@@ -1,26 +1,29 @@
+import BlurredBackground from '@/components/layouts/BlurredBackground';
+import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useEffect, useState } from 'react';
 import {
+    AppState,
+    AppStateStatus,
     Dimensions,
+    InteractionManager,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-    AppState,
-    AppStateStatus,
-    InteractionManager
+    View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
@@ -28,9 +31,7 @@ import TrackPlayer, {
     usePlaybackState,
     useProgress,
 } from 'react-native-track-player';
-import { NativeVisualizer, extractColorFromImage } from '../../../modules/native-equalizer';
-import BlurredBackground from '@/components/layouts/BlurredBackground';
-import { openQueueSheet, openSpeedPitch, openPlayerMenu, openTrackMenu, openArtistsList, openTagManagerForTrack, openPlaylistSelector, openSleepTimer, openLocalCast } from '@/store/useUIStore';
+import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
 
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -40,13 +41,13 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 
+import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
+import MarqueeText from '@/components/common/MarqueeText';
+import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
-import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
-import MarqueeText from '@/components/common/MarqueeText';
-import PlayPauseButton from '@/components/common/PlayPauseButton';
 import Track from '../../database/models/Track';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
@@ -173,14 +174,14 @@ const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
     }
 };
 
-const CanvasVideo = React.memo(({ 
-    sourceUri, 
+const CanvasVideo = React.memo(({
+    sourceUri,
     isPlaying,
     isImmersive,
     gradientColors
-}: { 
-    sourceUri: string; 
-    isPlaying: boolean; 
+}: {
+    sourceUri: string;
+    isPlaying: boolean;
     isImmersive: boolean;
     gradientColors: string[];
 }) => {
@@ -438,6 +439,22 @@ const PlayerScreenUI = ({
         }
     }, [track.bgVideo, showCanvas]);
 
+    const longPressHintOpacity = useSharedValue(0);
+    useEffect(() => {
+        if (isFocused && !isTransitioning && playerCoverStyle === 'cover') {
+            longPressHintOpacity.value = withSequence(
+                withTiming(1, { duration: 600 }),
+                withDelay(1500, withTiming(0, { duration: 800 }))
+            );
+        } else {
+            longPressHintOpacity.value = 0;
+        }
+    }, [isFocused, isTransitioning, playerCoverStyle]);
+
+    const longPressHintStyle = useAnimatedStyle(() => ({
+        opacity: longPressHintOpacity.value
+    }));
+
     const immersiveProgress = useSharedValue(0);
 
     useEffect(() => {
@@ -666,7 +683,7 @@ const PlayerScreenUI = ({
 
                 {/* Artwork / Visualizer / CD / Vinyl Container */}
                 <View style={[
-                    styles.artworkContainer, 
+                    styles.artworkContainer,
                     isAltDisplay && { paddingHorizontal: 0 },
                     isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
                 ]}>
@@ -692,26 +709,69 @@ const PlayerScreenUI = ({
                                     height: width - 64,
                                     alignSelf: 'center',
                                 }, spinStyle]}>
-                                    <Image
-                                        source={playerCoverStyle === 'cd'
-                                            ? require('../../assets/cd.svg')
-                                            : require('../../assets/vinyl.svg')
-                                        }
-                                        style={{ width: '100%', height: '100%' }}
-                                        contentFit="contain"
-                                    />
-                                    {playerCoverStyle === 'vinyl' && coverColor && (
-                                        <View
-                                            style={{
-                                                position: 'absolute',
-                                                top: 0, left: 0, right: 0, bottom: 0,
-                                                borderRadius: (width - 64) / 2,
-                                                backgroundColor: coverColor,
-                                                opacity: 0.25,
-                                            }}
-                                            pointerEvents="none"
-                                        />
+
+                                    {playerCoverStyle === 'cd' ? (
+                                        <View style={{ flex: 1, position: 'relative' }}>
+                                            {album.cdArtUrl ? (
+                                                <>
+                                                    <MaskedView
+                                                        style={StyleSheet.absoluteFillObject}
+                                                        maskElement={
+                                                            <View style={{
+                                                                width: width - 64,
+                                                                height: width - 64,
+                                                                borderRadius: (width - 64) / 2,
+                                                                // Calcula el grosor del disco para dejar un agujero de tamaño fijo.
+                                                                // Ajusta el "35" si el agujero central de tu SVG es más grande o más pequeño.
+                                                                borderWidth: ((width - 64) - 35) / 2,
+                                                                borderColor: 'black', // La zona negra revela la foto
+                                                                backgroundColor: 'transparent', // La zona transparente corta la foto (el agujero)
+                                                            }} />
+                                                        }
+                                                    >
+                                                        <Image
+                                                            source={{ uri: album.cdArtUrl }}
+                                                            style={{ width: '100%', height: '100%' }}
+                                                            contentFit="cover"
+                                                        />
+                                                    </MaskedView>
+                                                    <Image
+                                                        source={require('../../assets/cd-custom.svg')}
+                                                        style={{ position: 'absolute', width: '100%', height: '100%' }}
+                                                        contentFit="contain"
+                                                    />
+                                                </>
+                                            ) : (
+                                                <Image
+                                                    source={require('../../assets/cd-base.svg')}
+                                                    style={{ width: '100%', height: '100%' }}
+                                                    contentFit="contain"
+                                                />
+                                            )}
+                                        </View>
+                                    ) : (
+                                        // LÓGICA DEL VINILO (SE MANTIENE IGUAL)
+                                        <>
+                                            <Image
+                                                source={require('../../assets/vinyl.svg')}
+                                                style={{ width: '100%', height: '100%' }}
+                                                contentFit="contain"
+                                            />
+                                            {coverColor && (
+                                                <View
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: 0, left: 0, right: 0, bottom: 0,
+                                                        borderRadius: (width - 64) / 2,
+                                                        backgroundColor: coverColor,
+                                                        opacity: 0.25,
+                                                    }}
+                                                    pointerEvents="none"
+                                                />
+                                            )}
+                                        </>
                                     )}
+
                                 </Animated.View>
                             ) : (showCanvas && !!track.bgVideo) ? (
                                 <View style={{ width: width - 64, height: width - 64 }} />
@@ -736,6 +796,31 @@ const PlayerScreenUI = ({
                             )}
                         </Animated.View>
                     </GestureDetector>
+                    {!isImmersive && (
+                        <Animated.View
+                            pointerEvents="none"
+                            style={[
+                                {
+                                    position: 'absolute',
+                                    bottom: isAltDisplay ? 15 : 35,
+                                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                                    paddingHorizontal: 62,
+                                    paddingVertical: 8,
+                                    borderBottomLeftRadius: 10,
+                                    borderBottomRightRadius: 10,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                },
+                                longPressHintStyle
+                            ]}
+                        >
+                            <Ionicons name="color-palette-outline" size={16} color="#FFFFFF" />
+                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600', fontFamily: fonts.regular }}>
+                                Mantén pulsado para personalizar
+                            </Text>
+                        </Animated.View>
+                    )}
                 </View>
 
                 {/* Info */}
@@ -830,8 +915,8 @@ const PlayerScreenUI = ({
                 </Animated.View>
 
                 {/* Animated Bottom Controls Group */}
-                <Animated.View 
-                    style={[bottomControlsAnimatedStyle]} 
+                <Animated.View
+                    style={[bottomControlsAnimatedStyle]}
                     pointerEvents={isImmersive ? 'none' : 'auto'}
                 >
                     {/* Progress Slider */}
