@@ -13,6 +13,8 @@ import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useToastStore } from '../store/useToastStore';
+import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
 
@@ -445,16 +447,425 @@ const normalizePinnedValues = async () => {
     });
 };
 
+const performCreateTracks = async (
+    audioFiles: any[],
+    onProgress?: (current: number, total: number, phase: string) => void
+): Promise<{ added: number }> => {
+    let added = 0;
+    const artistsCollection = database.collections.get<Artist>('artists');
+    const albumsCollection = database.collections.get<Album>('albums');
+    const tracksCollection = database.collections.get<Track>('tracks');
+    const collaboratorsCollection = database.collections.get('track_collaborators');
+
+    const artistCache = new Map<string, Artist>();
+    const albumCache = new Map<string, Album>();
+
+    const existingArtists = await artistsCollection.query().fetch();
+    for (const a of existingArtists) artistCache.set(a.name, a);
+
+    const existingAlbums = await albumsCollection.query().fetch();
+    for (const a of existingAlbums) albumCache.set(a.title, a);
+
+    let batchOps: any[] = [];
+    const BATCH_SIZE = 500;
+
+    for (let i = 0; i < audioFiles.length; i++) {
+        const file = audioFiles[i];
+
+        if (i % 100 === 0) {
+            onProgress?.(i, audioFiles.length, 'Añadiendo a tu biblioteca...');
+        }
+
+        const meta = extractFileMetadata(file);
+
+        const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+        batchOps.push(...newArtistOps);
+        const primaryArtist = trackArtists[0];
+
+        let albumArtistObj = primaryArtist;
+        if (meta.albumArtist) {
+            const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
+            batchOps.push(...newAlbumArtistOps);
+            if (albumArtists.length > 0) {
+                albumArtistObj = albumArtists[0];
+            }
+        }
+
+        const { album, newAlbumOps } = await resolveAlbum(
+            meta.albumId,
+            meta.albumTitle,
+            albumArtistObj,
+            !!meta.albumArtist,
+            meta.coverUrl,
+            meta.year,
+            albumCache,
+            albumsCollection,
+            artistCache,
+            artistsCollection,
+            batchOps
+        );
+        batchOps.push(...newAlbumOps);
+
+        const trackOps = prepareTrackRecords(file, meta, album!, primaryArtist, trackArtists, tracksCollection, collaboratorsCollection);
+        batchOps.push(...trackOps);
+
+        added++;
+
+        if (batchOps.length >= BATCH_SIZE) {
+            await database.write(async () => {
+                await database.batch(batchOps);
+            });
+            batchOps = [];
+        }
+    }
+
+    if (batchOps.length > 0) {
+        await database.write(async () => {
+            await database.batch(batchOps);
+        });
+    }
+
+    return { added };
+};
+
+const performDeleteTracks = async (tracks: Track[]) => {
+    const idsToDelete = tracks.map(t => t.id);
+
+    const playlistTracksCollection = database.collections.get('playlist_tracks');
+    const trackTagsCollection = database.collections.get('track_tags');
+    const trackCollaboratorsCollection = database.collections.get('track_collaborators');
+    const playbackHistoryCollection = database.collections.get('playback_history');
+
+    const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
+        playlistTracksCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+        trackTagsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+        trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+        playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(idsToDelete))).fetch()
+    ]);
+
+    await database.write(async () => {
+        const batchOps = [
+            ...tracks.map(t => t.prepareDestroyPermanently()),
+            ...playlistTracks.map(r => r.prepareDestroyPermanently()),
+            ...trackTags.map(r => r.prepareDestroyPermanently()),
+            ...trackCollaborators.map(r => r.prepareDestroyPermanently()),
+            ...playbackHistory.map(r => r.prepareDestroyPermanently())
+        ];
+        await database.batch(batchOps);
+    });
+};
+
+const showToastNotification = (created: number, deleted: number, reconciled: number, isSilent = false) => {
+    if (reconciled > 0) {
+        const message = reconciled === 1
+            ? i18n.t('toasts.library_reconciled', { count: reconciled })
+            : i18n.t('toasts.library_reconciled_plural', { count: reconciled });
+        useToastStore.getState().showToast(message, 'swap-horizontal');
+    } else if (created > 0 && deleted > 0) {
+        useToastStore.getState().showToast(i18n.t('toasts.library_updated') || 'Biblioteca actualizada', 'sync');
+    } else if (created > 0) {
+        useToastStore.getState().showToast(i18n.t('toasts.library_added_tracks', { count: created }) || `${created} nuevas canciones añadidas`, 'add-circle');
+    } else if (deleted > 0) {
+        useToastStore.getState().showToast(i18n.t('toasts.library_deleted_tracks', { count: deleted }) || `${deleted} canciones eliminadas`, 'trash');
+    } else {
+        if (!isSilent) {
+            useToastStore.getState().showToast(i18n.t('toasts.library_up_to_date') || 'Biblioteca al día', 'checkmark-circle');
+        }
+    }
+};
+
 export const ScannerService = {
     syncLibrary: async (onProgress?: (current: number, total: number, phase: string) => void, isSilent: boolean = false) => {
         if (useSyncStore.getState().isScanning) return;
         try {
             useSyncStore.getState().setIsScanning(true, isSilent);
-            await ScannerService.cleanDeletedFiles((phase) => onProgress?.(0, 0, phase));
 
-            await ScannerService.autoScanAndroid(onProgress);
+            onProgress?.(0, 0, 'Solicitando permisos...');
+            const { status } = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
+            if (status !== 'granted') {
+                throw new Error('Permiso de lectura de medios denegado.');
+            }
+
+            onProgress?.(0, 0, 'Buscando archivos en el dispositivo...');
+            const audioFiles = await getAudioFiles(false);
+            if (!audioFiles || audioFiles.length === 0) {
+                if (!isSilent) {
+                    showToastNotification(0, 0, 0);
+                }
+                return;
+            }
+
+            const tracksCollection = database.collections.get<Track>('tracks');
+            const albumsCollection = database.collections.get<Album>('albums');
+            const artistsCollection = database.collections.get<Artist>('artists');
+
+            // --- Fase 1: Diffing Rápido (Solo Strings) ---
+            onProgress?.(0, 0, 'Analizando cambios...');
+            const allTracks = await tracksCollection.query().fetch();
+            
+            const excludedFolders = useSettingsStore.getState().excludedFolders;
+            const excludedSongs = useSettingsStore.getState().excludedSongs || [];
+
+            const isExcluded = (uri: string) => {
+                const lastSlash = uri.lastIndexOf('/');
+                const folder = lastSlash !== -1 ? uri.substring(0, lastSlash) : '';
+                return excludedFolders.includes(folder) || excludedSongs.includes(uri);
+            };
+
+            const devicePaths = new Set<string>();
+            const activeAudioFiles = audioFiles.filter(f => {
+                if (isExcluded(f.uri)) return false;
+                devicePaths.add(f.uri);
+                return true;
+            });
+
+            const dbPaths = new Set(allTracks.map(t => t.fileUrl));
+
+            // canciones_huerfanas: en la BD pero no en el móvil
+            const canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+
+            // archivos_nuevos: en el móvil pero no en la BD
+            const archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
+
+            let tracksCreated = 0;
+            let tracksDeleted = 0;
+            let tracksReconciled = 0;
+
+            const deletedTrackIds: string[] = [];
+            const deletedAlbumIds: string[] = [];
+            const deletedArtistIds: string[] = [];
+
+            // --- Fase 2: Condición de Escape (Fast-Path) ---
+            const needsReconciliation = canciones_huerfanas.length > 0 && archivos_nuevos.length > 0;
+
+            if (!needsReconciliation) {
+                if (canciones_huerfanas.length > 0) {
+                    onProgress?.(0, 0, 'Eliminando canciones huérfanas...');
+                    const idsToDelete = canciones_huerfanas.map(t => t.id);
+                    deletedTrackIds.push(...idsToDelete);
+                    tracksDeleted = canciones_huerfanas.length;
+
+                    await performDeleteTracks(canciones_huerfanas);
+                }
+
+                if (archivos_nuevos.length > 0) {
+                    onProgress?.(0, 0, 'Importando canciones nuevas...');
+                    const result = await performCreateTracks(archivos_nuevos, onProgress);
+                    tracksCreated = result.added;
+                }
+            } else {
+                // --- Fase 3 & 4: Huella Ligera & Reconciliación ---
+                onProgress?.(0, 0, 'Reconciliando canciones movidas...');
+                
+                const allArtists = await artistsCollection.query().fetch();
+                const artistMap = new Map<string, string>();
+                allArtists.forEach(a => artistMap.set(a.id, a.name));
+
+                const allAlbums = await albumsCollection.query().fetch();
+                const albumMap = new Map<string, string>();
+                allAlbums.forEach(al => albumMap.set(al.id, al.title));
+
+                const getTrackFingerprint = (title: string, duration: number, artist: string = '', album: string = '') => {
+                    const cleanTitle = title.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+                    const cleanArtist = artist.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+                    const cleanAlbum = album.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+                    const roundedDuration = Math.round(duration);
+                    return `${roundedDuration}_${cleanTitle}_${cleanArtist}_${cleanAlbum}`;
+                };
+
+                const orphanMap = new Map<string, Track[]>();
+                for (const track of canciones_huerfanas) {
+                    const trackArtistId = (track._raw as any).artist_id;
+                    const trackAlbumId = (track._raw as any).album_id;
+                    const artistName = artistMap.get(trackArtistId) || '';
+                    const albumTitle = albumMap.get(trackAlbumId) || '';
+                    const fp = getTrackFingerprint(track.title, track.duration, artistName, albumTitle);
+
+                    if (!orphanMap.has(fp)) {
+                        orphanMap.set(fp, []);
+                    }
+                    orphanMap.get(fp)!.push(track);
+                }
+
+                const canciones_actualizadas: { track: Track; file: any }[] = [];
+                const canciones_nuevas_restantes: any[] = [];
+
+                for (const file of archivos_nuevos) {
+                    const meta = extractFileMetadata(file);
+                    const fp = getTrackFingerprint(meta.title, meta.durationInSeconds, meta.artistString, meta.albumTitle);
+
+                    const matchingOrphans = orphanMap.get(fp);
+                    if (matchingOrphans && matchingOrphans.length > 0) {
+                        const matchedTrack = matchingOrphans.shift()!;
+                        canciones_actualizadas.push({
+                            track: matchedTrack,
+                            file: file
+                        });
+                    } else {
+                        canciones_nuevas_restantes.push(file);
+                    }
+                }
+
+                const canciones_huerfanas_restantes: Track[] = [];
+                for (const tracks of orphanMap.values()) {
+                    canciones_huerfanas_restantes.push(...tracks);
+                }
+
+                // --- Fase 5: Acción en WatermelonDB (Batch) ---
+                let batchOps: any[] = [];
+                const BATCH_SIZE = 500;
+
+                if (canciones_actualizadas.length > 0 || canciones_huerfanas_restantes.length > 0) {
+                    await database.write(async () => {
+                        const artistCache = new Map<string, Artist>();
+                        const albumCache = new Map<string, Album>();
+
+                        const existingArtists = await artistsCollection.query().fetch();
+                        for (const a of existingArtists) artistCache.set(a.name, a);
+
+                        const existingAlbums = await albumsCollection.query().fetch();
+                        for (const a of existingAlbums) albumCache.set(a.title, a);
+
+                        if (canciones_actualizadas.length > 0) {
+                            tracksReconciled = canciones_actualizadas.length;
+                            for (const item of canciones_actualizadas) {
+                                const matchedTrack = item.track;
+                                const file = item.file;
+
+                                const meta = extractFileMetadata(file);
+
+                                const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+                                batchOps.push(...newArtistOps);
+                                const primaryArtist = trackArtists[0];
+
+                                let albumArtistObj = primaryArtist;
+                                if (meta.albumArtist) {
+                                    const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
+                                    batchOps.push(...newAlbumArtistOps);
+                                    if (albumArtists.length > 0) {
+                                        albumArtistObj = albumArtists[0];
+                                    }
+                                }
+
+                                const { album, newAlbumOps } = await resolveAlbum(
+                                    meta.albumId,
+                                    meta.albumTitle,
+                                    albumArtistObj,
+                                    !!meta.albumArtist,
+                                    meta.coverUrl,
+                                    meta.year,
+                                    albumCache,
+                                    albumsCollection,
+                                    artistCache,
+                                    artistsCollection,
+                                    batchOps
+                                );
+                                batchOps.push(...newAlbumOps);
+
+                                const updateOp = matchedTrack.prepareUpdate((t: any) => {
+                                    t.fileUrl = file.uri.replace(/#/g, '%23');
+                                    t.lastModified = file.lastModified || Date.now();
+                                    t.title = meta.title;
+                                    t.normalizedTitle = normalizeText(meta.title);
+                                    t.duration = meta.durationInSeconds;
+                                    t.trackNumber = file.trackNumber || 0;
+                                    t.discNumber = file.discNumber || 1;
+                                    t.album.set(album);
+                                    t.artist.set(primaryArtist);
+                                });
+                                batchOps.push(updateOp);
+
+                                const collaboratorsCollection = database.collections.get('track_collaborators');
+                                const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', matchedTrack.id)).fetch();
+                                const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
+                                batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
+
+                                for (const artist of trackArtists) {
+                                    const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
+                                        tc.track.set(matchedTrack);
+                                        tc.artist.set(artist);
+                                    });
+                                    batchOps.push(newCollab);
+                                }
+                            }
+                        }
+
+                        if (canciones_huerfanas_restantes.length > 0) {
+                            tracksDeleted = canciones_huerfanas_restantes.length;
+                            const idsToDelete = canciones_huerfanas_restantes.map(t => t.id);
+                            deletedTrackIds.push(...idsToDelete);
+
+                            const playlistTracksCollection = database.collections.get('playlist_tracks');
+                            const trackTagsCollection = database.collections.get('track_tags');
+                            const trackCollaboratorsCollection = database.collections.get('track_collaborators');
+                            const playbackHistoryCollection = database.collections.get('playback_history');
+
+                            const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
+                                playlistTracksCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+                                trackTagsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+                                trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+                                playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(idsToDelete))).fetch()
+                            ]);
+
+                            batchOps.push(
+                                ...canciones_huerfanas_restantes.map(t => t.prepareDestroyPermanently()),
+                                ...playlistTracks.map(r => r.prepareDestroyPermanently()),
+                                ...trackTags.map(r => r.prepareDestroyPermanently()),
+                                ...trackCollaborators.map(r => r.prepareDestroyPermanently()),
+                                ...playbackHistory.map(r => r.prepareDestroyPermanently())
+                            );
+                        }
+
+                        for (let i = 0; i < batchOps.length; i += BATCH_SIZE) {
+                            const chunk = batchOps.slice(i, i + BATCH_SIZE);
+                            await database.batch(chunk);
+                        }
+                    });
+                }
+
+                if (canciones_nuevas_restantes.length > 0) {
+                    onProgress?.(0, canciones_nuevas_restantes.length, 'Importando canciones nuevas...');
+                    const result = await performCreateTracks(canciones_nuevas_restantes, onProgress);
+                    tracksCreated = result.added;
+                }
+            }
+
+            // --- Fase de Limpieza Final ---
+            if (deletedTrackIds.length > 0 || tracksReconciled > 0) {
+                onProgress?.(audioFiles.length, audioFiles.length, 'Limpiando base de datos...');
+                const deletedAlbums = await removeEmptyEntities(
+                    albumsCollection,
+                    tracksCollection,
+                    'album_id',
+                    'Limpiando álbumes vacíos...',
+                    (phase) => onProgress?.(audioFiles.length, audioFiles.length, phase)
+                );
+                const deletedArtists = await removeEmptyEntities(
+                    artistsCollection,
+                    tracksCollection,
+                    'artist_id',
+                    'Limpiando artistas vacíos...',
+                    (phase) => onProgress?.(audioFiles.length, audioFiles.length, phase)
+                );
+                deletedAlbumIds.push(...deletedAlbums);
+                deletedArtistIds.push(...deletedArtists);
+            }
+
+            if (deletedTrackIds.length > 0 || deletedAlbumIds.length > 0 || deletedArtistIds.length > 0) {
+                await usePlayerStore.getState().handleDeletedEntities(deletedTrackIds, deletedAlbumIds, deletedArtistIds);
+            }
+
+            await normalizePinnedValues().catch(() => { });
+
+            if (tracksCreated > 0) {
+                await HistoryService.initializeDefaultsIfNeeded();
+            }
 
             ArtistImageService.processMissingArtistImages({ isBackground: true });
+
+            onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
+
+            showToastNotification(tracksCreated, tracksDeleted, tracksReconciled, isSilent);
 
         } catch (error: any) {
             console.error("Error en syncLibrary:", error);
@@ -1005,250 +1416,8 @@ export const ScannerService = {
     autoScanAndroid: async (
         onProgress?: (current: number, total: number, phase: string) => void
     ): Promise<{ total: number; added: number; skipped: number }> => {
-
-        if (Platform.OS !== 'android') {
-            console.warn("Auto-scan is only supported on Android right now.");
-            return { total: 0, added: 0, skipped: 0 };
-        }
-
-        coverExistsCache.clear();
-
-        onProgress?.(0, 0, 'Solicitando permisos...');
-        const { status } = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
-        if (status !== 'granted') {
-            throw new Error('Permiso de lectura de medios denegado.');
-        }
-
-        onProgress?.(0, 0, 'Buscando archivos nuevos en el sistema...');
-        const audioFiles = await getAudioFiles(false);
-
-        if (!audioFiles || audioFiles.length === 0) {
-            return { total: 0, added: 0, skipped: 0 };
-        }
-
-        let added = 0;
-        let skipped = 0;
-
-        const artistsCollection = database.collections.get<Artist>('artists');
-        const albumsCollection = database.collections.get<Album>('albums');
-        const tracksCollection = database.collections.get<Track>('tracks');
-        const collaboratorsCollection = database.collections.get('track_collaborators');
-
-        onProgress?.(0, audioFiles.length, 'Sincronizando...');
-
-        const excludedFolders = useSettingsStore.getState().excludedFolders;
-        const excludedSongs = useSettingsStore.getState().excludedSongs || [];
-
-        const affectedAlbumIds = new Set<string>();
-        const affectedArtistIds = new Set<string>();
-
-        await database.write(async () => {
-            const artistCache = new Map<string, Artist>();
-            const albumCache = new Map<string, Album>();
-
-            const existingArtists = await artistsCollection.query().fetch();
-            for (const a of existingArtists) artistCache.set(a.name, a);
-
-            const existingAlbums = await albumsCollection.query().fetch();
-            for (const a of existingAlbums) albumCache.set(a.title, a);
-
-            const existingTracks = await tracksCollection.query().fetch();
-            const existingTrackMap = new Map<string, Track>();
-            existingTracks.forEach(t => existingTrackMap.set(t.fileUrl, t));
-
-            let batchOps: any[] = [];
-            const BATCH_SIZE = 500;
-
-            for (let i = 0; i < audioFiles.length; i++) {
-                const file = audioFiles[i];
-
-                if (i % 100 === 0) onProgress?.(i, audioFiles.length, 'Añadiendo a tu biblioteca...');
-
-                const lastSlash = file.uri.lastIndexOf('/');
-                const fileFolder = lastSlash !== -1 ? file.uri.substring(0, lastSlash) : '';
-                const isFolderExcluded = excludedFolders.includes(fileFolder);
-                const isSongExcluded = excludedSongs.includes(file.uri);
-                if (isFolderExcluded || isSongExcluded) {
-                    skipped++;
-                    continue;
-                }
-
-                const existingTrack = existingTrackMap.get(file.uri);
-                if (existingTrack) {
-                    if ((existingTrack as any)._preparedState) {
-                        skipped++;
-                        continue;
-                    }
-
-                    const dbLastModified = existingTrack.lastModified || 0;
-                    if (file.lastModified <= dbLastModified) {
-                        skipped++;
-                        continue;
-                    }
-
-                    // Guardar IDs de álbum y artista antiguos para limpiar si quedan vacíos
-                    const oldAlbumId = (existingTrack._raw as any).album_id;
-                    const oldArtistId = (existingTrack._raw as any).artist_id;
-                    if (oldAlbumId) affectedAlbumIds.add(oldAlbumId);
-                    if (oldArtistId) affectedArtistIds.add(oldArtistId);
-
-                    // Se ha modificado el archivo: actualizamos metadatos
-                    const meta = extractFileMetadata(file);
-
-                    // Resolve Artists
-                    const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
-                    batchOps.push(...newArtistOps);
-                    const primaryArtist = trackArtists[0];
-
-                    // Resolve Album Artist
-                    let albumArtistObj = primaryArtist;
-                    if (meta.albumArtist) {
-                        const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
-                        batchOps.push(...newAlbumArtistOps);
-                        if (albumArtists.length > 0) {
-                            albumArtistObj = albumArtists[0];
-                        }
-                    }
-
-                    // Resolve Album
-                    const { album, newAlbumOps } = await resolveAlbum(
-                        meta.albumId,
-                        meta.albumTitle,
-                        albumArtistObj,
-                        !!meta.albumArtist,
-                        meta.coverUrl,
-                        meta.year,
-                        albumCache,
-                        albumsCollection,
-                        artistCache,
-                        artistsCollection,
-                        batchOps
-                    );
-                    batchOps.push(...newAlbumOps);
-
-                    // Update Track metadata
-                    try {
-                        const updateOp = existingTrack.prepareUpdate((t: any) => {
-                            t.title = meta.title;
-                            t.normalizedTitle = normalizeText(meta.title);
-                            t.duration = meta.durationInSeconds;
-                            t.trackNumber = file.trackNumber || 0;
-                            t.discNumber = file.discNumber || 1;
-                            t.lastModified = meta.lastModified;
-                            t.album.set(album);
-                            t.artist.set(primaryArtist);
-                        });
-                        batchOps.push(updateOp);
-                    } catch (error: any) {
-                        if (error.message && error.message.includes('pending changes')) {
-                            const raw = existingTrack._raw as any;
-                            raw.title = meta.title;
-                            raw.normalizedTitle = normalizeText(meta.title);
-                            raw.duration = meta.durationInSeconds;
-                            raw.trackNumber = file.trackNumber || 0;
-                            raw.discNumber = file.discNumber || 1;
-                            raw.lastModified = meta.lastModified;
-                            raw.album_id = album?.id;
-                            raw.artist_id = primaryArtist?.id;
-                        } else {
-                            throw error;
-                        }
-                    }
-
-                    // Re-associate collaborators
-                    const collaboratorsCollection = database.collections.get('track_collaborators');
-                    const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', existingTrack.id)).fetch();
-                    existingCollabs.forEach(c => {
-                        const collabArtistId = (c._raw as any).artist_id;
-                        if (collabArtistId) affectedArtistIds.add(collabArtistId);
-                    });
-                    const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
-                    batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
-
-                    for (const artist of trackArtists) {
-                        const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
-                            tc.track.set(existingTrack);
-                            tc.artist.set(artist);
-                        });
-                        batchOps.push(newCollab);
-                    }
-
-                    added++;
-                } else {
-                    // 1. Parse Metadata
-                    const meta = extractFileMetadata(file);
-
-                    // 2. Resolve Artists
-                    const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
-                    batchOps.push(...newArtistOps);
-                    const primaryArtist = trackArtists[0];
-
-                    // 2.5 Resolve Album Artist if present
-                    let albumArtistObj = primaryArtist;
-                    if (meta.albumArtist) {
-                        const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
-                        batchOps.push(...newAlbumArtistOps);
-                        if (albumArtists.length > 0) {
-                            albumArtistObj = albumArtists[0];
-                        }
-                    }
-
-                    // 3. Resolve Album
-                    const { album, newAlbumOps } = await resolveAlbum(
-                        meta.albumId,
-                        meta.albumTitle,
-                        albumArtistObj,
-                        !!meta.albumArtist,
-                        meta.coverUrl,
-                        meta.year,
-                        albumCache,
-                        albumsCollection,
-                        artistCache,
-                        artistsCollection,
-                        batchOps
-                    );
-                    batchOps.push(...newAlbumOps);
-
-                    // 4. Create Track & Collaborators
-                    const trackOps = prepareTrackRecords(file, meta, album!, primaryArtist, trackArtists, tracksCollection, collaboratorsCollection);
-                    batchOps.push(...trackOps);
-
-                    added++;
-                }
-
-                // 5. Batch Execution
-                if (batchOps.length >= BATCH_SIZE) {
-                    await database.batch(batchOps);
-                    batchOps = [];
-                }
-            }
-
-            if (batchOps.length > 0) {
-                await database.batch(batchOps);
-            }
-        });
-
-        // Limpiar álbumes/artistas vacíos si se cambiaron metadatos en tracks existentes
-        if (affectedAlbumIds.size > 0 || affectedArtistIds.size > 0) {
-            onProgress?.(audioFiles.length, audioFiles.length, 'Limpiando álbumes/artistas vacíos...');
-            await ScannerService.cleanDeletedFiles({
-                targetAlbumIds: Array.from(affectedAlbumIds),
-                targetArtistIds: Array.from(affectedArtistIds),
-                skipFileCheck: true
-            }, (phase) => onProgress?.(audioFiles.length, audioFiles.length, phase)).catch(err => {
-                console.error("Error limpiando álbumes/artistas vacíos tras actualización:", err);
-            });
-        }
-
-        if (added > 0) {
-            await HistoryService.initializeDefaultsIfNeeded();
-        }
-
-        // Normalize any NULL is_pinned values to false (covers pre-existing records)
-        await normalizePinnedValues().catch(() => { });
-
-        onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
-        return { total: audioFiles.length, added, skipped };
+        await ScannerService.syncLibrary(onProgress, true);
+        return { total: 0, added: 0, skipped: 0 };
     },
 
     migrateLastModifiedIfNeeded: async () => {
