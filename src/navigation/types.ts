@@ -6,7 +6,6 @@ export type HomeStackParamList = {
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     PlaylistDetail: { playlistId: string };
     FavoritesDetail: undefined;
-    ChangelogScreen: undefined;
     WeeklyActivity: undefined;
     SmartListDetail: { smartListId: string };
 };
