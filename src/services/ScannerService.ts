@@ -555,13 +555,13 @@ const performDeleteTracks = async (tracks: Track[]) => {
     });
 };
 
-const showToastNotification = (created: number, deleted: number, reconciled: number, isSilent = false) => {
+const showToastNotification = (created: number, deleted: number, reconciled: number, modified: number = 0, isSilent = false) => {
     if (reconciled > 0) {
         const message = reconciled === 1
             ? i18n.t('toasts.library_reconciled', { count: reconciled })
             : i18n.t('toasts.library_reconciled_plural', { count: reconciled });
         useToastStore.getState().showToast(message, 'swap-horizontal');
-    } else if (created > 0 && deleted > 0) {
+    } else if (modified > 0 || (created > 0 && deleted > 0)) {
         useToastStore.getState().showToast(i18n.t('toasts.library_updated') || 'Biblioteca actualizada', 'sync');
     } else if (created > 0) {
         useToastStore.getState().showToast(i18n.t('toasts.library_added_tracks', { count: created }) || `${created} nuevas canciones añadidas`, 'add-circle');
@@ -627,9 +627,25 @@ export const ScannerService = {
             // archivos_nuevos: en el móvil pero no en la BD
             const archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
 
+            // archivos_modificados: en la BD y en el móvil, pero con lastModified mayor
+            const trackMap = new Map<string, Track>();
+            allTracks.forEach(t => trackMap.set(t.fileUrl, t));
+
+            const archivos_modificados: { track: Track; file: any }[] = [];
+            for (const file of activeAudioFiles) {
+                const existing = trackMap.get(file.uri);
+                if (existing) {
+                    const dbLastModified = existing.lastModified || 0;
+                    if (file.lastModified > dbLastModified) {
+                        archivos_modificados.push({ track: existing, file });
+                    }
+                }
+            }
+
             let tracksCreated = 0;
             let tracksDeleted = 0;
             let tracksReconciled = 0;
+            let tracksUpdated = archivos_modificados.length;
 
             const deletedTrackIds: string[] = [];
             const deletedAlbumIds: string[] = [];
@@ -637,8 +653,9 @@ export const ScannerService = {
 
             // --- Fase 2: Condición de Escape (Fast-Path) ---
             const needsReconciliation = canciones_huerfanas.length > 0 && archivos_nuevos.length > 0;
+            const hasModifiedFiles = archivos_modificados.length > 0;
 
-            if (!needsReconciliation) {
+            if (!needsReconciliation && !hasModifiedFiles) {
                 if (canciones_huerfanas.length > 0) {
                     onProgress?.(0, 0, 'Eliminando canciones huérfanas...');
                     const idsToDelete = canciones_huerfanas.map(t => t.id);
@@ -655,7 +672,11 @@ export const ScannerService = {
                 }
             } else {
                 // --- Fase 3 & 4: Huella Ligera & Reconciliación ---
-                onProgress?.(0, 0, 'Reconciliando canciones movidas...');
+                if (needsReconciliation) {
+                    onProgress?.(0, 0, 'Reconciliando canciones movidas...');
+                } else {
+                    onProgress?.(0, 0, 'Actualizando metadatos modificados...');
+                }
                 
                 const allArtists = await artistsCollection.query().fetch();
                 const artistMap = new Map<string, string>();
@@ -687,9 +708,10 @@ export const ScannerService = {
                     orphanMap.get(fp)!.push(track);
                 }
 
-                const canciones_actualizadas: { track: Track; file: any }[] = [];
+                const canciones_actualizadas: { track: Track; file: any }[] = [...archivos_modificados];
                 const canciones_nuevas_restantes: any[] = [];
 
+                let matchedCount = 0;
                 for (const file of archivos_nuevos) {
                     const meta = extractFileMetadata(file);
                     const fp = getTrackFingerprint(meta.title, meta.durationInSeconds, meta.artistString, meta.albumTitle);
@@ -701,6 +723,7 @@ export const ScannerService = {
                             track: matchedTrack,
                             file: file
                         });
+                        matchedCount++;
                     } else {
                         canciones_nuevas_restantes.push(file);
                     }
@@ -727,7 +750,7 @@ export const ScannerService = {
                         for (const a of existingAlbums) albumCache.set(a.title, a);
 
                         if (canciones_actualizadas.length > 0) {
-                            tracksReconciled = canciones_actualizadas.length;
+                            tracksReconciled = matchedCount;
                             for (const item of canciones_actualizadas) {
                                 const matchedTrack = item.track;
                                 const file = item.file;
@@ -831,7 +854,7 @@ export const ScannerService = {
             }
 
             // --- Fase de Limpieza Final ---
-            if (deletedTrackIds.length > 0 || tracksReconciled > 0) {
+            if (deletedTrackIds.length > 0 || tracksReconciled > 0 || tracksUpdated > 0) {
                 onProgress?.(audioFiles.length, audioFiles.length, 'Limpiando base de datos...');
                 const deletedAlbums = await removeEmptyEntities(
                     albumsCollection,
@@ -865,7 +888,7 @@ export const ScannerService = {
 
             onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
 
-            showToastNotification(tracksCreated, tracksDeleted, tracksReconciled, isSilent);
+            showToastNotification(tracksCreated, tracksDeleted, tracksReconciled, tracksUpdated, isSilent);
 
         } catch (error: any) {
             console.error("Error en syncLibrary:", error);

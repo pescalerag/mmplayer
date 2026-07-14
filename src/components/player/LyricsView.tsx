@@ -18,7 +18,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import TrackPlayer, { useProgress } from 'react-native-track-player';
+import TrackPlayer from 'react-native-track-player';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
@@ -41,10 +41,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
     const { t } = useTranslation();
 
     const flatListRef = useRef<FlatList>(null);
-    const progress = useProgress();
-    const currentTime = progress.position;
-
-    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track, currentTime);
+    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track);
 
     // Resolve artist name from observed models
     const artistName = useMemo(() => {

@@ -9,6 +9,7 @@ import { FlashList } from '@shopify/flash-list';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+    Dimensions,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -30,6 +31,8 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { Layout } from '../../theme/theme';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import { formatAlbumDuration } from '../../utils/time';
+
+const { width } = Dimensions.get('window');
 
 // ─── SMART LIST TRACK ROW COMPONENT ───
 const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
@@ -160,7 +163,8 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                 renderCover={() => (
                     <PlaylistCover
                         playlistId={`smart-list-${smartListId}`}
-                        size={380}
+                        width={width}
+                        height={380}
                         borderRadius={0}
                     />
                 )}

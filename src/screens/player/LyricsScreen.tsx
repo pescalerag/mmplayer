@@ -278,7 +278,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1 || playbackPitch !== 1;
 
-    const { position, duration } = useProgress();
+    const { position, duration } = useProgress(250);
     const hasNext = usePlayerStore(state => state.hasNext);
     const hasPrevious = usePlayerStore(state => state.hasPrevious);
 
@@ -305,7 +305,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
     }, []);
 
-    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track, position);
+    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track);
 
     const isInitialScrollRef = useRef(true);
 
