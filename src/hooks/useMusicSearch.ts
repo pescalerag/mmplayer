@@ -94,8 +94,8 @@ const determineTopMatch = (
 
 const fetchRelatedForTopTrack = async (track: Track, artists: Artist[], albums: Album[]) => {
     const [relatedArtist, relatedAlbum] = await Promise.all([
-        track.artist.fetch(),
-        track.album.fetch()
+        track.artist.fetch().catch(() => null),
+        track.album.fetch().catch(() => null)
     ]);
 
     if (relatedArtist && !artists.some(a => a.id === relatedArtist.id)) {

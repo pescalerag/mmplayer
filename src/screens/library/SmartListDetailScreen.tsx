@@ -2,6 +2,8 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import React, { useCallback, useState } from 'react';
@@ -32,7 +34,7 @@ import { formatAlbumDuration } from '../../utils/time';
 // ─── SMART LIST TRACK ROW COMPONENT ───
 const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any,
 }))(function SmartTrackRow({
     track,
@@ -43,7 +45,7 @@ const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) =
     onPress,
 }: {
     track: Track;
-    album: Album;
+    album: Album | null;
     artists: Artist[];
     smartListId: string;
     index: number;

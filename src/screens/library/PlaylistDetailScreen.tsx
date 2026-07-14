@@ -2,7 +2,10 @@ import { openPlaylistMenu, openPlaylistSelectorEdit } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -48,7 +51,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
   ["track"],
   ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any,
   }),
 )(function PlaylistTrackRowWithMetadata({
@@ -60,7 +63,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
   onPress,
 }: {
   track: Track;
-  album: Album;
+  album: Album | null;
   artists: Artist[];
   playlistId: string;
   index: number;
@@ -90,7 +93,7 @@ const PlaylistTrackRow = withObservables(
   ["playlistTrack"],
   ({ playlistTrack }: { playlistTrack: PlaylistTrack }) => ({
     playlistTrack: playlistTrack.observe(),
-    track: playlistTrack.track.observe(),
+    track: playlistTrack.track.observe().pipe(catchError(() => of(null))),
   }),
 )(function PlaylistTrackRow({
   playlistTrack,
@@ -100,7 +103,7 @@ const PlaylistTrackRow = withObservables(
   onPress,
 }: {
   playlistTrack: PlaylistTrack;
-  track: Track;
+  track: Track | null;
   playlistId: string;
   index: number;
   onPress: (trackId: string) => void;
@@ -456,18 +459,44 @@ function PlaylistDetailContent({
 }
 
 // ─── ENHANCED COMPONENT WITH WATERMELONDB OBSERVABLE ───
+function PlaylistDetailErrorFallback() {
+  const { colors } = useAppTheme();
+  const navigation = useNavigation();
+  const { t } = useTranslation();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+      <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16 }} />
+      <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+        Esta playlist ya no existe en tu biblioteca
+      </Text>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={{ backgroundColor: colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, marginTop: 16 }}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const ObservablePlaylistDetail = withObservables(
   ["playlistId"],
   ({ playlistId }: { playlistId: string }) => ({
     playlist: database.collections
       .get<Playlist>("playlists")
-      .findAndObserve(playlistId),
+      .findAndObserve(playlistId)
+      .pipe(catchError(() => of(null))),
     playlistTracks: database.collections
       .get<PlaylistTrack>("playlist_tracks")
       .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc))
       .observe(),
   }),
-)(PlaylistDetailContent);
+)(function ObservablePlaylistDetail({ playlist, playlistTracks }: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] }) {
+  if (!playlist) {
+    return <PlaylistDetailErrorFallback />;
+  }
+  return <PlaylistDetailContent playlist={playlist} playlistTracks={playlistTracks} />;
+});
 
 export default function PlaylistDetailScreen() {
   const route = useRoute<any>();

@@ -46,6 +46,8 @@ import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
 import Track from '../../database/models/Track';
@@ -62,8 +64,8 @@ const SKIP_PREVIOUS_THRESHOLD = 3;
 // --- UI DEL REPRODUCTOR (SINCRONIZADA) ---
 interface PlayerScreenUIProps {
     track: Track;
-    album: Album;
-    artist: Artist;
+    album: Album | null;
+    artist: Artist | null;
     artists: Artist[];
     tags: Tag[];
     navigation: any;
@@ -276,6 +278,7 @@ const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
 }: PlayerScreenUIProps) => {
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+    const { t } = useTranslation();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const insets = useSafeAreaInsets();
     const openQueue = openQueueSheet;
@@ -329,8 +332,8 @@ const PlayerScreenUI = ({
     const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
 
     const artworkSource = React.useMemo(() =>
-        album.coverUrl ? { uri: album.coverUrl } : null
-        , [album.coverUrl]);
+        album?.coverUrl ? { uri: album.coverUrl } : null
+        , [album?.coverUrl]);
 
     const [coverColor, setCoverColor] = useState<string | null>(null);
 
@@ -352,7 +355,7 @@ const PlayerScreenUI = ({
 
     useEffect(() => {
         let isMounted = true;
-        if (!album.coverUrl) {
+        if (!album?.coverUrl) {
             setCoverColor(null);
             return;
         }
@@ -373,7 +376,7 @@ const PlayerScreenUI = ({
         return () => {
             isMounted = false;
         };
-    }, [album.coverUrl]);
+    }, [album?.coverUrl]);
 
     // Shuffle — estado global (sobrevive a la navegación)
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
@@ -535,7 +538,6 @@ const PlayerScreenUI = ({
         };
     });
 
-    const { t } = useTranslation();
 
     const isServerRunning = useCastStore(state => state.isServerRunning);
     const openCastSheet = openLocalCast;
@@ -576,7 +578,9 @@ const PlayerScreenUI = ({
     };
 
     const handleAlbumPress = () => {
-        navigation.navigate('AlbumDetail', { albumId: album.id });
+        if (album?.id) {
+            navigation.navigate('AlbumDetail', { albumId: album.id });
+        }
     };
 
     const handleMorePress = () => {
@@ -634,7 +638,7 @@ const PlayerScreenUI = ({
             {/* Background Image with Blur / Color Gradient */}
             <BlurredBackground
                 key={`blur-${track.id}`}
-                imageUrl={album.coverUrl}
+                imageUrl={album?.coverUrl}
                 blurIntensity={10}
                 gradientColors={
                     playerBackgroundStyle === 'gradient' && coverColor
@@ -665,7 +669,7 @@ const PlayerScreenUI = ({
                         onPress={handleAlbumPress}
                     >
                         <MarqueeText
-                            text={album.title}
+                            text={album?.title || t('actions.unknown')}
                             style={styles.headerTitle}
                             speed={35}
                             pauseDuration={2000}
@@ -696,7 +700,7 @@ const PlayerScreenUI = ({
                                     active={true}
                                     type={playerVisualizerType}
                                     color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
-                                    coverUrl={album.coverUrl || undefined}
+                                    coverUrl={album?.coverUrl || undefined}
                                     style={{
                                         width: '100%',
                                         height: 240,
@@ -712,7 +716,7 @@ const PlayerScreenUI = ({
 
                                     {playerCoverStyle === 'cd' ? (
                                         <View style={{ flex: 1, position: 'relative' }}>
-                                            {album.cdArtUrl ? (
+                                            {album?.cdArtUrl ? (
                                                 <>
                                                     <MaskedView
                                                         style={StyleSheet.absoluteFillObject}
@@ -730,7 +734,7 @@ const PlayerScreenUI = ({
                                                         }
                                                     >
                                                         <Image
-                                                            source={{ uri: album.cdArtUrl }}
+                                                            source={{ uri: album?.cdArtUrl || undefined }}
                                                             style={{ width: '100%', height: '100%' }}
                                                             contentFit="cover"
                                                         />
@@ -1112,8 +1116,8 @@ const PlayerScreenUI = ({
 
 const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    album: trackModel.album.observe(),
-    artist: trackModel.artist.observe(),
+    album: trackModel.album.observe().pipe(catchError(() => of(null))),
+    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
     artists: trackModel.queryCollaborators.observe() as any,
     tags: trackModel.queryTags.observe(),
 }))(PlayerScreenUI);

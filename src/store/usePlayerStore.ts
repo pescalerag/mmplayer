@@ -13,8 +13,8 @@ const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
 
 async function mapToTPTrack(track: Track): Promise<TPTrack> {
-  const album = await track.album.fetch();
-  const artists = (await track.queryCollaborators.fetch()) as Artist[];
+  const album = await track.album.fetch().catch(() => null);
+  const artists = (await track.queryCollaborators.fetch().catch(() => [])) as Artist[];
   const artistNames =
     artists.length > 0
       ? artists.map((a) => a.name).join(", ")
@@ -926,8 +926,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const track = await database.get<Track>("tracks").find(trackId);
       if (!track) return;
 
-      const album = await track.album.fetch();
-      const artists = (await track.queryCollaborators.fetch()) as Artist[];
+      const album = await track.album.fetch().catch(() => null);
+      const artists = (await track.queryCollaborators.fetch().catch(() => [])) as Artist[];
       const artistNames =
         artists.length > 0
           ? artists.map((a) => a.name).join(", ")

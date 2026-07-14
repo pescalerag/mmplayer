@@ -2,6 +2,8 @@ import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu, openPla
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { Image, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -119,8 +121,8 @@ const TopMatchArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album }) => ({
     album: album.observe(),
-    artist: album.artist.observe(),
-}))(({ album, artist, onPress }: { album: Album; artist: Artist; onPress: () => void }) => {
+    artist: album.artist.observe().pipe(catchError(() => of(null))),
+}))(({ album, artist, onPress }: { album: Album; artist: Artist | null; onPress: () => void }) => {
     const openMenu = openAlbumMenu;
     return (
         <TopMatchCardLayout
@@ -158,9 +160,9 @@ const TopMatchPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
 
 const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     collaborators: track.queryCollaborators.observe() as any,
-}))(({ track, album, collaborators, onPress }: { track: Track; album: Album; collaborators: Artist[]; onPress: () => void }) => {
+}))(({ track, album, collaborators, onPress }: { track: Track; album: Album | null; collaborators: Artist[]; onPress: () => void }) => {
     const artistNames = collaborators.length > 0
         ? collaborators.map(a => a.name).join(', ')
         : 'Desconocido';

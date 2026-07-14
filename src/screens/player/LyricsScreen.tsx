@@ -32,6 +32,8 @@ import { useCastStore } from '../../store/useCastStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
@@ -198,8 +200,8 @@ LyricLine.displayName = 'LyricLine';
 
 interface LyricsScreenUIProps {
     track: Track;
-    album: Album;
-    artist: Artist;
+    album: Album | null;
+    artist: Artist | null;
     artists: Artist[];
 }
 
@@ -213,7 +215,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     React.useEffect(() => {
         let isMounted = true;
-        if (!album.coverUrl) {
+        if (!album?.coverUrl) {
             setExtractedColor(null);
             return;
         }
@@ -234,7 +236,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         return () => {
             isMounted = false;
         };
-    }, [album.coverUrl]);
+    }, [album?.coverUrl]);
 
     const { finalBgColor, topGradientColor, bottomGradientColor } = React.useMemo(() => {
         if (extractedColor) {
@@ -378,7 +380,11 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     };
 
-    const handleAlbumPress = () => navigation.navigate('AlbumDetail', { albumId: album.id });
+    const handleAlbumPress = () => {
+        if (album?.id) {
+            navigation.navigate('AlbumDetail', { albumId: album.id });
+        }
+    };
     const handleArtistPress = () => {
         if (artists && artists.length > 1) {
             openArtistsList(artists);
@@ -477,7 +483,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
             {/* Blurred Background */}
             <BlurredBackground
                 key={`blur-${track.id}`}
-                imageUrl={album.coverUrl || undefined}
+                imageUrl={album?.coverUrl || undefined}
                 blurIntensity={100}
                 gradientColors={
                     extractedColor
@@ -684,8 +690,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
 const ObservableLyricsScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    album: trackModel.album.observe(),
-    artist: trackModel.artist.observe(),
+    album: trackModel.album.observe().pipe(catchError(() => of(null))),
+    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
     artists: trackModel.queryCollaborators.observe(),
 }))(LyricsScreenUI);
 

@@ -114,7 +114,7 @@ export const HistoryService = {
         const initialMedia: any[] = [];
 
         for (const album of albums) {
-          const artist = await album.artist.fetch();
+          const artist = await album.artist.fetch().catch(() => null);
           initialMedia.push({
             id: album.id,
             type: 'album',
@@ -126,8 +126,8 @@ export const HistoryService = {
         }
 
         for (const track of tracks) {
-          const artist = await track.artist.fetch();
-          const album = await track.album.fetch();
+          const artist = await track.artist.fetch().catch(() => null);
+          const album = await track.album.fetch().catch(() => null);
           initialMedia.push({
             id: track.id,
             type: 'track',
@@ -199,7 +199,7 @@ export const HistoryService = {
           const dur = trackDurations[track.id] || 0;
           if (dur <= 0) continue;
 
-          const artist = await track.artist.fetch();
+          const artist = await track.artist.fetch().catch(() => null);
           if (artist) {
             const artistId = artist.id;
             if (!artistDurations[artistId]) {
@@ -208,7 +208,7 @@ export const HistoryService = {
             artistDurations[artistId].duration += dur;
           }
 
-          const album = await track.album.fetch();
+          const album = await track.album.fetch().catch(() => null);
           if (album) {
             const albumId = album.id;
             if (!albumDurations[albumId]) {
@@ -365,7 +365,7 @@ export const HistoryService = {
           const cnt = trackPlayCounts[track.id] || 0;
           if (dur <= 0 && cnt <= 0) continue;
 
-          const artist = await track.artist.fetch();
+          const artist = await track.artist.fetch().catch(() => null);
           if (artist) {
             if (!artistData[artist.id]) {
               artistData[artist.id] = { id: artist.id, name: artist.name, imageUrl: artist.imageUrl || null, duration: 0, plays: 0 };
@@ -374,7 +374,7 @@ export const HistoryService = {
             artistData[artist.id].plays += cnt;
           }
 
-          const album = await track.album.fetch();
+          const album = await track.album.fetch().catch(() => null);
           if (album) {
             if (!albumData[album.id]) {
               albumData[album.id] = { id: album.id, title: album.title, coverUrl: album.coverUrl || null, duration: 0, plays: 0 };
@@ -505,7 +505,7 @@ export const HistoryService = {
           const cnt = trackPlayCounts[track.id] || 0;
           if (dur <= 0 && cnt <= 0) continue;
 
-          const artist = await track.artist.fetch();
+          const artist = await track.artist.fetch().catch(() => null);
           if (artist) {
             if (!artistData[artist.id]) {
               artistData[artist.id] = { id: artist.id, name: artist.name, imageUrl: artist.imageUrl || null, duration: 0, plays: 0 };
@@ -514,7 +514,7 @@ export const HistoryService = {
             artistData[artist.id].plays += cnt;
           }
 
-          const album = await track.album.fetch();
+          const album = await track.album.fetch().catch(() => null);
           if (album) {
             if (!albumData[album.id]) {
               albumData[album.id] = { id: album.id, title: album.title, coverUrl: album.coverUrl || null, artistName: artist?.name || '', duration: 0, plays: 0 };

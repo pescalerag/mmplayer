@@ -2,7 +2,10 @@ import { openAlbumMenu, openArtistMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 import { FlashList } from '@shopify/flash-list';
 import * as DocumentPicker from 'expo-document-picker';
@@ -59,9 +62,9 @@ const TRACKS_PREVIEW = 10;
 
 const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any,
-}))(function ArtistTrackRow({ track, album, artists, index, contextId, onPress }: { track: Track; album: Album; artists: Artist[]; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
+}))(function ArtistTrackRow({ track, album, artists, index, contextId, onPress }: { track: Track; album: Album | null; artists: Artist[]; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
     const { t } = useTranslation();
     const artistNames = artists.length > 0
         ? artists.map(a => a.name).join(', ')
@@ -505,9 +508,32 @@ const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { a
         .observe(),
 }))(ArtistDetailContentBase);
 
+function ArtistDetailErrorFallback() {
+    const { colors } = useAppTheme();
+    const navigation = useNavigation();
+    const { t } = useTranslation();
+    return (
+        <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16 }} />
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+                Este artista ya no existe en tu biblioteca
+            </Text>
+            <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={{ backgroundColor: colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, marginTop: 16 }}
+            >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
+            </TouchableOpacity>
+        </View>
+    );
+}
+
 const ObservableArtistDetailMiddle = withObservables(['artistId'], ({ artistId }: { artistId: string }) => ({
-    artist: database.collections.get<Artist>('artists').findAndObserve(artistId),
-}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist }) {
+    artist: database.collections.get<Artist>('artists').findAndObserve(artistId).pipe(catchError(() => of(null))),
+}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist | null }) {
+    if (!artist) {
+        return <ArtistDetailErrorFallback />;
+    }
     return <EnhancedArtistDetailContent artist={artist} isLoadingContent={false} />;
 });
 

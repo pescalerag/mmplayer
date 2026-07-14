@@ -1,6 +1,8 @@
 import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTagMenu, useUIStore } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import withObservables from "@nozbe/with-observables";
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { Q } from '@nozbe/watermelondb';
 import { useNavigation, useScrollToTop, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -94,7 +96,7 @@ const SearchTrackRowBase = ({
   onPress,
 }: {
   track: Track;
-  album: Album;
+  album: Album | null;
   artists: Artist[];
   onPress?: () => void;
 }) => {
@@ -124,7 +126,7 @@ const SearchTrackRow = withObservables(
   ["track"],
   ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any, // Cast to any to match Artist[] expectation
   }),
 )(SearchTrackRowBase);
@@ -136,7 +138,7 @@ const SearchAlbumCardBase = memo(function SearchAlbumCardBase({
   onPress,
 }: {
   album: Album;
-  artist: Artist;
+  artist: Artist | null;
   onPress: (albumId: string) => void;
 }) {
   const { t } = useTranslation();
@@ -164,7 +166,7 @@ const SearchAlbumCard = withObservables(
   ["album"],
   ({ album }: { album: Album }) => ({
     album: album.observe(),
-    artist: album.artist.observe(),
+    artist: album.artist.observe().pipe(catchError(() => of(null))),
   }),
 )(SearchAlbumCardBase);
 SearchAlbumCard.displayName = "SearchAlbumCard";

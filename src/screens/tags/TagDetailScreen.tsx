@@ -2,7 +2,10 @@ import { openAlbumMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation } from '@react-navigation/native';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
@@ -64,7 +67,7 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({
 // ----- TRACK ROW COMPONENT -----
 const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any,
 }))(function TagTrackRow({
     track,
@@ -75,7 +78,7 @@ const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => 
     onPress,
 }: {
     track: Track;
-    album: Album;
+    album: Album | null;
     artists: Artist[];
     tagId: string;
     index: number;
@@ -98,18 +101,42 @@ const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => 
 });
 
 // ----- MAIN DETAIL COMPONENT -----
+function TagDetailErrorFallback() {
+    const { colors } = useAppTheme();
+    const navigation = useNavigation();
+    const { t } = useTranslation();
+    return (
+        <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16 }} />
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+                Esta etiqueta ya no existe en tu biblioteca
+            </Text>
+            <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={{ backgroundColor: colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, marginTop: 16 }}
+            >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
+            </TouchableOpacity>
+        </View>
+    );
+}
+
 function TagDetailScreen({
     tag,
     albums,
     tracks,
 }: {
-    tag: Tag;
+    tag: Tag | null;
     albums: Album[];
     tracks: Track[];
 }) {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
     const { t } = useTranslation();
+
+    if (!tag) {
+        return <TagDetailErrorFallback />;
+    }
 
     const tagColor = tag.color || '#8B5CF6';
 
@@ -397,7 +424,7 @@ const styles = StyleSheet.create({
 export default withObservables(['route'], ({ route }: { route: any }) => {
     const { tagId } = route.params;
     return {
-        tag: database.collections.get<Tag>('tags').findAndObserve(tagId),
+        tag: database.collections.get<Tag>('tags').findAndObserve(tagId).pipe(catchError(() => of(null))),
         albums: database.collections.get<Album>('albums').query(
             Q.experimentalJoinTables(['album_tags']),
             Q.on('album_tags', 'tag_id', tagId),

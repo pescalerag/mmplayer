@@ -2,6 +2,8 @@ import { openLyricsMenu } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -26,7 +28,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 
 interface LyricsViewUIProps {
     track: Track;
-    artist: Artist;
+    artist: Artist | null;
     artists: Artist[];
     isVisible: boolean;
     setVisible: (visible: boolean) => void;
@@ -207,7 +209,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
 
 const ObservableLyricsViewUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    artist: trackModel.artist.observe(),
+    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
     artists: trackModel.queryCollaborators.observe(),
 }))(LyricsViewUI);
 
