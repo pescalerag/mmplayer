@@ -15,7 +15,7 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     Event,
@@ -61,17 +61,29 @@ export default function QueueSheet() {
     const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
     const [showTrashMenu, setShowTrashMenu] = useState(false);
     const [dbTracksMap, setDbTracksMap] = useState<Map<string, { title: string; artist: string; artwork: string | null }>>(new Map());
+    const dbTracksMapRef = useRef(dbTracksMap);
+
+    useEffect(() => {
+        dbTracksMapRef.current = dbTracksMap;
+    }, [dbTracksMap]);
 
     const fetchDbMetadataForQueue = React.useCallback(async (tpQueue: TPTrack[]) => {
         try {
             const trackIds = Array.from(new Set(tpQueue.map(t => t.id.toString().split('-')[0])));
             if (trackIds.length === 0) return;
 
+            // Only fetch metadata for IDs not already in the cache map
+            const currentMap = dbTracksMapRef.current;
+            const missingTrackIds = trackIds.filter(id => !currentMap.has(id));
+            if (missingTrackIds.length === 0) return;
+
             const dbTracks = await database.collections.get<Track>('tracks')
-                .query(Q.where('id', Q.oneOf(trackIds)))
+                .query(Q.where('id', Q.oneOf(missingTrackIds)))
                 .fetch();
 
-            const newMap = new Map<string, { title: string; artist: string; artwork: string | null }>();
+            if (dbTracks.length === 0) return;
+
+            const fetchedMetadata = new Map<string, { title: string; artist: string; artwork: string | null }>();
 
             await Promise.all(dbTracks.map(async (track) => {
                 const album = await track.album.fetch();
@@ -80,14 +92,20 @@ export default function QueueSheet() {
                     ? collaborators.map(a => a.name).join(', ')
                     : 'Artista desconocido';
 
-                newMap.set(track.id, {
+                fetchedMetadata.set(track.id, {
                     title: track.title,
                     artist: artistNames,
                     artwork: album?.coverUrl || null
                 });
             }));
 
-            setDbTracksMap(newMap);
+            setDbTracksMap(prevMap => {
+                const newMap = new Map(prevMap);
+                fetchedMetadata.forEach((value, key) => {
+                    newMap.set(key, value);
+                });
+                return newMap;
+            });
         } catch (err) {
             console.error('QueueSheet: error cargando metadatos de DB para cola', err);
         }
@@ -121,7 +139,12 @@ export default function QueueSheet() {
                 TrackPlayer.getActiveTrackIndex(),
             ]);
 
-            setQueue(fullQueue);
+            const isQueueIdentical = fullQueue.length === queue.length &&
+                fullQueue.every((track, i) => track.id === queue[i]?.id);
+
+            if (!isQueueIdentical) {
+                setQueue(fullQueue);
+            }
             if (realIdx !== undefined && realIdx !== null) {
                 setActiveIndex(realIdx);
             }
@@ -213,7 +236,12 @@ export default function QueueSheet() {
                 TrackPlayer.getActiveTrackIndex(),
             ]);
 
-            setQueue(fullQueue);
+            const isQueueIdentical = fullQueue.length === newQueue.length &&
+                fullQueue.every((track, i) => track.id === newQueue[i]?.id);
+
+            if (!isQueueIdentical) {
+                setQueue(fullQueue);
+            }
             if (currentIdx !== undefined && currentIdx !== null) setActiveIndex(currentIdx);
 
             await usePlayerStore.getState().savePlaybackState();
@@ -222,7 +250,9 @@ export default function QueueSheet() {
             const fullQueue = await TrackPlayer.getQueue();
             setQueue(fullQueue);
         } finally {
-            isReordering.current = false;
+            setTimeout(() => {
+                isReordering.current = false;
+            }, 500); // 500ms delay to ignore native async active-track-changed events fired during remove/add
         }
     }, [activeIndex, queue, setQueue]);
 
@@ -627,19 +657,19 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <TouchableOpacity
+        <GHTouchableOpacity
             style={[styles.trackRow, isActive && { backgroundColor: Colors.accentAlpha10 }]}
             onPress={() => onSkip(globalIndex)}
             onLongPress={drag}
             delayLongPress={200}
         >
-            <TouchableOpacity
+            <GHTouchableOpacity
                 onPressIn={drag}
                 style={{ paddingVertical: 8, paddingRight: 12 }}
                 hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
             >
                 <Ionicons name="reorder-two" size={24} color={Colors.disabled} />
-            </TouchableOpacity>
+            </GHTouchableOpacity>
             {imageSource ? (
                 <Image
                     source={imageSource}
@@ -663,14 +693,14 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
                 </View>
                 <Text style={styles.subtitle} numberOfLines={1}>{artist || 'Desconocido'}</Text>
             </View>
-            <TouchableOpacity
+            <GHTouchableOpacity
                 style={styles.removeButton}
                 onPress={() => onRemove(globalIndex, isUserQueued)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
                 <Ionicons name="close-outline" size={24} color={Colors.disabled} />
-            </TouchableOpacity>
-        </TouchableOpacity>
+            </GHTouchableOpacity>
+        </GHTouchableOpacity>
     );
 });
 QueueTrackRow.displayName = 'QueueTrackRow';
@@ -694,7 +724,7 @@ const RecentTrackRow = React.memo(({ item, dbMeta, index, activeIndex, onSkip }:
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <TouchableOpacity
+        <GHTouchableOpacity
             style={styles.trackRow}
             onPress={() => onSkip(globalIndex)}
             activeOpacity={0.7}
@@ -718,7 +748,7 @@ const RecentTrackRow = React.memo(({ item, dbMeta, index, activeIndex, onSkip }:
                 </Text>
             </View>
             <Ionicons name="play-back-outline" size={18} color={Colors.disabled} />
-        </TouchableOpacity>
+        </GHTouchableOpacity>
     );
 });
 RecentTrackRow.displayName = 'RecentTrackRow';

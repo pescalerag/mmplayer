@@ -274,6 +274,8 @@ const CanvasVideo = React.memo(({
 });
 CanvasVideo.displayName = 'CanvasVideo';
 
+let hasShownCustomizeHint = false;
+
 const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
 }: PlayerScreenUIProps) => {
@@ -444,7 +446,8 @@ const PlayerScreenUI = ({
 
     const longPressHintOpacity = useSharedValue(0);
     useEffect(() => {
-        if (isFocused && !isTransitioning && playerCoverStyle === 'cover') {
+        if (isFocused && !isTransitioning && playerCoverStyle === 'cover' && !hasShownCustomizeHint) {
+            hasShownCustomizeHint = true;
             longPressHintOpacity.value = withSequence(
                 withTiming(1, { duration: 600 }),
                 withDelay(1500, withTiming(0, { duration: 800 }))
