@@ -426,7 +426,7 @@ const PlayerScreenUI = ({
     }, [playerCoverStyle, isPlaying]);
 
     const spinStyle = useAnimatedStyle(() => ({
-        transform: [{ rotate: `${spinDeg.value}deg` }],
+        transform: [{ rotateZ: `${spinDeg.value}deg` }],
     }));
 
     const [isImmersive, setIsImmersive] = useState(false);
@@ -708,54 +708,55 @@ const PlayerScreenUI = ({
                                     }}
                                 />
                             ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
-                                <Animated.View style={[{
+                                <View style={{
                                     width: width - 64,
                                     height: width - 64,
                                     alignSelf: 'center',
-                                }, spinStyle]}>
-
+                                    position: 'relative'
+                                }}>
                                     {playerCoverStyle === 'cd' ? (
-                                        <View style={{ flex: 1, position: 'relative' }}>
-                                            {album?.cdArtUrl ? (
-                                                <>
-                                                    <MaskedView
-                                                        style={StyleSheet.absoluteFillObject}
-                                                        maskElement={
-                                                            <View style={{
-                                                                width: width - 64,
-                                                                height: width - 64,
-                                                                borderRadius: (width - 64) / 2,
-                                                                // Calcula el grosor del disco para dejar un agujero de tamaño fijo.
-                                                                // Ajusta el "35" si el agujero central de tu SVG es más grande o más pequeño.
-                                                                borderWidth: ((width - 64) - 35) / 2,
-                                                                borderColor: 'black', // La zona negra revela la foto
-                                                                backgroundColor: 'transparent', // La zona transparente corta la foto (el agujero)
-                                                            }} />
-                                                        }
-                                                    >
+                                        album?.cdArtUrl ? (
+                                            <>
+                                                <MaskedView
+                                                    style={StyleSheet.absoluteFillObject}
+                                                    maskElement={
+                                                        <View style={{
+                                                            width: width - 64,
+                                                            height: width - 64,
+                                                            borderRadius: (width - 64) / 2,
+                                                            borderWidth: ((width - 64) - 35) / 2,
+                                                            borderColor: 'black',
+                                                            backgroundColor: 'transparent',
+                                                        }} />
+                                                    }
+                                                >
+                                                    <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                                         <Image
                                                             source={{ uri: album?.cdArtUrl || undefined }}
                                                             style={{ width: '100%', height: '100%' }}
                                                             contentFit="cover"
                                                         />
-                                                    </MaskedView>
+                                                    </Animated.View>
+                                                </MaskedView>
+                                                <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
                                                     <Image
                                                         source={require('../../assets/cd-custom.svg')}
                                                         style={{ position: 'absolute', width: '100%', height: '100%' }}
                                                         contentFit="contain"
                                                     />
-                                                </>
-                                            ) : (
+                                                </Animated.View>
+                                            </>
+                                        ) : (
+                                            <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                                 <Image
                                                     source={require('../../assets/cd-base.svg')}
                                                     style={{ width: '100%', height: '100%' }}
                                                     contentFit="contain"
                                                 />
-                                            )}
-                                        </View>
+                                            </Animated.View>
+                                        )
                                     ) : (
-                                        // LÓGICA DEL VINILO (SE MANTIENE IGUAL)
-                                        <>
+                                        <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                             <Image
                                                 source={require('../../assets/vinyl.svg')}
                                                 style={{ width: '100%', height: '100%' }}
@@ -773,10 +774,9 @@ const PlayerScreenUI = ({
                                                     pointerEvents="none"
                                                 />
                                             )}
-                                        </>
+                                        </Animated.View>
                                     )}
-
-                                </Animated.View>
+                                </View>
                             ) : (showCanvas && !!track.bgVideo) ? (
                                 <View style={{ width: width - 64, height: width - 64 }} />
                             ) : (
