@@ -196,6 +196,8 @@
     "keep_awake_desc": "Evita que la pantalla del móvil se apague mientras el reproductor o la pantalla de letras están abiertos",
     "tag_colors": "Colores de etiquetas",
     "tag_colors_desc": "Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.",
+    "show_lyrics": "Mostrar letras en el reproductor",
+    "show_lyrics_desc": "Muestra la frase de la letra actual (si está disponible) sobre las etiquetas en el reproductor y en modo inmersivo.",
     "silent_sync": "Escaneo silencioso al volver",
     "silent_sync_desc": "Oculta el aviso de 'Sincronizando Biblioteca...' cuando vuelves a la aplicación, pero sigue escaneando en segundo plano.",
     "audio_section": "Audio y Normalización",

@@ -54,6 +54,7 @@ import Track from '../../database/models/Track';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
+import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { getDynamicTagTextColor } from '../../utils/color';
 import { formatTrackTime } from '../../utils/time';
 
@@ -325,6 +326,13 @@ const PlayerScreenUI = ({
     const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
     const playerBackgroundStyle = useSettingsStore(state => state.playerBackgroundStyle);
     const showCanvas = useSettingsStore(state => state.showCanvas);
+    const showPlayerLyrics = useSettingsStore(state => state.showPlayerLyrics);
+
+    const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track);
+    const hasLyrics = showPlayerLyrics && isSynced && parsedLyrics.length > 0;
+    const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
+        ? parsedLyrics[activeIndex].text
+        : '';
 
     // Is something replacing the big cover? (visualizer OR cd/vinyl spinning OR background canvas)
     const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
@@ -461,6 +469,60 @@ const PlayerScreenUI = ({
         opacity: longPressHintOpacity.value
     }));
 
+    const lyricsShift = useSharedValue(0);
+    useEffect(() => {
+        lyricsShift.value = withTiming(hasLyrics && !isImmersive ? -10 : 0, {
+            duration: 300,
+            easing: Easing.bezier(0.25, 0.1, 0.25, 1.0)
+        });
+    }, [hasLyrics, isImmersive, lyricsShift]);
+
+    const lyricsHeight = useSharedValue(0);
+    const lyricsOpacity = useSharedValue(0);
+    useEffect(() => {
+        lyricsHeight.value = withSpring(hasLyrics ? 46 : 0, { damping: 15 });
+        lyricsOpacity.value = withTiming(hasLyrics ? 1 : 0, { duration: 300 });
+    }, [hasLyrics, lyricsHeight, lyricsOpacity]);
+
+    const lyricsAnimatedStyle = useAnimatedStyle(() => ({
+        height: lyricsHeight.value,
+        opacity: lyricsOpacity.value,
+    }));
+
+    const [displayedPhrase, setDisplayedPhrase] = useState(currentPhrase);
+    const lyricTextOpacity = useSharedValue(hasLyrics && currentPhrase !== '' ? 1 : 0);
+
+    useEffect(() => {
+        setDisplayedPhrase(currentPhrase);
+        lyricTextOpacity.value = hasLyrics && currentPhrase !== '' ? 1 : 0;
+    }, [track.id, showPlayerLyrics, hasLyrics, currentPhrase, lyricTextOpacity]);
+
+    useEffect(() => {
+        if (currentPhrase !== displayedPhrase) {
+            if (lyricTextOpacity.value === 0) {
+                setDisplayedPhrase(currentPhrase);
+                return;
+            }
+            lyricTextOpacity.value = withTiming(0, { duration: 150 }, (finished) => {
+                if (finished) {
+                    runOnJS(setDisplayedPhrase)(currentPhrase);
+                }
+            });
+        }
+    }, [currentPhrase, displayedPhrase, lyricTextOpacity]);
+
+    useEffect(() => {
+        if (displayedPhrase !== '') {
+            lyricTextOpacity.value = withTiming(1, { duration: 200 });
+        } else {
+            lyricTextOpacity.value = withTiming(0, { duration: 150 });
+        }
+    }, [displayedPhrase, lyricTextOpacity]);
+
+    const textAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: lyricTextOpacity.value,
+    }));
+
     const immersiveProgress = useSharedValue(0);
 
     useEffect(() => {
@@ -537,7 +599,10 @@ const PlayerScreenUI = ({
 
     const swipeAnimatedStyle = useAnimatedStyle(() => {
         return {
-            transform: [{ translateX: translateX.value }]
+            transform: [
+                { translateX: translateX.value },
+                { translateY: lyricsShift.value }
+            ]
         };
     });
 
@@ -827,6 +892,14 @@ const PlayerScreenUI = ({
                         </Animated.View>
                     )}
                 </View>
+
+                {hasLyrics && (
+                    <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                        <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
+                            {displayedPhrase}
+                        </Animated.Text>
+                    </Animated.View>
+                )}
 
                 {/* Info */}
                 <Animated.View style={[styles.infoContainer, infoContainerAnimatedStyle]}>
@@ -1206,6 +1279,24 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: colors.cardBackground,
+    },
+    lyricsContainer: {
+        width: '100%',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 12,
+        overflow: 'hidden',
+    },
+    lyricText: {
+        fontSize: 16,
+        fontWeight: fontWeights.bold,
+        color: colors.text,
+        textAlign: 'left',
+        textShadowColor: 'rgba(0, 0, 0, 0.6)',
+        textShadowOffset: { width: 0, height: 1.5 },
+        textShadowRadius: 4,
+        fontFamily: fonts.regular,
     },
     miniArtwork: {
         width: 48,

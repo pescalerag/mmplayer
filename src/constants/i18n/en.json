@@ -196,6 +196,8 @@
     "keep_awake_desc": "Prevents the screen from turning off while the player or lyrics screen is open",
     "tag_colors": "Tag Colors",
     "tag_colors_desc": "Show tags with their assigned colors on the player and album detail screens. If disabled, they will appear in low-opacity gray.",
+    "show_lyrics": "Show lyrics in player",
+    "show_lyrics_desc": "Displays the current lyric sentence (if available) above the tags in the player screen and in immersive mode.",
     "silent_sync": "Silent sync on resume",
     "silent_sync_desc": "Hides the 'Syncing Library...' toast when you return to the app, but keeps scanning in the background.",
     "audio_section": "Audio & Normalization",
