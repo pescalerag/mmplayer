@@ -74,14 +74,7 @@ export default function PlayerMenuSheet() {
         >
         
                     {/* Cover Art Style */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <Text style={styles.sectionLabel}>{t('visualizer.cover_style') || 'Estilo de Carátula'}</Text>
-                        {showCanvas && (
-                            <Text style={{ fontSize: 11, color: colors.textSecondary, fontStyle: 'italic' }}>
-                                {t('visualizer.disabled_by_canvas') || 'Desactivado con Canvas'}
-                            </Text>
-                        )}
-                    </View>
+                    <Text style={styles.sectionLabel}>{t('visualizer.cover_style') || 'Estilo de Carátula'}</Text>
                     <View style={styles.optionsGroup}>
                         <TouchableOpacity
                             style={[styles.optionBtn, playerCoverStyle === 'cover' && styles.optionBtnActive]}
@@ -94,8 +87,7 @@ export default function PlayerMenuSheet() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            disabled={showCanvas}
-                            style={[styles.optionBtn, playerCoverStyle === 'cd' && styles.optionBtnActive, showCanvas && { opacity: 0.4 }]}
+                            style={[styles.optionBtn, playerCoverStyle === 'cd' && styles.optionBtnActive]}
                             onPress={() => setPlayerCoverStyle('cd')}
                         >
                             <Ionicons name="disc" size={18} color={playerCoverStyle === 'cd' ? '#8B5CF6' : colors.textSecondary} />
@@ -105,8 +97,7 @@ export default function PlayerMenuSheet() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            disabled={showCanvas}
-                            style={[styles.optionBtn, playerCoverStyle === 'vinyl' && styles.optionBtnActive, showCanvas && { opacity: 0.4 }]}
+                            style={[styles.optionBtn, playerCoverStyle === 'vinyl' && styles.optionBtnActive]}
                             onPress={() => setPlayerCoverStyle('vinyl')}
                         >
                             <Ionicons name="radio" size={18} color={playerCoverStyle === 'vinyl' ? '#8B5CF6' : colors.textSecondary} />
@@ -145,21 +136,16 @@ export default function PlayerMenuSheet() {
                     <View style={styles.separator} />
 
                     {/* Visualizer toggle */}
-                    <View style={[styles.settingRow, showCanvas && { opacity: 0.4 }]}>
+                    <View style={styles.settingRow}>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.settingLabel}>{t('visualizer.enable') || 'Visualizador Activo'}</Text>
-                            <Text style={styles.settingDescription}>
-                                {showCanvas
-                                    ? (t('visualizer.disabled_by_canvas') || 'Desactivado mientras Canvas esté activo')
-                                    : (t('visualizer.enable_desc') || 'Muestra ondas y barras al ritmo del sonido')}
-                            </Text>
+                            <Text style={styles.settingDescription}>{t('visualizer.enable_desc') || 'Muestra ondas y barras al ritmo del sonido'}</Text>
                         </View>
                         <Switch
-                            disabled={showCanvas}
-                            value={showCanvas ? false : showPlayerVisualizer}
+                            value={showPlayerVisualizer}
                             onValueChange={handleVisualizerToggle}
                             trackColor={{ false: '#282828', true: '#8B5CF6' }}
-                            thumbColor={showPlayerVisualizer && !showCanvas ? '#FFFFFF' : '#888888'}
+                            thumbColor={showPlayerVisualizer ? '#FFFFFF' : '#888888'}
                             ios_backgroundColor="#282828"
                         />
                     </View>

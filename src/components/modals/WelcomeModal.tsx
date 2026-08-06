@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
@@ -20,7 +21,6 @@ import {
     TouchableWithoutFeedback,
     View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScannerService } from '../../services/ScannerService';
 import { useSettingsStore } from '../../store/useSettingsStore';

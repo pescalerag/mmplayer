@@ -598,12 +598,6 @@ const PlayerScreenUI = ({
 
     const performSkipPrevious = async () => {
         try {
-            const progress = await TrackPlayer.getProgress();
-            if (progress.position > SKIP_PREVIOUS_THRESHOLD) {
-                await TrackPlayer.seekTo(0);
-                translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
-                return;
-            }
             await TrackPlayer.skipToPrevious();
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
@@ -621,8 +615,8 @@ const PlayerScreenUI = ({
                 tx = 0;
             }
 
-            // Bloquear deslizamiento a la derecha si no hay canción anterior (y estamos al principio <= 3s)
-            if (!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD && tx > 0) {
+            // Bloquear deslizamiento a la derecha si no hay canción anterior
+            if (!hasPrevious && tx > 0) {
                 tx = 0;
             }
 
@@ -646,7 +640,7 @@ const PlayerScreenUI = ({
                         runOnJS(performSkipNext)();
                     }
                 });
-            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && (hasPrevious || position > SKIP_PREVIOUS_THRESHOLD)) {
+            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && hasPrevious) {
                 translateX.value = withTiming(width, { duration: 220 }, (finished) => {
                     if (finished) {
                         runOnJS(performSkipPrevious)();
@@ -1011,6 +1005,8 @@ const PlayerScreenUI = ({
                                             backgroundColor: 'transparent',
                                         }}
                                     />
+                                ) : (showCanvas && !!track.bgVideo) ? (
+                                    <View style={{ width: width - 64, height: width - 64 }} />
                                 ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
                                     <View style={{
                                         width: width - 64,
@@ -1081,8 +1077,6 @@ const PlayerScreenUI = ({
                                             </Animated.View>
                                         )}
                                     </View>
-                                ) : (showCanvas && !!track.bgVideo) ? (
-                                    <View style={{ width: width - 64, height: width - 64 }} />
                                 ) : (
                                     artworkSource && !imageError ? (
                                         <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
