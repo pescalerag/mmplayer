@@ -56,37 +56,8 @@ const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
 const LYRIC_ITEM_HEIGHT = 80; // Height of each lyric line item including its vertical margins
 
-const performToggleShuffle = async (
-    isShuffleEnabled: boolean,
-    shuffleOriginalQueue: any[],
-    setShuffleState: (enabled: boolean, queue: any[]) => void
-) => {
-    try {
-        const currentQueue = await TrackPlayer.getQueue();
-        const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
-
-        if (isShuffleEnabled) {
-            if (shuffleOriginalQueue.length > 0) {
-                const currentTrack = currentQueue[currentIndex];
-                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
-                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
-                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
-                await TrackPlayer.removeUpcomingTracks();
-                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
-            }
-            setShuffleState(false, []);
-        } else {
-            setShuffleState(true, currentQueue);
-            const upcoming = currentQueue.slice(currentIndex + 1);
-            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-            await TrackPlayer.removeUpcomingTracks();
-            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
-        }
-        await usePlayerStore.getState().savePlaybackState();
-        await usePlayerStore.getState().updateQueueStatus(currentIndex);
-    } catch (e) {
-        console.error('Error toggling shuffle:', e);
-    }
+const performToggleShuffle = async () => {
+    await usePlayerStore.getState().toggleShuffle();
 };
 
 // Helper functions for hex color conversions and dark background/gradient generation
@@ -360,7 +331,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     };
 
-    const toggleShuffle = () => performToggleShuffle(isShuffleEnabled, shuffleOriginalQueue, setShuffleState);
+    const toggleShuffle = () => usePlayerStore.getState().toggleShuffle();
 
     const cycleRepeatMode = async () => {
         try {

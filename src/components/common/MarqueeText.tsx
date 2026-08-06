@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    Easing,
     ScrollView,
     StyleProp,
     StyleSheet,
@@ -30,14 +31,7 @@ export default function MarqueeText({
     const translateX = useRef(new Animated.Value(0)).current;
     const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
-    // ¡CLAVE 1! Ya NO reseteamos textWidth a 0 al cambiar de texto.
-    // Si el texto nuevo mide lo mismo, mantenemos la medida anterior.
-    useEffect(() => {
-        animRef.current?.stop();
-        translateX.setValue(0);
-    }, [text, translateX]);
-
-    const overflows = containerWidth > 0 && textWidth >= containerWidth - 1;
+    const overflows = containerWidth > 0 && textWidth > containerWidth;
 
     useEffect(() => {
         animRef.current?.stop();
@@ -45,26 +39,29 @@ export default function MarqueeText({
 
         if (!overflows) return;
 
-        const distance = textWidth - containerWidth + spacing;
-        if (distance <= 0) return;
-
+        // La distancia que debe recorrer es el ancho del texto + la separación entre copias
+        const distance = textWidth + spacing;
         const slideDuration = (distance / speed) * 1000;
 
         const runAnimation = () => {
             translateX.setValue(0);
 
             animRef.current = Animated.sequence([
+                // 1. Pausa inicial en la posición base
                 Animated.delay(pauseDuration),
+                // 2. Deslizamiento constante hacia la izquierda
                 Animated.timing(translateX, {
                     toValue: -distance,
                     duration: slideDuration,
+                    easing: Easing.linear,
                     useNativeDriver: true,
                 }),
-                Animated.delay(pauseDuration),
             ]);
 
             animRef.current.start(({ finished }) => {
                 if (finished) {
+                    // Al terminar, la segunda copia está en la posición 0.
+                    // Reiniciar a 0 es un cambio transparente sin salto visual.
                     runAnimation();
                 }
             });
@@ -75,14 +72,14 @@ export default function MarqueeText({
         return () => {
             animRef.current?.stop();
         };
-    }, [overflows, textWidth, containerWidth, pauseDuration, speed, spacing, translateX]);
+    }, [overflows, textWidth, containerWidth, pauseDuration, speed, spacing, translateX, text]);
 
     return (
         <View
             style={styles.container}
             onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
         >
-            {/* Medidor invisible: Sin numberOfLines para que calcule el ancho 100% real */}
+            {/* Medidor invisible para obtener el ancho real del texto */}
             <ScrollView
                 horizontal
                 scrollEnabled={false}
@@ -101,17 +98,26 @@ export default function MarqueeText({
             </ScrollView>
 
             {/* Texto Visible */}
-            <Animated.Text
-                numberOfLines={1}
-                style={[
-                    style,
-                    // ¡CLAVE 2! Si desborda, le damos 20px extra para que nunca salgan los "..."
-                    // Al quitar el isMeasuring, ya nunca se quedará invisible.
-                    overflows ? { width: textWidth + 20, transform: [{ translateX }] } : undefined,
-                ]}
-            >
-                {text}
-            </Animated.Text>
+            {overflows ? (
+                <Animated.View
+                    style={[
+                        styles.row,
+                        { transform: [{ translateX }] },
+                    ]}
+                >
+                    <Text style={[style, { width: textWidth }]} numberOfLines={1}>
+                        {text}
+                    </Text>
+                    <View style={{ width: spacing }} />
+                    <Text style={[style, { width: textWidth }]} numberOfLines={1}>
+                        {text}
+                    </Text>
+                </Animated.View>
+            ) : (
+                <Text style={style} numberOfLines={1}>
+                    {text}
+                </Text>
+            )}
         </View>
     );
 }
@@ -120,5 +126,9 @@ const styles = StyleSheet.create({
     container: {
         overflow: 'hidden',
         width: '100%',
-    }
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
 });

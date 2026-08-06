@@ -77,41 +77,8 @@ interface PlayerScreenUIProps {
 }
 
 
-const performToggleShuffle = async (
-    isShuffleEnabled: boolean,
-    shuffleOriginalQueue: any[],
-    setShuffleState: (enabled: boolean, queue: any[]) => void
-) => {
-    try {
-        const currentQueue = await TrackPlayer.getQueue();
-        const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
-
-        if (!isShuffleEnabled) {
-            // Guardar la cola completa en el store global
-            setShuffleState(true, currentQueue);
-            const upcoming = currentQueue.slice(currentIndex + 1);
-            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-            await TrackPlayer.removeUpcomingTracks();
-            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
-        } else {
-            if (shuffleOriginalQueue.length > 0) {
-                // Buscar la canción actual en la cola original por ID
-                const currentTrack = currentQueue[currentIndex];
-                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
-                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
-                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
-                await TrackPlayer.removeUpcomingTracks();
-                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
-            }
-            // Limpiar el store global
-            setShuffleState(false, []);
-        }
-        // Guardar el nuevo orden de la cola en disco y actualizar status
-        await usePlayerStore.getState().savePlaybackState();
-        await usePlayerStore.getState().updateQueueStatus(currentIndex);
-    } catch (e) {
-        console.error('Error toggling shuffle:', e);
-    }
+const performToggleShuffle = async () => {
+    await usePlayerStore.getState().toggleShuffle();
 };
 
 // Helper functions for hex color conversions and dark background/gradient generation
@@ -629,7 +596,7 @@ const PlayerScreenUI = ({
         TrackPlayer.getRepeatMode().then(setRepeatModeState).catch(() => { });
     }, []);
 
-    const toggleShuffle = () => performToggleShuffle(isShuffleEnabled, shuffleOriginalQueue, setShuffleState);
+    const toggleShuffle = () => usePlayerStore.getState().toggleShuffle();
 
     const cycleRepeatMode = async () => {
         try {

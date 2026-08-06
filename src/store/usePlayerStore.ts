@@ -45,6 +45,7 @@ interface PlayerState {
   setPlaybackPitch: (pitch: number) => Promise<void>;
   isVinylModeEnabled: boolean;
   setVinylModeEnabled: (enabled: boolean) => Promise<void>;
+  applySpeedAndPitch: () => Promise<void>;
   isLyricsVisible: boolean;
   setLyricsVisible: (visible: boolean) => void;
   loadQueue: (
@@ -62,6 +63,7 @@ interface PlayerState {
   updateQueueStatus: (currentIndex?: number) => Promise<void>;
   clearPlayer: () => Promise<void>;
   setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
+  toggleShuffle: () => Promise<void>;
   decrementUserQueue: () => void;
   clearUserQueue: () => Promise<void>;
   clearContextQueue: () => Promise<void>;
@@ -178,11 +180,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
-      await TrackPlayer.setRate(get().playbackSpeed);
-      const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
-      if (targetPitch !== 1.0) {
-        await (TrackPlayer as any).setPitch(targetPitch);
-      }
+      await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
         await TrackPlayer.pause();
@@ -269,11 +267,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
-      await TrackPlayer.setRate(get().playbackSpeed);
-      const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
-      if (targetPitch !== 1.0) {
-        await (TrackPlayer as any).setPitch(targetPitch);
-      }
+      await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
         await TrackPlayer.pause();
@@ -338,11 +332,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add([tpTrack]);
-      await TrackPlayer.setRate(get().playbackSpeed);
-      const targetPitch = get().isVinylModeEnabled ? get().playbackSpeed : get().playbackPitch;
-      if (targetPitch !== 1.0) {
-        await (TrackPlayer as any).setPitch(targetPitch);
-      }
+      await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
         await TrackPlayer.pause();
@@ -474,20 +464,101 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       shuffleOriginalQueue: queue,
     }),
 
+  toggleShuffle: async () => {
+    try {
+      const { isShuffleEnabled, shuffleOriginalQueue } = get();
+      const currentQueue = await TrackPlayer.getQueue();
+      const activeIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
+
+      if (currentQueue.length <= 1) {
+        set({ isShuffleEnabled: !isShuffleEnabled, shuffleOriginalQueue: [] });
+        return;
+      }
+
+      const currentIndex = Math.max(0, Math.min(activeIndex, currentQueue.length - 1));
+      const currentTrack = currentQueue[currentIndex];
+
+      if (!isShuffleEnabled) {
+        // Save current queue as original queue
+        set({ isShuffleEnabled: true, shuffleOriginalQueue: currentQueue });
+
+        // Get all other tracks (excluding current track)
+        const otherTracks = currentQueue.filter((_, idx) => idx !== currentIndex);
+        const shuffledOthers = [...otherTracks].sort(() => Math.random() - 0.5);
+
+        // 1. Clear upcoming tracks
+        await TrackPlayer.removeUpcomingTracks();
+
+        // 2. Clear previous tracks if any, leaving currentTrack at index 0
+        if (currentIndex > 0) {
+          const previousIndices = Array.from({ length: currentIndex }, (_, i) => i);
+          await TrackPlayer.remove(previousIndices);
+        }
+
+        // 3. Add shuffled other tracks after currentTrack
+        if (shuffledOthers.length > 0) {
+          await TrackPlayer.add(shuffledOthers);
+        }
+      } else {
+        // Turning shuffle OFF: restore original queue order
+        let tracksToRestore: TPTrack[] = [];
+        if (shuffleOriginalQueue.length > 0) {
+          const originalIdx = shuffleOriginalQueue.findIndex(t => t?.id === currentTrack?.id);
+          const restoreIdx = originalIdx >= 0 ? originalIdx : 0;
+
+          const upcomingOriginal = shuffleOriginalQueue.slice(restoreIdx + 1);
+          const previousOriginal = shuffleOriginalQueue.slice(0, restoreIdx);
+          tracksToRestore = [...upcomingOriginal, ...previousOriginal];
+        }
+
+        // 1. Clear upcoming tracks
+        await TrackPlayer.removeUpcomingTracks();
+
+        // 2. Clear previous tracks if any, leaving currentTrack at index 0
+        if (currentIndex > 0) {
+          const previousIndices = Array.from({ length: currentIndex }, (_, i) => i);
+          await TrackPlayer.remove(previousIndices);
+        }
+
+        // 3. Add restored original tracks after currentTrack
+        if (tracksToRestore.length > 0) {
+          await TrackPlayer.add(tracksToRestore);
+        }
+
+        set({ isShuffleEnabled: false, shuffleOriginalQueue: [] });
+      }
+
+      await get().updateQueueStatus(0);
+      await get().savePlaybackState();
+    } catch (e) {
+      console.error('Error toggling shuffle in usePlayerStore:', e);
+    }
+  },
+
   // Llamado por TrackPlayerSync cuando el track avanza hacia adelante
   // y hay tracks de la user queue pendientes
   decrementUserQueue: () => {
     set((state) => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
   },
 
+  applySpeedAndPitch: async () => {
+    try {
+      const speed = get().playbackSpeed ?? 1.0;
+      const targetPitch = get().isVinylModeEnabled ? speed : (get().playbackPitch ?? 1.0);
+      await TrackPlayer.setRate(speed);
+      await (TrackPlayer as any).setPitch(targetPitch);
+    } catch (e) {
+      console.error("Error applying speed and pitch:", e);
+    }
+  },
+
   setPlaybackSpeed: async (speed) => {
     try {
-      await TrackPlayer.setRate(speed);
       set({ playbackSpeed: speed });
       if (get().isVinylModeEnabled) {
-        await (TrackPlayer as any).setPitch(speed);
         set({ playbackPitch: speed });
       }
+      await get().applySpeedAndPitch();
       await get().savePlaybackState();
     } catch (e) {
       console.error("Error setting playback speed:", e);
@@ -496,8 +567,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setPlaybackPitch: async (pitch) => {
     try {
-      await (TrackPlayer as any).setPitch(pitch);
       set({ playbackPitch: pitch });
+      await get().applySpeedAndPitch();
       await get().savePlaybackState();
     } catch (e) {
       console.error("Error setting playback pitch:", e);
@@ -508,13 +579,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       set({ isVinylModeEnabled: enabled });
       if (enabled) {
-        const speed = get().playbackSpeed;
-        await (TrackPlayer as any).setPitch(speed);
-        set({ playbackPitch: speed });
-      } else {
-        await (TrackPlayer as any).setPitch(1.0);
-        set({ playbackPitch: 1.0 });
+        set({ playbackPitch: get().playbackSpeed });
       }
+      await get().applySpeedAndPitch();
       await get().savePlaybackState();
     } catch (e) {
       console.error("Error setting vinyl mode:", e);
@@ -678,11 +745,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // 1. Rehidratar el motor nativo de TrackPlayer
       await TrackPlayer.reset();
       await TrackPlayer.add(queue);
-      await TrackPlayer.setRate(playbackSpeed ?? 1.0);
-      const targetPitch = isVinylModeEnabled ? (playbackSpeed ?? 1.0) : (playbackPitch ?? 1.0);
-      if (targetPitch !== 1.0) {
-        await (TrackPlayer as any).setPitch(targetPitch);
-      }
+      await get().applySpeedAndPitch();
 
       const safeIndex =
         index !== undefined && index !== null && index < queue.length

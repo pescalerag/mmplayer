@@ -103,8 +103,7 @@ function TrackRow({
 
   const panGesture = Gesture.Pan()
     .enabled(!isSelectionMode)
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-5, 5])
+    .activeOffsetX([-10, 10])
     .onUpdate((event) => {
       const canSwipeRight = swipeRightAction !== 'none';
       const canSwipeLeft = swipeLeftAction !== 'none';

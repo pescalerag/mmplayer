@@ -111,19 +111,23 @@ index 0000000..626e0e1
 +org.eclipse.jdt.core.compiler.source=17
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 index 13a6c60..793f4a5 100644
+index 13a6c60..8d279ca 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-@@ -446,13 +446,40 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+@@ -446,13 +446,55 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
          callback.resolve(musicService.getVolume())
      }
  
++    private var currentRate: Float = 1.0f
 +    private var currentPitch: Float = 1.0f
 +
      override fun setRate(rate: Double, callback: Promise) = launchInScope {
          if (verifyServiceBoundOrReject(callback)) return@launchInScope
  
-         musicService.setRate(rate.toFloat())
-+        applySpeedAndPitch(rate.toFloat(), currentPitch)
+-        musicService.setRate(rate.toFloat())
++        currentRate = rate.toFloat()
++        musicService.setRate(currentRate)
++        applySpeedAndPitch(currentRate, currentPitch)
 +        callback.resolve(null)
 +    }
 +
@@ -131,19 +135,39 @@ index 13a6c60..793f4a5 100644
 +        if (verifyServiceBoundOrReject(callback)) return@launchInScope
 +
 +        currentPitch = pitch.toFloat()
-+        applySpeedAndPitch(musicService.getRate(), currentPitch)
++        applySpeedAndPitch(currentRate, currentPitch)
          callback.resolve(null)
      }
  
 +    private fun applySpeedAndPitch(rate: Float, pitch: Float) {
 +        try {
-+            val playerField = musicService.javaClass.getDeclaredField("player")
++            var playerClass: Class<*>? = musicService.javaClass
++            var playerField: java.lang.reflect.Field? = null
++            while (playerClass != null) {
++                try {
++                    playerField = playerClass.getDeclaredField("player")
++                    break
++                } catch (e: NoSuchFieldException) {
++                    playerClass = playerClass.superclass
++                }
++            }
++            if (playerField == null) return
 +            playerField.isAccessible = true
-+            val queuedAudioPlayer = playerField.get(musicService)
++            val queuedAudioPlayer = playerField.get(musicService) ?: return
 +            
-+            val exoPlayerField = queuedAudioPlayer.javaClass.getDeclaredField("exoPlayer")
++            var audioPlayerClass: Class<*>? = queuedAudioPlayer.javaClass
++            var exoPlayerField: java.lang.reflect.Field? = null
++            while (audioPlayerClass != null) {
++                try {
++                    exoPlayerField = audioPlayerClass.getDeclaredField("exoPlayer")
++                    break
++                } catch (e: NoSuchFieldException) {
++                    audioPlayerClass = audioPlayerClass.superclass
++                }
++            }
++            if (exoPlayerField == null) return
 +            exoPlayerField.isAccessible = true
-+            val exoPlayer = exoPlayerField.get(queuedAudioPlayer) as androidx.media3.common.Player
++            val exoPlayer = exoPlayerField.get(queuedAudioPlayer) as? androidx.media3.common.Player ?: return
 +
 +            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(rate, pitch)
 +        } catch (e: Exception) {

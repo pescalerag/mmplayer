@@ -876,7 +876,7 @@ export default function LibraryScreen() {
                     onIndexChange={setIndex}
                     initialLayout={{ width: Dimensions.get('window').width }}
                     renderTabBar={() => null}
-                    swipeEnabled={true}
+                    swipeEnabled={false}
                     lazy={true}
                 />
             </View>

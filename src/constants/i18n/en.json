@@ -309,7 +309,11 @@
     "clear_context": "Clear context",
     "history_tab": "Previous",
     "hidden_upcoming": "and {{count}} more song in queue",
-    "hidden_upcoming_plural": "and {{count}} more songs in queue"
+    "hidden_upcoming_plural": "and {{count}} more songs in queue",
+    "save_to_playlist_title": "Add queue to playlist",
+    "save_all_to_playlist": "Add entire queue (includes previous)",
+    "save_upcoming_to_playlist": "Add upcoming queue (without previous)",
+    "save_manual_to_playlist": "Add manual queue only"
   },
   "playlist": {
     "new": "New playlist",
