@@ -17,6 +17,7 @@ import { useToastStore } from '../store/useToastStore';
 import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
+import { MediaAssetService } from './MediaAssetService';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -885,6 +886,8 @@ export const ScannerService = {
             }
 
             ArtistImageService.processMissingArtistImages({ isBackground: true });
+            MediaAssetService.migrateLegacyCacheAssets();
+            MediaAssetService.runGarbageCollector();
 
             onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
 
@@ -1310,6 +1313,10 @@ export const ScannerService = {
             if (tracksToDelete.length > 0) {
                 onProgress?.('Eliminando canción...');
                 const trackIdsToDelete = tracksToDelete.map(t => t.id);
+
+                for (const t of tracksToDelete) {
+                    await MediaAssetService.removeTrackCanvasVideo(t.id);
+                }
 
                 const affectedAlbumIds = new Set<string>();
                 const affectedArtistIds = new Set<string>();

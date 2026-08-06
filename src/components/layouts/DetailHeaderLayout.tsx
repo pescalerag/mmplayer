@@ -52,9 +52,13 @@ const DetailHeaderLayout = ({
 }: DetailHeaderLayoutProps) => {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
-    const imageSource = React.useMemo(() =>
-        imageUrl ? { uri: imageUrl } : null
-        , [imageUrl]);
+    const imageSource = React.useMemo(() => {
+        if (!imageUrl) return null;
+        if (imageUrl.startsWith('file://') && !imageUrl.includes('?t=')) {
+            return { uri: `${imageUrl}?t=${Date.now()}` };
+        }
+        return { uri: imageUrl };
+    }, [imageUrl]);
 
     return (
         <View style={styles.headerContainer}>

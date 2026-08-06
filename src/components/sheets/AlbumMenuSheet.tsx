@@ -13,6 +13,7 @@ import { getActiveTabName, navigationRef } from '../../navigation/navigationRef'
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useToastStore } from '../../store/useToastStore';
+import { MediaAssetService } from '../../services/MediaAssetService';
 
 export default function AlbumMenuSheet() {
   const { t } = useTranslation();
@@ -35,26 +36,8 @@ export default function AlbumMenuSheet() {
       }
 
       const asset = result.assets[0];
-      const sourceUri = asset.uri;
-      const baseDir = FileSystem.documentDirectory;
-      if (!baseDir) throw new Error('No se pudo acceder al directorio de documentos');
+      const destUri = await MediaAssetService.saveAlbumCDCover(selectedAlbum.id, asset.uri);
 
-      const fileName = `cd_custom_${selectedAlbum.id}_${Date.now()}.jpg`;
-      const destUri = baseDir.endsWith('/') ? `${baseDir}${fileName}` : `${baseDir}/${fileName}`;
-
-      if (selectedAlbum.cdArtUrl && selectedAlbum.cdArtUrl.startsWith('file://')) {
-        try {
-          await FileSystem.deleteAsync(selectedAlbum.cdArtUrl, { idempotent: true });
-        } catch (e) {
-          console.warn('Silenciosamente ignorado el error al borrar el CD anterior:', e);
-        }
-      }
-      await FileSystem.copyAsync({ from: sourceUri, to: destUri });
-      try {
-        await FileSystem.deleteAsync(sourceUri, { idempotent: true });
-      } catch (e) {
-        console.warn("Error borrando imagen temporal de la caché:", e);
-      }
       await database.write(async () => {
         await selectedAlbum.update((a: any) => {
           a.cdArtUrl = destUri;

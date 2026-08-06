@@ -13,6 +13,7 @@ import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
+import { MediaAssetService } from '../../services/MediaAssetService';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -321,7 +322,8 @@ export default function TrackMenuSheet() {
 
             const asset = result.assets?.[0];
             if (asset) {
-              await selectedTrack.updateBgVideo(asset.uri);
+              const persistentUri = await MediaAssetService.saveTrackCanvasVideo(selectedTrack.id, asset.uri);
+              await selectedTrack.updateBgVideo(persistentUri);
               useToastStore.getState().showToast(t('actions.canvas_saved'), 'videocam');
               closeMenu();
             }
@@ -340,6 +342,7 @@ export default function TrackMenuSheet() {
           iconColor={colors.heartIcon}
           textStyle={{ color: colors.heartIcon }}
           onPress={async () => {
+            await MediaAssetService.removeTrackCanvasVideo(selectedTrack.id);
             await selectedTrack.updateBgVideo(null);
             useToastStore.getState().showToast(t('actions.canvas_removed'), 'trash');
             closeMenu();

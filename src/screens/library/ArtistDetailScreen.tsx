@@ -11,6 +11,7 @@ import { FlashList } from '@shopify/flash-list';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { MediaAssetService } from '../../services/MediaAssetService';
 import {
     ActivityIndicator,
     Alert,
@@ -282,25 +283,8 @@ const cleanupOldImage = async (oldPath: string | null | undefined, newPath: stri
     }
 };
 
-const saveImageToLocalFile = async (assetUri: string, artistName: string, oldPath: string | null | undefined) => {
-    if (Platform.OS === 'web') return assetUri;
-
-    const baseDir = FileSystem.documentDirectory;
-    if (!baseDir) throw new Error('No se pudo acceder al directorio');
-
-    const sanitized = sanitizeArtistName(artistName);
-    const fileName = `artist_${sanitized}_${Date.now()}.jpg`;
-    const newPath = baseDir.endsWith('/') ? `${baseDir}${fileName}` : `${baseDir}/${fileName}`;
-
-    await cleanupOldImage(oldPath, newPath);
-    await FileSystem.copyAsync({ from: assetUri, to: newPath });
-    try {
-        await FileSystem.deleteAsync(assetUri, { idempotent: true });
-    } catch (e) {
-        console.warn("Error deleting temp image from cache:", e);
-    }
-
-    return newPath;
+const saveImageToLocalFile = async (assetUri: string, artistId: string) => {
+    return await MediaAssetService.saveArtistImage(artistId, assetUri);
 };
 
 interface Props {
@@ -360,7 +344,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 
         // Step B: Process the file and update the database
         try {
-            const permanentUri = await saveImageToLocalFile(asset.uri, artist.name, artist.imageUrl);
+            const permanentUri = await MediaAssetService.saveArtistImage(artist.id, asset.uri);
 
             setImageError(false);
             await database.write(async () => {
@@ -378,14 +362,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 
     const handleDeletePhoto = useCallback(async () => {
         try {
-            const oldPath = artist.imageUrl;
-            if (oldPath && oldPath.startsWith('file://')) {
-                try {
-                    await FileSystem.deleteAsync(oldPath, { idempotent: true });
-                } catch (fsError) {
-                    console.warn('FS error deleting artist photo:', fsError);
-                }
-            }
+            await MediaAssetService.removeArtistImage(artist.id);
 
             await database.write(async () => {
                 await artist.update(a => { a.imageUrl = null; });

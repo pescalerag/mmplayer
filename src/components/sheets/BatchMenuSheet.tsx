@@ -12,6 +12,7 @@ import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { openMetadataEditor, openPlaylistSelector, openTagManagerForBatch } from '@/store/useUIStore';
 import { database } from '../../database';
 import { ScannerService } from '../../services/ScannerService';
+import { MediaAssetService } from '../../services/MediaAssetService';
 import { zipAndShareTracks } from '../../utils/zipHelper';
 
 export default function BatchMenuSheet() {
@@ -59,13 +60,14 @@ export default function BatchMenuSheet() {
 
       const asset = result.assets?.[0];
       if (asset) {
-        await database.write(async () => {
-          for (const track of targetTracks) {
+        for (const track of targetTracks) {
+          const persistentUri = await MediaAssetService.saveTrackCanvasVideo(track.id, asset.uri);
+          await database.write(async () => {
             await track.update((t: any) => {
-              t.bgVideo = asset.uri;
+              t.bgVideo = persistentUri;
             });
-          }
-        });
+          });
+        }
         useToastStore.getState().showToast(t('actions.canvas_saved'), 'videocam');
         exitSelectionMode();
         closeMenu();

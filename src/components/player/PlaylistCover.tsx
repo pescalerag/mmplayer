@@ -122,10 +122,26 @@ export default function PlaylistCover({
         );
     }
 
-    if (customCoverUrl) {
+    const customSource = React.useMemo(() => {
+        if (!customCoverUrl) return null;
+        if (customCoverUrl.startsWith('file://') && !customCoverUrl.includes('?t=')) {
+            return { uri: `${customCoverUrl}?t=${Date.now()}` };
+        }
+        return { uri: customCoverUrl };
+    }, [customCoverUrl]);
+
+    const firstCoverSource = React.useMemo(() => {
+        if (!firstCover) return null;
+        if (firstCover.startsWith('file://') && !firstCover.includes('?t=')) {
+            return { uri: `${firstCover}?t=${Date.now()}` };
+        }
+        return { uri: firstCover };
+    }, [firstCover]);
+
+    if (customSource) {
         return (
             <Image
-                source={{ uri: customCoverUrl }}
+                source={customSource}
                 style={[styles.container, { width: w, height: h, borderRadius }]}
                 contentFit="cover"
                 transition={200}
@@ -141,10 +157,10 @@ export default function PlaylistCover({
         );
     }
 
-    if (firstCover) {
+    if (firstCoverSource) {
         return (
             <Image
-                source={{ uri: firstCover }}
+                source={firstCoverSource}
                 style={[styles.container, { width: w, height: h, borderRadius }]}
                 contentFit="cover"
                 transition={200}

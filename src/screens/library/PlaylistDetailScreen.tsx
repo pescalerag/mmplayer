@@ -11,6 +11,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MediaAssetService } from "../../services/MediaAssetService";
 import {
   ActivityIndicator,
   Alert,
@@ -307,36 +308,7 @@ function PlaylistDetailContent({
     if (!asset) return;
 
     try {
-      const baseDir = FileSystem.documentDirectory;
-      if (!baseDir) throw new Error("No se pudo acceder al directorio local");
-
-      const sanitized = playlist.name
-        .toLowerCase()
-        .normalize("NFD")
-        .replaceAll(/[\u0300-\u036f]/g, "")
-        .replaceAll(/[^a-z0-9]/g, "_")
-        .replaceAll(/_+/g, "_")
-        .trim();
-      const fileName = `playlist_${playlist.id}_${sanitized}_${Date.now()}.jpg`;
-      const newPath = baseDir.endsWith("/")
-        ? `${baseDir}${fileName}`
-        : `${baseDir}/${fileName}`;
-
-      const oldPath = playlist.coverCustomUrl;
-      if (oldPath && oldPath !== newPath && oldPath.startsWith("file://")) {
-        try {
-          await FileSystem.deleteAsync(oldPath, { idempotent: true });
-        } catch (e) {
-          console.warn("Error deleting old image:", e);
-        }
-      }
-
-      await FileSystem.copyAsync({ from: asset.uri, to: newPath });
-      try {
-        await FileSystem.deleteAsync(asset.uri, { idempotent: true });
-      } catch (e) {
-        console.warn("Error deleting temp image from cache:", e);
-      }
+      const newPath = await MediaAssetService.savePlaylistCover(playlist.id, asset.uri);
 
       await database.write(async () => {
         await playlist.update((p) => {

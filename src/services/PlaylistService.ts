@@ -2,6 +2,7 @@ import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Playlist from '../database/models/Playlist';
 import PlaylistTrack from '../database/models/PlaylistTrack';
+import { MediaAssetService } from './MediaAssetService';
 
 export const PlaylistService = {
     /**
@@ -126,6 +127,7 @@ export const PlaylistService = {
      * Delete an entire playlist.
      */
     async deletePlaylist(playlistId: string): Promise<void> {
+        await MediaAssetService.removePlaylistCover(playlistId);
         await database.write(async () => {
             const playlist = await database.collections.get<Playlist>('playlists').find(playlistId);
             const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks')
