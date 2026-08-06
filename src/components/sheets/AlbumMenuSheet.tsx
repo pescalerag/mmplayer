@@ -1,16 +1,19 @@
+import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { openPlaylistSelector, openTagManager } from '@/store/useUIStore';
+import { Q } from '@nozbe/watermelondb';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Q } from '@nozbe/watermelondb';
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
 import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
-import { useSheetProps } from '@/hooks/useSheetProps';
-import { openTagManager, openPlaylistSelector } from '@/store/useUIStore';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useToastStore } from '../../store/useToastStore';
-import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
+import { MediaAssetService } from '../../services/MediaAssetService';
 
 export default function AlbumMenuSheet() {
   const { t } = useTranslation();
@@ -22,6 +25,32 @@ export default function AlbumMenuSheet() {
   const [artistId, setArtistId] = useState<string | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
 
+  const handleChangeCDImage = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const destUri = await MediaAssetService.saveAlbumCDCover(selectedAlbum.id, asset.uri);
+
+      await database.write(async () => {
+        await selectedAlbum.update((a: any) => {
+          a.cdArtUrl = destUri;
+        });
+      });
+
+      useToastStore.getState().showToast(t('actions.success') || 'Diseño del CD actualizado', 'disc');
+      closeMenu();
+
+    } catch (error) {
+      console.error('Error al cambiar la imagen del CD:', error);
+    }
+  };
   // Load metadata and tracks
   useEffect(() => {
     if (!selectedAlbum) return;
@@ -131,7 +160,11 @@ export default function AlbumMenuSheet() {
           }
         }}
       />
-
+      <MenuOption
+        icon="disc-outline"
+        text={t('actions.customize_cd')}
+        onPress={handleChangeCDImage}
+      />
       {/* separator */}
       {artistId && artistName !== "Varios Artistas" && <MenuSeparator />}
 

@@ -37,7 +37,12 @@ export function ScreenHeaderLayout({
 }: ScreenHeaderLayoutProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const [headerHeight, setHeaderHeight] = useState(insets.top + 54);
+  const estimatedHeight = insets.top + (showBackButton ? 66 : 60);
+  const [headerHeight, setHeaderHeight] = useState(estimatedHeight);
+
+  React.useEffect(() => {
+    setHeaderHeight(estimatedHeight);
+  }, [insets.top, showBackButton]);
 
   const handleBack = () => {
     if (onBackButtonPress) {

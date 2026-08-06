@@ -2,11 +2,14 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+    Dimensions,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -26,12 +29,15 @@ import { HistoryService } from '../../services/HistoryService';
 import { SmartListService } from '../../services/SmartListService';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { Layout } from '../../theme/theme';
+import PlaylistCover from '@/components/player/PlaylistCover';
 import { formatAlbumDuration } from '../../utils/time';
+
+const { width } = Dimensions.get('window');
 
 // ─── SMART LIST TRACK ROW COMPONENT ───
 const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any,
 }))(function SmartTrackRow({
     track,
@@ -42,7 +48,7 @@ const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) =
     onPress,
 }: {
     track: Track;
-    album: Album;
+    album: Album | null;
     artists: Artist[];
     smartListId: string;
     index: number;
@@ -154,6 +160,14 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                 subtitle={listDef?.description || 'Lista inteligente'}
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
+                renderCover={() => (
+                    <PlaylistCover
+                        playlistId={`smart-list-${smartListId}`}
+                        width={width}
+                        height={380}
+                        borderRadius={0}
+                    />
+                )}
                 renderExtra={() => (
                     tracks.length > 0 && (
                         <>

@@ -2,7 +2,6 @@ import Constants from 'expo-constants';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, BackHandler, Dimensions, StyleSheet } from 'react-native';
-import { navigationRef } from '../../navigation/navigationRef';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";

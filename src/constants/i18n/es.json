@@ -3,6 +3,7 @@
     "recent_elements": "Elementos Recientes",
     "recent_playlists": "Playlists Recientes",
     "your_favourites": "Tus Favoritos",
+    "smart_playlists_title": "Listas inteligentes",
     "most_liked_songs": "Las canciones que más te gustan",
     "welcome_morning": "Buenos días",
     "welcome_afternoon": "Buenas tardes",
@@ -28,6 +29,7 @@
     "explore_albums": "Explorar álbumes aleatorios",
     "empty_added": "No hay álbumes añadidos",
     "empty_most_played": "Escucha música para ver tus canciones más escuchadas",
+    "empty_smart_playlists": "Escucha música para activar tus listas inteligentes",
     "empty_explore": "No hay álbumes para explorar",
     "no_tracks_to_shuffle": "No hay canciones para reproducir",
     "shuffling_library": "Reproduciendo biblioteca aleatoriamente"
@@ -120,7 +122,20 @@
     "no_tags": "No hay etiquetas creadas. Añade etiquetas desde el reproductor o desde el menú de una canción/álbum.",
     "compact": "Compacto",
     "normal": "Normal",
-    "smart_lists_for_you": "Playlists para ti"
+    "smart_lists_for_you": "Playlists para ti",
+    "advanced_tag_search_btn": "Búsqueda avanzada de etiquetas",
+    "advanced_search_active": "Búsqueda Avanzada",
+    "advanced_tag_search_title": "Búsqueda avanzada",
+    "advanced_tag_instruction": "Pulsa en las etiquetas para incluirlas (+), excluirlas (-) o dejarlas neutrales.",
+    "include": "Incluir",
+    "exclude": "Excluir",
+    "neutral": "Neutral",
+    "match_all_tags": "Coincidir con todas las etiquetas",
+    "match_all_desc": "Las canciones deben tener TODAS las etiquetas incluidas.",
+    "match_any_desc": "Las canciones pueden tener CUALQUIERA de las etiquetas incluidas.",
+    "no_tag_matches": "No se encontraron canciones con ese filtro de etiquetas.",
+    "no_playlists_only": "Canciones sin playlist",
+    "no_playlists_desc": "Solo ver canciones que no pertenecen a ninguna lista de reproducción."
   },
   "tags": {
     "manager": "Gestión de etiquetas",
@@ -181,6 +196,8 @@
     "keep_awake_desc": "Evita que la pantalla del móvil se apague mientras el reproductor o la pantalla de letras están abiertos",
     "tag_colors": "Colores de etiquetas",
     "tag_colors_desc": "Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.",
+    "show_lyrics": "Mostrar letras en el reproductor",
+    "show_lyrics_desc": "Muestra la frase de la letra actual (si está disponible) sobre las etiquetas en el reproductor y en modo inmersivo.",
     "silent_sync": "Escaneo silencioso al volver",
     "silent_sync_desc": "Oculta el aviso de 'Sincronizando Biblioteca...' cuando vuelves a la aplicación, pero sigue escaneando en segundo plano.",
     "audio_section": "Audio y Normalización",
@@ -292,7 +309,11 @@
     "clear_context": "Borrar contexto",
     "history_tab": "Anterior",
     "hidden_upcoming": "y {{count}} canción más en la cola",
-    "hidden_upcoming_plural": "y {{count}} canciones más en la cola"
+    "hidden_upcoming_plural": "y {{count}} canciones más en la cola",
+    "save_to_playlist_title": "Añadir cola a lista de reproducción",
+    "save_all_to_playlist": "Añadir toda la cola (incluye anteriores)",
+    "save_upcoming_to_playlist": "Añadir cola siguiente (sin anteriores)",
+    "save_manual_to_playlist": "Añadir solo cola manual"
   },
   "playlist": {
     "new": "Nueva playlist",
@@ -315,6 +336,8 @@
     "cancel": "Cancelar",
     "continue": "Continuar",
     "save": "Guardar",
+    "edit": "Editar",
+    "search": "Buscar",
     "discard": "Descartar",
     "pin": "Fijar",
     "unpin": "Desfijar",
@@ -392,7 +415,9 @@
     "rating_none": "Sin valorar",
     "share_as_zip": "Compartir selección como ZIP",
     "error": "Error",
-    "selected_count": "{{count}} seleccionadas"
+    "selected_count": "{{count}} seleccionadas",
+    "longPressCoverToCustomize": "Mantén pulsado para personalizar",
+    "customize_cd": "Personalizar imagen de CD"
   },
   "toasts": {
     "syncing": "Sincronizando Biblioteca...",
@@ -583,6 +608,18 @@
     "locale_code": "es-ES",
     "all_activity": "Toda la actividad",
     "unknown_artist": "Artista desconocido",
+    "custom_date_title": "Fecha Personalizada",
+    "custom_date_from": "Desde (Fecha de Inicio)",
+    "custom_date_to": "Hasta (Fecha de Fin)",
+    "day": "Día",
+    "month": "Mes",
+    "year": "Año",
+    "options": {
+      "highlights": "Destacados",
+      "songs": "Top Canciones",
+      "albums": "Top Álbumes",
+      "artists": "Top Artistas"
+    },
     "periods": {
       "day": "Día",
       "week": "Semana",
@@ -699,7 +736,8 @@
     "background_style_cover": "Carátula Difuminada",
     "background_style_gradient": "Degradado de Color",
     "show_canvas": "Mostrar Canvas",
-    "show_canvas_desc": "Reproducir vídeos de fondo en bucle si están disponibles"
+    "show_canvas_desc": "Reproducir vídeos de fondo en bucle si están disponibles",
+    "disabled_by_canvas": "Desactivado mientras Canvas esté activo"
   },
   "sort": {
     "title": "Ordenar por",
@@ -733,5 +771,9 @@
     "saving_records": "Guardando {{count}} registros en la base de datos...",
     "reconciling": "Reconciliando biblioteca local...",
     "reconciling_phase": "Reconciliando: {{phase}}"
+  },
+  "common": {
+    "accept": "Aceptar",
+    "cancel": "Cancelar"
   }
 }

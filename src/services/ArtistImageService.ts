@@ -4,6 +4,7 @@ import { database } from '../database';
 import Artist from '../database/models/Artist';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useSyncStore } from '../store/useSyncStore';
+import { MediaAssetService } from './MediaAssetService';
 
 let isProcessing = false;
 
@@ -26,22 +27,12 @@ const fetchArtistImageUrl = async (artistName: string): Promise<string | null> =
 
 const downloadImageToLocal = async (url: string, artistId: string): Promise<string | null> => {
     try {
-        const baseDir = FileSystem.documentDirectory;
-        if (!baseDir) return null;
-
-        const folderPath = `${baseDir}artist_images/`;
-
-        const folderInfo = await FileSystem.getInfoAsync(folderPath);
-        if (!folderInfo.exists) {
-            await FileSystem.makeDirectoryAsync(folderPath, { intermediates: true });
-        }
-
-        const fileUri = `${folderPath}artist_${artistId}.jpg`;
-
-        const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+        const tempPath = `${FileSystem.cacheDirectory}temp_artist_${artistId}_${Date.now()}.jpg`;
+        const downloadResult = await FileSystem.downloadAsync(url, tempPath);
 
         if (downloadResult.status === 200) {
-            return downloadResult.uri;
+            const persistentUri = await MediaAssetService.saveArtistImage(artistId, downloadResult.uri);
+            return persistentUri;
         } else {
             console.error(`[ArtistImageService] Error HTTP al descargar imagen de artista ${artistId}: ${downloadResult.status}`);
             return null;

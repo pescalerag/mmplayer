@@ -2,20 +2,23 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import Track from '../database/models/Track';
 import { LyricsService, parseLRC } from '../services/LyricsService';
 import { usePlayerStore } from '../store/usePlayerStore';
+import TrackPlayer, { State } from 'react-native-track-player';
+import { usePlaybackState } from './usePlaybackState';
 
-export function useSyncedLyrics(track: Track | null, currentTime: number) {
+export function useSyncedLyrics(track: Track | null) {
     const [isLocalLoading, setIsLocalLoading] = useState(false);
     const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
+    const speed = usePlayerStore(state => state.playbackSpeed);
     const isLoading = isLocalLoading || isFetchingLyrics;
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing;
 
-    // Sync parsedLyrics with track.lyricsLRC (reactive from WatermelonDB)
     const parsedLyrics = useMemo(() => {
         return track?.lyricsLRC ? parseLRC(track.lyricsLRC) : [];
     }, [track?.lyricsLRC]);
 
     const isSynced = parsedLyrics.length > 0;
 
-    // Fetch lyrics if track changes and lyrics are not in DB
     useEffect(() => {
         if (!track) return;
         if (track.lyricsLRC) {
@@ -39,46 +42,135 @@ export function useSyncedLyrics(track: Track | null, currentTime: number) {
         return () => {
             isMounted = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track?.id]);
 
     const lastIndexRef = useRef<number>(-1);
+    const [activeIndex, setActiveIndex] = useState<number>(-1);
 
-    // Reset lastIndexRef when track changes to avoid stale indexing
+    const syncData = useRef({
+        isPlaying: false,
+        anchorPosition: 0,
+        anchorDate: Date.now(),
+        speed: 1.0,
+    });
+
+    useEffect(() => {
+        syncData.current.speed = speed;
+    }, [speed]);
+
+    useEffect(() => {
+        syncData.current.isPlaying = isPlaying;
+        const syncAnchor = async () => {
+            try {
+                const { position } = await TrackPlayer.getProgress();
+                syncData.current.anchorPosition = position;
+                syncData.current.anchorDate = Date.now();
+            } catch (e) {}
+        };
+        syncAnchor();
+    }, [isPlaying]);
+
     useEffect(() => {
         lastIndexRef.current = -1;
+        setActiveIndex(-1);
+        syncData.current = {
+            isPlaying,
+            anchorPosition: 0,
+            anchorDate: Date.now(),
+            speed,
+        };
+        const syncAnchor = async () => {
+            try {
+                const { position } = await TrackPlayer.getProgress();
+                syncData.current.anchorPosition = position;
+                syncData.current.anchorDate = Date.now();
+            } catch (e) {}
+        };
+        syncAnchor();
     }, [track?.id]);
 
-    // Optimize active index lookup using the last known active index
-    const activeIndex = useMemo(() => {
-        if (!isSynced) return -1;
+    useEffect(() => {
+        let frameId: number | null = null;
+        let lastFrameTime = 0;
 
-        const lastIdx = lastIndexRef.current;
-        const total = parsedLyrics.length;
+        const loop = (timestamp: number) => {
+            const now = timestamp || Date.now();
+            const elapsed = now - lastFrameTime;
+            if (elapsed >= 33) {
+                lastFrameTime = now;
 
-        // 1. Fast path: check if we are still within the same line
-        if (lastIdx >= 0 && lastIdx < total) {
-            const currentLine = parsedLyrics[lastIdx];
-            const nextLine = lastIdx + 1 < total ? parsedLyrics[lastIdx + 1] : null;
+                const data = syncData.current;
+                let currentPos = data.anchorPosition;
+                if (data.isPlaying) {
+                    const timePassed = (Date.now() - data.anchorDate) / 1000;
+                    currentPos = data.anchorPosition + timePassed * data.speed;
+                }
 
-            if (currentTime >= currentLine.time && (!nextLine || currentTime < nextLine.time)) {
-                return lastIdx;
+                if (isSynced && parsedLyrics.length > 0) {
+                    const total = parsedLyrics.length;
+                    let index = -1;
+                    const lastIdx = lastIndexRef.current;
+
+                    if (lastIdx >= 0 && lastIdx < total) {
+                        const currentLine = parsedLyrics[lastIdx];
+                        const nextLine = lastIdx + 1 < total ? parsedLyrics[lastIdx + 1] : null;
+                        if (currentPos >= currentLine.time && (!nextLine || currentPos < nextLine.time)) {
+                            index = lastIdx;
+                        }
+                    }
+
+                    if (index === -1 && lastIdx >= 0 && lastIdx + 1 < total) {
+                        const nextLine = parsedLyrics[lastIdx + 1];
+                        const afterNextLine = lastIdx + 2 < total ? parsedLyrics[lastIdx + 2] : null;
+                        if (currentPos >= nextLine.time && (!afterNextLine || currentPos < afterNextLine.time)) {
+                            index = lastIdx + 1;
+                        }
+                    }
+
+                    if (index === -1) {
+                        for (let i = 0; i < total; i++) {
+                            if (currentPos >= parsedLyrics[i].time) {
+                                index = i;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    lastIndexRef.current = index;
+                    setActiveIndex(prev => {
+                        if (prev !== index) {
+                            return index;
+                        }
+                        return prev;
+                    });
+                } else {
+                    setActiveIndex(prev => prev !== -1 ? -1 : prev);
+                }
             }
-        }
+            frameId = requestAnimationFrame(loop);
+        };
 
-        // 2. Slow path: fallback search from 0
-        let index = -1;
-        for (let i = 0; i < total; i++) {
-            if (currentTime >= parsedLyrics[i].time) {
-                index = i;
-            } else {
-                break;
+        frameId = requestAnimationFrame(loop);
+
+        const intervalId = setInterval(async () => {
+            try {
+                const state = await TrackPlayer.getPlaybackState();
+                const { position } = await TrackPlayer.getProgress();
+                const isPlayingReal = state.state === State.Playing;
+                syncData.current.isPlaying = isPlayingReal;
+                syncData.current.anchorPosition = position;
+                syncData.current.anchorDate = Date.now();
+            } catch (e) {}
+        }, 1000);
+
+        return () => {
+            if (frameId !== null) {
+                cancelAnimationFrame(frameId);
             }
-        }
-
-        lastIndexRef.current = index;
-        return index;
-    }, [currentTime, parsedLyrics, isSynced]);
+            clearInterval(intervalId);
+        };
+    }, [isSynced, parsedLyrics]);
 
     return {
         parsedLyrics,
@@ -88,3 +180,4 @@ export function useSyncedLyrics(track: Track | null, currentTime: number) {
         lyricsText: track?.lyricsLRC || null,
     };
 }
+

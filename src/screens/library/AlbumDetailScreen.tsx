@@ -2,6 +2,8 @@ import { openAlbumMenu, openTagManager } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { FlashList } from "@shopify/flash-list";
 import React from "react";
@@ -261,12 +263,16 @@ function AlbumDetailContent({
           </View>
         )}
         subtitle={
-          artist && artist.name !== "Varios Artistas" ? (
-            <TouchableOpacity onPress={navigateToArtist}>
-              <Text style={styles.artistNameLink}>{artist.name}</Text>
-            </TouchableOpacity>
+          artist ? (
+            artist.name !== "Varios Artistas" ? (
+              <TouchableOpacity onPress={navigateToArtist}>
+                <Text style={styles.artistNameLink}>{artist.name}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.artistName}>{artist.name}</Text>
+            )
           ) : (
-            artist && <Text style={styles.artistName}>{artist.name}</Text>
+            <Text style={styles.artistName}>{t('actions.unknown')}</Text>
           )
         }
         metaInfo={[
@@ -374,9 +380,29 @@ function AlbumDetailContent({
   );
 }
 
+function AlbumDetailErrorFallback() {
+  const { colors } = useAppTheme();
+  const navigation = useNavigation();
+  const { t } = useTranslation();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+      <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16 }} />
+      <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+        Este álbum ya no existe en tu biblioteca
+      </Text>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={{ backgroundColor: colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, marginTop: 16 }}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { album: Album }) => ({
   album: album.observe(),
-  artist: album.artist.observe(),
+  artist: album.artist.observe().pipe(catchError(() => of(null))),
   tracks: database.collections.get<Track>("tracks").query(
     Q.where("album_id", album.id),
     Q.sortBy("disc_number", Q.asc),
@@ -386,8 +412,11 @@ const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { albu
 }))(AlbumDetailContent);
 
 const ObservableAlbumDetailMiddle = withObservables(["albumId"], ({ albumId }: { albumId: string }) => ({
-  album: database.collections.get<Album>("albums").findAndObserve(albumId),
-}))(function ObservableAlbumDetailMiddle({ album }: { album: Album }) {
+  album: database.collections.get<Album>("albums").findAndObserve(albumId).pipe(catchError(() => of(null))),
+}))(function ObservableAlbumDetailMiddle({ album }: { album: Album | null }) {
+  if (!album) {
+    return <AlbumDetailErrorFallback />;
+  }
   return <EnhancedAlbumDetailContent album={album} isLoadingTracks={false} />;
 });
 

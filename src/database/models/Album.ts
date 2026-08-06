@@ -1,10 +1,10 @@
 import { Model, Q } from "@nozbe/watermelondb";
 import {
-    children,
-    field,
-    relation,
-    text,
-    lazy,
+  children,
+  field,
+  lazy,
+  relation,
+  text,
 } from "@nozbe/watermelondb/decorators";
 
 export default class Album extends Model {
@@ -20,6 +20,7 @@ export default class Album extends Model {
   @text("normalized_title") normalizedTitle: string;
   @field("year") year: number | null; // isOptional en schema
   @text("cover_url") coverUrl: string | null; // isOptional en schema
+  @text("cd_art_url") cdArtUrl: string | null;
   @field("is_pinned") isPinned: boolean;
 
   @relation("artists", "artist_id") artist: any;
@@ -27,7 +28,7 @@ export default class Album extends Model {
   @children("album_tags") albumTags: any;
 
   @lazy queryTags = this.collections.get('tags').query(
-      Q.on('album_tags', 'album_id', this.id),
-      Q.sortBy('name', Q.asc)
+    Q.on('album_tags', 'album_id', this.id),
+    Q.sortBy('name', Q.asc)
   );
 }

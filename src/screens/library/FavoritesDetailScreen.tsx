@@ -2,6 +2,8 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import React, { useCallback } from 'react';
@@ -30,7 +32,7 @@ import { formatAlbumDuration } from '../../utils/time';
 // ─── FAVORITES TRACK ROW COMPONENT ───
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
-    album: track.album.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
     artists: track.queryCollaborators.observe() as any,
 }))(function FavoriteTrackRow({
     track,
@@ -40,7 +42,7 @@ const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }
     onPress,
 }: {
     track: Track;
-    album: Album;
+    album: Album | null;
     artists: Artist[];
     index: number;
     onPress: (trackId: string) => void;

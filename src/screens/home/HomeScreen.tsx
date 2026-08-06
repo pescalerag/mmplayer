@@ -17,6 +17,7 @@ import Album from '../../database/models/Album';
 import Track from '../../database/models/Track';
 import Artist from '../../database/models/Artist';
 import { HistoryService } from '../../services/HistoryService';
+import { SmartListService } from '../../services/SmartListService';
 
 
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -102,8 +103,34 @@ export default function HomeScreen() {
     const recentPlaylists = React.useMemo(() => recentPlaylistsRaw || [], [recentPlaylistsRaw]);
     const userAlias = useSettingsStore(state => state.userAlias);
 
-    const homeSectionsOrder = useSettingsStore(state => state.homeSectionsOrder);
-    const homeSectionsVisibility = useSettingsStore(state => state.homeSectionsVisibility);
+    const homeSectionsOrderRaw = useSettingsStore(state => state.homeSectionsOrder);
+    const homeSectionsVisibilityRaw = useSettingsStore(state => state.homeSectionsVisibility);
+
+    const homeSectionsOrder = React.useMemo(() => {
+        const order = [...(homeSectionsOrderRaw || [])];
+        if (!order.includes('smart_playlists')) {
+            const mediaIndex = order.indexOf('recent_media');
+            if (mediaIndex !== -1) {
+                order.splice(mediaIndex + 1, 0, 'smart_playlists');
+            } else {
+                const playlistIndex = order.indexOf('recent_playlists');
+                if (playlistIndex !== -1) {
+                    order.splice(playlistIndex, 0, 'smart_playlists');
+                } else {
+                    order.unshift('smart_playlists');
+                }
+            }
+        }
+        return order;
+    }, [homeSectionsOrderRaw]);
+
+    const homeSectionsVisibility = React.useMemo(() => {
+        return {
+            ...homeSectionsVisibilityRaw,
+            smart_playlists: homeSectionsVisibilityRaw?.smart_playlists ?? true
+        };
+    }, [homeSectionsVisibilityRaw]);
+
     const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
 
     const activeTrack = usePlayerStore(state => state.activeTrack);
@@ -113,9 +140,26 @@ export default function HomeScreen() {
     const [recentlyAdded, setRecentlyAdded] = React.useState<any[]>([]);
     const [mostPlayed, setMostPlayed] = React.useState<any[]>([]);
     const [explore, setExplore] = React.useState<any[]>([]);
+    const [smartLists, setSmartLists] = React.useState<any[]>([]);
 
     const fetchHomeData = async () => {
         try {
+            // Fetch smart lists
+            const lists = SmartListService.getSmartLists();
+            const loadedSmart = await Promise.all(
+                lists.map(async (list) => {
+                    const tracks = await list.getTracks();
+                    return {
+                        id: `smart-list-${list.id}`,
+                        type: 'playlist' as const,
+                        title: list.name,
+                        subtitle: `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
+                        trackCount: tracks.length,
+                    };
+                })
+            );
+            setSmartLists(loadedSmart.filter(item => item.trackCount > 0));
+
             // Fetch recently added albums
             const addedAlbums = await database.collections
                 .get<Album>('albums')
@@ -344,6 +388,27 @@ export default function HomeScreen() {
                                         </View>
                                     )}
                                 </View>
+                            );
+
+                        case 'smart_playlists':
+                            return (
+                                <HorizontalCarousel
+                                    key="smart_playlists"
+                                    title={t('home.smart_playlists_title') || "Listas inteligentes"}
+                                    data={smartLists}
+                                    emptyText={t('home.empty_smart_playlists')}
+                                    renderItem={({ item }) => (
+                                        <MediaCard
+                                            id={item.id}
+                                            type="playlist"
+                                            title={item.title}
+                                            subtitle={item.subtitle}
+                                            onPress={handleCardPress}
+                                            onLongPress={handleCardLongPress}
+                                        />
+                                    )}
+                                    keyExtractor={(item) => `home-smart-list-${item.id}`}
+                                />
                             );
 
                         case 'recent_playlists':

@@ -29,6 +29,7 @@ import { navigationRef } from "./src/navigation/navigationRef";
 import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { MediaAssetService } from "./src/services/MediaAssetService";
 SystemUI.setBackgroundColorAsync('#000000');
 
 export default function App() {
@@ -53,6 +54,10 @@ export default function App() {
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
         await usePlayerStore.getState().restoreRecentsState();
+
+        // Ejecutar migración y Garbage Collector de archivos multimedia en segundo plano
+        MediaAssetService.migrateLegacyCacheAssets();
+        MediaAssetService.runGarbageCollector();
 
         // Ejecutar migración de last_modified en segundo plano para legacy tracks
         ScannerService.migrateLastModifiedIfNeeded().catch((err) => {

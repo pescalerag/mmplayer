@@ -1,8 +1,8 @@
 // src/database/migrations.ts
 import {
-    addColumns,
-    createTable,
-    schemaMigrations,
+  addColumns,
+  createTable,
+  schemaMigrations,
 } from "@nozbe/watermelondb/Schema/migrations";
 
 export const myMigrations = schemaMigrations({
@@ -89,7 +89,7 @@ export const myMigrations = schemaMigrations({
           columns: [
             { name: "item_id", type: "string", isIndexed: true },
             { name: "item_type", type: "string", isIndexed: true },
-            { name: "play_context", type: "string" }, 
+            { name: "play_context", type: "string" },
             { name: "duration_played", type: "number", isOptional: true },
             { name: "played_at", type: "number", isIndexed: true },
           ],
@@ -158,6 +158,15 @@ export const myMigrations = schemaMigrations({
             { name: "bg_video", type: "string", isOptional: true },
             { name: "rating", type: "number", isOptional: true },
           ],
+        }),
+      ],
+    },
+    {
+      toVersion: 15,
+      steps: [
+        addColumns({
+          table: "albums",
+          columns: [{ name: "cd_art_url", type: "string", isOptional: true }],
         }),
       ],
     },

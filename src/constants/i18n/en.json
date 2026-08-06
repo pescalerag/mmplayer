@@ -3,6 +3,7 @@
     "recent_elements": "Recent Items",
     "recent_playlists": "Recent Playlists",
     "your_favourites": "Your Favorites",
+    "smart_playlists_title": "Smart Playlists",
     "most_liked_songs": "Your most played songs",
     "welcome_morning": "Good morning",
     "welcome_afternoon": "Good afternoon",
@@ -28,6 +29,7 @@
     "explore_albums": "Explore random albums",
     "empty_added": "No recently added albums",
     "empty_most_played": "Play some tracks to see your most played songs",
+    "empty_smart_playlists": "Play some tracks to activate your smart playlists",
     "empty_explore": "No albums available to explore",
     "no_tracks_to_shuffle": "No tracks available to play",
     "shuffling_library": "Playing library in shuffle mode"
@@ -120,7 +122,20 @@
     "no_tags": "No tags created. Add tags from the player or from a song/album menu.",
     "compact": "Compact",
     "normal": "Normal",
-    "smart_lists_for_you": "Playlists for you"
+    "smart_lists_for_you": "Playlists for you",
+    "advanced_tag_search_btn": "Advanced Tag Search",
+    "advanced_search_active": "Advanced Search",
+    "advanced_tag_search_title": "Advanced Search",
+    "advanced_tag_instruction": "Tap tags to include them (+), exclude them (-) or leave them neutral.",
+    "include": "Include",
+    "exclude": "Exclude",
+    "neutral": "Neutral",
+    "match_all_tags": "Match all tags",
+    "match_all_desc": "Songs must have ALL of the included tags.",
+    "match_any_desc": "Songs can have ANY of the included tags.",
+    "no_tag_matches": "No tracks found with those tag filters.",
+    "no_playlists_only": "Songs without playlist",
+    "no_playlists_desc": "Only view songs that do not belong to any playlist."
   },
   "tags": {
     "manager": "Tag Manager",
@@ -181,6 +196,8 @@
     "keep_awake_desc": "Prevents the screen from turning off while the player or lyrics screen is open",
     "tag_colors": "Tag Colors",
     "tag_colors_desc": "Show tags with their assigned colors on the player and album detail screens. If disabled, they will appear in low-opacity gray.",
+    "show_lyrics": "Show lyrics in player",
+    "show_lyrics_desc": "Displays the current lyric sentence (if available) above the tags in the player screen and in immersive mode.",
     "silent_sync": "Silent sync on resume",
     "silent_sync_desc": "Hides the 'Syncing Library...' toast when you return to the app, but keeps scanning in the background.",
     "audio_section": "Audio & Normalization",
@@ -292,7 +309,11 @@
     "clear_context": "Clear context",
     "history_tab": "Previous",
     "hidden_upcoming": "and {{count}} more song in queue",
-    "hidden_upcoming_plural": "and {{count}} more songs in queue"
+    "hidden_upcoming_plural": "and {{count}} more songs in queue",
+    "save_to_playlist_title": "Add queue to playlist",
+    "save_all_to_playlist": "Add entire queue (includes previous)",
+    "save_upcoming_to_playlist": "Add upcoming queue (without previous)",
+    "save_manual_to_playlist": "Add manual queue only"
   },
   "playlist": {
     "new": "New playlist",
@@ -315,6 +336,8 @@
     "cancel": "Cancel",
     "continue": "Continue",
     "save": "Save",
+    "edit": "Edit",
+    "search": "Search",
     "discard": "Discard",
     "pin": "Pin",
     "unpin": "Unpin",
@@ -392,7 +415,9 @@
     "rating_none": "Unrated",
     "share_as_zip": "Share selection as ZIP",
     "error": "Error",
-    "selected_count": "{{count}} selected"
+    "selected_count": "{{count}} selected",
+    "longPressCoverToCustomize": "Long press cover to customize",
+    "customize_cd": "Customize CD image"
   },
   "toasts": {
     "syncing": "Syncing Library...",
@@ -583,6 +608,18 @@
     "locale_code": "en-US",
     "all_activity": "All activity",
     "unknown_artist": "Unknown artist",
+    "custom_date_title": "Custom Date Range",
+    "custom_date_from": "From (Start Date)",
+    "custom_date_to": "To (End Date)",
+    "day": "Day",
+    "month": "Month",
+    "year": "Year",
+    "options": {
+      "highlights": "Highlights",
+      "songs": "Top Songs",
+      "albums": "Top Albums",
+      "artists": "Top Artists"
+    },
     "periods": {
       "day": "Day",
       "week": "Week",
@@ -699,7 +736,8 @@
     "background_style_cover": "Blurred Artwork",
     "background_style_gradient": "Color Gradient",
     "show_canvas": "Show Canvas",
-    "show_canvas_desc": "Play looping background videos when available"
+    "show_canvas_desc": "Play background loop videos if available",
+    "disabled_by_canvas": "Disabled while Canvas is active"
   },
   "sort": {
     "title": "Sort by",
@@ -733,5 +771,9 @@
     "saving_records": "Saving {{count}} records in the database...",
     "reconciling": "Reconciling local library...",
     "reconciling_phase": "Reconciling: {{phase}}"
+  },
+  "common": {
+    "accept": "Accept",
+    "cancel": "Cancel"
   }
 }

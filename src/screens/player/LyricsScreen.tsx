@@ -32,6 +32,8 @@ import { useCastStore } from '../../store/useCastStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
@@ -54,37 +56,8 @@ const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
 const LYRIC_ITEM_HEIGHT = 80; // Height of each lyric line item including its vertical margins
 
-const performToggleShuffle = async (
-    isShuffleEnabled: boolean,
-    shuffleOriginalQueue: any[],
-    setShuffleState: (enabled: boolean, queue: any[]) => void
-) => {
-    try {
-        const currentQueue = await TrackPlayer.getQueue();
-        const currentIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
-
-        if (isShuffleEnabled) {
-            if (shuffleOriginalQueue.length > 0) {
-                const currentTrack = currentQueue[currentIndex];
-                const originalIdx = shuffleOriginalQueue.findIndex(t => t.id === currentTrack?.id);
-                const restoreFrom = originalIdx >= 0 ? originalIdx + 1 : currentIndex + 1;
-                const tracksToRestore = shuffleOriginalQueue.slice(restoreFrom);
-                await TrackPlayer.removeUpcomingTracks();
-                if (tracksToRestore.length > 0) await TrackPlayer.add(tracksToRestore);
-            }
-            setShuffleState(false, []);
-        } else {
-            setShuffleState(true, currentQueue);
-            const upcoming = currentQueue.slice(currentIndex + 1);
-            const shuffled = [...upcoming].sort(() => Math.random() - 0.5);
-            await TrackPlayer.removeUpcomingTracks();
-            if (shuffled.length > 0) await TrackPlayer.add(shuffled);
-        }
-        await usePlayerStore.getState().savePlaybackState();
-        await usePlayerStore.getState().updateQueueStatus(currentIndex);
-    } catch (e) {
-        console.error('Error toggling shuffle:', e);
-    }
+const performToggleShuffle = async () => {
+    await usePlayerStore.getState().toggleShuffle();
 };
 
 // Helper functions for hex color conversions and dark background/gradient generation
@@ -198,8 +171,8 @@ LyricLine.displayName = 'LyricLine';
 
 interface LyricsScreenUIProps {
     track: Track;
-    album: Album;
-    artist: Artist;
+    album: Album | null;
+    artist: Artist | null;
     artists: Artist[];
 }
 
@@ -213,7 +186,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     React.useEffect(() => {
         let isMounted = true;
-        if (!album.coverUrl) {
+        if (!album?.coverUrl) {
             setExtractedColor(null);
             return;
         }
@@ -234,7 +207,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         return () => {
             isMounted = false;
         };
-    }, [album.coverUrl]);
+    }, [album?.coverUrl]);
 
     const { finalBgColor, topGradientColor, bottomGradientColor } = React.useMemo(() => {
         if (extractedColor) {
@@ -276,7 +249,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1 || playbackPitch !== 1;
 
-    const { position, duration } = useProgress();
+    const { position, duration } = useProgress(250);
     const hasNext = usePlayerStore(state => state.hasNext);
     const hasPrevious = usePlayerStore(state => state.hasPrevious);
 
@@ -303,7 +276,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
     }, []);
 
-    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track, position);
+    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track);
 
     const isInitialScrollRef = useRef(true);
 
@@ -358,7 +331,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     };
 
-    const toggleShuffle = () => performToggleShuffle(isShuffleEnabled, shuffleOriginalQueue, setShuffleState);
+    const toggleShuffle = () => usePlayerStore.getState().toggleShuffle();
 
     const cycleRepeatMode = async () => {
         try {
@@ -378,7 +351,11 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     };
 
-    const handleAlbumPress = () => navigation.navigate('AlbumDetail', { albumId: album.id });
+    const handleAlbumPress = () => {
+        if (album?.id) {
+            navigation.navigate('AlbumDetail', { albumId: album.id });
+        }
+    };
     const handleArtistPress = () => {
         if (artists && artists.length > 1) {
             openArtistsList(artists);
@@ -477,7 +454,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
             {/* Blurred Background */}
             <BlurredBackground
                 key={`blur-${track.id}`}
-                imageUrl={album.coverUrl || undefined}
+                imageUrl={album?.coverUrl || undefined}
                 blurIntensity={100}
                 gradientColors={
                     extractedColor
@@ -684,8 +661,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
 const ObservableLyricsScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    album: trackModel.album.observe(),
-    artist: trackModel.artist.observe(),
+    album: trackModel.album.observe().pipe(catchError(() => of(null))),
+    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
     artists: trackModel.queryCollaborators.observe(),
 }))(LyricsScreenUI);
 

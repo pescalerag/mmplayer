@@ -17,7 +17,9 @@ export default function SettingsAppearanceScreen() {
         userAlias,
         setForceWelcomeModal,
         isKeepAwakeEnabled,
-        setIsKeepAwakeEnabled
+        setIsKeepAwakeEnabled,
+        showPlayerLyrics,
+        setShowPlayerLyrics
     } = useSettingsStore();
 
     const openLibraryTabsOrderSheet = openLibraryTabsOrder;
@@ -67,6 +69,24 @@ export default function SettingsAppearanceScreen() {
                                 onValueChange={setShowTagColors}
                                 trackColor={{ false: '#282828', true: '#8B5CF6' }}
                                 thumbColor={showTagColors ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
+
+                        <View style={styles.separator} />
+
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.show_lyrics')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.show_lyrics_desc')}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={showPlayerLyrics}
+                                onValueChange={setShowPlayerLyrics}
+                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                thumbColor={showPlayerLyrics ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
                         </View>

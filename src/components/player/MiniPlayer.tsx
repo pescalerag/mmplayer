@@ -2,6 +2,8 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -83,14 +85,14 @@ const hexToRgba = (hex: string, alpha: number): string => {
 
 const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any }) => ({
     track: track.observe(),
-    album: track.album.observe(),
-}))(({ album }: { album: Album }) => {
+    album: track.album.observe().pipe(catchError(() => of(null))),
+}))(({ album }: { album: Album | null }) => {
     const { colors } = useAppTheme();
     const [coverColor, setCoverColor] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         let isMounted = true;
-        if (!album.coverUrl) {
+        if (!album?.coverUrl) {
             setCoverColor(null);
             return;
         }
@@ -111,7 +113,7 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
         return () => {
             isMounted = false;
         };
-    }, [album.coverUrl]);
+    }, [album?.coverUrl]);
 
     const overlayColors = React.useMemo(() => {
         if (coverColor) {
@@ -144,7 +146,7 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
 
     return (
         <BlurredBackground
-            imageUrl={album.coverUrl}
+            imageUrl={album?.coverUrl || null}
             blurIntensity={Platform.OS === 'ios' ? 40 : 70}
             gradientColors={overlayColors}
             placeholderColors={[placeholderBg, placeholderBg]}
@@ -156,8 +158,8 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
 
 interface MiniPlayerUIProps {
     track: Track;
-    album: Album;
-    artist: Artist;
+    album: Album | null;
+    artist: Artist | null;
     artists: Artist[];
     onPress: () => void;
 }
@@ -236,10 +238,10 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
                             activeOpacity={0.9}
                         >
                             <View style={styles.artworkContainer}>
-                                {album.coverUrl && !imageError ? (
+                                {album?.coverUrl && !imageError ? (
                                     <Image
                                         key={track.id}
-                                        source={{ uri: album.coverUrl as string }}
+                                        source={{ uri: album.coverUrl }}
                                         style={styles.artwork}
                                         contentFit="cover"
                                         onError={() => setImageError(true)}
@@ -273,8 +275,8 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
 
 const ObservableMiniPlayerUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    album: trackModel.album.observe(),
-    artist: trackModel.artist.observe(),
+    album: trackModel.album.observe().pipe(catchError(() => of(null))),
+    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
     artists: trackModel.queryCollaborators.observe(),
 }))(MiniPlayerUI);
 

@@ -1,13 +1,15 @@
+import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
     Animated,
     BackHandler,
     Dimensions,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -15,7 +17,7 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     Event,
@@ -24,18 +26,17 @@ import TrackPlayer, {
     usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
-import { Q } from '@nozbe/watermelondb';
 import { database } from '../../database';
-import Track from '../../database/models/Track';
 import Artist from '../../database/models/Artist';
+import Track from '../../database/models/Track';
+import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
-import { useAppTheme } from '../../hooks/useAppTheme';
 import { Colors } from '../../theme/theme';
-import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 
 const { height, width } = Dimensions.get('window');
 const TAB_WIDTH = (width - 48 - 110) / 2;
+const ITEM_ROW_HEIGHT = 72; // Altura fija para optimizar getItemLayout
 
 type ActiveTab = 'queue' | 'recent';
 
@@ -60,34 +61,57 @@ export default function QueueSheet() {
     const [activeIndex, setActiveIndex] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
     const [showTrashMenu, setShowTrashMenu] = useState(false);
+    const [showAddPlaylistMenu, setShowAddPlaylistMenu] = useState(false);
     const [dbTracksMap, setDbTracksMap] = useState<Map<string, { title: string; artist: string; artwork: string | null }>>(new Map());
+    const dbTracksMapRef = useRef(dbTracksMap);
 
+    useEffect(() => {
+        dbTracksMapRef.current = dbTracksMap;
+    }, [dbTracksMap]);
+
+    // Carga metadatos desde WatermelonDB en lotes (Chunking) para evitar saturar la BD
     const fetchDbMetadataForQueue = React.useCallback(async (tpQueue: TPTrack[]) => {
         try {
             const trackIds = Array.from(new Set(tpQueue.map(t => t.id.toString().split('-')[0])));
             if (trackIds.length === 0) return;
 
-            const dbTracks = await database.collections.get<Track>('tracks')
-                .query(Q.where('id', Q.oneOf(trackIds)))
-                .fetch();
+            const currentMap = dbTracksMapRef.current;
+            const missingTrackIds = trackIds.filter(id => !currentMap.has(id));
+            if (missingTrackIds.length === 0) return;
 
-            const newMap = new Map<string, { title: string; artist: string; artwork: string | null }>();
+            const CHUNK_SIZE = 50;
+            const fetchedMetadata = new Map<string, { title: string; artist: string; artwork: string | null }>();
 
-            await Promise.all(dbTracks.map(async (track) => {
-                const album = await track.album.fetch();
-                const collaborators = await track.queryCollaborators.fetch() as Artist[];
-                const artistNames = collaborators.length > 0
-                    ? collaborators.map(a => a.name).join(', ')
-                    : 'Artista desconocido';
+            for (let i = 0; i < missingTrackIds.length; i += CHUNK_SIZE) {
+                const chunk = missingTrackIds.slice(i, i + CHUNK_SIZE);
+                const dbTracks = await database.collections.get<Track>('tracks')
+                    .query(Q.where('id', Q.oneOf(chunk)))
+                    .fetch();
 
-                newMap.set(track.id, {
-                    title: track.title,
-                    artist: artistNames,
-                    artwork: album?.coverUrl || null
+                await Promise.all(dbTracks.map(async (track) => {
+                    const album = await track.album.fetch();
+                    const collaborators = await track.queryCollaborators.fetch() as Artist[];
+                    const artistNames = collaborators.length > 0
+                        ? collaborators.map(a => a.name).join(', ')
+                        : 'Artista desconocido';
+
+                    fetchedMetadata.set(track.id, {
+                        title: track.title,
+                        artist: artistNames,
+                        artwork: album?.coverUrl || null
+                    });
+                }));
+            }
+
+            if (fetchedMetadata.size > 0) {
+                setDbTracksMap(prevMap => {
+                    const newMap = new Map(prevMap);
+                    fetchedMetadata.forEach((value, key) => {
+                        newMap.set(key, value);
+                    });
+                    return newMap;
                 });
-            }));
-
-            setDbTracksMap(newMap);
+            }
         } catch (err) {
             console.error('QueueSheet: error cargando metadatos de DB para cola', err);
         }
@@ -106,11 +130,11 @@ export default function QueueSheet() {
     const isReordering = useRef(false);
 
     const recentTracks = queue.slice(0, activeIndex).reverse();
-    const upcomingTracks = queue.slice(activeIndex + 1, activeIndex + 1 + 50);
+    // Muestra TODA la cola restante sin capas ni límites de 50
+    const upcomingTracks = queue.slice(activeIndex + 1);
     const currentTrack = queue[activeIndex] ?? null;
 
     const totalUpcomingCount = Math.max(0, queue.length - (activeIndex + 1));
-    const hiddenUpcomingCount = Math.max(0, totalUpcomingCount - 50);
 
     useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async () => {
         if (isReordering.current) return;
@@ -121,7 +145,12 @@ export default function QueueSheet() {
                 TrackPlayer.getActiveTrackIndex(),
             ]);
 
-            setQueue(fullQueue);
+            const isQueueIdentical = fullQueue.length === queue.length &&
+                fullQueue.every((track, i) => track.id === queue[i]?.id);
+
+            if (!isQueueIdentical) {
+                setQueue(fullQueue);
+            }
             if (realIdx !== undefined && realIdx !== null) {
                 setActiveIndex(realIdx);
             }
@@ -156,6 +185,8 @@ export default function QueueSheet() {
                 Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true })
             ]).start();
         } else {
+            setShowTrashMenu(false);
+            setShowAddPlaylistMenu(false);
             Animated.parallel([
                 Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
                 Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true })
@@ -165,11 +196,21 @@ export default function QueueSheet() {
 
     useEffect(() => {
         if (!isVisible) return;
-        const onBackPress = () => { closeQueue(); return true; };
+        const onBackPress = () => {
+            if (showTrashMenu) {
+                setShowTrashMenu(false);
+                return true;
+            }
+            if (showAddPlaylistMenu) {
+                setShowAddPlaylistMenu(false);
+                return true;
+            }
+            closeQueue();
+            return true;
+        };
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
-    }, [isVisible, closeQueue]);
-
+    }, [isVisible, showTrashMenu, showAddPlaylistMenu, closeQueue]);
 
     const switchTab = (tab: ActiveTab) => {
         setActiveTab(tab);
@@ -181,6 +222,7 @@ export default function QueueSheet() {
         }).start();
     };
 
+    // Reordenamiento fluido mediante TrackPlayer.move nativo
     const handleDragEnd = React.useCallback(async ({ data, from, to }: { data: TPTrack[], from: number, to: number }) => {
         if (from === to) return;
 
@@ -189,40 +231,25 @@ export default function QueueSheet() {
         const globalFrom = activeIndex + 1 + from;
         const globalTo = activeIndex + 1 + to;
 
-        const trackToMove = queue[globalFrom];
-        if (!trackToMove) {
-            isReordering.current = false;
-            return;
-        }
-
+        // Actualización optimista inmediata en la UI
         const newQueue = [
             ...queue.slice(0, activeIndex + 1),
-            ...data,
-            ...queue.slice(activeIndex + 1 + data.length)
+            ...data
         ];
         setQueue(newQueue);
 
         try {
-            await TrackPlayer.remove(globalFrom);
-            await TrackPlayer.add([trackToMove], globalTo);
-
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            const [fullQueue, currentIdx] = await Promise.all([
-                TrackPlayer.getQueue(),
-                TrackPlayer.getActiveTrackIndex(),
-            ]);
-
-            setQueue(fullQueue);
-            if (currentIdx !== undefined && currentIdx !== null) setActiveIndex(currentIdx);
-
+            // Movimiento atómico nativo súper rápido
+            await TrackPlayer.move(globalFrom, globalTo);
             await usePlayerStore.getState().savePlaybackState();
         } catch (error) {
             console.error('Error reordering track:', error);
             const fullQueue = await TrackPlayer.getQueue();
             setQueue(fullQueue);
         } finally {
-            isReordering.current = false;
+            setTimeout(() => {
+                isReordering.current = false;
+            }, 300);
         }
     }, [activeIndex, queue, setQueue]);
 
@@ -258,10 +285,11 @@ export default function QueueSheet() {
         setShowTrashMenu(true);
     };
 
-    const handleSaveQueueAsPlaylist = async () => {
-        if (queue.length === 0) return;
+    const handleSaveTracksToPlaylist = async (selectedTpTracks: TPTrack[]) => {
+        setShowAddPlaylistMenu(false);
+        if (selectedTpTracks.length === 0) return;
         try {
-            const trackIds = Array.from(new Set(queue.map(t => t.id.toString().split('-')[0])));
+            const trackIds = Array.from(new Set(selectedTpTracks.map(t => t.id.toString().split('-')[0])));
             if (trackIds.length === 0) return;
 
             const dbTracks = await database.collections.get<Track>('tracks')
@@ -290,10 +318,10 @@ export default function QueueSheet() {
         const dbId = currentTrack?.id?.toString().split('-')[0];
         const dbMeta = dbId ? dbTracksMap.get(dbId) : null;
         return (
-            <CurrentTrackHeader 
-                currentTrack={currentTrack} 
+            <CurrentTrackHeader
+                currentTrack={currentTrack}
                 dbMeta={dbMeta}
-                isPlayingGlobal={isPlayingGlobal} 
+                isPlayingGlobal={isPlayingGlobal}
             />
         );
     }, [currentTrack, isPlayingGlobal, dbTracksMap]);
@@ -408,7 +436,7 @@ export default function QueueSheet() {
                     {queue.length > 0 && (
                         <TouchableOpacity
                             style={{ padding: 10, marginLeft: 4 }}
-                            onPress={handleSaveQueueAsPlaylist}
+                            onPress={() => setShowAddPlaylistMenu(true)}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Ionicons name="add-outline" size={26} color={Colors.tint} />
@@ -429,25 +457,26 @@ export default function QueueSheet() {
                         <View style={styles.separator} />
                         <DraggableFlatList
                             data={upcomingTracks}
-                            keyExtractor={(item) => `q-${item.id}`}
+                            keyExtractor={(item) => item.id}
                             renderItem={renderQueueItem}
                             onDragEnd={handleDragEnd}
+                            activationDistance={10} // Previene inicio accidental de drag al hacer scroll
+                            autoscrollThreshold={50}
+                            autoscrollSpeed={100}
+                            getItemLayout={(_data, index) => ({
+                                length: ITEM_ROW_HEIGHT,
+                                offset: ITEM_ROW_HEIGHT * index,
+                                index,
+                            })}
+                            removeClippedSubviews={Platform.OS === 'android'}
+                            initialNumToRender={15}
+                            maxToRenderPerBatch={15}
+                            windowSize={10}
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
                                     <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
                                     <Text style={styles.emptyText}>{t('queue.empty')}</Text>
                                 </View>
-                            }
-                            ListFooterComponent={
-                                hiddenUpcomingCount > 0 ? (
-                                    <View style={styles.footerContainer}>
-                                        <Text style={styles.footerText}>
-                                            {hiddenUpcomingCount === 1
-                                                ? t('queue.hidden_upcoming', { count: hiddenUpcomingCount })
-                                                : t('queue.hidden_upcoming_plural', { count: hiddenUpcomingCount })}
-                                        </Text>
-                                    </View>
-                                ) : null
                             }
                             contentContainerStyle={styles.listContent}
                             showsVerticalScrollIndicator={false}
@@ -456,7 +485,7 @@ export default function QueueSheet() {
                 ) : (
                     <FlashList
                         data={recentTracks}
-                        keyExtractor={(item) => `r-${item.id}`}
+                        keyExtractor={(item) => item.id}
                         renderItem={renderRecentItem}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
@@ -523,32 +552,99 @@ export default function QueueSheet() {
                                             <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.clear_context')}</Text>
                                         </TouchableOpacity>
                                     )}
-                                 <TouchableOpacity
-                                    style={styles.trashMenuButton}
-                                    onPress={async () => {
-                                        setShowTrashMenu(false);
-                                        await clearPlayer();
-                                        closeQueue();
-                                    }}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={styles.trashMenuIconContainer}>
-                                        <Ionicons name="stop-circle-outline" size={24} color={colors.text} />
-                                    </View>
-                                    <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.stop_playback')}</Text>
-                                </TouchableOpacity>
-                                <View style={[styles.trashMenuDivider, { backgroundColor: colors.cardBackground || '#282828' }]} />
-                                <TouchableOpacity
-                                    style={[styles.trashMenuButton, { justifyContent: 'center' }]}
-                                    onPress={() => setShowTrashMenu(false)}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={[styles.trashMenuButtonText, { color: colors.textSecondary }]}>{t('actions.cancel')}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                </TouchableWithoutFeedback>
+                                    <TouchableOpacity
+                                        style={styles.trashMenuButton}
+                                        onPress={async () => {
+                                            setShowTrashMenu(false);
+                                            await clearPlayer();
+                                            closeQueue();
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.trashMenuIconContainer}>
+                                            <Ionicons name="stop-circle-outline" size={24} color={colors.text} />
+                                        </View>
+                                        <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.stop_playback')}</Text>
+                                    </TouchableOpacity>
+                                    <View style={[styles.trashMenuDivider, { backgroundColor: colors.cardBackground || '#282828' }]} />
+                                    <TouchableOpacity
+                                        style={[styles.trashMenuButton, { justifyContent: 'center' }]}
+                                        onPress={() => setShowTrashMenu(false)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.trashMenuButtonText, { color: colors.textSecondary }]}>{t('actions.cancel')}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </View>
+                    </TouchableWithoutFeedback>
+                );
+            })()}
+
+            {showAddPlaylistMenu && (() => {
+                const allQueueTracks = queue;
+                const upcomingAndCurrentTracks = queue.slice(Math.max(0, activeIndex));
+                const manualQueueTracks = queue.filter((t, idx) => (t as any).isManual === true || (idx > activeIndex && idx <= activeIndex + userQueueSize));
+
+                const hasManualTracks = manualQueueTracks.length > 0;
+                const hasUpcomingTracks = upcomingAndCurrentTracks.length > 0;
+
+                return (
+                    <TouchableWithoutFeedback onPress={() => setShowAddPlaylistMenu(false)}>
+                        <View style={styles.trashMenuOverlay}>
+                            <TouchableWithoutFeedback>
+                                <View style={[styles.trashMenuPanel, { backgroundColor: '#121212', borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
+                                    <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>{t('queue.save_to_playlist_title')}</Text>
+
+                                    <TouchableOpacity
+                                        style={styles.trashMenuButton}
+                                        onPress={() => handleSaveTracksToPlaylist(allQueueTracks)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.trashMenuIconContainer}>
+                                            <Ionicons name="library-outline" size={24} color={colors.text} />
+                                        </View>
+                                        <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.save_all_to_playlist')}</Text>
+                                    </TouchableOpacity>
+
+                                    {hasUpcomingTracks && (
+                                        <TouchableOpacity
+                                            style={styles.trashMenuButton}
+                                            onPress={() => handleSaveTracksToPlaylist(upcomingAndCurrentTracks)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={styles.trashMenuIconContainer}>
+                                                <Ionicons name="play-skip-forward-outline" size={24} color={colors.text} />
+                                            </View>
+                                            <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.save_upcoming_to_playlist')}</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {hasManualTracks && (
+                                        <TouchableOpacity
+                                            style={styles.trashMenuButton}
+                                            onPress={() => handleSaveTracksToPlaylist(manualQueueTracks)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={styles.trashMenuIconContainer}>
+                                                <Ionicons name="bookmark-outline" size={24} color={colors.text} />
+                                            </View>
+                                            <Text style={[styles.trashMenuButtonText, { color: colors.text }]}>{t('queue.save_manual_to_playlist')}</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <View style={[styles.trashMenuDivider, { backgroundColor: colors.cardBackground || '#282828' }]} />
+                                    <TouchableOpacity
+                                        style={[styles.trashMenuButton, { justifyContent: 'center' }]}
+                                        onPress={() => setShowAddPlaylistMenu(false)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.trashMenuButtonText, { color: colors.textSecondary }]}>{t('actions.cancel')}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </View>
+                    </TouchableWithoutFeedback>
                 );
             })()}
         </View>
@@ -627,50 +723,57 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <TouchableOpacity
-            style={[styles.trackRow, isActive && { backgroundColor: Colors.accentAlpha10 }]}
-            onPress={() => onSkip(globalIndex)}
-            onLongPress={drag}
-            delayLongPress={200}
-        >
-            <TouchableOpacity
-                onPressIn={drag}
-                style={{ paddingVertical: 8, paddingRight: 12 }}
+        <View style={[styles.trackRow, isActive && styles.trackRowActive]}>
+            <GHTouchableOpacity
+                onLongPress={drag}
+                delayLongPress={100}
+                style={styles.dragHandle}
                 hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+                activeOpacity={0.6}
             >
-                <Ionicons name="reorder-two" size={24} color={Colors.disabled} />
+                <Ionicons name="reorder-two" size={24} color={isActive ? Colors.accent : Colors.disabled} />
+            </GHTouchableOpacity>
+
+            <TouchableOpacity
+                style={styles.trackMainContent}
+                onPress={() => onSkip(globalIndex)}
+                activeOpacity={0.7}
+                disabled={isActive}
+            >
+                {imageSource ? (
+                    <Image
+                        source={imageSource}
+                        style={styles.thumbnail}
+                        contentFit="cover"
+                        transition={200}
+                    />
+                ) : (
+                    <View style={[styles.thumbnail, styles.placeholder]}>
+                        <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
+                    </View>
+                )}
+                <View style={styles.trackInfo}>
+                    <View style={styles.titleRow}>
+                        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                        {isManual && (
+                            <View style={styles.userQueueBadge}>
+                                <Ionicons name="menu" size={12} color={Colors.accentLight} />
+                            </View>
+                        )}
+                    </View>
+                    <Text style={styles.subtitle} numberOfLines={1}>{artist || 'Desconocido'}</Text>
+                </View>
             </TouchableOpacity>
-            {imageSource ? (
-                <Image
-                    source={imageSource}
-                    style={styles.thumbnail}
-                    contentFit="cover"
-                    transition={200}
-                />
-            ) : (
-                <View style={[styles.thumbnail, styles.placeholder]}>
-                    <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
-                </View>
-            )}
-            <View style={styles.trackInfo}>
-                <View style={styles.titleRow}>
-                    <Text style={styles.title} numberOfLines={1}>{title}</Text>
-                    {isManual && (
-                        <View style={styles.userQueueBadge}>
-                            <Ionicons name="menu" size={12} color={Colors.accentLight} />
-                        </View>
-                    )}
-                </View>
-                <Text style={styles.subtitle} numberOfLines={1}>{artist || 'Desconocido'}</Text>
-            </View>
+
             <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => onRemove(globalIndex, isUserQueued)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                disabled={isActive}
             >
                 <Ionicons name="close-outline" size={24} color={Colors.disabled} />
             </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
     );
 });
 QueueTrackRow.displayName = 'QueueTrackRow';
@@ -694,7 +797,7 @@ const RecentTrackRow = React.memo(({ item, dbMeta, index, activeIndex, onSkip }:
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <TouchableOpacity
+        <GHTouchableOpacity
             style={styles.trackRow}
             onPress={() => onSkip(globalIndex)}
             activeOpacity={0.7}
@@ -718,7 +821,7 @@ const RecentTrackRow = React.memo(({ item, dbMeta, index, activeIndex, onSkip }:
                 </Text>
             </View>
             <Ionicons name="play-back-outline" size={18} color={Colors.disabled} />
-        </TouchableOpacity>
+        </GHTouchableOpacity>
     );
 });
 RecentTrackRow.displayName = 'RecentTrackRow';
@@ -813,10 +916,27 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     trackRow: {
+        height: ITEM_ROW_HEIGHT,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
         paddingHorizontal: 20,
+        overflow: 'hidden',
+    },
+    trackRowActive: {
+        backgroundColor: Colors.accentAlpha10,
+        borderRadius: 12,
+    },
+    dragHandle: {
+        height: '100%',
+        paddingRight: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    trackMainContent: {
+        flex: 1,
+        height: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     thumbnail: {
         width: 48,
@@ -891,21 +1011,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
-    },
-    footerContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 24,
-        borderTopWidth: 1,
-        borderColor: Colors.cardBackground,
-        marginTop: 12,
-    },
-    footerText: {
-        color: Colors.accentLight,
-        fontSize: 13,
-        fontFamily: 'Montserrat',
-        fontWeight: '700',
-        letterSpacing: 0.5,
     },
     trashMenuOverlay: {
         ...StyleSheet.absoluteFillObject,

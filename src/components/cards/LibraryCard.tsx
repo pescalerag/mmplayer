@@ -51,6 +51,14 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
         return ['#F59E0B', '#D97706'] as const; // Gold default
     }, [smartListId]);
 
+    const imageSource = React.useMemo(() => {
+        if (!imageUrl) return null;
+        if (imageUrl.startsWith('file://') && !imageUrl.includes('?t=')) {
+            return { uri: `${imageUrl}?t=${Date.now()}` };
+        }
+        return { uri: imageUrl };
+    }, [imageUrl]);
+
     return (
         <Pressable
             style={({ pressed }) => [styles.card, { opacity: pressed ? 0.7 : 1 }]}
@@ -58,9 +66,9 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
             onLongPress={onLongPress}
         >
             <View style={styles.imageContainer}>
-                {showImage ? (
+                {showImage && imageSource ? (
                     <ExpoImage
-                        source={{ uri: imageUrl || '' }}
+                        source={imageSource}
                         style={styles.image}
                         contentFit="cover"
                         cachePolicy="memory-disk"

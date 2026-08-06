@@ -2,6 +2,8 @@ import { openLyricsMenu } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import withObservables from '@nozbe/with-observables';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,7 +18,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import TrackPlayer, { useProgress } from 'react-native-track-player';
+import TrackPlayer from 'react-native-track-player';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
@@ -26,7 +28,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 
 interface LyricsViewUIProps {
     track: Track;
-    artist: Artist;
+    artist: Artist | null;
     artists: Artist[];
     isVisible: boolean;
     setVisible: (visible: boolean) => void;
@@ -39,10 +41,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
     const { t } = useTranslation();
 
     const flatListRef = useRef<FlatList>(null);
-    const progress = useProgress();
-    const currentTime = progress.position;
-
-    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track, currentTime);
+    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track);
 
     // Resolve artist name from observed models
     const artistName = useMemo(() => {
@@ -207,7 +206,7 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
 
 const ObservableLyricsViewUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    artist: trackModel.artist.observe(),
+    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
     artists: trackModel.queryCollaborators.observe(),
 }))(LyricsViewUI);
 
