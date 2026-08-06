@@ -736,7 +736,8 @@
     "background_style_cover": "Carátula Difuminada",
     "background_style_gradient": "Degradado de Color",
     "show_canvas": "Mostrar Canvas",
-    "show_canvas_desc": "Reproducir vídeos de fondo en bucle si están disponibles"
+    "show_canvas_desc": "Reproducir vídeos de fondo en bucle si están disponibles",
+    "disabled_by_canvas": "Desactivado mientras Canvas esté activo"
   },
   "sort": {
     "title": "Ordenar por",

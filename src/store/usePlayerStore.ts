@@ -33,6 +33,8 @@ async function mapToTPTrack(track: Track): Promise<TPTrack> {
 
 interface PlayerState {
   activeTrack: Track | null;
+  prevTrack: Track | null;
+  nextTrack: Track | null;
   playbackContext: string | null;
   hasNext: boolean;
   hasPrevious: boolean;
@@ -144,6 +146,8 @@ let currentLoadId = 0;
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   activeTrack: null,
+  prevTrack: null,
+  nextTrack: null,
   playbackContext: null,
   hasNext: false,
   hasPrevious: false,
@@ -835,12 +839,44 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (index !== undefined && index !== null && queue.length > 0) {
         const hasPrev = index > 0 || repeatMode !== RepeatMode.Off;
         const hasNxt = index < queue.length - 1 || repeatMode !== RepeatMode.Off;
+
+        let prevModel: Track | null = null;
+        let nextModel: Track | null = null;
+
+        let prevIndex = index - 1;
+        if (prevIndex < 0 && repeatMode !== RepeatMode.Off && queue.length > 1) {
+          prevIndex = queue.length - 1;
+        }
+
+        if (prevIndex >= 0 && prevIndex < queue.length && prevIndex !== index) {
+          const prevTp = queue[prevIndex];
+          if (prevTp?.id) {
+            const cleanId = prevTp.id.toString().split('-')[0];
+            prevModel = await database.get<Track>('tracks').find(cleanId).catch(() => null);
+          }
+        }
+
+        let nextIndex = index + 1;
+        if (nextIndex >= queue.length && repeatMode !== RepeatMode.Off && queue.length > 1) {
+          nextIndex = 0;
+        }
+
+        if (nextIndex >= 0 && nextIndex < queue.length && nextIndex !== index) {
+          const nextTp = queue[nextIndex];
+          if (nextTp?.id) {
+            const cleanId = nextTp.id.toString().split('-')[0];
+            nextModel = await database.get<Track>('tracks').find(cleanId).catch(() => null);
+          }
+        }
+
         set({
           hasPrevious: hasPrev,
           hasNext: hasNxt,
+          prevTrack: prevModel,
+          nextTrack: nextModel,
         });
       } else {
-        set({ hasPrevious: false, hasNext: false });
+        set({ hasPrevious: false, hasNext: false, prevTrack: null, nextTrack: null });
       }
     } catch (error) {
       console.error("❌ [Store] Error actualizando status de la cola:", error);

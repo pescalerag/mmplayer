@@ -33,6 +33,7 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
 
+import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
 import Tag from '../../database/models/Tag';
@@ -46,15 +47,15 @@ import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
-import { of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import Track from '../../database/models/Track';
+import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
-import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { getDynamicTagTextColor } from '../../utils/color';
 import { formatTrackTime } from '../../utils/time';
 
@@ -75,11 +76,6 @@ interface PlayerScreenUIProps {
     hasPrevious: boolean;
     isFocused: boolean;
 }
-
-
-const performToggleShuffle = async () => {
-    await usePlayerStore.getState().toggleShuffle();
-};
 
 // Helper functions for hex color conversions and dark background/gradient generation
 const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
@@ -146,38 +142,29 @@ const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
 
 const CanvasVideo = React.memo(({
     sourceUri,
-    isPlaying,
     isImmersive,
     gradientColors
 }: {
     sourceUri: string;
-    isPlaying: boolean;
     isImmersive: boolean;
     gradientColors: string[];
 }) => {
+    // El vídeo Canvas se reproduce en bucle y mudo de forma inmediata
     const player = useVideoPlayer(sourceUri, (playerInstance) => {
         playerInstance.loop = true;
         playerInstance.muted = true;
-        if (isPlaying) {
-            playerInstance.play();
-        } else {
-            playerInstance.pause();
-        }
+        playerInstance.play();
     });
 
     useEffect(() => {
-        if (isPlaying) {
+        if (player) {
             player.play();
-        } else {
-            player.pause();
         }
-    }, [isPlaying, player]);
+    }, [player, sourceUri]);
 
-    // NUEVO EFECTO: Detecta cuando la app vuelve de segundo plano
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-            // Si la app vuelve a estar activa y la canción se estaba reproduciendo, forzamos el play del vídeo
-            if (nextAppState === 'active' && isPlaying) {
+            if (nextAppState === 'active' && player) {
                 player.play();
             }
         });
@@ -185,7 +172,7 @@ const CanvasVideo = React.memo(({
         return () => {
             subscription.remove();
         };
-    }, [isPlaying, player]);
+    }, [player]);
 
     const blurOpacity = useSharedValue(isImmersive ? 0 : 1);
     const immersiveGradientOpacity = useSharedValue(isImmersive ? 1 : 0);
@@ -208,7 +195,7 @@ const CanvasVideo = React.memo(({
     }));
 
     return (
-        <View style={StyleSheet.absoluteFillObject}>
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
             <VideoView
                 key={sourceUri}
                 player={player}
@@ -257,6 +244,86 @@ const PlayerScreenUI = ({
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
 
+    const queueVersion = usePlayerStore(state => state.queueVersion);
+
+    // Estado para las canciones previa y siguiente
+    const [prevTrackModel, setPrevTrackModel] = useState<Track | null>(null);
+    const [nextTrackModel, setNextTrackModel] = useState<Track | null>(null);
+
+    // Sincronización continua de canciones adyacentes
+    useEffect(() => {
+        let isMounted = true;
+        const syncAdjacentTracks = async () => {
+            try {
+                const queue = await TrackPlayer.getQueue();
+                const activeIndex = await TrackPlayer.getActiveTrackIndex();
+                if (activeIndex === undefined || activeIndex === null || queue.length === 0) {
+                    if (isMounted) {
+                        setPrevTrackModel(null);
+                        setNextTrackModel(null);
+                    }
+                    return;
+                }
+
+                let prevM: Track | null = null;
+                if (activeIndex > 0) {
+                    const prevTP = queue[activeIndex - 1];
+                    if (prevTP?.id) {
+                        const cleanId = prevTP.id.toString().split('-')[0];
+                        prevM = await database.get<Track>('tracks').find(cleanId).catch(() => null);
+                    }
+                }
+
+                let nextM: Track | null = null;
+                if (activeIndex < queue.length - 1) {
+                    const nextTP = queue[activeIndex + 1];
+                    if (nextTP?.id) {
+                        const cleanId = nextTP.id.toString().split('-')[0];
+                        nextM = await database.get<Track>('tracks').find(cleanId).catch(() => null);
+                    }
+                }
+
+                if (isMounted) {
+                    setPrevTrackModel(prevM);
+                    setNextTrackModel(nextM);
+                }
+            } catch (e) {
+                console.error("Error sincronizando canciones adyacentes en PlayerScreen:", e);
+            }
+        };
+
+        syncAdjacentTracks();
+
+        return () => { isMounted = false; };
+    }, [track.id, queueVersion]);
+
+    const [prevCoverUrl, setPrevCoverUrl] = useState<string | null>(null);
+    const [nextCoverUrl, setNextCoverUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (prevTrackModel) {
+            prevTrackModel.album.fetch().then((alb: any) => {
+                if (isMounted) setPrevCoverUrl(alb?.coverUrl || null);
+            }).catch(() => { if (isMounted) setPrevCoverUrl(null); });
+        } else {
+            setPrevCoverUrl(null);
+        }
+        return () => { isMounted = false; };
+    }, [prevTrackModel]);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (nextTrackModel) {
+            nextTrackModel.album.fetch().then((alb: any) => {
+                if (isMounted) setNextCoverUrl(alb?.coverUrl || null);
+            }).catch(() => { if (isMounted) setNextCoverUrl(null); });
+        } else {
+            setNextCoverUrl(null);
+        }
+        return () => { isMounted = false; };
+    }, [nextTrackModel]);
+
     const [isTransitioning, setIsTransitioning] = React.useState(false);
 
     React.useEffect(() => {
@@ -301,7 +368,6 @@ const PlayerScreenUI = ({
         ? parsedLyrics[activeIndex].text
         : '';
 
-    // Is something replacing the big cover? (visualizer OR cd/vinyl spinning OR background canvas)
     const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
 
     const pointA = useABRepeatStore(state => state.pointA);
@@ -355,21 +421,18 @@ const PlayerScreenUI = ({
         };
     }, [album?.coverUrl]);
 
-    // Shuffle — estado global (sobrevive a la navegación)
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
-    const shuffleOriginalQueue = usePlayerStore(state => state.shuffleOriginalQueue);
-    const setShuffleState = usePlayerStore(state => state.setShuffleState);
 
-    // Seeking state: while dragging we use the local value to avoid jumps
+    // Seeking state
     const [isSeeking, setIsSeeking] = useState(false);
     const [seekValue, setSeekValue] = useState(0);
 
     const displayPosition = isSeeking ? seekValue : position;
 
-    // ── Repeat mode ──
+    // Repeat mode
     const [repeatMode, setRepeatModeState] = useState<RepeatMode>(RepeatMode.Off);
 
-    // ── Like Heart Animation ──
+    // Like Heart Animation
     const heartScale = useSharedValue(1);
 
     const heartAnimatedStyle = useAnimatedStyle(() => {
@@ -378,11 +441,16 @@ const PlayerScreenUI = ({
         };
     });
 
-    // ── Swipe Gestures ──
+    // Swipe Gestures
     const translateX = useSharedValue(0);
     const hasTriggeredHaptic = useSharedValue(false);
 
-    // ── CD / Vinyl spin animation ──
+    // RESET TRANSPARENTE: Cuando la canción cambia en React, reseteamos translateX a 0 sin saltos visuales
+    useEffect(() => {
+        translateX.value = 0;
+    }, [track.id, translateX]);
+
+    // CD / Vinyl spin animation
     const spinDeg = useSharedValue(0);
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === TrackPlayerState.Playing;
@@ -512,7 +580,6 @@ const PlayerScreenUI = ({
 
     const infoContainerAnimatedStyle = useAnimatedStyle(() => {
         return {
-            // Animates to elegant position above the bottom safely (so it's not too low)
             marginBottom: 8 + immersiveProgress.value * (insets.bottom + 62),
         };
     });
@@ -521,13 +588,46 @@ const PlayerScreenUI = ({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
-    const skipNext = () => TrackPlayer.skipToNext().catch(() => { });
-    const skipPrevious = () => TrackPlayer.skipToPrevious().catch(() => { });
+    const performSkipNext = async () => {
+        try {
+            await TrackPlayer.skipToNext();
+        } catch (e) {
+            translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
+        }
+    };
+
+    const performSkipPrevious = async () => {
+        try {
+            const progress = await TrackPlayer.getProgress();
+            if (progress.position > SKIP_PREVIOUS_THRESHOLD) {
+                await TrackPlayer.seekTo(0);
+                translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
+                return;
+            }
+            await TrackPlayer.skipToPrevious();
+        } catch (e) {
+            translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
+        }
+    };
 
     const panGesture = Gesture.Pan()
-        .activeOffsetX([-20, 20])
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-35, 35])
         .onUpdate((event) => {
-            translateX.value = event.translationX;
+            let tx = event.translationX;
+
+            // Bloquear deslizamiento a la izquierda si no hay canción siguiente
+            if (!hasNext && tx < 0) {
+                tx = 0;
+            }
+
+            // Bloquear deslizamiento a la derecha si no hay canción anterior (y estamos al principio <= 3s)
+            if (!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD && tx > 0) {
+                tx = 0;
+            }
+
+            translateX.value = tx;
+
             if (Math.abs(translateX.value) > 100 && !hasTriggeredHaptic.value) {
                 hasTriggeredHaptic.value = true;
                 runOnJS(triggerHaptic)();
@@ -535,13 +635,26 @@ const PlayerScreenUI = ({
                 hasTriggeredHaptic.value = false;
             }
         })
-        .onEnd(() => {
-            if (translateX.value < -100) {
-                runOnJS(skipNext)();
-            } else if (translateX.value > 100) {
-                runOnJS(skipPrevious)();
+        .onEnd((event) => {
+            const SWIPE_THRESHOLD = width * 0.25;
+            const velocityX = event.velocityX;
+
+            if ((translateX.value < -SWIPE_THRESHOLD || velocityX < -400) && hasNext) {
+                // Animar a -width y llamar al skip. translateX se reseteará a 0 automáticamente al cambiar el track.id
+                translateX.value = withTiming(-width, { duration: 220 }, (finished) => {
+                    if (finished) {
+                        runOnJS(performSkipNext)();
+                    }
+                });
+            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && (hasPrevious || position > SKIP_PREVIOUS_THRESHOLD)) {
+                translateX.value = withTiming(width, { duration: 220 }, (finished) => {
+                    if (finished) {
+                        runOnJS(performSkipPrevious)();
+                    }
+                });
+            } else {
+                translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
             }
-            translateX.value = withSpring(0, { damping: 25, stiffness: 60 });
             hasTriggeredHaptic.value = false;
         });
 
@@ -558,10 +671,9 @@ const PlayerScreenUI = ({
             runOnJS(toggleImmersiveMode)();
         });
 
-    const composedGesture = Gesture.Exclusive(
+    const composedGesture = Gesture.Race(
         panGesture,
-        longPressGesture,
-        tapGesture
+        Gesture.Exclusive(longPressGesture, tapGesture)
     );
 
     const swipeAnimatedStyle = useAnimatedStyle(() => {
@@ -573,7 +685,6 @@ const PlayerScreenUI = ({
         };
     });
 
-
     const isServerRunning = useCastStore(state => state.isServerRunning);
     const openCastSheet = openLocalCast;
 
@@ -584,7 +695,7 @@ const PlayerScreenUI = ({
         );
         try {
             await track.toggleLike();
-            if (track.isFavorite) { // Si AHORA es favorito, mostrar toast
+            if (track.isFavorite) {
                 useToastStore.getState().showToast(t('toasts.added_to_favourites'), 'heart');
             }
         } catch (e) {
@@ -668,29 +779,127 @@ const PlayerScreenUI = ({
         setImageError(false);
     }, [track.id]);
 
+    const currBgVideo = (showCanvas && !!track.bgVideo) ? track.bgVideo : null;
+    const prevBgVideo = (showCanvas && !!prevTrackModel?.bgVideo) ? prevTrackModel.bgVideo : null;
+    const nextBgVideo = (showCanvas && !!nextTrackModel?.bgVideo) ? nextTrackModel.bgVideo : null;
+
+    const currCover = album?.coverUrl || null;
+
+    const isPrevBgIdentical = React.useMemo(() => {
+        if (!prevTrackModel) return true;
+        if (currBgVideo !== prevBgVideo) return false;
+        return currCover === prevCoverUrl;
+    }, [prevTrackModel, currBgVideo, prevBgVideo, currCover, prevCoverUrl]);
+
+    const isNextBgIdentical = React.useMemo(() => {
+        if (!nextTrackModel) return true;
+        if (currBgVideo !== nextBgVideo) return false;
+        return currCover === nextCoverUrl;
+    }, [nextTrackModel, currBgVideo, nextBgVideo, currCover, nextCoverUrl]);
+
+    const bgSwipeAnimatedStyle = useAnimatedStyle(() => {
+        let tx = translateX.value;
+        if (tx < 0 && isNextBgIdentical) {
+            tx = 0;
+        } else if (tx > 0 && isPrevBgIdentical) {
+            tx = 0;
+        }
+        return {
+            transform: [
+                { translateX: tx }
+            ]
+        };
+    });
+
     return (
         <View style={[styles.container, playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor }]}>
-            {/* Background Image with Blur / Color Gradient */}
-            <BlurredBackground
-                key={`blur-${track.id}`}
-                imageUrl={album?.coverUrl}
-                blurIntensity={10}
-                gradientColors={
-                    playerBackgroundStyle === 'gradient' && coverColor
-                        ? [topGradientColor, bottomGradientColor, bottomGradientColor]
-                        : ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]
-                }
-            />
+            {/* 3-Slot Sliding Background Stage Container */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <Animated.View style={[
+                    bgSwipeAnimatedStyle,
+                    {
+                        width: width,
+                        height: '100%',
+                    }
+                ]}>
+                    {/* Background Slot -1: Previous Track (-width) */}
+                    <View style={{
+                        position: 'absolute',
+                        left: -width,
+                        width: width,
+                        height: '100%',
+                        overflow: 'hidden',
+                    }}>
+                        {prevTrackModel && showCanvas && !!prevTrackModel.bgVideo ? (
+                            <CanvasVideo
+                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}`}
+                                sourceUri={prevTrackModel.bgVideo}
+                                isImmersive={false}
+                                gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                            />
+                        ) : (
+                            <BlurredBackground
+                                key={`blur-prev-${prevTrackModel?.id || 'none'}`}
+                                imageUrl={prevCoverUrl}
+                                blurIntensity={10}
+                                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                            />
+                        )}
+                    </View>
 
-            {isFocused && !isTransitioning && showCanvas && !!track.bgVideo && (
-                <CanvasVideo
-                    key={track.bgVideo}
-                    sourceUri={track.bgVideo}
-                    isPlaying={isPlaying}
-                    isImmersive={isImmersive}
-                    gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
-                />
-            )}
+                    {/* Background Slot 0: Active Track (Center 0) */}
+                    <View style={{
+                        width: width,
+                        height: '100%',
+                        overflow: 'hidden',
+                    }}>
+                        {isFocused && !isTransitioning && showCanvas && !!track.bgVideo ? (
+                            <CanvasVideo
+                                key={`bg-canvas-curr-${track.id}-${track.bgVideo}`}
+                                sourceUri={track.bgVideo}
+                                isImmersive={isImmersive}
+                                gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                            />
+                        ) : (
+                            <BlurredBackground
+                                key={`blur-curr-${track.id}`}
+                                imageUrl={album?.coverUrl}
+                                blurIntensity={10}
+                                gradientColors={
+                                    playerBackgroundStyle === 'gradient' && coverColor
+                                        ? [topGradientColor, bottomGradientColor, bottomGradientColor]
+                                        : ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]
+                                }
+                            />
+                        )}
+                    </View>
+
+                    {/* Background Slot +1: Next Track (+width) */}
+                    <View style={{
+                        position: 'absolute',
+                        left: width,
+                        width: width,
+                        height: '100%',
+                        overflow: 'hidden',
+                    }}>
+                        {nextTrackModel && showCanvas && !!nextTrackModel.bgVideo ? (
+                            <CanvasVideo
+                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}`}
+                                sourceUri={nextTrackModel.bgVideo}
+                                isImmersive={false}
+                                gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                            />
+                        ) : (
+                            <BlurredBackground
+                                key={`blur-next-${nextTrackModel?.id || 'none'}`}
+                                imageUrl={nextCoverUrl}
+                                blurIntensity={10}
+                                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                            />
+                        )}
+                    </View>
+                </Animated.View>
+            </View>
 
             <View style={styles.safeArea}>
                 {/* Header */}
@@ -727,112 +936,218 @@ const PlayerScreenUI = ({
                     isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
                 ]}>
                     <GestureDetector gesture={composedGesture}>
-                        <Animated.View style={[swipeAnimatedStyle, { width: '100%', height: '100%', justifyContent: 'center' }]}>
-                            {isImmersive ? (
-                                <View style={StyleSheet.absoluteFillObject} />
-                            ) : showPlayerVisualizer ? (
-                                <NativeVisualizer
-                                    active={true}
-                                    type={playerVisualizerType}
-                                    color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
-                                    coverUrl={album?.coverUrl || undefined}
-                                    style={{
-                                        width: '100%',
-                                        height: 240,
-                                        backgroundColor: 'transparent',
-                                    }}
-                                />
-                            ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
-                                <View style={{
-                                    width: width - 64,
-                                    height: width - 64,
-                                    alignSelf: 'center',
-                                    position: 'relative'
-                                }}>
-                                    {playerCoverStyle === 'cd' ? (
-                                        album?.cdArtUrl ? (
-                                            <>
-                                                <MaskedView
-                                                    style={StyleSheet.absoluteFillObject}
-                                                    maskElement={
-                                                        <View style={{
-                                                            width: width - 64,
-                                                            height: width - 64,
-                                                            borderRadius: (width - 64) / 2,
-                                                            borderWidth: ((width - 64) - 35) / 2,
-                                                            borderColor: 'black',
-                                                            backgroundColor: 'transparent',
-                                                        }} />
-                                                    }
-                                                >
-                                                    <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
+                        <Animated.View style={[
+                            swipeAnimatedStyle,
+                            {
+                                width: width,
+                                height: '100%',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                            }
+                        ]}>
+                            {/* Slot -1: Previous Track (-width) */}
+                            <View style={{
+                                position: 'absolute',
+                                left: -width,
+                                width: width,
+                                height: '100%',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                            }} pointerEvents="none">
+                                {(() => {
+                                    if (!prevTrackModel) {
+                                        return (
+                                            <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                                <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                            </View>
+                                        );
+                                    }
+                                    if (showCanvas && !!prevTrackModel.bgVideo) {
+                                        return <View style={{ width: width - 64, height: width - 64 }} />;
+                                    }
+                                    const formattedUri = prevCoverUrl
+                                        ? (prevCoverUrl.startsWith('file://') && !prevCoverUrl.includes('?t=') ? `${prevCoverUrl}?t=${Date.now()}` : prevCoverUrl)
+                                        : null;
+                                    if (formattedUri) {
+                                        return (
+                                            <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
+                                                <Image
+                                                    key={`prev-${prevTrackModel.id}`}
+                                                    source={{ uri: formattedUri }}
+                                                    style={styles.artwork}
+                                                    contentFit="cover"
+                                                    transition={200}
+                                                    cachePolicy="memory-disk"
+                                                />
+                                            </View>
+                                        );
+                                    }
+                                    return (
+                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                        </View>
+                                    );
+                                })()}
+                            </View>
+
+                            {/* Slot 0: Active Track (Center 0) */}
+                            <View style={{
+                                width: width,
+                                height: '100%',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                            }}>
+                                {isImmersive ? (
+                                    <View style={StyleSheet.absoluteFillObject} />
+                                ) : showPlayerVisualizer ? (
+                                    <NativeVisualizer
+                                        active={true}
+                                        type={playerVisualizerType}
+                                        color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
+                                        coverUrl={album?.coverUrl || undefined}
+                                        style={{
+                                            width: '100%',
+                                            height: 240,
+                                            backgroundColor: 'transparent',
+                                        }}
+                                    />
+                                ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
+                                    <View style={{
+                                        width: width - 64,
+                                        height: width - 64,
+                                        alignSelf: 'center',
+                                        position: 'relative'
+                                    }}>
+                                        {playerCoverStyle === 'cd' ? (
+                                            album?.cdArtUrl ? (
+                                                <>
+                                                    <MaskedView
+                                                        style={StyleSheet.absoluteFillObject}
+                                                        maskElement={
+                                                            <View style={{
+                                                                width: width - 64,
+                                                                height: width - 64,
+                                                                borderRadius: (width - 64) / 2,
+                                                                borderWidth: ((width - 64) - 35) / 2,
+                                                                borderColor: 'black',
+                                                                backgroundColor: 'transparent',
+                                                            }} />
+                                                        }
+                                                    >
+                                                        <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
+                                                            <Image
+                                                                source={{ uri: album?.cdArtUrl || undefined }}
+                                                                style={{ width: '100%', height: '100%' }}
+                                                                contentFit="cover"
+                                                            />
+                                                        </Animated.View>
+                                                    </MaskedView>
+                                                    <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
                                                         <Image
-                                                            source={{ uri: album?.cdArtUrl || undefined }}
-                                                            style={{ width: '100%', height: '100%' }}
-                                                            contentFit="cover"
+                                                            source={require('../../assets/cd-custom.svg')}
+                                                            style={{ position: 'absolute', width: '100%', height: '100%' }}
+                                                            contentFit="contain"
                                                         />
                                                     </Animated.View>
-                                                </MaskedView>
-                                                <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
+                                                </>
+                                            ) : (
+                                                <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                                     <Image
-                                                        source={require('../../assets/cd-custom.svg')}
-                                                        style={{ position: 'absolute', width: '100%', height: '100%' }}
+                                                        source={require('../../assets/cd-base.svg')}
+                                                        style={{ width: '100%', height: '100%' }}
                                                         contentFit="contain"
                                                     />
                                                 </Animated.View>
-                                            </>
+                                            )
                                         ) : (
                                             <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                                 <Image
-                                                    source={require('../../assets/cd-base.svg')}
+                                                    source={require('../../assets/vinyl.svg')}
                                                     style={{ width: '100%', height: '100%' }}
                                                     contentFit="contain"
                                                 />
+                                                {coverColor && (
+                                                    <View
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 0, left: 0, right: 0, bottom: 0,
+                                                            borderRadius: (width - 64) / 2,
+                                                            backgroundColor: coverColor,
+                                                            opacity: 0.25,
+                                                        }}
+                                                        pointerEvents="none"
+                                                    />
+                                                )}
                                             </Animated.View>
-                                        )
-                                    ) : (
-                                        <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
-                                            <Image
-                                                source={require('../../assets/vinyl.svg')}
-                                                style={{ width: '100%', height: '100%' }}
-                                                contentFit="contain"
-                                            />
-                                            {coverColor && (
-                                                <View
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: 0, left: 0, right: 0, bottom: 0,
-                                                        borderRadius: (width - 64) / 2,
-                                                        backgroundColor: coverColor,
-                                                        opacity: 0.25,
-                                                    }}
-                                                    pointerEvents="none"
-                                                />
-                                            )}
-                                        </Animated.View>
-                                    )}
-                                </View>
-                            ) : (showCanvas && !!track.bgVideo) ? (
-                                <View style={{ width: width - 64, height: width - 64 }} />
-                            ) : (
-                                artworkSource && !imageError ? (
-                                    <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
-                                        <Image
-                                            key={track.id}
-                                            source={artworkSource}
-                                            style={styles.artwork}
-                                            contentFit="cover"
-                                            transition={300}
-                                            cachePolicy="memory-disk"
-                                            onError={() => setImageError(true)}
-                                        />
+                                        )}
                                     </View>
+                                ) : (showCanvas && !!track.bgVideo) ? (
+                                    <View style={{ width: width - 64, height: width - 64 }} />
                                 ) : (
-                                    <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                        <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
-                                    </View>
-                                )
-                            )}
+                                    artworkSource && !imageError ? (
+                                        <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
+                                            <Image
+                                                key={track.id}
+                                                source={artworkSource}
+                                                style={styles.artwork}
+                                                contentFit="cover"
+                                                transition={300}
+                                                cachePolicy="memory-disk"
+                                                onError={() => setImageError(true)}
+                                            />
+                                        </View>
+                                    ) : (
+                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                        </View>
+                                    )
+                                )}
+                            </View>
+
+                            {/* Slot +1: Next Track (+width) */}
+                            <View style={{
+                                position: 'absolute',
+                                left: width,
+                                width: width,
+                                height: '100%',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                            }} pointerEvents="none">
+                                {(() => {
+                                    if (!nextTrackModel) {
+                                        return (
+                                            <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                                <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                            </View>
+                                        );
+                                    }
+                                    if (showCanvas && !!nextTrackModel.bgVideo) {
+                                        return <View style={{ width: width - 64, height: width - 64 }} />;
+                                    }
+                                    const formattedUri = nextCoverUrl
+                                        ? (nextCoverUrl.startsWith('file://') && !nextCoverUrl.includes('?t=') ? `${nextCoverUrl}?t=${Date.now()}` : nextCoverUrl)
+                                        : null;
+                                    if (formattedUri) {
+                                        return (
+                                            <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
+                                                <Image
+                                                    key={`next-${nextTrackModel.id}`}
+                                                    source={{ uri: formattedUri }}
+                                                    style={styles.artwork}
+                                                    contentFit="cover"
+                                                    transition={200}
+                                                    cachePolicy="memory-disk"
+                                                />
+                                            </View>
+                                        );
+                                    }
+                                    return (
+                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                        </View>
+                                    );
+                                })()}
+                            </View>
                         </Animated.View>
                     </GestureDetector>
                     {!isImmersive && (
@@ -1229,9 +1544,11 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
     },
     artworkContainer: {
         flex: 1,
+        width: width,
+        overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: spacing.xl || 32,
+        paddingHorizontal: 0,
         paddingTop: spacing.md || 16,
         paddingBottom: spacing.sm || 8,
     },

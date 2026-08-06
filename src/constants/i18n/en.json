@@ -736,7 +736,8 @@
     "background_style_cover": "Blurred Artwork",
     "background_style_gradient": "Color Gradient",
     "show_canvas": "Show Canvas",
-    "show_canvas_desc": "Play looping background videos when available"
+    "show_canvas_desc": "Play background loop videos if available",
+    "disabled_by_canvas": "Disabled while Canvas is active"
   },
   "sort": {
     "title": "Sort by",
