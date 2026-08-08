@@ -107,7 +107,9 @@
     "album_artists": "Album Artists",
     "all_artists": "All",
     "user_playlists": "Your Playlists",
-    "smart_playlists": "Smart Playlists"
+    "smart_playlists": "Smart Playlists",
+    "smart_listening_title": "Listens-based Playlists",
+    "smart_rating_title": "Rating-based Playlists"
   },
   "search": {
     "placeholder": "Search artists, albums, or songs",

@@ -15,6 +15,7 @@ import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -65,6 +66,14 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
         options={{ format: 'png', quality: 1, width: 1440, height: 2560 }}
       >
         <View style={[cardStyles.card, { width: cardWidth, height: cardHeight }]}>
+          {/* Full Background Gradient */}
+          <LinearGradient
+            colors={['#030106', '#080314', '#150729', '#321063']}
+            start={{ x: 0.9, y: 0.05 }}
+            end={{ x: 0.05, y: 0.95 }}
+            style={StyleSheet.absoluteFill}
+          />
+
           {/* Header Branding */}
           <View style={cardStyles.brandHeader}>
             <Image
@@ -404,12 +413,14 @@ const styles = StyleSheet.create({
 
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#000000',
-    borderRadius: 22,
+    backgroundColor: '#030106',
+    borderRadius: 0,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
   },
   brandHeader: {
     flexDirection: 'row',
@@ -570,7 +581,7 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#18181B',
+    borderColor: 'transparent',
   },
   totalStatLabel: {
     color: '#A1A1AA',

@@ -241,13 +241,32 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
 // ─── RATING OBSERVED COMPONENT ───
 const getRatingQuery = (id: string) => {
     const coll = database.collections.get<Track>('tracks');
-    if (id === 'rating_4') {
-        return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5])));
+    if (id === 'rating_1_2') {
+        return coll.query(Q.where('rating', Q.oneOf([1.0, 1.5, 2.0])));
+    }
+    if (id === 'rating_2_3') {
+        return coll.query(Q.where('rating', Q.oneOf([2.0, 2.5, 3.0])));
+    }
+    if (id === 'rating_3_4') {
+        return coll.query(Q.where('rating', Q.oneOf([3.0, 3.5, 4.0])));
+    }
+    if (id === 'rating_4_5') {
+        return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5, 5.0])));
+    }
+    if (id === 'rating_unrated') {
+        return coll.query(
+            Q.or(
+                Q.where('rating', Q.eq(null as any)),
+                Q.where('rating', 0)
+            )
+        );
     }
     if (id === 'rating_5') {
         return coll.query(Q.where('rating', 5.0));
     }
-    // rating_4_5
+    if (id === 'rating_4') {
+        return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5])));
+    }
     return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5, 5.0])));
 };
 
