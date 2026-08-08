@@ -670,6 +670,46 @@ const PlayerScreenUI = ({
         Gesture.Exclusive(longPressGesture, tapGesture)
     );
 
+    const screenHeight = Dimensions.get('window').height;
+    const dismissTranslateY = useSharedValue(0);
+
+    useEffect(() => {
+        if (isFocused) {
+            dismissTranslateY.value = 0;
+        }
+    }, [isFocused, track.id, dismissTranslateY]);
+
+    const performGoBack = React.useCallback(() => {
+        navigation.goBack();
+    }, [navigation]);
+
+    const dismissPanGesture = Gesture.Pan()
+        .activeOffsetY(15)
+        .failOffsetX([-25, 25])
+        .onUpdate((event) => {
+            if (event.translationY > 0) {
+                dismissTranslateY.value = event.translationY;
+            } else {
+                dismissTranslateY.value = 0;
+            }
+        })
+        .onEnd((event) => {
+            const DISMISS_THRESHOLD = screenHeight * 0.18;
+            if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
+                dismissTranslateY.value = withTiming(screenHeight, { duration: 200 }, (finished) => {
+                    if (finished) {
+                        runOnJS(performGoBack)();
+                    }
+                });
+            } else {
+                dismissTranslateY.value = withSpring(0, { damping: 25, stiffness: 150 });
+            }
+        });
+
+    const screenDismissAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: dismissTranslateY.value }],
+    }));
+
     const swipeAnimatedStyle = useAnimatedStyle(() => {
         return {
             transform: [
@@ -806,7 +846,12 @@ const PlayerScreenUI = ({
     });
 
     return (
-        <View style={[styles.container, playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor }]}>
+        <GestureDetector gesture={dismissPanGesture}>
+            <Animated.View style={[
+                styles.container,
+                playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor },
+                screenDismissAnimatedStyle
+            ]}>
             {/* 3-Slot Sliding Background Stage Container */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Animated.View style={[
@@ -1170,11 +1215,16 @@ const PlayerScreenUI = ({
                 </View>
 
                 {hasLyrics && (
-                    <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                        <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
-                            {displayedPhrase}
-                        </Animated.Text>
-                    </Animated.View>
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate('Lyrics')}
+                    >
+                        <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                            <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
+                                {displayedPhrase}
+                            </Animated.Text>
+                        </Animated.View>
+                    </TouchableOpacity>
                 )}
 
                 {/* Info */}
@@ -1462,8 +1512,9 @@ const PlayerScreenUI = ({
                     </View>
                 </Animated.View>
             </View>
-        </View>
-    );
+        </Animated.View>
+    </GestureDetector>
+);
 };
 
 const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({

@@ -17,7 +17,8 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     Event,
@@ -123,9 +124,41 @@ export default function QueueSheet() {
         }
     }, [queue, fetchDbMetadataForQueue]);
 
-    const slideAnim = useRef(new Animated.Value(height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
+
+    const slideTranslateY = useSharedValue(height);
+    const dragTranslateY = useSharedValue(0);
+
+    const performCloseQueue = React.useCallback(() => {
+        closeQueue();
+    }, [closeQueue]);
+
+    const handlePanGesture = Gesture.Pan()
+        .activeOffsetY(5)
+        .onUpdate((event) => {
+            if (event.translationY > 0) {
+                dragTranslateY.value = event.translationY;
+            } else {
+                dragTranslateY.value = 0;
+            }
+        })
+        .onEnd((event) => {
+            const DISMISS_THRESHOLD = 90;
+            if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
+                slideTranslateY.value = withTiming(height, { duration: 180 }, (finished) => {
+                    if (finished) {
+                        runOnJS(performCloseQueue)();
+                    }
+                });
+            } else {
+                dragTranslateY.value = withSpring(0, { damping: 25, stiffness: 150 });
+            }
+        });
+
+    const sheetAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: slideTranslateY.value + dragTranslateY.value }],
+    }));
 
     const isReordering = useRef(false);
 
@@ -138,24 +171,11 @@ export default function QueueSheet() {
 
     useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async () => {
         if (isReordering.current) return;
-
         try {
-            const [fullQueue, realIdx] = await Promise.all([
-                TrackPlayer.getQueue(),
-                TrackPlayer.getActiveTrackIndex(),
-            ]);
-
-            const isQueueIdentical = fullQueue.length === queue.length &&
-                fullQueue.every((track, i) => track.id === queue[i]?.id);
-
-            if (!isQueueIdentical) {
-                setQueue(fullQueue);
-            }
-            if (realIdx !== undefined && realIdx !== null) {
-                setActiveIndex(realIdx);
-            }
+            const idx = await TrackPlayer.getActiveTrackIndex();
+            if (idx !== undefined && idx !== null) setActiveIndex(idx);
         } catch (e) {
-            console.error('QueueSheet: error sincronizando cola post-evento', e);
+            console.error('QueueSheet: error leyendo active index', e);
         }
     });
 
@@ -180,19 +200,18 @@ export default function QueueSheet() {
     useEffect(() => {
         if (isVisible) {
             setShouldRender(true);
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-                Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true })
-            ]).start();
+            dragTranslateY.value = 0;
+            slideTranslateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.8 });
+            Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
         } else {
             setShowTrashMenu(false);
             setShowAddPlaylistMenu(false);
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-                Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true })
-            ]).start(() => setShouldRender(false));
+            Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+            slideTranslateY.value = withTiming(height, { duration: 220 }, (finished) => {
+                if (finished) runOnJS(setShouldRender)(false);
+            });
         }
-    }, [isVisible, fadeAnim, slideAnim]);
+    }, [isVisible, fadeAnim, slideTranslateY, dragTranslateY]);
 
     useEffect(() => {
         if (!isVisible) return;
@@ -372,15 +391,19 @@ export default function QueueSheet() {
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
 
-            <Animated.View style={[
+            <AnimatedReanimated.View style={[
                 styles.sheetContainer,
                 {
                     height: height * 0.82,
                     paddingBottom: insets.bottom,
-                    transform: [{ translateY: slideAnim }]
-                }
+                },
+                sheetAnimatedStyle
             ]}>
-                <View style={styles.dragIndicator} />
+                <GestureDetector gesture={handlePanGesture}>
+                    <View style={styles.handleContainer}>
+                        <View style={styles.dragIndicator} />
+                    </View>
+                </GestureDetector>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24, marginBottom: 16 }}>
                     <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
@@ -497,7 +520,7 @@ export default function QueueSheet() {
                         showsVerticalScrollIndicator={false}
                     />
                 )}
-            </Animated.View>
+            </AnimatedReanimated.View>
 
             {showTrashMenu && (() => {
                 const upcomingList = queue.slice(activeIndex + 1);
@@ -842,14 +865,20 @@ const styles = StyleSheet.create({
         borderColor: Colors.cardBackground,
         overflow: 'hidden',
     },
+    handleContainer: {
+        width: '100%',
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 0,
+        marginBottom: 4,
+    },
     dragIndicator: {
         width: 40,
         height: 4,
         backgroundColor: Colors.disabled,
         borderRadius: 2,
         alignSelf: 'center',
-        marginTop: 14,
-        marginBottom: 16,
     },
     tabBar: {
         flexDirection: 'row',

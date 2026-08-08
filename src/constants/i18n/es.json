@@ -105,7 +105,9 @@
     "special": "Especial",
     "create_playlist": "Crear Playlist",
     "album_artists": "Intérpretes de Álbum",
-    "all_artists": "Todos"
+    "all_artists": "Todos",
+    "user_playlists": "Tus Playlists",
+    "smart_playlists": "Smart Playlists"
   },
   "search": {
     "placeholder": "Buscar artistas, álbumes o canciones",

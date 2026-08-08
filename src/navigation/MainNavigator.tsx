@@ -320,7 +320,7 @@ export default function MainNavigator() {
           name="Player"
           component={PlayerNavigator}
           options={{
-            presentation: "modal",
+            presentation: "transparentModal",
             animation: "slide_from_bottom",
           }}
         />
