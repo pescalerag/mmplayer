@@ -247,6 +247,29 @@ export function useMusicSearch(query: string) {
                 const sortedPlaylists = bubbleExactAndStart(playlists, p => p.name);
                 const sortedTracks = bubbleExactAndStart(mergedTracks, t => t.title);
 
+                // --- FASE 2: Búsqueda en Letras (solo si la consulta tiene al menos 3 caracteres) ---
+                let lyricTracks: Track[] = [];
+                if (normalizedQuery.length >= 3) {
+                    try {
+                        const rawLyricTracks = await database.collections.get<Track>('tracks').query(
+                            Q.where('lyrics_lrc', Q.like(searchPattern)),
+                            Q.take(20)
+                        ).fetch();
+
+                        const tier1Ids = new Set(mergedTracks.map(t => t.id));
+                        lyricTracks = rawLyricTracks
+                            .filter(t => !tier1Ids.has(t.id))
+                            .map(t => {
+                                (t as any).isLyricMatch = true;
+                                return t;
+                            });
+                    } catch (err) {
+                        console.error('Error en búsqueda por letras:', err);
+                    }
+                }
+
+                const finalTracks = [...sortedTracks, ...lyricTracks];
+
                 if (isActive) {
                     const currentTopMatch = determineTopMatch(
                         normalizedQuery, 
@@ -262,7 +285,7 @@ export function useMusicSearch(query: string) {
 
                     setHasMoreTracks(tracks.length === TRACKS_PER_PAGE);
                     setResults({ 
-                        tracks: sortedTracks, 
+                        tracks: finalTracks, 
                         albums: sortedAlbums, 
                         artists: sortedArtists, 
                         tags, 

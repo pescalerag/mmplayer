@@ -422,12 +422,10 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     width: "100%",
-    marginHorizontal: -24,
-    paddingHorizontal: 24,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -24,
+    marginTop: -12,
     marginBottom: 8,
   },
   dragIndicator: {

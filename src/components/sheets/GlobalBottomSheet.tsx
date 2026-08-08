@@ -277,12 +277,10 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
   },
   handleContainer: {
     width: '100%',
-    marginHorizontal: -24,
-    paddingHorizontal: 24,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -14,
+    marginTop: -6,
     marginBottom: 8,
   },
   dragIndicator: {

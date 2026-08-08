@@ -137,7 +137,8 @@
     "match_any_desc": "Las canciones pueden tener CUALQUIERA de las etiquetas incluidas.",
     "no_tag_matches": "No se encontraron canciones con ese filtro de etiquetas.",
     "no_playlists_only": "Canciones sin playlist",
-    "no_playlists_desc": "Solo ver canciones que no pertenecen a ninguna lista de reproducción."
+    "no_playlists_desc": "Solo ver canciones que no pertenecen a ninguna lista de reproducción.",
+    "lyric_match": "Coincidencia en la letra"
   },
   "tags": {
     "manager": "Gestión de etiquetas",

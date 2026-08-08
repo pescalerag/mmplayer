@@ -137,7 +137,8 @@
     "match_any_desc": "Songs can have ANY of the included tags.",
     "no_tag_matches": "No tracks found with those tag filters.",
     "no_playlists_only": "Songs without playlist",
-    "no_playlists_desc": "Only view songs that do not belong to any playlist."
+    "no_playlists_desc": "Only view songs that do not belong to any playlist.",
+    "lyric_match": "Matching lyrics"
   },
   "tags": {
     "manager": "Tag Manager",
