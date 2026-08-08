@@ -8,20 +8,21 @@ interface SectionHeaderProps {
     readonly title: string;
     readonly onSeeAll?: () => void;
     readonly showSeeAll?: boolean;
+    readonly rightElement?: React.ReactNode;
 }
 
-export default function SectionHeader({ title, onSeeAll, showSeeAll = false }: Readonly<SectionHeaderProps>) {
+export default function SectionHeader({ title, onSeeAll, showSeeAll = false, rightElement }: Readonly<SectionHeaderProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const { t } = useTranslation();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{title}</Text>
-            {showSeeAll && (
+            {rightElement ? rightElement : (showSeeAll && (
                 <TouchableOpacity onPress={onSeeAll}>
                     <Text style={styles.seeAll}>{t('activity.see_all')}</Text>
                 </TouchableOpacity>
-            )}
+            ))}
         </View>
     );
 }

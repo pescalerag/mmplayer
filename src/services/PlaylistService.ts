@@ -141,5 +141,27 @@ export const PlaylistService = {
 
             await database.batch(...operations);
         });
+    },
+
+    /**
+     * Reorder tracks in a playlist in batch.
+     */
+    async reorderPlaylistTracks(reorderedPlaylistTracks: PlaylistTrack[]): Promise<void> {
+        await database.write(async () => {
+            const operations: any[] = [];
+            reorderedPlaylistTracks.forEach((pt, index) => {
+                const newOrder = index + 1;
+                if (pt.order !== newOrder) {
+                    operations.push(
+                        pt.prepareUpdate((record) => {
+                            record.order = newOrder;
+                        })
+                    );
+                }
+            });
+            if (operations.length > 0) {
+                await database.batch(...operations);
+            }
+        });
     }
 };

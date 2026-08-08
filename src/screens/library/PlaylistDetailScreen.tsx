@@ -4,9 +4,12 @@ import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useState } from "react";
@@ -43,7 +46,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { Colors, Layout } from "../../theme/theme";
-import { formatAlbumDuration } from "../../utils/time";
+import { formatAlbumDuration, formatTrackTime } from "../../utils/time";
 
 const { width } = Dimensions.get("window");
 
@@ -120,6 +123,104 @@ const PlaylistTrackRow = withObservables(
   );
 });
 
+// ─── REORDER PLAYLIST TRACK ROW WITH METADATA ───
+const ReorderTrackRowWithMetadata = withObservables(
+  ["track"],
+  ({ track }: { track: Track }) => ({
+    track: track.observe(),
+    album: track.album.observe().pipe(catchError(() => of(null))),
+    artists: track.queryCollaborators.observe() as any,
+  }),
+)(function ReorderTrackRowWithMetadata({
+  track,
+  album,
+  artists,
+  drag,
+  isActive,
+}: {
+  track: Track;
+  album: Album | null;
+  artists: Artist[];
+  drag?: () => void;
+  isActive?: boolean;
+}) {
+  const { colors } = useAppTheme();
+  const { t } = useTranslation();
+  const artistNames =
+    artists.length > 0
+      ? artists.map((a) => a.name).join(", ")
+      : t('actions.unknown');
+  const coverUrl = album?.coverUrl;
+
+  return (
+    <View style={[styles.reorderRow, isActive && styles.reorderRowActive, { backgroundColor: colors.background }]}>
+      <GHTouchableOpacity
+        onLongPress={drag}
+        delayLongPress={100}
+        style={styles.dragHandle}
+        hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
+        activeOpacity={0.6}
+      >
+        <Ionicons name="reorder-two" size={24} color={isActive ? colors.accent : colors.textSecondary} />
+      </GHTouchableOpacity>
+
+      {coverUrl ? (
+        <Image
+          source={{ uri: coverUrl }}
+          style={styles.reorderCover}
+          contentFit="cover"
+          transition={200}
+        />
+      ) : (
+        <View style={[styles.reorderCover, styles.reorderCoverPlaceholder, { backgroundColor: colors.cardBackground || '#1E1E1E' }]}>
+          <Ionicons name="musical-notes" size={18} color={colors.textSecondary} />
+        </View>
+      )}
+
+      <View style={styles.reorderInfo}>
+        <Text style={[styles.reorderTitle, { color: colors.text }]} numberOfLines={1}>
+          {track.title}
+        </Text>
+        <Text style={[styles.reorderSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          {artistNames}
+        </Text>
+      </View>
+
+      <Text style={[styles.reorderDuration, { color: colors.textSecondary }]}>
+        {formatTrackTime(track.duration)}
+      </Text>
+    </View>
+  );
+});
+
+// ─── REORDER PLAYLIST TRACK ROW WRAPPER ───
+const ReorderPlaylistTrackRow = withObservables(
+  ["playlistTrack"],
+  ({ playlistTrack }: { playlistTrack: PlaylistTrack }) => ({
+    playlistTrack: playlistTrack.observe(),
+    track: playlistTrack.track.observe().pipe(catchError(() => of(null))),
+  }),
+)(function ReorderPlaylistTrackRow({
+  playlistTrack,
+  track,
+  drag,
+  isActive,
+}: {
+  playlistTrack: PlaylistTrack;
+  track: Track | null;
+  drag?: () => void;
+  isActive?: boolean;
+}) {
+  if (!track) return null;
+  return (
+    <ReorderTrackRowWithMetadata
+      track={track}
+      drag={drag}
+      isActive={isActive}
+    />
+  );
+});
+
 // ─── MAIN PLAYLIST SCREEN CONTENT ───
 interface PlaylistDetailContentProps {
   playlist: Playlist;
@@ -133,10 +234,34 @@ function PlaylistDetailContent({
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
 
   const [rawTracks, setTracks] = useState<Track[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [localPlaylistTracks, setLocalPlaylistTracks] = useState<PlaylistTrack[]>(playlistTracks);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
+
+  useEffect(() => {
+    setLocalPlaylistTracks(playlistTracks);
+  }, [playlistTracks]);
+
+  // Desactivar el modo ordenar automáticamente al salir o desenfocar la pantalla
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setIsReorderMode(false);
+      };
+    }, [])
+  );
+
+  const canReorder = Boolean(playlist) && localPlaylistTracks.length >= 2;
+
+  useEffect(() => {
+    if (!canReorder && isReorderMode) {
+      setIsReorderMode(false);
+    }
+  }, [canReorder, isReorderMode]);
 
   const tracks = React.useMemo(() => {
     const excluded = excludedSongs || [];
@@ -149,9 +274,8 @@ function PlaylistDetailContent({
     const loadTracks = async () => {
       setLoadingTracks(true);
       try {
-        // Obtenemos todas las promesas a la vez y las resolvemos en paralelo
         const resolvedTracks = await Promise.all(
-          playlistTracks.map(async (pt) => {
+          localPlaylistTracks.map(async (pt) => {
             try {
               return await pt.track.fetch();
             } catch (e) {
@@ -161,7 +285,6 @@ function PlaylistDetailContent({
           }),
         );
 
-        // Filtramos por si alguna canción fue borrada del dispositivo
         const validTracks = resolvedTracks.filter(
           (t): t is Track => t !== null,
         );
@@ -179,7 +302,7 @@ function PlaylistDetailContent({
     return () => {
       isMounted = false;
     };
-  }, [playlistTracks]);
+  }, [localPlaylistTracks]);
 
   // Player States
   const playbackState = usePlaybackState();
@@ -322,6 +445,19 @@ function PlaylistDetailContent({
     }
   }, [playlist, t]);
 
+  const handleDragEnd = useCallback(
+    async ({ data, from, to }: { data: PlaylistTrack[]; from: number; to: number }) => {
+      if (from === to) return;
+      setLocalPlaylistTracks(data);
+      try {
+        await PlaylistService.reorderPlaylistTracks(data);
+      } catch (error) {
+        console.error("Error al reordenar playlist:", error);
+      }
+    },
+    [],
+  );
+
   const listHeader = (
     <>
       <DetailHeaderLayout
@@ -337,7 +473,7 @@ function PlaylistDetailContent({
           />
         )}
         subtitle={playlist.description || t('actions.custom_playlist_subtitle')}
-        metaInfo={`${playlistTracks.length} ${playlistTracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
+        metaInfo={`${localPlaylistTracks.length} ${localPlaylistTracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
         onBack={handleBack}
         onDelete={handleDelete}
         onEdit={handleEdit}
@@ -369,7 +505,34 @@ function PlaylistDetailContent({
       />
 
       <View style={{ marginTop: 0, marginBottom: 4 }}>
-        <SectionHeader title={t('actions.songs_in_playlist')} />
+        <SectionHeader
+          title={t('actions.songs_in_playlist')}
+          rightElement={
+            canReorder ? (
+              <TouchableOpacity
+                onPress={() => setIsReorderMode((prev) => !prev)}
+                style={[
+                  styles.reorderButton,
+                  { backgroundColor: isReorderMode ? colors.accent : 'rgba(255, 255, 255, 0.08)' }
+                ]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isReorderMode ? "checkmark" : "swap-vertical"}
+                  size={15}
+                  color={isReorderMode ? "#FFFFFF" : colors.textSecondary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[
+                  styles.reorderButtonText,
+                  { color: isReorderMode ? "#FFFFFF" : colors.textSecondary }
+                ]}>
+                  {isReorderMode ? t('actions.done') : t('actions.reorder')}
+                </Text>
+              </TouchableOpacity>
+            ) : undefined
+          }
+        />
         <View style={styles.divider} />
       </View>
     </>
@@ -392,38 +555,76 @@ function PlaylistDetailContent({
     [handleTrackPress, playlist.id],
   );
 
+  const renderReorderItem = useCallback(
+    ({ item, drag, isActive }: RenderItemParams<PlaylistTrack>) => {
+      return (
+        <ScaleDecorator>
+          <ReorderPlaylistTrackRow
+            playlistTrack={item}
+            drag={drag}
+            isActive={isActive}
+          />
+        </ScaleDecorator>
+      );
+    },
+    [],
+  );
+
+  const listEmptyComponent = (
+    loadingTracks ? (
+      <ActivityIndicator
+        color="#8B5CF6"
+        size="large"
+        style={{ marginTop: 40 }}
+      />
+    ) : (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="musical-notes-outline" size={60} color="#555" />
+        <Text style={styles.emptyText}>{t('actions.playlist_empty')}</Text>
+        <Text style={styles.emptySubtitle}>
+          {t('actions.playlist_empty_desc')}
+        </Text>
+      </View>
+    )
+  );
+
+  const contentContainerStyle = {
+    paddingBottom:
+      Layout.MINI_PLAYER_HEIGHT +
+      Layout.TAB_BAR_HEIGHT +
+      Layout.PLAYER_MARGIN +
+      insets.bottom,
+  };
+
+  if (isReorderMode) {
+    return (
+      <GestureHandlerRootView style={styles.container}>
+        <DraggableFlatList
+          data={localPlaylistTracks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderReorderItem}
+          onDragEnd={handleDragEnd}
+          activationDistance={10}
+          autoscrollThreshold={50}
+          autoscrollSpeed={100}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={listEmptyComponent}
+          contentContainerStyle={contentContainerStyle}
+          showsVerticalScrollIndicator={false}
+        />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <FlashList
-        data={playlistTracks}
+        data={localPlaylistTracks}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={
-          loadingTracks ? (
-            <ActivityIndicator
-              color="#8B5CF6"
-              size="large"
-              style={{ marginTop: 40 }}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="musical-notes-outline" size={60} color="#555" />
-              <Text style={styles.emptyText}>{t('actions.playlist_empty')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {t('actions.playlist_empty_desc')}
-              </Text>
-            </View>
-          )
-        }
-
-        contentContainerStyle={{
-          paddingBottom:
-            Layout.MINI_PLAYER_HEIGHT +
-            Layout.TAB_BAR_HEIGHT +
-            Layout.PLAYER_MARGIN +
-            insets.bottom,
-        }}
+        ListEmptyComponent={listEmptyComponent}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -487,6 +688,58 @@ const styles = StyleSheet.create({
     backgroundColor: "#282828",
     marginHorizontal: 20,
     marginBottom: 4,
+  },
+  reorderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  reorderButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  reorderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 64,
+    paddingHorizontal: 20,
+  },
+  reorderRowActive: {
+    backgroundColor: Colors.accentAlpha10,
+    borderRadius: 12,
+  },
+  dragHandle: {
+    height: '100%',
+    paddingRight: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reorderCover: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    marginRight: 14,
+  },
+  reorderCoverPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reorderInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  reorderTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  reorderSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  reorderDuration: {
+    fontSize: 13,
   },
   playFab: {
     position: "absolute",
