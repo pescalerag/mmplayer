@@ -11,7 +11,9 @@ import {
   StyleSheet,
   Text,
   View,
+  Linking,
 } from "react-native";
+import TrackPlayer, { State } from "react-native-track-player";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GlobalToast from "./src/components/common/GlobalToast";
@@ -77,6 +79,50 @@ export default function App() {
       SplashScreen.hideAsync().catch(() => { });
     });
   }, []);
+
+  useEffect(() => {
+    if (!fontsLoaded) return;
+
+    const handleWidgetUrl = async (url: string | null) => {
+      if (!url || !url.includes('widget')) return;
+      try {
+        const match = url.match(/[?&]action=([^&]+)/);
+        const action = match ? match[1] : null;
+
+        if (action === 'play') {
+          const state = await TrackPlayer.getPlaybackState();
+          if (state.state === State.Playing) {
+            await TrackPlayer.pause();
+          } else {
+            await TrackPlayer.play();
+          }
+        } else if (action === 'next') {
+          await TrackPlayer.skipToNext();
+        } else if (action === 'prev') {
+          const { position } = await TrackPlayer.getProgress();
+          if (position > 3) {
+            await TrackPlayer.seekTo(0);
+          } else {
+            await TrackPlayer.skipToPrevious();
+          }
+        }
+      } catch (e) {
+        console.error('[App] Error handling widget action url:', e);
+      }
+    };
+
+    Linking.getInitialURL().then(url => {
+      handleWidgetUrl(url);
+    });
+
+    const subscription = Linking.addEventListener('url', event => {
+      handleWidgetUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return (
