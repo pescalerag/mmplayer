@@ -118,6 +118,9 @@ export default function ActivityMainScreen() {
   const [metric, setMetric] = useState<Metric>('duration');
   const [activeOption, setActiveOption] = useState<'highlights' | 'songs' | 'albums' | 'artists'>('highlights');
 
+  // Share Stats Modal State
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+
   // Custom date picker states
   const [isCustomDatePickerVisible, setIsCustomDatePickerVisible] = useState(false);
   const [fromDay, setFromDay] = useState(new Date().getDate().toString());
@@ -346,7 +349,22 @@ export default function ActivityMainScreen() {
         <Text style={[styles.headerTitle, { fontFamily: fonts.bold, color: colors.text }]}>
           {t('activity.title')}
         </Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate('ShareStats', {
+              formattedPeriodText,
+              metric,
+              totalHours: detailedStats.totalHours,
+              totalPlays: detailedStats.totalPlays,
+              topArtists: detailedStats.topArtists,
+              topSongs: detailedStats.topSongs,
+            })
+          }
+          style={[styles.backButton, { backgroundColor: colors.accentAlpha15 || 'rgba(139,92,246,0.15)' }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="share-social-outline" size={20} color={colors.accentLight || '#A78BFA'} />
+        </TouchableOpacity>
       </View>
 
       {/* PERIOD TABS */}

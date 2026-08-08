@@ -21,6 +21,7 @@ import LibraryNavigator from "./LibraryNavigator";
 import PlayerNavigator from "./PlayerNavigator";
 import SearchNavigator from "./SearchNavigator";
 import SettingsNavigator from "./SettingsNavigator";
+import ActivityShareScreen from "../screens/activity/ActivityShareScreen";
 import { RootStackParamList } from "./types";
 import MultiSelectActionBar from '@/components/common/MultiSelectActionBar';
 
@@ -329,6 +330,14 @@ export default function MainNavigator() {
           component={DebugHistoryScreen}
           options={{
             animation: "slide_from_right",
+          }}
+        />
+        <RootStack.Screen
+          name="ShareStats"
+          component={ActivityShareScreen}
+          options={{
+            presentation: "fullScreenModal",
+            animation: "slide_from_bottom",
           }}
         />
       </RootStack.Navigator>

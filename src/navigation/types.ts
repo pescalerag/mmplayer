@@ -49,6 +49,14 @@ export type RootStackParamList = {
     Main: undefined;
     Player: undefined | NavigatorScreenParams<PlayerStackParamList>;
     DebugHistory: undefined;
+    ShareStats: {
+        formattedPeriodText: string;
+        metric: 'duration' | 'plays';
+        totalHours: number;
+        totalPlays: number;
+        topArtists: any[];
+        topSongs: any[];
+    };
 };
 
 export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;

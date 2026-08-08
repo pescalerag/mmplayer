@@ -629,7 +629,13 @@
       "month": "Month",
       "year": "Year",
       "all": "All"
-    }
+    },
+    "share_title": "Share Statistics",
+    "share_preview": "Statistics Preview",
+    "share_btn": "Share",
+    "wrapped_summary": "SUMMARY",
+    "top_artists": "TOP ARTISTS",
+    "top_songs": "TOP SONGS"
   },
   "sleep_timer": {
     "title": "Sleep Timer",

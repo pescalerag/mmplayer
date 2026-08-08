@@ -629,7 +629,13 @@
       "month": "Mes",
       "year": "Año",
       "all": "Todo"
-    }
+    },
+    "share_title": "Compartir Estadísticas",
+    "share_preview": "Vista previa de estadísticas",
+    "share_btn": "Compartir",
+    "wrapped_summary": "RESUMEN",
+    "top_artists": "TOP ARTISTAS",
+    "top_songs": "TOP CANCIONES"
   },
   "sleep_timer": {
     "title": "Temporizador de apagado",
