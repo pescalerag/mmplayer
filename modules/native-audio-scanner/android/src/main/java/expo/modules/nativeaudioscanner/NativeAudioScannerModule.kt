@@ -13,6 +13,8 @@ import android.media.MediaScannerConnection
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.os.Build
+import android.os.Environment
+import android.os.StatFs
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.images.AndroidArtwork
@@ -384,6 +386,32 @@ class NativeAudioScannerModule : Module() {
           putExtra("isPlaying", isPlaying)
       }
       context.sendBroadcast(intent2x2)
+    }
+
+    AsyncFunction("getStorageStats") {
+      try {
+        val path = Environment.getDataDirectory().path
+        val stat = StatFs(path)
+        val blockSize = stat.blockSizeLong
+        val totalBlocks = stat.blockCountLong
+        val availableBlocks = stat.availableBlocksLong
+
+        val totalBytes = totalBlocks * blockSize
+        val freeBytes = availableBlocks * blockSize
+        val usedBytes = totalBytes - freeBytes
+
+        mapOf(
+          "totalBytes" to totalBytes,
+          "freeBytes" to freeBytes,
+          "usedBytes" to usedBytes
+        )
+      } catch (e: Exception) {
+        mapOf(
+          "totalBytes" to 0L,
+          "freeBytes" to 0L,
+          "usedBytes" to 0L
+        )
+      }
     }
 
     AsyncFunction("getAudioFiles") { scanReplayGain: Boolean ->

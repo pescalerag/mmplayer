@@ -245,6 +245,7 @@ const PlayerScreenUI = ({
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
 
     const queueVersion = usePlayerStore(state => state.queueVersion);
+    const windowVersion = usePlayerStore(state => state.windowVersion);
 
     // Estado para las canciones previa y siguiente
     const [prevTrackModel, setPrevTrackModel] = useState<Track | null>(null);
@@ -295,7 +296,7 @@ const PlayerScreenUI = ({
         syncAdjacentTracks();
 
         return () => { isMounted = false; };
-    }, [track.id, queueVersion]);
+    }, [track.id, queueVersion, windowVersion]);
 
     const [prevCoverUrl, setPrevCoverUrl] = useState<string | null>(null);
     const [nextCoverUrl, setNextCoverUrl] = useState<string | null>(null);
@@ -871,14 +872,14 @@ const PlayerScreenUI = ({
                     }}>
                         {prevTrackModel && showCanvas && !!prevTrackModel.bgVideo ? (
                             <CanvasVideo
-                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}`}
+                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}-${windowVersion}`}
                                 sourceUri={prevTrackModel.bgVideo}
                                 isImmersive={false}
                                 gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-prev-${prevTrackModel?.id || 'none'}`}
+                                key={`blur-prev-${prevTrackModel?.id || 'none'}-${windowVersion}`}
                                 imageUrl={prevCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
@@ -923,14 +924,14 @@ const PlayerScreenUI = ({
                     }}>
                         {nextTrackModel && showCanvas && !!nextTrackModel.bgVideo ? (
                             <CanvasVideo
-                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}`}
+                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}-${windowVersion}`}
                                 sourceUri={nextTrackModel.bgVideo}
                                 isImmersive={false}
                                 gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-next-${nextTrackModel?.id || 'none'}`}
+                                key={`blur-next-${nextTrackModel?.id || 'none'}-${windowVersion}`}
                                 imageUrl={nextCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
@@ -1011,7 +1012,7 @@ const PlayerScreenUI = ({
                                         return (
                                             <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
                                                 <Image
-                                                    key={`prev-${prevTrackModel.id}`}
+                                                    key={`prev-${prevTrackModel.id}-${windowVersion}`}
                                                     source={{ uri: formattedUri }}
                                                     style={styles.artwork}
                                                     contentFit="cover"
@@ -1170,7 +1171,7 @@ const PlayerScreenUI = ({
                                         return (
                                             <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
                                                 <Image
-                                                    key={`next-${nextTrackModel.id}`}
+                                                    key={`next-${nextTrackModel.id}-${windowVersion}`}
                                                     source={{ uri: formattedUri }}
                                                     style={styles.artwork}
                                                     contentFit="cover"

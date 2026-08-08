@@ -88,6 +88,7 @@ interface PlayerState {
   isFetchingLyrics: boolean;
   setIsFetchingLyrics: (value: boolean) => void;
   queueVersion: number;
+  windowVersion: number;
   updateTrackMetadata: (trackId: string) => Promise<void>;
 }
 
@@ -167,6 +168,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isFetchingLyrics: false,
   setIsFetchingLyrics: (value) => set({ isFetchingLyrics: value }),
   queueVersion: 0,
+  windowVersion: 0,
 
   loadQueue: async (tracks, index, context = "unknown") => {
     const loadId = ++currentLoadId;

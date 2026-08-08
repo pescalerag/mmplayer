@@ -247,8 +247,17 @@ export default function QueueSheet() {
 
         isReordering.current = true;
 
-        const globalFrom = activeIndex + 1 + from;
-        const globalTo = activeIndex + 1 + to;
+        const upcomingCount = Math.max(0, queue.length - (activeIndex + 1));
+        const safeFrom = Math.max(0, Math.min(from, upcomingCount - 1));
+        const safeTo = Math.max(0, Math.min(to, upcomingCount - 1));
+
+        const globalFrom = activeIndex + 1 + safeFrom;
+        const globalTo = activeIndex + 1 + safeTo;
+
+        if (globalFrom === globalTo) {
+            isReordering.current = false;
+            return;
+        }
 
         // Actualización optimista inmediata en la UI
         const newQueue = [
@@ -261,6 +270,7 @@ export default function QueueSheet() {
             // Movimiento atómico nativo súper rápido
             await TrackPlayer.move(globalFrom, globalTo);
             await usePlayerStore.getState().savePlaybackState();
+            usePlayerStore.setState((state: any) => ({ windowVersion: (state.windowVersion || 0) + 1 }));
         } catch (error) {
             console.error('Error reordering track:', error);
             const fullQueue = await TrackPlayer.getQueue();

@@ -70,6 +70,28 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- MENÚ DE OPCIONES DE CONFIGURACIÓN --- */}
                 <View style={styles.sectionCard}>
+                    {/* ALMACENAMIENTO */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => navigation.navigate('SettingsStorage')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="pie-chart-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.storage_title', 'Almacenamiento')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.storage_desc', 'Gestiona el espacio del móvil y de MMPlayer')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
                     {/* APARIENCIA */}
                     <TouchableOpacity
                         style={styles.menuRow}

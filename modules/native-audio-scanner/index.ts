@@ -111,6 +111,16 @@ export async function requestWritePermission(filePaths: string[]): Promise<boole
   return await NativeAudioScannerModule.requestWritePermission(filePaths);
 }
 
+export type DeviceStorageStats = {
+  totalBytes: number;
+  freeBytes: number;
+  usedBytes: number;
+};
+
+export async function getStorageStats(): Promise<DeviceStorageStats> {
+  return await NativeAudioScannerModule.getStorageStats();
+}
+
 export async function updateWidget(
   title: string,
   artist: string,
