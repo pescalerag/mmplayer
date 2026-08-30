@@ -17,6 +17,8 @@ interface SettingsState {
     setLastSeenVersion: (version: string) => void;
     userAlias: string | null;
     setUserAlias: (alias: string) => void;
+    userAvatarUri: string | null;
+    setUserAvatarUri: (uri: string | null) => void;
     forceWelcomeModal: boolean;
     setForceWelcomeModal: (value: boolean) => void;
     language: string | null;
@@ -176,6 +178,8 @@ export const useSettingsStore = create<SettingsState>()(
             setLastSeenVersion: (version) => set({ lastSeenVersion: version }),
             userAlias: null,
             setUserAlias: (alias) => set({ userAlias: alias }),
+            userAvatarUri: null,
+            setUserAvatarUri: (uri) => set({ userAvatarUri: uri }),
             forceWelcomeModal: false,
             setForceWelcomeModal: (value) => set({ forceWelcomeModal: value }),
             language: null,

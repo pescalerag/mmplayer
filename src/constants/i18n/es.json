@@ -615,7 +615,33 @@
   },
   "screens": {
     "artists": "Artistas",
-    "activity": "Actividad"
+    "activity": "Actividad",
+    "profile": "Perfil"
+  },
+  "profile": {
+    "title": "Perfil de Usuario",
+    "default_user": "Usuario",
+    "edit_profile": "Editar Perfil",
+    "alias_label": "Nombre o Alias",
+    "alias_placeholder": "Escribe tu alias...",
+    "change_photo": "Cambiar foto de perfil",
+    "delete_photo": "Eliminar foto",
+    "set_photo": "Seleccionar foto",
+    "photo_options": "¿Qué deseas hacer con tu foto de perfil?",
+    "photo_updated": "Foto de perfil actualizada correctamente",
+    "photo_deleted": "Foto de perfil eliminada",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "listening_stats": "Estadísticas de escucha",
+    "member_since": "MMPlayer",
+    "library_overview": "Estado de tu biblioteca",
+    "smart_playlists_title": "Listas inteligentes",
+    "my_playlists_title": "Tus playlists",
+    "quick_stats_title": "Destacados de reproducción",
+    "view_full_stats": "Ver estadísticas completas",
+    "empty_playlists": "Aún no tienes listas de reproducción creadas.",
+    "empty_smart": "Escucha música para activar tus listas inteligentes.",
+    "empty_stats": "Escucha música para ver tus destacados aquí."
   },
   "activity": {
     "title": "ACTIVIDAD",

@@ -1,7 +1,9 @@
-import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
+import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Q } from '@nozbe/watermelondb';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
@@ -9,13 +11,11 @@ import { useTranslation } from 'react-i18next';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
-import { usePlaybackState } from '../../hooks/usePlaybackState';
-import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { database } from '../../database';
-import { Q } from '@nozbe/watermelondb';
 import Album from '../../database/models/Album';
-import Track from '../../database/models/Track';
 import Artist from '../../database/models/Artist';
+import Track from '../../database/models/Track';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { HistoryService } from '../../services/HistoryService';
 import { SmartListService } from '../../services/SmartListService';
 
@@ -24,10 +24,11 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { StatsWidget } from '@/components/cards/StatsWidget';
-import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
-import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
 import { MediaCard } from '@/components/cards/MediaCard';
+import { StatsWidget } from '@/components/cards/StatsWidget';
+import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
+import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
+import MarqueeText from '@/components/common/MarqueeText';
 import { useStatsStore } from '../../store/useStatsStore';
 
 const { width } = Dimensions.get('window');
@@ -102,6 +103,7 @@ export default function HomeScreen() {
     const recentPlaylistsRaw = usePlayerStore(state => state.recentPlaylists);
     const recentPlaylists = React.useMemo(() => recentPlaylistsRaw || [], [recentPlaylistsRaw]);
     const userAlias = useSettingsStore(state => state.userAlias);
+    const userAvatarUri = useSettingsStore(state => state.userAvatarUri);
 
     const homeSectionsOrderRaw = useSettingsStore(state => state.homeSectionsOrder);
     const homeSectionsVisibilityRaw = useSettingsStore(state => state.homeSectionsVisibility);
@@ -165,7 +167,7 @@ export default function HomeScreen() {
                 .get<Album>('albums')
                 .query(Q.sortBy('id', Q.desc), Q.take(10))
                 .fetch();
-            
+
             const mappedAdded = await Promise.all(addedAlbums.map(async (album) => {
                 const artist = await album.artist.fetch();
                 return {
@@ -202,7 +204,7 @@ export default function HomeScreen() {
                     .get<Album>('albums')
                     .query(Q.where('id', Q.oneOf(randomIds)))
                     .fetch();
-                
+
                 const mappedExplore = await Promise.all(randomAlbums.map(async (album) => {
                     const artist = await album.artist.fetch();
                     return {
@@ -338,14 +340,53 @@ export default function HomeScreen() {
                     top: 0,
                     left: 0,
                     right: 0,
-                    paddingTop: insets.top + 10,
-                    paddingBottom: 10,
+                    paddingTop: insets.top + 16,
+                    paddingBottom: 12,
+                    paddingHorizontal: 20,
                     zIndex: 10,
                 }}
             >
-                <Text style={[styles.welcomeText, { marginBottom: 0 }]}>
-                    {t(getGreetingKey())}{userAlias ? `, ${userAlias}` : ''}
-                </Text>
+                <View style={styles.headerRow}>
+                    <TouchableOpacity
+                        style={styles.profileBadge}
+                        onPress={() => navigation.navigate('UserProfile')}
+                        activeOpacity={0.7}
+                    >
+                        {userAvatarUri ? (
+                            <Image
+                                source={{ uri: userAvatarUri.startsWith('file://') && !userAvatarUri.includes('?t=') ? `${userAvatarUri}?t=${Date.now()}` : userAvatarUri }}
+                                style={styles.profileAvatar}
+                                contentFit="cover"
+                                cachePolicy="memory-disk"
+                            />
+                        ) : (
+                            <View style={styles.profileAvatarPlaceholder}>
+                                <Ionicons name="person" size={18} color="#FFFFFF" />
+                            </View>
+                        )}
+                        <Text
+                            style={styles.profileAliasText}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                        >
+                            {userAlias || t('profile.default_user', 'Usuario')}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.userTierBadge}>
+                        <Text style={styles.userTierBadgeText}>USER</Text>
+                    </View>
+
+                    <View style={styles.welcomeTextWrapper}>
+                        <MarqueeText
+                            text={t(getGreetingKey())}
+                            style={styles.welcomeText}
+                            speed={25}
+                            pauseDuration={2000}
+                            spacing={40}
+                        />
+                    </View>
+                </View>
             </View>
 
             {/* CAPA DE CONTENIDO */}
@@ -525,14 +566,75 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             flex: 1,
             backgroundColor: colors.background,
         },
+        headerRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+        },
+        profileBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            paddingVertical: 5,
+            paddingHorizontal: 7,
+            paddingRight: 14,
+            borderRadius: 28,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.14)',
+            gap: 8,
+            flexShrink: 1,
+            maxWidth: '50%',
+        },
+        profileAvatar: {
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: colors.cardBackground,
+        },
+        profileAvatarPlaceholder: {
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: colors.accent || '#8B5CF6',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        profileAliasText: {
+            color: colors.text,
+            fontSize: 14,
+            fontFamily: fonts.regular,
+            fontWeight: fontWeights.bold,
+            flexShrink: 1,
+        },
+        userTierBadge: {
+            backgroundColor: colors.accentAlpha18 || 'rgba(139, 92, 246, 0.18)',
+            paddingHorizontal: 6,
+            paddingVertical: 2.5,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: colors.accent || 'rgba(139, 92, 246, 0.4)',
+            flexShrink: 0,
+        },
+        userTierBadgeText: {
+            color: colors.accentLight || '#A78BFA',
+            fontSize: 9,
+            fontWeight: '900',
+            letterSpacing: 0.8,
+        },
+        welcomeTextWrapper: {
+            flex: 1,
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            marginLeft: 4,
+        },
         welcomeText: {
             color: colors.text,
-            fontSize: 26,
+            fontSize: 20,
             fontFamily: fonts.regular,
             fontWeight: '800',
-            paddingHorizontal: horizPadding,
-            marginBottom: horizPadding,
-            letterSpacing: -0.5,
+            letterSpacing: -0.4,
+            textAlign: 'right',
         },
         sectionTitle: {
             color: colors.text,

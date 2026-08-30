@@ -8,6 +8,7 @@ export type HomeStackParamList = {
     FavoritesDetail: undefined;
     WeeklyActivity: undefined;
     SmartListDetail: { smartListId: string };
+    UserProfile: undefined;
 };
 
 export type LibraryStackParamList = {
