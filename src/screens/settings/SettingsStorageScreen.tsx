@@ -13,7 +13,7 @@ import {
   View
 } from 'react-native';
 import { formatBytes, StorageBreakdown, StorageService } from '../../services/StorageService';
-import { showToast } from '../../components/common/GlobalToast';
+import { useToastStore } from '../../store/useToastStore';
 
 export default function SettingsStorageScreen() {
   const { t } = useTranslation();
@@ -45,7 +45,7 @@ export default function SettingsStorageScreen() {
     setClearingItem('cache');
     try {
       await StorageService.clearCache();
-      showToast(t('settings.cache_cleared', 'Caché liberada correctamente'));
+      useToastStore.getState().showToast(t('settings.cache_cleared', 'Caché liberada correctamente'));
     } catch (e) {
       console.error('[SettingsStorageScreen] Error clearing cache:', e);
     } finally {
@@ -73,7 +73,7 @@ export default function SettingsStorageScreen() {
             setClearingItem(itemKey);
             try {
               await deleteFn();
-              showToast(successMsg);
+              useToastStore.getState().showToast(successMsg);
             } catch (e) {
               console.error('[SettingsStorageScreen] Error deleting item:', e);
             } finally {

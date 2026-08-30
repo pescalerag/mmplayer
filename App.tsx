@@ -32,6 +32,7 @@ import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
+import { ChromecastService } from "./src/services/ChromecastService";
 SystemUI.setBackgroundColorAsync('#000000');
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
         });
 
         await setupPlayer();
+        ChromecastService.init();
         // Restaurar cola persistida del último cierre de la app
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app

@@ -5,10 +5,12 @@ import { readFileChunk } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { getClientHtml } from './LocalCastHtml';
+import { getChromecastHtml } from './ChromecastHtml';
 
 // ─── Server instance ─────────────────────────────────────────────────────────
 let server: BridgeServer | null = null;
 let playIntent = false;
+let isServerStopping = false;
 
 // ─── Audio track cache ────────────────────────────────────────────────────────
 // The track file is copied to app-private cache so range-requests work on
@@ -48,14 +50,16 @@ async function prepareCoverB64(trackId: string, albumModel: any): Promise<void> 
 
     try {
         let b64: string | null = null;
+        const staticCoverUri = `${FileSystem.cacheDirectory}temp_cover.jpg`;
         if (albumModel.coverUrl.startsWith('content://')) {
-            const tempUri = `${FileSystem.cacheDirectory}temp_cover_${albumModel.id || 'art'}.jpg`;
-            await FileSystem.copyAsync({ from: albumModel.coverUrl, to: tempUri });
-            b64 = await FileSystem.readAsStringAsync(tempUri, { encoding: FileSystem.EncodingType.Base64 });
-            try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch { }
+            try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
+            await FileSystem.copyAsync({ from: albumModel.coverUrl, to: staticCoverUri });
+            b64 = await FileSystem.readAsStringAsync(staticCoverUri, { encoding: FileSystem.EncodingType.Base64 });
         } else {
             let coverPath = albumModel.coverUrl;
             if (coverPath.startsWith('/')) coverPath = `file://${coverPath}`;
+            try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
+            await FileSystem.copyAsync({ from: coverPath, to: staticCoverUri });
             b64 = await FileSystem.readAsStringAsync(coverPath, { encoding: FileSystem.EncodingType.Base64 });
         }
         cachedCoverB64 = b64;
@@ -70,8 +74,10 @@ async function prepareCoverB64(trackId: string, albumModel: any): Promise<void> 
 
 // ─── Audio file cache ─────────────────────────────────────────────────────────
 async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSize: number; mimeType: string } | null> {
-    if (!track || !track.url) return null;
-    const trackId = track.id.toString();
+    if (!track) return null;
+    const fileSource = track.url || track.fileUrl;
+    if (!fileSource) return null;
+    const trackId = (track.id || 'current').toString();
 
     // Return already-cached result for the same track
     if (currentCachedTrackId === trackId && cachePromise) {
@@ -85,7 +91,7 @@ async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSi
 
     cachePromise = (async () => {
         try {
-            let filePath = track.url;
+            let filePath = fileSource;
 
             if (!filePath.startsWith('content://') && !filePath.startsWith('file://')) {
                 if (filePath.startsWith('/')) filePath = `file://${filePath}`;
@@ -124,7 +130,7 @@ async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSi
                     else if (headerB64.startsWith('UklGR')) mimeType = 'audio/wav';
                     else if (headerB64.startsWith('AAAA') || headerB64.startsWith('AAAB')) mimeType = 'audio/mp4';
                     else {
-                        const urlLower = track.url ? track.url.toLowerCase() : '';
+                        const urlLower = fileSource.toLowerCase();
                         if (urlLower.endsWith('.m4a') || urlLower.endsWith('.aac') || urlLower.endsWith('.mp4')) mimeType = 'audio/mp4';
                         else if (urlLower.endsWith('.flac')) mimeType = 'audio/flac';
                         else if (urlLower.endsWith('.wav')) mimeType = 'audio/wav';
@@ -163,15 +169,24 @@ export const LocalCastService = {
     getPlayIntent() { return playIntent; },
 
     async start(port: number): Promise<void> {
+        isServerStopping = false;
         if (server) {
             try { await server.stop(); } catch { }
         }
 
         server = new BridgeServer('local-cast', true);
 
-        // ── GET / — Web client HTML ──────────────────────────────────────────
+        // ── GET / — Web client HTML (LocalCast for PC) ──────────────────────
         server.get('/', async (_req, res) => {
             res.html(getClientHtml(), 200);
+        });
+
+        // ── GET /cast & /chromecast — CAF Web Receiver HTML ─────────────────
+        server.get('/cast', async (_req, res) => {
+            res.html(getChromecastHtml(), 200);
+        });
+        server.get('/chromecast', async (_req, res) => {
+            res.html(getChromecastHtml(), 200);
         });
 
         // ── GET /api/state ────────────────────────────────────────────────────
@@ -179,6 +194,20 @@ export const LocalCastService = {
         // uses `coverToken` to detect track changes and fetches /api/cover once.
         server.get('/api/state', async (_req, res) => {
             try {
+                const { useCastStore } = require('../store/useCastStore');
+                const castState = useCastStore.getState();
+
+                if (isServerStopping || !castState.isLocalCastActive) {
+                    res.json({
+                        title: castState.isChromecastConnected ? 'Transmitiendo en Chromecast' : null,
+                        artist: castState.connectedDeviceName || 'MMPlayer',
+                        isPlaying: false,
+                        isStopped: true,
+                        isLocalCastActive: castState.isLocalCastActive,
+                    }, 200);
+                    return;
+                }
+
                 const activeIndex = await TrackPlayer.getActiveTrackIndex();
                 if (activeIndex === null || activeIndex === undefined) {
                     res.json({ activeTrack: null, isPlaying: false, position: 0, duration: 0 }, 200);
@@ -302,11 +331,23 @@ export const LocalCastService = {
             }
         });
 
+        // ── POST /api/next ────────────────────────────────────────────────────
+        server.post('/api/next', async (_req, res) => {
+            try {
+                await TrackPlayer.skipToNext();
+                await TrackPlayer.play();
+                res.json({ success: true }, 200);
+            } catch (err: any) {
+                res.json({ error: err.message }, 500);
+            }
+        });
+
         server.listen(port);
         console.log(`[LocalCastService] Server started on port ${port}`);
     },
 
     async stop(): Promise<void> {
+        isServerStopping = true;
         if (server) {
             try { await server.stop(); } catch { }
             server = null;
@@ -317,7 +358,7 @@ export const LocalCastService = {
             currentCachedTrackPath = null;
         }
         try {
-            await FileSystem.deleteAsync(`${FileSystem.cacheDirectory}temp_audio_cast.mp3`, { idempotent: true });
+            await FileSystem.deleteAsync(`${FileSystem.cacheDirectory}temp_cover.jpg`, { idempotent: true });
         } catch { }
         // Reset all caches
         currentCachedTrackId = null;
@@ -329,4 +370,16 @@ export const LocalCastService = {
         coverCachePending = null;
         console.log('[LocalCastService] Server stopped, caches cleared');
     },
+
+    async prepareTrack(track: any) {
+        return prepareTrackCache(track);
+    },
+
+    async prepareCover(trackId: string, albumModel: any) {
+        return prepareCoverB64(trackId, albumModel);
+    },
+
+    isServerRunning() {
+        return server !== null;
+    }
 };

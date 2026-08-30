@@ -189,10 +189,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
-        await TrackPlayer.pause();
-      } else {
-        await TrackPlayer.play();
       }
+      await TrackPlayer.play();
 
       set({
         activeTrack: tracks[index],
@@ -276,10 +274,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
-        await TrackPlayer.pause();
-      } else {
-        await TrackPlayer.play();
       }
+      await TrackPlayer.play();
 
       set({
         activeTrack: initialChunk[0],
@@ -341,10 +337,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
-        await TrackPlayer.pause();
-      } else {
-        await TrackPlayer.play();
       }
+      await TrackPlayer.play();
       set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
       await get().updateQueueStatus();
       await get().savePlaybackState();

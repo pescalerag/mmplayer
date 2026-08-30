@@ -30,7 +30,11 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 // --- BANNER DE CASTEO ---
 const CastingBanner = () => {
-  const isServerRunning = useCastStore(state => state.isServerRunning);
+  const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
+  const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
+  const connectedDeviceName = useCastStore(state => state.connectedDeviceName);
+  const isCasting = isLocalCastActive || isChromecastConnected;
+
   const openCastSheet = openLocalCast;
   const { t } = useTranslation();
   const opacity = React.useRef(new Animated.Value(0)).current;
@@ -39,19 +43,19 @@ const CastingBanner = () => {
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(opacity, {
-        toValue: isServerRunning ? 1 : 0,
+        toValue: isCasting ? 1 : 0,
         duration: 280,
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: isServerRunning ? 0 : 12,
+        toValue: isCasting ? 0 : 12,
         duration: 280,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [isServerRunning]);
+  }, [isCasting]);
 
-  if (!isServerRunning) return null;
+  if (!isCasting) return null;
 
   return (
     <Animated.View style={[castBannerStyles.wrapper, { opacity, transform: [{ translateY }] }]}>
@@ -62,8 +66,12 @@ const CastingBanner = () => {
       >
         {/* Dot de estado activo */}
         <View style={castBannerStyles.dot} />
-        <Ionicons name="desktop" size={13} color="#fff" style={{ marginRight: 5 }} />
-        <Text style={castBannerStyles.label}>{t('cast.banner_label')}</Text>
+        <Ionicons name={isChromecastConnected ? "tv" : "desktop"} size={13} color="#fff" style={{ marginRight: 5 }} />
+        <Text style={castBannerStyles.label}>
+          {isChromecastConnected
+            ? t('cast.chromecast_connected_to', { device: connectedDeviceName || 'Chromecast' })
+            : t('cast.banner_label')}
+        </Text>
       </TouchableOpacity>
     </Animated.View>
   );

@@ -24,6 +24,7 @@ const originalPause = TrackPlayer.pause.bind(TrackPlayer);
 const originalReset = TrackPlayer.reset.bind(TrackPlayer);
 const originalSetVolume = TrackPlayer.setVolume.bind(TrackPlayer);
 const originalGetPlaybackState = TrackPlayer.getPlaybackState.bind(TrackPlayer);
+const originalSeekTo = TrackPlayer.seekTo.bind(TrackPlayer);
 
 let fadeIntervalId: any = null;
 let targetVolume = 1.0;
@@ -35,6 +36,18 @@ function clearFadeInterval() {
     fadeIntervalId = null;
   }
 }
+
+// Override seekTo to sync with Chromecast
+TrackPlayer.seekTo = async (position: number) => {
+  try {
+    const { useCastStore } = require('../store/useCastStore');
+    if (useCastStore.getState().isChromecastConnected) {
+      const { ChromecastService } = require('./ChromecastService');
+      ChromecastService.seekTo(position);
+    }
+  } catch (e) {}
+  return originalSeekTo(position);
+};
 
 // Override getPlaybackState
 TrackPlayer.getPlaybackState = async () => {
@@ -57,7 +70,15 @@ TrackPlayer.getPlaybackState = async () => {
 
 // Override setVolume
 TrackPlayer.setVolume = async (volume: number) => {
-  targetVolume = volume;
+  const { useCastStore } = require('../store/useCastStore');
+  const isCasting = useCastStore.getState().isServerRunning;
+
+  if (volume > 0.05) {
+    targetVolume = volume;
+  } else if (!isCasting && volume === 0) {
+    // Only explicit user volume 0 when not casting updates targetVolume
+    targetVolume = 0;
+  }
 
   // Si hay un fade en progreso (in o out), dejamos que el intervalo de fade continúe
   // actualizando el volumen hasta targetVolume de forma progresiva.
@@ -71,7 +92,7 @@ TrackPlayer.setVolume = async (volume: number) => {
 
 // Override getVolume - returns the logical volume (targetVolume)
 TrackPlayer.getVolume = async () => {
-  return targetVolume;
+  return targetVolume > 0.05 ? targetVolume : 1.0;
 };
 
 // Override reset
@@ -86,6 +107,28 @@ TrackPlayer.reset = async () => {
 TrackPlayer.play = async (bypassFade = false) => {
   clearFadeInterval();
   setIsFadingOut(false);
+
+  const { useCastStore } = require('../store/useCastStore');
+  const isCasting = useCastStore.getState().isServerRunning;
+
+  try {
+    if (useCastStore.getState().isChromecastConnected) {
+      const { ChromecastService } = require('./ChromecastService');
+      ChromecastService.play();
+    }
+  } catch (e) {}
+
+  // When casting (local or chromecast), phone's native audio must remain silent
+  if (isCasting) {
+    currentVolume = 0;
+    await originalSetVolume(0);
+    return originalPlay();
+  }
+
+  // If not casting and targetVolume was stuck at 0 (e.g. from previous cast), restore default 1.0
+  if (targetVolume <= 0.05) {
+    targetVolume = 1.0;
+  }
 
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
   if (!isFadeEnabled) {
@@ -148,6 +191,14 @@ TrackPlayer.play = async (bypassFade = false) => {
 
 // Override pause
 TrackPlayer.pause = async (bypassFade = false) => {
+  try {
+    const { useCastStore } = require('../store/useCastStore');
+    if (useCastStore.getState().isChromecastConnected) {
+      const { ChromecastService } = require('./ChromecastService');
+      ChromecastService.pause();
+    }
+  } catch (e) {}
+
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
   if (!isFadeEnabled) {
     bypassFade = true;

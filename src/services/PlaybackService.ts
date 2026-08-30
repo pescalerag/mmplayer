@@ -249,6 +249,16 @@ export const PlaybackService = async function () {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
 
+      // Sync track to Chromecast if connected
+      if (useCastStore.getState().isChromecastConnected && event.track) {
+        try {
+          const { ChromecastService } = require('./ChromecastService');
+          ChromecastService.loadTrack(event.track);
+        } catch (castErr) {
+          console.error('[PlaybackService] Error loading track on Chromecast:', castErr);
+        }
+      }
+
       setTimeout(async () => {
         try {
           const queue = await TrackPlayer.getQueue();

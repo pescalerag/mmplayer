@@ -105,8 +105,9 @@ export const StorageService = {
       const tracksColl = database.collections.get<Track>('tracks');
       const tracks = await tracksColl.query().fetch();
       for (const track of tracks) {
-        if (track.size && track.size > 0) {
-          audioFilesBytes += track.size;
+        const tSize = (track as any).size;
+        if (tSize && typeof tSize === 'number' && tSize > 0) {
+          audioFilesBytes += tSize;
         }
         if (track.lyricsLRC) {
           lyricsBytes += encodeURIComponent(track.lyricsLRC).replace(/%[a-f0-9]{2}/gi, 'x').length;

@@ -721,6 +721,9 @@ const PlayerScreenUI = ({
     });
 
     const isServerRunning = useCastStore(state => state.isServerRunning);
+    const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
+    const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
+    const isCasting = isLocalCastActive || isChromecastConnected;
     const openCastSheet = openLocalCast;
 
     const handleLikePress = async () => {
@@ -1462,22 +1465,22 @@ const PlayerScreenUI = ({
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <Ionicons
-                                    name={isServerRunning ? "desktop" : "desktop-outline"}
+                                    name={isChromecastConnected ? "tv" : isLocalCastActive ? "desktop" : "desktop-outline"}
                                     size={24}
-                                    color={isServerRunning ? colors.accentLight : colors.textSecondary}
+                                    color={isCasting ? (isChromecastConnected ? "#60A5FA" : colors.accentLight) : colors.textSecondary}
                                 />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => handleABButtonPress(position)}
                                 style={styles.footerButton}
-                                disabled={isServerRunning}
+                                disabled={isCasting}
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <Ionicons
                                     name={pointA !== null ? "infinite" : "infinite-outline"}
                                     size={24}
                                     color={
-                                        isServerRunning
+                                        isCasting
                                             ? colors.disabled
                                             : pointB !== null
                                                 ? colors.accentLight

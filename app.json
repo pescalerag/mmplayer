@@ -69,7 +69,14 @@
           }
         }
       ],
-      "./plugins/withJetifier"
+      "./plugins/withJetifier",
+      [
+        "react-native-google-cast",
+        {
+          "receiverAppId": "5622F67E",
+          "expandedController": false
+        }
+      ]
     ],
     "web": {
       "output": "static"
