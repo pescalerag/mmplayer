@@ -22,7 +22,14 @@ export default function PlayerNavigator() {
             <Stack.Screen name="PlayerHome" component={PlayerScreen} />
             <Stack.Screen name="ArtistDetail" component={ArtistDetailScreen} getId={({ params }) => params.artistId} />
             <Stack.Screen name="AlbumDetail" component={AlbumDetailScreen} getId={({ params }) => params.albumId} />
-            <Stack.Screen name="Lyrics" component={LyricsScreen} options={{ animation: 'fade' }} />
+            <Stack.Screen
+                name="Lyrics"
+                component={LyricsScreen}
+                options={{
+                    animation: 'fade',
+                    presentation: 'transparentModal',
+                }}
+            />
             <Stack.Screen name="LyricsEditor" component={LyricsEditorScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="LyricsSync" component={LyricsSyncScreen} options={{ animation: 'slide_from_right' }} />
         </Stack.Navigator>
