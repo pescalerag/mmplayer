@@ -1,10 +1,15 @@
 package expo.modules.nativeaudioscanner
 
+import android.content.Context
 import android.content.Intent
 import android.content.ContentUris
 import android.net.Uri
+import android.net.wifi.WifiManager
+import android.os.PowerManager
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Base64
+import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
@@ -22,6 +27,9 @@ import expo.modules.kotlin.Promise
 
 class NativeAudioScannerModule : Module() {
   private val REQUEST_CODE_WRITE = 1928
+
+  private var castWakeLock: PowerManager.WakeLock? = null
+  private var castWifiLock: WifiManager.WifiLock? = null
 
   @Volatile
   private var isBatchCancelled = false
@@ -767,6 +775,111 @@ class NativeAudioScannerModule : Module() {
         } else {
           promise.reject("ERR_PERMISSION_DENIED", "Write permission was denied by user", null)
           clearPending()
+        }
+      }
+    }
+
+    AsyncFunction("acquireCastWakeLock") {
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      try {
+        if (castWakeLock == null) {
+          val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+          castWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MMPlayer:LocalCastWakeLock").apply {
+            setReferenceCounted(false)
+          }
+        }
+        if (castWakeLock?.isHeld != true) {
+          castWakeLock?.acquire(24 * 60 * 60 * 1000L) // Safe max 24 hours
+        }
+
+        if (castWifiLock == null) {
+          val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+          castWifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "MMPlayer:LocalCastWifiLock")
+          } else {
+            @Suppress("DEPRECATION")
+            wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "MMPlayer:LocalCastWifiLock")
+          }.apply {
+            setReferenceCounted(false)
+          }
+        }
+        if (castWifiLock?.isHeld != true) {
+          castWifiLock?.acquire()
+        }
+        Log.d("NativeAudioScanner", "LocalCast WakeLock & WifiLock acquired successfully")
+        true
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error acquiring Cast locks: ${e.message}", e)
+        false
+      }
+    }
+
+    AsyncFunction("releaseCastWakeLock") {
+      try {
+        if (castWakeLock?.isHeld == true) {
+          castWakeLock?.release()
+        }
+        if (castWifiLock?.isHeld == true) {
+          castWifiLock?.release()
+        }
+        Log.d("NativeAudioScanner", "LocalCast WakeLock & WifiLock released successfully")
+        true
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error releasing Cast locks: ${e.message}", e)
+        false
+      }
+    }
+
+    AsyncFunction("isBatteryOptimizationIgnored") {
+      val context = appContext.reactContext ?: return@AsyncFunction true
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+          powerManager.isIgnoringBatteryOptimizations(context.packageName)
+        } else {
+          true
+        }
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error checking battery optimization: ${e.message}", e)
+        true
+      }
+    }
+
+    AsyncFunction("requestIgnoreBatteryOptimizations") {
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      val activity = appContext.currentActivity ?: return@AsyncFunction false
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+          if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+              data = Uri.parse("package:${context.packageName}")
+            }
+            activity.startActivity(intent)
+            true
+          } else {
+            true
+          }
+        } else {
+          true
+        }
+      } catch (e: Exception) {
+        Log.w("NativeAudioScanner", "Direct request battery optimization failed, opening general battery settings: ${e.message}")
+        try {
+          val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+          activity.startActivity(intent)
+          true
+        } catch (err: Exception) {
+          try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+              data = Uri.parse("package:${context.packageName}")
+            }
+            activity.startActivity(intent)
+            true
+          } catch (fallbackErr: Exception) {
+            Log.e("NativeAudioScanner", "All battery optimization intent fallbacks failed", fallbackErr)
+            false
+          }
         }
       }
     }

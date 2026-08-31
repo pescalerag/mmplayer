@@ -795,7 +795,21 @@
     "stopping": "Deteniendo...",
     "banner_label": "Casteando a tu PC",
     "banner_tap": "Toca para gestionar",
-    "start_error": "No se pudo iniciar el casteo."
+    "start_error": "No se pudo iniciar el casteo.",
+    "battery_opt_title": "Optimización de batería activa",
+    "battery_opt_desc": "Para evitar que la transmisión se corte al apagar la pantalla o en segundo plano, configura la app como \"Sin restricciones\".",
+    "battery_opt_button": "Desactivar optimización",
+    "battery_opt_ok": "Segundo plano protegido (Sin restricciones)"
+  },
+  "localcast_client": {
+    "app_title": "MMPlayer LocalCast",
+    "no_song": "No hay canción",
+    "no_lyrics": "No hay letras cargadas",
+    "streaming": "Transmitiendo",
+    "playing": "Reproduciendo",
+    "retrying_audio": "Reintentando audio...",
+    "click_to_unmute": "Clic para activar audio",
+    "click_to_unmute_long": "Haga clic para activar audio"
   },
   "audio_effects": {
     "title": "Efectos de Audio",

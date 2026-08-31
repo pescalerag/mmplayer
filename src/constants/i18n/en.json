@@ -795,7 +795,21 @@
     "stopping": "Stopping...",
     "banner_label": "Casting to your PC",
     "banner_tap": "Tap to manage",
-    "start_error": "Could not start casting."
+    "start_error": "Could not start casting.",
+    "battery_opt_title": "Battery optimization enabled",
+    "battery_opt_desc": "To prevent playback drops when screen turns off or in background, set MMPlayer to \"Unrestricted\" in battery settings.",
+    "battery_opt_button": "Configure battery",
+    "battery_opt_ok": "Background streaming protected (Unrestricted)"
+  },
+  "localcast_client": {
+    "app_title": "MMPlayer LocalCast",
+    "no_song": "No song playing",
+    "no_lyrics": "No lyrics available",
+    "streaming": "Streaming",
+    "playing": "Playing",
+    "retrying_audio": "Retrying audio...",
+    "click_to_unmute": "Click to unmute",
+    "click_to_unmute_long": "Click to enable audio"
   },
   "audio_effects": {
     "title": "Audio Effects",

@@ -259,6 +259,16 @@ export const PlaybackService = async function () {
         }
       }
 
+      // Pre-buffer next track in LocalCast if active
+      if (useCastStore.getState().isLocalCastActive) {
+        try {
+          const { LocalCastService } = require('./LocalCastService');
+          LocalCastService.triggerPreloadNext().catch(() => {});
+        } catch (localCastErr) {
+          console.error('[PlaybackService] Error preloading next track in LocalCast:', localCastErr);
+        }
+      }
+
       setTimeout(async () => {
         try {
           const queue = await TrackPlayer.getQueue();
@@ -269,6 +279,29 @@ export const PlaybackService = async function () {
           }
         } catch { }
       }, 2000);
+
+      // ── Sync Zustand store so PlayerScreen always reflects the real active track ──
+      // This is the single source of truth for the UI. Without this, skipping from
+      // the notification, lock screen, or LocalCast /api/next leaves activeTrack stale.
+      if (event.track?.id) {
+        try {
+          const { setActiveTrackById, updateQueueStatus } = usePlayerStore.getState();
+          await setActiveTrackById(event.track.id.toString());
+          const newIndex = await TrackPlayer.getActiveTrackIndex();
+          if (newIndex !== undefined && newIndex !== null) {
+            await updateQueueStatus(newIndex);
+          }
+          // Bump versions so PlayerScreenUI re-runs syncAdjacentTracks immediately
+          // This is critical for the swipe slots (prev/next artwork) to update
+          usePlayerStore.setState((state: any) => ({
+            windowVersion: (state.windowVersion || 0) + 1,
+            queueVersion: (state.queueVersion || 0) + 1,
+          }));
+        } catch (storeErr) {
+          console.error('[PlaybackService] Error syncing store after track change:', storeErr);
+        }
+      }
+
       await syncWidgetState();
     },
   );

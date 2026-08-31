@@ -4,7 +4,8 @@ import TrackPlayer from 'react-native-track-player';
 import { readFileChunk } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Track from '../database/models/Track';
-import { getClientHtml } from './LocalCastHtml';
+import i18n from '../constants/i18n';
+import { getClientHtml, LocalCastTranslations } from './LocalCastHtml';
 import { getChromecastHtml } from './ChromecastHtml';
 
 // ─── Server instance ─────────────────────────────────────────────────────────
@@ -13,83 +14,83 @@ let playIntent = false;
 let isServerStopping = false;
 
 // ─── Audio track cache ────────────────────────────────────────────────────────
-// The track file is copied to app-private cache so range-requests work on
-// scoped-storage Android. We keep only the last track in cache.
-let currentCachedTrackId: string | null = null;
-let currentCachedTrackPath: string | null = null;
-let cachePromise: Promise<string | null> | null = null;
-let cachedMimeType = 'audio/mpeg';
-let cachedFileSize = 0;
+// Each track is copied to its own file: `cast_track_${cleanId}.${ext}`
+// This allows background pre-buffering of the next track while the current one is playing.
+interface CachedAudioInfo {
+    filePath: string;
+    fileSize: number;
+    mimeType: string;
+}
 
-// Generation counter: detects when a newer track request came in while we were
-// still copying an older one, so the stale result is discarded.
-let cacheVersion = 0;
+const trackCacheMap = new Map<string, CachedAudioInfo>();
+const trackCopyPromises = new Map<string, Promise<CachedAudioInfo | null>>();
+let currentActiveCleanId: string | null = null;
 
 // ─── Cover image cache ────────────────────────────────────────────────────────
-// The cover is read from disk ONCE per track change and kept in memory as
-// base64. /api/state returns only a `coverToken` (track ID string); the web
-// client fetches /api/cover separately when the token changes. This prevents
-// re-reading a potentially large image file on every 1.5 s poll.
-let cachedCoverTrackId: string | null = null;
-let cachedCoverB64: string | null = null;
-let coverCachePending: string | null = null; // Prevents redundant concurrent reads
+const coverCacheMap = new Map<string, string | null>(); // cleanId -> base64 (or null if no cover)
+const coverCachePending = new Set<string>();
 
-async function prepareCoverB64(trackId: string, albumModel: any): Promise<void> {
-    if (cachedCoverTrackId === trackId) return;   // Already cached
-    if (coverCachePending === trackId) return;     // Being read right now
+async function prepareCoverB64(cleanId: string, albumModel: any): Promise<void> {
+    if (coverCacheMap.has(cleanId)) return; // Already cached
+    if (coverCachePending.has(cleanId)) return; // Being read right now
 
-    coverCachePending = trackId;
-    cachedCoverTrackId = null;
-    cachedCoverB64 = null;
+    coverCachePending.add(cleanId);
 
     if (!albumModel?.coverUrl) {
-        coverCachePending = null;
-        cachedCoverTrackId = trackId; // Mark as "no cover"
+        coverCachePending.delete(cleanId);
+        coverCacheMap.set(cleanId, null);
         return;
     }
 
     try {
         let b64: string | null = null;
-        const staticCoverUri = `${FileSystem.cacheDirectory}temp_cover.jpg`;
+        const staticCoverUri = `${FileSystem.cacheDirectory}temp_cover_${cleanId}.jpg`;
         if (albumModel.coverUrl.startsWith('content://')) {
             try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
             await FileSystem.copyAsync({ from: albumModel.coverUrl, to: staticCoverUri });
             b64 = await FileSystem.readAsStringAsync(staticCoverUri, { encoding: FileSystem.EncodingType.Base64 });
+            try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
         } else {
             let coverPath = albumModel.coverUrl;
             if (coverPath.startsWith('/')) coverPath = `file://${coverPath}`;
-            try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
-            await FileSystem.copyAsync({ from: coverPath, to: staticCoverUri });
             b64 = await FileSystem.readAsStringAsync(coverPath, { encoding: FileSystem.EncodingType.Base64 });
         }
-        cachedCoverB64 = b64;
-        console.log(`[LocalCastService] Cover cached for trackId=${trackId} (${b64 ? Math.round(b64.length / 1024) + ' KB b64' : 'null'})`);
+        coverCacheMap.set(cleanId, b64);
+        console.log(`[LocalCastService] Cover cached for trackId=${cleanId} (${b64 ? Math.round(b64.length / 1024) + ' KB b64' : 'null'})`);
     } catch (err) {
         console.error('[LocalCastService] Error reading cover art:', err);
+        coverCacheMap.set(cleanId, null);
     } finally {
-        cachedCoverTrackId = trackId;
-        coverCachePending = null;
+        coverCachePending.delete(cleanId);
     }
 }
 
-// ─── Audio file cache ─────────────────────────────────────────────────────────
-async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSize: number; mimeType: string } | null> {
+// ─── Audio file cache with Pre-Buffering ──────────────────────────────────────
+async function prepareTrackCache(track: any): Promise<CachedAudioInfo | null> {
     if (!track) return null;
     const fileSource = track.url || track.fileUrl;
     if (!fileSource) return null;
     const trackId = (track.id || 'current').toString();
+    const cleanId = trackId.split('-')[0];
 
-    // Return already-cached result for the same track
-    if (currentCachedTrackId === trackId && cachePromise) {
-        const filePath = await cachePromise;
-        if (filePath) return { filePath, fileSize: cachedFileSize, mimeType: cachedMimeType };
+    // 1. Check existing in-memory cache and file existence
+    const existing = trackCacheMap.get(cleanId);
+    if (existing) {
+        try {
+            const info = await FileSystem.getInfoAsync(existing.filePath);
+            if (info.exists && (info as any).size > 0) {
+                return existing;
+            }
+        } catch { }
     }
 
-    // Bump generation so any in-flight copy for a previous track is flagged as stale
-    const myVersion = ++cacheVersion;
-    currentCachedTrackId = null;
+    // 2. Check if a copy operation is already in flight
+    if (trackCopyPromises.has(cleanId)) {
+        return trackCopyPromises.get(cleanId)!;
+    }
 
-    cachePromise = (async () => {
+    // 3. Initiate asynchronous copy
+    const copyPromise = (async (): Promise<CachedAudioInfo | null> => {
         try {
             let filePath = fileSource;
 
@@ -97,7 +98,7 @@ async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSi
                 if (filePath.startsWith('/')) filePath = `file://${filePath}`;
             }
 
-            // Derive extension to preserve audio format in the temp file
+            // Derive extension
             let ext = 'mp3';
             const lastDot = filePath.lastIndexOf('.');
             if (lastDot !== -1 && !filePath.startsWith('content://')) {
@@ -105,25 +106,18 @@ async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSi
                 if (parsedExt && parsedExt.length <= 4) ext = parsedExt;
             }
 
-            const tempUri = `${FileSystem.cacheDirectory}temp_audio_cast.${ext}`;
+            const targetUri = `${FileSystem.cacheDirectory}cast_track_${cleanId}.${ext}`;
 
-            try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch { }
-            try { await FileSystem.deleteAsync(`${FileSystem.cacheDirectory}temp_audio_cast.mp3`, { idempotent: true }); } catch { }
-
-            await FileSystem.copyAsync({ from: filePath, to: tempUri });
-            filePath = tempUri;
-
-            // Stale check: another track was requested while we were copying
-            if (myVersion !== cacheVersion) {
-                console.log(`[LocalCastService] Stale cache discarded (version ${myVersion} < ${cacheVersion})`);
-                try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch { }
-                return null;
+            const fileCheck = await FileSystem.getInfoAsync(targetUri);
+            if (!fileCheck.exists || (fileCheck as any).size === 0) {
+                try { await FileSystem.deleteAsync(targetUri, { idempotent: true }); } catch { }
+                await FileSystem.copyAsync({ from: filePath, to: targetUri });
             }
 
-            // MIME detection via magic bytes (format-agnostic, works for content:// URIs)
+            // MIME detection via magic bytes
             let mimeType = 'audio/mpeg';
             try {
-                const headerB64 = await readFileChunk(tempUri, 0, 16);
+                const headerB64 = await readFileChunk(targetUri, 0, 16);
                 if (headerB64) {
                     if (headerB64.startsWith('ZkxhQ')) mimeType = 'audio/flac';
                     else if (headerB64.startsWith('T2dnUw')) mimeType = 'audio/ogg';
@@ -141,26 +135,83 @@ async function prepareTrackCache(track: any): Promise<{ filePath: string; fileSi
                 console.warn('[LocalCastService] Error reading magic bytes:', err);
             }
 
-            cachedMimeType = mimeType;
+            const fileInfo = await FileSystem.getInfoAsync(targetUri);
+            const fileSize = fileInfo.exists ? (fileInfo as any).size ?? 0 : 0;
 
-            const fileInfo = await FileSystem.getInfoAsync(filePath);
-            cachedFileSize = fileInfo.exists ? (fileInfo as any).size ?? 0 : 0;
-
-            currentCachedTrackId = trackId;
-            currentCachedTrackPath = filePath;
-            return filePath;
+            const result: CachedAudioInfo = { filePath: targetUri, fileSize, mimeType };
+            trackCacheMap.set(cleanId, result);
+            console.log(`[LocalCastService] Audio cached for trackId=${cleanId} (${(fileSize / (1024 * 1024)).toFixed(2)} MB, ${mimeType})`);
+            return result;
         } catch (err) {
-            console.error('[LocalCastService] Error preparing track cache:', err);
-            currentCachedTrackId = null;
-            currentCachedTrackPath = null;
-            cachePromise = null;
+            console.error(`[LocalCastService] Error preparing track cache for ${cleanId}:`, err);
             return null;
+        } finally {
+            trackCopyPromises.delete(cleanId);
         }
     })();
 
-    const filePath = await cachePromise;
-    if (!filePath) return null;
-    return { filePath, fileSize: cachedFileSize, mimeType: cachedMimeType };
+    trackCopyPromises.set(cleanId, copyPromise);
+    return copyPromise;
+}
+
+// ─── Proactive Next-Track Preloader ──────────────────────────────────────────
+async function preloadNextTrack(currentTrackIndex?: number): Promise<void> {
+    try {
+        const queue = await TrackPlayer.getQueue();
+        if (!queue || queue.length <= 1) return;
+
+        let idx = currentTrackIndex;
+        if (idx === undefined || idx === null) {
+            idx = await TrackPlayer.getActiveTrackIndex() ?? -1;
+        }
+        if (idx < 0 || idx >= queue.length) return;
+
+        const nextIdx = (idx + 1) % queue.length;
+        const nextTrack = queue[nextIdx];
+        if (!nextTrack) return;
+
+        const nextCleanId = nextTrack.id ? nextTrack.id.toString().split('-')[0] : '';
+        if (!nextCleanId) return;
+
+        // 1. Proactively cache audio in background
+        prepareTrackCache(nextTrack).catch(err => {
+            console.warn('[LocalCastService] Background pre-cache next audio error:', err);
+        });
+
+        // 2. Proactively cache album cover in background
+        try {
+            const trackModel = await database.get<Track>('tracks').find(nextCleanId);
+            const albumModel = await trackModel.album.fetch();
+            if (albumModel?.coverUrl) {
+                prepareCoverB64(nextCleanId, albumModel).catch(() => { });
+            }
+        } catch { }
+
+        // 3. Prune older tracks from cache to save storage space
+        pruneOldCaches([currentActiveCleanId || '', nextCleanId]);
+    } catch (err) {
+        console.warn('[LocalCastService] Error in preloadNextTrack:', err);
+    }
+}
+
+async function pruneOldCaches(keepCleanIds: string[]) {
+    try {
+        const keepSet = new Set(keepCleanIds.filter(Boolean));
+        for (const [cleanId, info] of trackCacheMap.entries()) {
+            if (!keepSet.has(cleanId)) {
+                try { await FileSystem.deleteAsync(info.filePath, { idempotent: true }); } catch { }
+                trackCacheMap.delete(cleanId);
+            }
+        }
+        // Limit cover cache memory
+        for (const cleanId of coverCacheMap.keys()) {
+            if (!keepSet.has(cleanId)) {
+                coverCacheMap.delete(cleanId);
+            }
+        }
+    } catch (e) {
+        console.warn('[LocalCastService] Error pruning old caches:', e);
+    }
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -178,7 +229,20 @@ export const LocalCastService = {
 
         // ── GET / — Web client HTML (LocalCast for PC) ──────────────────────
         server.get('/', async (_req, res) => {
-            res.html(getClientHtml(), 200);
+            const currentLang = i18n.language?.startsWith('es') ? 'es' : 'en';
+            const translations: LocalCastTranslations = {
+                appTitle: i18n.t('localcast_client.app_title', { defaultValue: 'MMPlayer LocalCast' }),
+                noSong: i18n.t('localcast_client.no_song', { defaultValue: 'No hay canción' }),
+                noLyrics: i18n.t('localcast_client.no_lyrics', { defaultValue: 'No hay letras cargadas' }),
+                streaming: i18n.t('localcast_client.streaming', { defaultValue: 'Transmitiendo' }),
+                playing: i18n.t('localcast_client.playing', { defaultValue: 'Reproduciendo' }),
+                retryingAudio: i18n.t('localcast_client.retrying_audio', { defaultValue: 'Reintentando audio...' }),
+                clickToUnmute: i18n.t('localcast_client.click_to_unmute', { defaultValue: 'Clic para activar audio' }),
+                clickToUnmuteLong: i18n.t('localcast_client.click_to_unmute_long', { defaultValue: 'Haga clic para activar audio' }),
+                brandName: 'MMPlayer',
+                lang: currentLang,
+            };
+            res.html(getClientHtml(translations), 200);
         });
 
         // ── GET /cast & /chromecast — CAF Web Receiver HTML ─────────────────
@@ -190,8 +254,6 @@ export const LocalCastService = {
         });
 
         // ── GET /api/state ────────────────────────────────────────────────────
-        // Returns playback metadata. Cover is NOT included here; the client
-        // uses `coverToken` to detect track changes and fetches /api/cover once.
         server.get('/api/state', async (_req, res) => {
             try {
                 const { useCastStore } = require('../store/useCastStore');
@@ -243,31 +305,38 @@ export const LocalCastService = {
                 const artist = track?.artist || 'Unknown Artist';
                 let lyricsLRC: string | null = null;
                 let coverToken: string | null = null;
+                const cleanId = track?.id ? track.id.toString().split('-')[0] : '';
+                currentActiveCleanId = cleanId;
 
-                if (track?.id) {
+                if (cleanId) {
                     try {
-                        const cleanId = track.id.toString().split('-')[0];
                         const trackModel = await database.get<Track>('tracks').find(cleanId);
                         lyricsLRC = trackModel.lyricsLRC || null;
 
                         const albumModel = await trackModel.album.fetch();
                         if (albumModel?.coverUrl) {
-                            // Fire-and-forget: first call starts the read, subsequent calls are instant
                             prepareCoverB64(cleanId, albumModel).catch(() => { });
-                            // Return token only once the cover is actually cached
-                            coverToken = cachedCoverTrackId === cleanId ? cleanId : null;
+                            coverToken = coverCacheMap.has(cleanId) ? cleanId : null;
                         }
                     } catch (dbErr) {
                         console.error('[LocalCastService] DB error in /api/state:', dbErr);
                     }
                 }
 
-                const cacheInfo = await prepareTrackCache(track);
+                // Use Promise.race so a slow file copy never blocks the HTTP response beyond 3s.
+                // If the timeout wins, respond with cached info or null — the next poll will retry.
+                const cacheInfo = await Promise.race([
+                    prepareTrackCache(track),
+                    new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+                ]);
                 const resolvedMime = cacheInfo?.mimeType ?? 'audio/mpeg';
                 const resolvedSize = cacheInfo?.fileSize ?? 0;
                 const fileName = cacheInfo?.filePath.split('/').pop() ?? null;
 
-                console.log(`[LocalCastService] /api/state → "${title}" | playing:${isPlaying} | pos:${Math.round(progress.position)}s | coverToken:${coverToken}`);
+                // Fire-and-forget next track pre-caching to eliminate transition wait
+                preloadNextTrack(activeIndex).catch(() => {});
+
+                console.log(`[LocalCastService] /api/state → "${title}" | playing:${isPlaying} | pos:${Math.round(progress.position)}s | file:${fileName}`);
 
                 res.json({
                     title,
@@ -275,7 +344,7 @@ export const LocalCastService = {
                     isPlaying,
                     position: progress.position,
                     duration: progress.duration,
-                    coverToken,           // ID used by client to detect cover changes
+                    coverToken,
                     lyricsLRC,
                     fileSize: resolvedSize,
                     mimeType: resolvedMime,
@@ -289,13 +358,18 @@ export const LocalCastService = {
         });
 
         // ── GET /api/cover ────────────────────────────────────────────────────
-        // Serves the cached cover art base64. Called by the client only when
-        // coverToken changes, not on every poll — so disk I/O is minimal.
-        server.get('/api/cover', async (_req, res) => {
-            res.json({
-                cover: cachedCoverB64 ? `data:image/jpeg;base64,${cachedCoverB64}` : null,
-                token: cachedCoverTrackId,
-            }, 200);
+        server.get('/api/cover', async (req, res) => {
+            try {
+                const url = new URL(req.url, 'http://localhost');
+                const requestedToken = url.searchParams.get('token') || currentActiveCleanId;
+                const b64 = requestedToken ? coverCacheMap.get(requestedToken) : null;
+                res.json({
+                    cover: b64 ? `data:image/jpeg;base64,${b64}` : null,
+                    token: requestedToken,
+                }, 200);
+            } catch {
+                res.json({ cover: null, token: null }, 200);
+            }
         });
 
         // ── POST /api/play ────────────────────────────────────────────────────
@@ -352,31 +426,47 @@ export const LocalCastService = {
             try { await server.stop(); } catch { }
             server = null;
         }
-        // Clean up temp audio file
-        if (currentCachedTrackPath) {
-            try { await FileSystem.deleteAsync(currentCachedTrackPath, { idempotent: true }); } catch { }
-            currentCachedTrackPath = null;
+
+        // Clean up all cached track audio files
+        for (const info of trackCacheMap.values()) {
+            try { await FileSystem.deleteAsync(info.filePath, { idempotent: true }); } catch { }
         }
-        try {
-            await FileSystem.deleteAsync(`${FileSystem.cacheDirectory}temp_cover.jpg`, { idempotent: true });
-        } catch { }
-        // Reset all caches
-        currentCachedTrackId = null;
-        cachePromise = null;
-        cacheVersion = 0;
+        trackCacheMap.clear();
+        trackCopyPromises.clear();
+        coverCacheMap.clear();
+        coverCachePending.clear();
+        currentActiveCleanId = null;
         playIntent = false;
-        cachedCoverTrackId = null;
-        cachedCoverB64 = null;
-        coverCachePending = null;
-        console.log('[LocalCastService] Server stopped, caches cleared');
+
+        console.log('[LocalCastService] Server stopped, all track caches cleared');
     },
 
     async prepareTrack(track: any) {
         return prepareTrackCache(track);
     },
 
-    async prepareCover(trackId: string, albumModel: any) {
-        return prepareCoverB64(trackId, albumModel);
+    async prepareCover(cleanId: string, albumModel: any) {
+        if (albumModel?.coverUrl) {
+            const staticCoverUri = `${FileSystem.cacheDirectory}temp_cover.jpg`;
+            try {
+                if (albumModel.coverUrl.startsWith('content://')) {
+                    try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
+                    await FileSystem.copyAsync({ from: albumModel.coverUrl, to: staticCoverUri });
+                } else {
+                    let coverPath = albumModel.coverUrl;
+                    if (coverPath.startsWith('/')) coverPath = `file://${coverPath}`;
+                    try { await FileSystem.deleteAsync(staticCoverUri, { idempotent: true }); } catch { }
+                    await FileSystem.copyAsync({ from: coverPath, to: staticCoverUri });
+                }
+            } catch (e) {
+                console.error('[LocalCastService] Error preparing static cover for Chromecast:', e);
+            }
+        }
+        return prepareCoverB64(cleanId, albumModel);
+    },
+
+    async triggerPreloadNext(currentIndex?: number) {
+        return preloadNextTrack(currentIndex);
     },
 
     isServerRunning() {

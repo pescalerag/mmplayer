@@ -327,6 +327,15 @@ const PlayerScreenUI = ({
 
     const [isTransitioning, setIsTransitioning] = React.useState(false);
 
+    // ── Shared values for swipe gesture (worklet-safe, no stale closures) ─────────────────────────────
+    // panGesture runs in a Reanimated worklet and cannot safely read React state via
+    // closure — the value freezes at render time. Using shared values ensures the
+    // worklet always sees the current value even after drag reorders update the store.
+    const hasNextShared = useSharedValue(hasNext);
+    const hasPreviousShared = useSharedValue(hasPrevious);
+    useEffect(() => { hasNextShared.value = hasNext; }, [hasNext, hasNextShared]);
+    useEffect(() => { hasPreviousShared.value = hasPrevious; }, [hasPrevious, hasPreviousShared]);
+
     React.useEffect(() => {
         if (!isFocused) {
             setIsTransitioning(false);
@@ -592,6 +601,9 @@ const PlayerScreenUI = ({
     const performSkipNext = async () => {
         try {
             await TrackPlayer.skipToNext();
+            // Immediately bump windowVersion so adjacent slots in the swipe view refresh
+            // without waiting for the full PlaybackActiveTrackChanged event chain
+            usePlayerStore.setState((s: any) => ({ windowVersion: (s.windowVersion || 0) + 1 }));
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
@@ -600,10 +612,30 @@ const PlayerScreenUI = ({
     const performSkipPrevious = async () => {
         try {
             await TrackPlayer.skipToPrevious();
+            usePlayerStore.setState((s: any) => ({ windowVersion: (s.windowVersion || 0) + 1 }));
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
     };
+
+    // Derive hasNext/hasPrevious from the live queue at gesture time (not the potentially
+    // stale Zustand values) so swipe is never blocked after a drag reorder.
+    const getCanSkipNext = React.useCallback(async () => {
+        try {
+            const queue = await TrackPlayer.getQueue();
+            const idx = await TrackPlayer.getActiveTrackIndex();
+            if (idx === undefined || idx === null) return false;
+            return idx < queue.length - 1;
+        } catch { return hasNext; }
+    }, [hasNext]);
+
+    const getCanSkipPrevious = React.useCallback(async () => {
+        try {
+            const idx = await TrackPlayer.getActiveTrackIndex();
+            if (idx === undefined || idx === null) return false;
+            return idx > 0;
+        } catch { return hasPrevious; }
+    }, [hasPrevious]);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
@@ -611,13 +643,13 @@ const PlayerScreenUI = ({
         .onUpdate((event) => {
             let tx = event.translationX;
 
-            // Bloquear deslizamiento a la izquierda si no hay canción siguiente
-            if (!hasNext && tx < 0) {
+            // Block left swipe if there is no next track
+            if (!hasNextShared.value && tx < 0) {
                 tx = 0;
             }
 
-            // Bloquear deslizamiento a la derecha si no hay canción anterior
-            if (!hasPrevious && tx > 0) {
+            // Block right swipe if there is no previous track
+            if (!hasPreviousShared.value && tx > 0) {
                 tx = 0;
             }
 
@@ -634,14 +666,14 @@ const PlayerScreenUI = ({
             const SWIPE_THRESHOLD = width * 0.25;
             const velocityX = event.velocityX;
 
-            if ((translateX.value < -SWIPE_THRESHOLD || velocityX < -400) && hasNext) {
-                // Animar a -width y llamar al skip. translateX se reseteará a 0 automáticamente al cambiar el track.id
+            if ((translateX.value < -SWIPE_THRESHOLD || velocityX < -400) && hasNextShared.value) {
+                // Animate off-screen and call skip. translateX resets to 0 when track.id changes.
                 translateX.value = withTiming(-width, { duration: 220 }, (finished) => {
                     if (finished) {
                         runOnJS(performSkipNext)();
                     }
                 });
-            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && hasPrevious) {
+            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && hasPreviousShared.value) {
                 translateX.value = withTiming(width, { duration: 220 }, (finished) => {
                     if (finished) {
                         runOnJS(performSkipPrevious)();

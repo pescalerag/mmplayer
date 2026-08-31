@@ -3,6 +3,7 @@ import { LocalCastService } from '../services/LocalCastService';
 import * as Network from 'expo-network';
 import TrackPlayer from 'react-native-track-player';
 import { useABRepeatStore } from './useABRepeatStore';
+import { acquireCastWakeLock, releaseCastWakeLock } from '../../modules/native-audio-scanner';
 
 interface CastState {
     isServerRunning: boolean;
@@ -91,6 +92,9 @@ export const useCastStore = create<CastState>((set, get) => ({
 
             await LocalCastService.start(port);
 
+            // Acquire CPU WakeLock and High Performance Wi-Fi Lock
+            await acquireCastWakeLock();
+
             // Read the current volume to restore it later, then set volume to 0
             const currentVol = await TrackPlayer.getVolume();
             const safeVolume = (currentVol !== undefined && currentVol > 0.05) 
@@ -116,6 +120,7 @@ export const useCastStore = create<CastState>((set, get) => ({
             return serverUrl;
         } catch (error: any) {
             console.error("[useCastStore] Failed to start cast server:", error);
+            await releaseCastWakeLock();
             throw error;
         }
     },
@@ -123,6 +128,9 @@ export const useCastStore = create<CastState>((set, get) => ({
     stopServer: async () => {
         try {
             await LocalCastService.stop();
+            // Release CPU & Wi-Fi locks
+            await releaseCastWakeLock();
+
             // Restore previous volume safely
             const prevVol = (get().previousVolume !== undefined && get().previousVolume > 0.05)
                 ? get().previousVolume
@@ -131,6 +139,7 @@ export const useCastStore = create<CastState>((set, get) => ({
             set({ isServerRunning: false, isLocalCastActive: false, serverIp: '' });
         } catch (error) {
             console.error("[useCastStore] Failed to stop cast server:", error);
+            await releaseCastWakeLock();
         }
     },
 

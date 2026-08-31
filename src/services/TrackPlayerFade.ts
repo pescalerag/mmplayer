@@ -52,6 +52,14 @@ TrackPlayer.seekTo = async (position: number) => {
 // Override getPlaybackState
 TrackPlayer.getPlaybackState = async () => {
   const originalState = await originalGetPlaybackState();
+  const { useCastStore } = require('../store/useCastStore');
+  const isCasting = useCastStore.getState().isServerRunning;
+
+  if (isCasting) {
+    setIsFadingOut(false);
+    return originalState;
+  }
+
   const isNativePaused = 
     originalState.state === State.Paused || 
     originalState.state === State.Stopped || 
@@ -73,10 +81,16 @@ TrackPlayer.setVolume = async (volume: number) => {
   const { useCastStore } = require('../store/useCastStore');
   const isCasting = useCastStore.getState().isServerRunning;
 
+  if (isCasting) {
+    clearFadeInterval();
+    setIsFadingOut(false);
+    currentVolume = 0;
+    return originalSetVolume(0);
+  }
+
   if (volume > 0.05) {
     targetVolume = volume;
-  } else if (!isCasting && volume === 0) {
-    // Only explicit user volume 0 when not casting updates targetVolume
+  } else if (volume === 0) {
     targetVolume = 0;
   }
 
@@ -191,16 +205,23 @@ TrackPlayer.play = async (bypassFade = false) => {
 
 // Override pause
 TrackPlayer.pause = async (bypassFade = false) => {
+  const { useCastStore } = require('../store/useCastStore');
+  const castState = useCastStore.getState();
+
   try {
-    const { useCastStore } = require('../store/useCastStore');
-    if (useCastStore.getState().isChromecastConnected) {
+    if (castState.isChromecastConnected) {
       const { ChromecastService } = require('./ChromecastService');
       ChromecastService.pause();
     }
   } catch (e) {}
 
+  // When LocalCast (or Chromecast) is active the phone volume is already 0.
+  // Doing a fade-out via BackgroundTimer.setInterval is pointless and,
+  // critically, Android freezes those intervals when the screen is off —
+  // leaving the native player stuck in Playing state and never pausing.
+  const isCasting = castState.isServerRunning;
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
-  if (!isFadeEnabled) {
+  if (!isFadeEnabled || isCasting) {
     bypassFade = true;
   }
 

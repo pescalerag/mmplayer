@@ -129,3 +129,39 @@ export async function updateWidget(
 ): Promise<void> {
   return await NativeAudioScannerModule.updateWidget(title, artist, coverUri, isPlaying);
 }
+
+export async function acquireCastWakeLock(): Promise<boolean> {
+  try {
+    return await NativeAudioScannerModule.acquireCastWakeLock();
+  } catch (e) {
+    console.warn('[NativeAudioScanner] acquireCastWakeLock error:', e);
+    return false;
+  }
+}
+
+export async function releaseCastWakeLock(): Promise<boolean> {
+  try {
+    return await NativeAudioScannerModule.releaseCastWakeLock();
+  } catch (e) {
+    console.warn('[NativeAudioScanner] releaseCastWakeLock error:', e);
+    return false;
+  }
+}
+
+export async function isBatteryOptimizationIgnored(): Promise<boolean> {
+  try {
+    return await NativeAudioScannerModule.isBatteryOptimizationIgnored();
+  } catch (e) {
+    console.warn('[NativeAudioScanner] isBatteryOptimizationIgnored error:', e);
+    return true;
+  }
+}
+
+export async function requestIgnoreBatteryOptimizations(): Promise<boolean> {
+  try {
+    return await NativeAudioScannerModule.requestIgnoreBatteryOptimizations();
+  } catch (e) {
+    console.warn('[NativeAudioScanner] requestIgnoreBatteryOptimizations error:', e);
+    return false;
+  }
+}

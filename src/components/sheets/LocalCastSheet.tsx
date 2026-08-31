@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  AppState,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,6 +17,10 @@ import { useActiveTrack } from 'react-native-track-player';
 import { ChromecastService } from '../../services/ChromecastService';
 import { useCastStore } from '../../store/useCastStore';
 import { useToastStore } from '../../store/useToastStore';
+import {
+  isBatteryOptimizationIgnored,
+  requestIgnoreBatteryOptimizations,
+} from '../../../modules/native-audio-scanner';
 
 export default function LocalCastSheet() {
   const { colors, fonts } = useAppTheme();
@@ -39,10 +45,29 @@ export default function LocalCastSheet() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [castVolume, setCastVolume] = useState(0.8);
+  const [isBatteryIgnored, setIsBatteryIgnored] = useState(true);
+
+  const checkBattery = async () => {
+    if (Platform.OS === 'android') {
+      const isIgnored = await isBatteryOptimizationIgnored();
+      setIsBatteryIgnored(isIgnored);
+    }
+  };
 
   useEffect(() => {
     ChromecastService.init();
+    checkBattery();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        checkBattery();
+      }
+    });
+    return () => sub.remove();
   }, []);
+
+  const handleRequestBattery = async () => {
+    await requestIgnoreBatteryOptimizations();
+  };
 
   // Determine current active mode
   const activeMode = isChromecastConnected || isChromecastConnecting
@@ -140,12 +165,7 @@ export default function LocalCastSheet() {
               <Ionicons name="desktop-outline" size={28} color={colors.accentLight || '#A78BFA'} />
             </View>
             <View style={styles.optionContent}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.optionTitle}>{t('cast.option_local')}</Text>
-                <View style={styles.betaBadge}>
-                  <Text style={styles.betaBadgeText}>BETA</Text>
-                </View>
-              </View>
+              <Text style={styles.optionTitle}>{t('cast.option_local')}</Text>
               <Text style={styles.optionDesc}>{t('cast.option_local_desc')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
@@ -195,12 +215,7 @@ export default function LocalCastSheet() {
             </TouchableOpacity>
           )}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: !isLocalCastActive ? 8 : 0 }}>
-            <Text style={styles.headerLabel}>{t('cast.title')}</Text>
-            <View style={styles.betaBadge}>
-              <Text style={styles.betaBadgeText}>BETA</Text>
-            </View>
-          </View>
+          <Text style={[styles.headerLabel, { marginTop: !isLocalCastActive ? 8 : 0 }]}>{t('cast.title')}</Text>
           <Text style={styles.headerTitle}>
             {isLocalCastActive ? t('cast.status_active') : t('cast.status_idle')}
           </Text>
@@ -227,6 +242,29 @@ export default function LocalCastSheet() {
         ) : (
           <View style={styles.ipContainer}>
             <Text style={styles.idleText}>{t('cast.idle_desc')}</Text>
+          </View>
+        )}
+
+        {/* Battery Optimization Card (Android) */}
+        {Platform.OS === 'android' && !isBatteryIgnored && (
+          <View style={styles.batteryCard}>
+            <View style={styles.batteryHeader}>
+              <View style={styles.batteryIconCircle}>
+                <Ionicons name="battery-charging" size={20} color="#F59E0B" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.batteryTitle}>{t('cast.battery_opt_title')}</Text>
+                <Text style={styles.batteryDesc}>{t('cast.battery_opt_desc')}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.batteryButton}
+              onPress={handleRequestBattery}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="flash" size={15} color="#000" style={{ marginRight: 6 }} />
+              <Text style={styles.batteryButtonText}>{t('cast.battery_opt_button')}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -715,5 +753,53 @@ const getStyles = (colors: any, fonts: any) =>
       textAlign: 'center',
       lineHeight: 18,
       marginBottom: 16,
+    },
+    batteryCard: {
+      backgroundColor: 'rgba(245, 158, 11, 0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(245, 158, 11, 0.25)',
+      borderRadius: 16,
+      padding: 14,
+      marginTop: 4,
+      marginBottom: 16,
+      gap: 12,
+    },
+    batteryHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    batteryIconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    batteryTitle: {
+      color: '#F59E0B',
+      fontSize: 14,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+    batteryDesc: {
+      color: colors.textSecondary || '#94A3B8',
+      fontSize: 12,
+      lineHeight: 16,
+    },
+    batteryButton: {
+      backgroundColor: '#F59E0B',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+    },
+    batteryButtonText: {
+      color: '#000000',
+      fontSize: 13,
+      fontWeight: '800',
     },
   });

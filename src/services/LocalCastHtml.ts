@@ -1,10 +1,37 @@
-export function getClientHtml(): string {
+export interface LocalCastTranslations {
+    appTitle?: string;
+    noSong?: string;
+    noLyrics?: string;
+    streaming?: string;
+    playing?: string;
+    retryingAudio?: string;
+    clickToUnmute?: string;
+    clickToUnmuteLong?: string;
+    brandName?: string;
+    lang?: string;
+}
+
+export function getClientHtml(customTranslations?: Partial<LocalCastTranslations>): string {
+    const t: LocalCastTranslations = {
+        appTitle: 'MMPlayer LocalCast',
+        noSong: 'No hay canción',
+        noLyrics: 'No hay letras cargadas',
+        streaming: 'Transmitiendo',
+        playing: 'Reproduciendo',
+        retryingAudio: 'Reintentando audio...',
+        clickToUnmute: 'Clic para activar audio',
+        clickToUnmuteLong: 'Haga clic para activar audio',
+        brandName: 'MMPlayer',
+        lang: 'es',
+        ...customTranslations,
+    };
+
     return `<!DOCTYPE html>
-<html lang="es">
+<html lang="${t.lang || 'es'}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MMPlayer LocalCast</title>
+    <title>${t.appTitle}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -69,6 +96,35 @@ export function getClientHtml(): string {
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             z-index: 2;
             overflow: hidden;
+            transition: max-width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), padding 0.45s ease;
+        }
+
+        .main-container.no-lyrics {
+            max-width: 560px;
+            justify-content: center;
+            align-items: center;
+            padding: 48px 40px;
+            gap: 0;
+        }
+
+        .main-container.no-lyrics .right-column {
+            display: none;
+        }
+
+        .main-container.no-lyrics .left-column {
+            flex: 1;
+            max-width: 100%;
+            width: 100%;
+            align-items: center;
+        }
+
+        .main-container.no-lyrics .artwork-wrapper {
+            width: 340px;
+            height: 340px;
+        }
+
+        .main-container.no-lyrics .status-wrapper {
+            align-self: center !important;
         }
 
         .left-column {
@@ -80,6 +136,7 @@ export function getClientHtml(): string {
             height: 100%;
             max-width: 520px;
             gap: 24px;
+            transition: all 0.45s ease;
         }
 
         .artwork-wrapper {
@@ -91,6 +148,7 @@ export function getClientHtml(): string {
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
             flex-shrink: 0;
             background-color: #1a1e24;
+            transition: width 0.45s ease, height 0.45s ease;
         }
 
         .cover {
@@ -159,9 +217,10 @@ export function getClientHtml(): string {
         .progress-fill {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #8B5CF6, #EC4899);
+            background: #FFFFFF;
             border-radius: 6px;
             transition: width 0.2s linear;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
         }
 
         .time-container {
@@ -170,6 +229,95 @@ export function getClientHtml(): string {
             font-size: 13px;
             font-weight: 600;
             color: #64748B;
+        }
+
+        .volume-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 4px 0;
+            margin-top: 2px;
+        }
+
+        .volume-btn {
+            background: transparent;
+            border: none;
+            color: #94A3B8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            border-radius: 8px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .volume-btn:hover {
+            color: #FFFFFF;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .volume-slider-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.12);
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5), 0 0 4px rgba(255, 255, 255, 0.6);
+            transition: transform 0.15s ease, background 0.2s ease;
+        }
+
+        .volume-slider:hover::-webkit-slider-thumb {
+            transform: scale(1.25);
+            background: #A78BFA;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+            transition: transform 0.15s ease;
+        }
+
+        .volume-slider:hover::-moz-range-thumb {
+            transform: scale(1.25);
+            background: #A78BFA;
+        }
+
+        .volume-percent {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748B;
+            min-width: 38px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
         }
 
         .status-badge {
@@ -187,7 +335,7 @@ export function getClientHtml(): string {
             text-transform: uppercase;
         }
 
-        .beta-badge {
+        .brand-badge {
             display: inline-flex;
             align-items: center;
             padding: 4px 10px;
@@ -269,7 +417,7 @@ export function getClientHtml(): string {
                 <img id="cover" class="cover" src="" alt="Album Cover">
             </div>
             <div class="info-wrapper">
-                <div id="title" class="title">No hay canción</div>
+                <div id="title" class="title">${t.noSong}</div>
                 <div id="artist" class="artist"></div>
             </div>
             <div class="player-controls">
@@ -282,22 +430,36 @@ export function getClientHtml(): string {
                         <span id="time-total">0:00</span>
                     </div>
                 </div>
+                <div class="volume-container">
+                    <button id="volume-btn" class="volume-btn" aria-label="Volumen" title="Silenciar / Activar sonido">
+                        <svg id="vol-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                    </button>
+                    <div class="volume-slider-wrapper">
+                        <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" class="volume-slider">
+                    </div>
+                    <span id="volume-percent" class="volume-percent">100%</span>
+                </div>
             </div>
             <audio id="audio-player" preload="auto"></audio>
-            <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: flex-start;">
-                <div class="status-badge" id="sync-status">No hay canción</div>
-                <div class="beta-badge">MMPlayer</div>
+            <div class="status-wrapper" style="display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: flex-start;">
+                <div class="status-badge" id="sync-status">${t.noSong}</div>
+                <div class="brand-badge">${t.brandName}</div>
             </div>
         </div>
 
         <div class="right-column">
             <div id="lyrics-scroller" class="lyrics-scroller">
-                <div class="lyric-line" style="text-align: center;">No hay letras cargadas</div>
+                <div class="lyric-line" style="text-align: center;">${t.noLyrics}</div>
             </div>
         </div>
     </div>
 
     <script>
+        const i18n             = ${JSON.stringify(t)};
+        const mainContainer    = document.querySelector('.main-container');
         const audioPlayer      = document.getElementById('audio-player');
         const titleEl          = document.getElementById('title');
         const artistEl         = document.getElementById('artist');
@@ -308,8 +470,63 @@ export function getClientHtml(): string {
         const progressFill     = document.getElementById('progress-fill');
         const timeCurrentEl    = document.getElementById('time-current');
         const timeTotalEl      = document.getElementById('time-total');
+        const volumeSlider     = document.getElementById('volume-slider');
+        const volumePercent    = document.getElementById('volume-percent');
+        const volumeBtn        = document.getElementById('volume-btn');
+        const volIcon          = document.getElementById('vol-icon');
 
-        audioPlayer.volume = 1.0;
+        // Local browser-only volume persistence
+        let savedVol = localStorage.getItem('mmplayer_cast_volume');
+        let initialVolume = savedVol !== null ? parseFloat(savedVol) : 1.0;
+        if (isNaN(initialVolume) || initialVolume < 0 || initialVolume > 1) {
+            initialVolume = 1.0;
+        }
+        audioPlayer.volume = initialVolume;
+        volumeSlider.value = initialVolume;
+        let lastNonZeroVolume = initialVolume > 0 ? initialVolume : 1.0;
+        updateVolumeUI(initialVolume);
+
+        function updateVolumeUI(vol) {
+            const pct = Math.round(vol * 100);
+            volumePercent.innerText = pct + '%';
+            const percentage = vol * 100;
+            volumeSlider.style.background = 'linear-gradient(to right, #FFFFFF ' + percentage + '%, rgba(255, 255, 255, 0.12) ' + percentage + '%)';
+
+            if (vol === 0) {
+                volIcon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>';
+                volumeBtn.style.color = '#EF4444';
+            } else if (vol < 0.5) {
+                volIcon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>';
+                volumeBtn.style.color = '#94A3B8';
+            } else {
+                volIcon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>';
+                volumeBtn.style.color = '#94A3B8';
+            }
+        }
+
+        volumeSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            audioPlayer.volume = val;
+            if (val > 0) lastNonZeroVolume = val;
+            localStorage.setItem('mmplayer_cast_volume', val.toString());
+            updateVolumeUI(val);
+        });
+
+        volumeBtn.addEventListener('click', () => {
+            if (audioPlayer.volume > 0) {
+                lastNonZeroVolume = audioPlayer.volume;
+                audioPlayer.volume = 0;
+                volumeSlider.value = 0;
+                localStorage.setItem('mmplayer_cast_volume', '0');
+                updateVolumeUI(0);
+            } else {
+                const target = lastNonZeroVolume || 1.0;
+                audioPlayer.volume = target;
+                volumeSlider.value = target;
+                localStorage.setItem('mmplayer_cast_volume', target.toString());
+                updateVolumeUI(target);
+            }
+        });
 
         let currentSongTitle   = "";
         let isFetchingAudio    = false;
@@ -319,8 +536,26 @@ export function getClientHtml(): string {
         let lastActionTime     = 0;
         let currentLyricsLRC   = null;
         let currentCoverToken  = null;
+        let pollTimeoutId      = null;
 
         const FALLBACK_COVER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2'><rect width='20' height='20' x='2' y='2' rx='2'/><circle cx='12' cy='12' r='4'/></svg>";
+
+        function scheduleNextPoll(delayMs) {
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+            }
+            pollTimeoutId = setTimeout(() => {
+                updateState();
+            }, delayMs);
+        }
+
+        function triggerImmediateUpdate() {
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+                pollTimeoutId = null;
+            }
+            updateState();
+        }
 
         function resetToIdle(statusMessage) {
             audioPlayer.pause();
@@ -330,7 +565,7 @@ export function getClientHtml(): string {
             currentCoverToken  = null;
             currentActiveIndex = -1;
             
-            titleEl.innerText  = "No hay canción";
+            titleEl.innerText  = i18n.noSong;
             artistEl.innerText = "";
             updateCover(null);
             renderLyrics('');
@@ -338,7 +573,7 @@ export function getClientHtml(): string {
             timeCurrentEl.innerText  = '0:00';
             timeTotalEl.innerText    = '0:00';
             
-            statusEl.innerText = statusMessage || "No hay canción";
+            statusEl.innerText = statusMessage || i18n.noSong;
             statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
             statusEl.style.color = "#FCA5A5";
             statusEl.style.cursor = "default";
@@ -354,7 +589,7 @@ export function getClientHtml(): string {
                 return;
             }
             try {
-                const resp = await fetch('/api/cover');
+                const resp = await fetch('/api/cover?token=' + encodeURIComponent(token));
                 const data = await resp.json();
                 if (data.cover) {
                     coverEl.src = data.cover;
@@ -415,10 +650,11 @@ export function getClientHtml(): string {
             lyricsScroller.innerHTML = '';
             lyricsScroller.style.transform = 'translateY(0px)';
 
-            if (lyrics.length === 0) {
-                lyricsScroller.innerHTML = '<div class="lyric-line" style="text-align:center;">No hay letras cargadas</div>';
+            if (!lyrics || lyrics.length === 0) {
+                mainContainer.classList.add('no-lyrics');
                 return;
             }
+            mainContainer.classList.remove('no-lyrics');
             lyrics.forEach((item, index) => {
                 const div = document.createElement('div');
                 div.className = 'lyric-line';
@@ -460,7 +696,7 @@ export function getClientHtml(): string {
         function tryPlayAudio() {
             isAutoplayBlocked = false;
             audioPlayer.play().then(() => {
-                statusEl.innerText = "Reproduciendo";
+                statusEl.innerText = i18n.playing;
                 statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
                 statusEl.style.color = "#A78BFA";
                 statusEl.style.cursor = "default";
@@ -468,7 +704,7 @@ export function getClientHtml(): string {
             }).catch(err => {
                 if (err.name === 'NotAllowedError') {
                     isAutoplayBlocked = true;
-                    statusEl.innerText = "Haga clic para activar audio";
+                    statusEl.innerText = i18n.clickToUnmuteLong;
                     statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
                     statusEl.style.color = "#FCA5A5";
                     statusEl.style.cursor = "pointer";
@@ -482,78 +718,115 @@ export function getClientHtml(): string {
                 tryPlayAudio();
             }
         });
+        let isPolling = false; // Re-entrancy guard — prevents concurrent updateState calls
 
         async function updateState() {
+            // If already running, skip this tick — next scheduleNextPoll will retry
+            if (isPolling) return;
+            isPolling = true;
+
+            let nextPollInterval = 2500;
             try {
-                const response = await fetch('/api/state');
-                if (!response.ok) {
-                    throw new Error('Response not OK');
+                const controller = new AbortController();
+                const timeoutId  = setTimeout(() => controller.abort(), 4000); // 4s hard timeout
+
+                let response;
+                try {
+                    response = await fetch('/api/state', { signal: controller.signal });
+                } finally {
+                    clearTimeout(timeoutId);
                 }
+
+                if (!response.ok) throw new Error('Response not OK: ' + response.status);
+
                 const state = await response.json();
 
+                // ── Idle / stopped ────────────────────────────────────────────
                 if (!state.title || state.isStopped) {
-                    resetToIdle("No hay canción");
+                    isFetchingAudio = false; // Always reset on idle
+                    resetToIdle(i18n.noSong);
+                    nextPollInterval = 2000;
                     return;
                 }
 
-                if (state.coverToken !== currentCoverToken) {
-                    updateCover(state.coverToken);
+                // ── Cover (non-blocking, best-effort retry) ───────────────────
+                if (state.coverToken && state.coverToken !== currentCoverToken) {
+                    updateCover(state.coverToken); // fire-and-forget; updateCover guards dedup internally
                 }
 
+                // ── New song loaded ───────────────────────────────────────────
                 if (currentSongTitle !== state.title && !isFetchingAudio) {
-                    currentSongTitle  = state.title;
-                    isFetchingAudio   = true;
-                    isAutoplayBlocked = false;
-                    lastActionTime    = Date.now();
+                    isFetchingAudio = true;
+                    try {
+                        currentSongTitle  = state.title;
+                        isAutoplayBlocked = false;
+                        lastActionTime    = Date.now();
 
-                    titleEl.innerText  = state.title;
-                    artistEl.innerText = state.artist;
+                        titleEl.innerText  = state.title;
+                        artistEl.innerText = state.artist || '';
 
-                    currentLyricsLRC   = state.lyricsLRC;
-                    renderLyrics(state.lyricsLRC);
-
-                    if (state.mediaFileName) {
-                        const mediaUrl = '/static/' + state.mediaFileName + '?t=' + Date.now();
-
-                        audioPlayer.removeAttribute('src');
-                        audioPlayer.src = mediaUrl;
-
-                        if (state.position > 0) {
-                            audioPlayer.currentTime = state.position;
+                        // Lyrics
+                        if (currentLyricsLRC !== state.lyricsLRC) {
+                            currentLyricsLRC = state.lyricsLRC;
+                            renderLyrics(state.lyricsLRC);
                         }
 
-                        audioPlayer.play().then(() => {
-                            statusEl.innerText = "Transmitiendo";
-                            statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
-                            statusEl.style.color = "#A78BFA";
-                        }).catch(err => {
-                            if (err.name === 'NotAllowedError') {
-                                isAutoplayBlocked = true;
-                                statusEl.innerText = "Clic para activar audio";
-                                statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-                                statusEl.style.color = "#FCA5A5";
-                                statusEl.style.cursor = "pointer";
-                                statusEl.onclick = () => tryPlayAudio();
+                        // Audio
+                        if (state.mediaFileName) {
+                            const mediaUrl = '/static/' + state.mediaFileName + '?t=' + Date.now();
+                            audioPlayer.removeAttribute('src');
+                            audioPlayer.src = mediaUrl;
+                            if (state.position > 1) {
+                                audioPlayer.currentTime = state.position;
                             }
-                        });
+                            audioPlayer.play().then(() => {
+                                statusEl.innerText = i18n.streaming;
+                                statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
+                                statusEl.style.color = "#A78BFA";
+                                statusEl.style.cursor = "default";
+                                statusEl.onclick = null;
+                            }).catch(err => {
+                                if (err.name === 'NotAllowedError') {
+                                    isAutoplayBlocked = true;
+                                    statusEl.innerText = i18n.clickToUnmute;
+                                    statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
+                                    statusEl.style.color = "#FCA5A5";
+                                    statusEl.style.cursor = "pointer";
+                                    statusEl.onclick = () => tryPlayAudio();
+                                }
+                            });
+                        }
+
+                        // Schedule a quick follow-up to fetch cover/lyrics that may not be ready yet
+                        nextPollInterval = 800;
+                    } finally {
+                        isFetchingAudio = false; // Always release, even if something threw
                     }
-                    isFetchingAudio = false;
+
+                // ── Same song playing — keep in sync ─────────────────────────
                 } else if (!isFetchingAudio) {
+                    // Cover retry: if server didn't have it cached on first poll, retry
+                    if (state.coverToken && state.coverToken !== currentCoverToken) {
+                        updateCover(state.coverToken);
+                    }
+
+                    // Lyrics update (may arrive a cycle late if LRC is large)
                     if (currentLyricsLRC !== state.lyricsLRC) {
                         currentLyricsLRC = state.lyricsLRC;
                         renderLyrics(state.lyricsLRC);
                         syncLyrics(audioPlayer.currentTime);
                     }
 
+                    // Playback sync — throttled by lastActionTime to avoid fighting user clicks
                     if (Date.now() - lastActionTime > 400) {
-                        const isNearEnd = audioPlayer.duration && (audioPlayer.currentTime > audioPlayer.duration - 2);
+                        const isNearEnd  = audioPlayer.duration && (audioPlayer.currentTime > audioPlayer.duration - 2);
                         const shouldPlay = state.isPlaying && !audioPlayer.ended && !isNearEnd;
 
                         if (shouldPlay && audioPlayer.paused && !isAutoplayBlocked && !audioPlayer.error) {
                             audioPlayer.play().catch(err => {
                                 if (err.name === 'NotAllowedError') {
                                     isAutoplayBlocked = true;
-                                    statusEl.innerText = "Clic para activar audio";
+                                    statusEl.innerText = i18n.clickToUnmute;
                                     statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
                                     statusEl.style.color = "#FCA5A5";
                                     statusEl.style.cursor = "pointer";
@@ -565,31 +838,33 @@ export function getClientHtml(): string {
                         }
 
                         if (audioPlayer.duration && !audioPlayer.seeking) {
-                            const timeDifference = Math.abs(audioPlayer.currentTime - state.position);
-                            if (timeDifference > 2) {
+                            const drift = Math.abs(audioPlayer.currentTime - state.position);
+                            if (drift > 3) {
                                 audioPlayer.currentTime = state.position;
                             }
                         }
                     }
 
-                    if (!isAutoplayBlocked && !audioPlayer.error) {
-                        statusEl.innerText = "Transmitiendo";
-                        statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
-                        statusEl.style.color = "#A78BFA";
-                    }
+                    nextPollInterval = state.isPlaying ? 2500 : 2000;
                 }
 
             } catch (error) {
-                resetToIdle("No hay canción");
+                // Network / timeout error — reset zombie variables and retry
+                isFetchingAudio = false;
+                console.warn('[LocalCast] Poll error:', error && error.message);
+                nextPollInterval = 1500;
+            } finally {
+                isPolling = false; // Always release re-entrancy guard
+                scheduleNextPoll(nextPollInterval);
             }
         }
 
         audioPlayer.ontimeupdate = () => {
-            const current = audioPlayer.currentTime;
+            const current  = audioPlayer.currentTime;
             const duration = audioPlayer.duration || 1;
             progressFill.style.width = ((current / duration) * 100) + '%';
             timeCurrentEl.innerText  = formatTime(current);
-            timeTotalEl.innerText    = formatTime(duration);
+            timeTotalEl.innerText    = formatTime(audioPlayer.duration || 0);
             syncLyrics(current);
         };
 
@@ -600,23 +875,27 @@ export function getClientHtml(): string {
         };
 
         audioPlayer.onended = () => {
-            fetch('/api/next', { method: 'POST' }).catch(() => {});
+            fetch('/api/next', { method: 'POST' })
+                .catch(() => {})
+                .finally(() => {
+                    currentSongTitle = ''; // Force next poll to treat next song as new
+                    triggerImmediateUpdate();
+                });
         };
 
         audioPlayer.onerror = () => {
             const err = audioPlayer.error;
-            console.error("[AudioErrorEvent] Audio player error:", err);
-            statusEl.innerText = "Reintentando audio...";
+            console.error("[AudioErrorEvent] Audio player error:", err ? err.code : 'unknown');
+            isFetchingAudio  = false; // Unblock zombie on media error
+            currentSongTitle = '';    // Force reload on next poll
+            statusEl.innerText = i18n.retryingAudio;
             statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
             statusEl.style.color = "#FCA5A5";
-            setTimeout(() => {
-                currentSongTitle = "";
-                updateState();
-            }, 1200);
+            scheduleNextPoll(1500);
         };
 
-        setInterval(updateState, 750);
-        updateState();
+        // Initial launch
+        triggerImmediateUpdate();
     </script>
 </body>
 </html>`;

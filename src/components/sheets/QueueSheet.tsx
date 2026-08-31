@@ -172,7 +172,11 @@ export default function QueueSheet() {
     useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async () => {
         if (isReordering.current) return;
         try {
-            const idx = await TrackPlayer.getActiveTrackIndex();
+            const [fullQueue, idx] = await Promise.all([
+                TrackPlayer.getQueue(),
+                TrackPlayer.getActiveTrackIndex(),
+            ]);
+            if (fullQueue) setQueue(fullQueue);
             if (idx !== undefined && idx !== null) setActiveIndex(idx);
         } catch (e) {
             console.error('QueueSheet: error leyendo active index', e);
@@ -259,7 +263,7 @@ export default function QueueSheet() {
             return;
         }
 
-        // Actualización optimista inmediata en la UI
+        // Optimistic UI update — instant visual feedback before native bridge confirms
         const newQueue = [
             ...queue.slice(0, activeIndex + 1),
             ...data
@@ -267,8 +271,9 @@ export default function QueueSheet() {
         setQueue(newQueue);
 
         try {
-            // Movimiento atómico nativo súper rápido
             await TrackPlayer.move(globalFrom, globalTo);
+            // Sync store so PlayerScreen prev/next badges update correctly
+            await usePlayerStore.getState().updateQueueStatus();
             await usePlayerStore.getState().savePlaybackState();
             usePlayerStore.setState((state: any) => ({ windowVersion: (state.windowVersion || 0) + 1 }));
         } catch (error) {
@@ -284,9 +289,17 @@ export default function QueueSheet() {
 
     const handleSkipTo = React.useCallback(async (globalIndex: number) => {
         try {
+            // Skip only — do NOT call TrackPlayer.play() here.
+            // The PlaybackActiveTrackChanged event in PlaybackService will:
+            //   1. Update Zustand activeTrack via setActiveTrackById
+            //   2. Update updateQueueStatus (prev/next in PlayerScreen)
+            // Calling play() here could accidentally start playback of whatever
+            // ends up at globalIndex after a drag reorder.
             await TrackPlayer.skip(globalIndex);
             await TrackPlayer.play();
             setActiveIndex(globalIndex);
+            // Also refresh queue status immediately so PlayerScreen doesn't wait for the event
+            await usePlayerStore.getState().updateQueueStatus(globalIndex);
         } catch (error) {
             console.error('Error skipping to track:', error);
         }
@@ -493,7 +506,7 @@ export default function QueueSheet() {
                             keyExtractor={(item) => item.id}
                             renderItem={renderQueueItem}
                             onDragEnd={handleDragEnd}
-                            activationDistance={10} // Previene inicio accidental de drag al hacer scroll
+                            activationDistance={5}
                             autoscrollThreshold={50}
                             autoscrollSpeed={100}
                             getItemLayout={(_data, index) => ({
@@ -759,7 +772,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
         <View style={[styles.trackRow, isActive && styles.trackRowActive]}>
             <GHTouchableOpacity
                 onLongPress={drag}
-                delayLongPress={100}
+                delayLongPress={60}
                 style={styles.dragHandle}
                 hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
                 activeOpacity={0.6}
