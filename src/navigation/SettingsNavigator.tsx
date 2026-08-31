@@ -11,6 +11,7 @@ import SettingsExclusionsScreen from '../screens/settings/SettingsExclusionsScre
 import SettingsDebugScreen from '../screens/settings/SettingsDebugScreen';
 import SettingsArtistImagesScreen from '../screens/settings/SettingsArtistImagesScreen';
 import SettingsStorageScreen from '../screens/settings/SettingsStorageScreen';
+import SupportScreen from '../screens/support/SupportScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -31,6 +32,7 @@ export default function SettingsNavigator() {
             <Stack.Screen name="SettingsExclusions" component={SettingsExclusionsScreen} />
             <Stack.Screen name="SettingsDebug" component={SettingsDebugScreen} />
             <Stack.Screen name="SettingsArtistImages" component={SettingsArtistImagesScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
         </Stack.Navigator>
     );
 }

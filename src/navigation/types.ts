@@ -9,6 +9,7 @@ export type HomeStackParamList = {
     WeeklyActivity: undefined;
     SmartListDetail: { smartListId: string };
     UserProfile: undefined;
+    Support: undefined;
 };
 
 export type LibraryStackParamList = {
@@ -19,6 +20,7 @@ export type LibraryStackParamList = {
     FavoritesDetail: undefined;
     PlaylistDetail: { playlistId: string };
     SmartListDetail: { smartListId: string };
+    Support: undefined;
 };
 
 export type SearchStackParamList = {

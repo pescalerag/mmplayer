@@ -8,7 +8,7 @@ import {
     Alert,
     Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
@@ -24,6 +24,8 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { MediaAssetService } from '../../services/MediaAssetService';
 import { SmartListService } from '../../services/SmartListService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Layout } from '../../theme/theme';
 import { database } from '../../database';
 import Playlist from '../../database/models/Playlist';
 import Track from '../../database/models/Track';
@@ -46,6 +48,7 @@ function UserProfileScreenBase({
     playlists,
 }: UserProfileProps) {
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
 
@@ -53,6 +56,7 @@ function UserProfileScreenBase({
     const setForceWelcomeModal = useSettingsStore(state => state.setForceWelcomeModal);
     const userAvatarUri = useSettingsStore(state => state.userAvatarUri);
     const setUserAvatarUri = useSettingsStore(state => state.setUserAvatarUri);
+    const userTier = useSettingsStore(state => state.userTier);
 
     // Stats Store
     const totalHours = useStatsStore(state => state.totalHours);
@@ -201,7 +205,7 @@ function UserProfileScreenBase({
         <View style={styles.container}>
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingBottom: 120 }}
+                contentContainerStyle={{ paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN + insets.bottom + 20 }}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
@@ -212,9 +216,29 @@ function UserProfileScreenBase({
                     placeholderIcon="person"
                     subtitle={
                         <View style={styles.subtitleRow}>
-                            <View style={styles.userTierBadge}>
-                                <Text style={styles.userTierBadgeText}>USER</Text>
-                            </View>
+                            <TouchableOpacity
+                                style={[
+                                    styles.userTierBadge,
+                                    userTier === 'VIP' && styles.userTierBadgeVip,
+                                    userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
+                                ]}
+                                onPress={() => navigation.navigate('Support')}
+                                activeOpacity={0.7}
+                            >
+                                {userTier === 'VIP' && (
+                                    <MaterialCommunityIcons name="crown" size={13} color="#FBBF24" />
+                                )}
+                                {userTier === 'SUPPORTER' && (
+                                    <Ionicons name="heart" size={12} color="#2DD4BF" />
+                                )}
+                                <Text style={[
+                                    styles.userTierBadgeText,
+                                    userTier === 'VIP' && styles.userTierBadgeTextVip,
+                                    userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
+                                ]}>
+                                    {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
+                                </Text>
+                            </TouchableOpacity>
                             <Text style={styles.subtitleText}>{t('profile.title', 'Perfil de Usuario')}</Text>
                         </View>
                     }
@@ -425,18 +449,35 @@ const getStyles = (
         gap: 8,
     },
     userTierBadge: {
-        backgroundColor: colors.accentAlpha18 || 'rgba(139, 92, 246, 0.18)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+        borderRadius: 6,
         borderWidth: 1,
-        borderColor: colors.accent || 'rgba(139, 92, 246, 0.4)',
+        borderColor: 'rgba(255, 255, 255, 0.16)',
+        gap: 4,
+    },
+    userTierBadgeSupporter: {
+        backgroundColor: 'rgba(20, 184, 166, 0.18)',
+        borderColor: '#14B8A6',
+    },
+    userTierBadgeVip: {
+        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+        borderColor: '#F59E0B',
     },
     userTierBadgeText: {
-        color: colors.accentLight || '#A78BFA',
+        color: colors.textSecondary,
         fontSize: 10,
         fontWeight: '900',
         letterSpacing: 0.8,
+    },
+    userTierBadgeTextSupporter: {
+        color: '#2DD4BF',
+    },
+    userTierBadgeTextVip: {
+        color: '#FBBF24',
     },
     subtitleText: {
         color: colors.textSecondary,

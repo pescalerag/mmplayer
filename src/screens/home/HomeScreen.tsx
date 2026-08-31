@@ -1,7 +1,7 @@
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
@@ -104,6 +104,7 @@ export default function HomeScreen() {
     const recentPlaylists = React.useMemo(() => recentPlaylistsRaw || [], [recentPlaylistsRaw]);
     const userAlias = useSettingsStore(state => state.userAlias);
     const userAvatarUri = useSettingsStore(state => state.userAvatarUri);
+    const userTier = useSettingsStore(state => state.userTier);
 
     const homeSectionsOrderRaw = useSettingsStore(state => state.homeSectionsOrder);
     const homeSectionsVisibilityRaw = useSettingsStore(state => state.homeSectionsVisibility);
@@ -373,9 +374,29 @@ export default function HomeScreen() {
                         </Text>
                     </TouchableOpacity>
 
-                    <View style={styles.userTierBadge}>
-                        <Text style={styles.userTierBadgeText}>USER</Text>
-                    </View>
+                    <TouchableOpacity
+                        style={[
+                            styles.userTierBadge,
+                            userTier === 'VIP' && styles.userTierBadgeVip,
+                            userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
+                        ]}
+                        onPress={() => navigation.navigate('Support')}
+                        activeOpacity={0.7}
+                    >
+                        {userTier === 'VIP' && (
+                            <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />
+                        )}
+                        {userTier === 'SUPPORTER' && (
+                            <Ionicons name="heart" size={11} color="#2DD4BF" />
+                        )}
+                        <Text style={[
+                            styles.userTierBadgeText,
+                            userTier === 'VIP' && styles.userTierBadgeTextVip,
+                            userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
+                        ]}>
+                            {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
+                        </Text>
+                    </TouchableOpacity>
 
                     <View style={styles.welcomeTextWrapper}>
                         <MarqueeText
@@ -608,19 +629,36 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             flexShrink: 1,
         },
         userTierBadge: {
-            backgroundColor: colors.accentAlpha18 || 'rgba(139, 92, 246, 0.18)',
-            paddingHorizontal: 6,
-            paddingVertical: 2.5,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            paddingHorizontal: 7,
+            paddingVertical: 3,
             borderRadius: 6,
             borderWidth: 1,
-            borderColor: colors.accent || 'rgba(139, 92, 246, 0.4)',
+            borderColor: 'rgba(255, 255, 255, 0.16)',
+            gap: 4,
             flexShrink: 0,
         },
+        userTierBadgeSupporter: {
+            backgroundColor: 'rgba(20, 184, 166, 0.18)',
+            borderColor: '#14B8A6',
+        },
+        userTierBadgeVip: {
+            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+            borderColor: '#F59E0B',
+        },
         userTierBadgeText: {
-            color: colors.accentLight || '#A78BFA',
+            color: colors.textSecondary,
             fontSize: 9,
             fontWeight: '900',
             letterSpacing: 0.8,
+        },
+        userTierBadgeTextSupporter: {
+            color: '#2DD4BF',
+        },
+        userTierBadgeTextVip: {
+            color: '#FBBF24',
         },
         welcomeTextWrapper: {
             flex: 1,

@@ -4,7 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import i18n from '../constants/i18n';
 
+export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
+
 interface SettingsState {
+    userTier: UserTier;
+    setUserTier: (tier: UserTier) => void;
+    hasOrphanedUpgrade: boolean;
+    setHasOrphanedUpgrade: (val: boolean) => void;
     showTagColors: boolean;
     setShowTagColors: (value: boolean) => void;
     excludedFolders: string[];
@@ -157,6 +163,10 @@ export const useSettingsStore = create<SettingsState>()(
             setShowCanvas: (value) => set({ showCanvas: value }),
             showPlayerLyrics: true,
             setShowPlayerLyrics: (value) => set({ showPlayerLyrics: value }),
+            userTier: 'USER',
+            setUserTier: (tier) => set({ userTier: tier }),
+            hasOrphanedUpgrade: false,
+            setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],
             excludedSongs: [],
             excludeFolder: (folderPath) => set((state) => {

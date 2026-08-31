@@ -69,6 +69,7 @@
     "react-native-mmkv": "^4.3.1",
     "react-native-nitro-modules": "^0.35.7",
     "react-native-pager-view": "^8.0.2",
+    "react-native-purchases": "^10.8.1",
     "react-native-reanimated": "^4.3.0",
     "react-native-restart": "^0.0.28",
     "react-native-safe-area-context": "~5.6.0",

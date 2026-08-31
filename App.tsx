@@ -7,6 +7,7 @@ import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Platform,
   StyleSheet,
   Text,
@@ -33,6 +34,7 @@ import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
 import { ChromecastService } from "./src/services/ChromecastService";
+import { PurchasesService } from "./src/services/PurchasesService";
 SystemUI.setBackgroundColorAsync('#000000');
 
 export default function App() {
@@ -54,6 +56,7 @@ export default function App() {
 
         await setupPlayer();
         ChromecastService.init();
+        PurchasesService.init().catch(err => console.warn('PurchasesService init warning:', err));
         // Restaurar cola persistida del último cierre de la app
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
@@ -80,6 +83,19 @@ export default function App() {
       setFontsLoaded(true);
       SplashScreen.hideAsync().catch(() => { });
     });
+  }, []);
+
+  // Escuchador en vivo para resincronizar RevenueCat al volver a primer plano (reembolsos, compras)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        PurchasesService.syncCustomerInfo().catch(() => {});
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
