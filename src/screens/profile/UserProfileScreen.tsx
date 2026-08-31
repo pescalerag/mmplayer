@@ -22,8 +22,10 @@ import { MediaCard } from '@/components/cards/MediaCard';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useStatsStore } from '../../store/useStatsStore';
+import { useUIStore, openEditAlias } from '../../store/useUIStore';
 import { MediaAssetService } from '../../services/MediaAssetService';
 import { SmartListService } from '../../services/SmartListService';
+import { HistoryService } from '../../services/HistoryService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Layout } from '../../theme/theme';
 import { database } from '../../database';
@@ -53,7 +55,6 @@ function UserProfileScreenBase({
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
 
     const userAlias = useSettingsStore(state => state.userAlias);
-    const setForceWelcomeModal = useSettingsStore(state => state.setForceWelcomeModal);
     const userAvatarUri = useSettingsStore(state => state.userAvatarUri);
     const setUserAvatarUri = useSettingsStore(state => state.setUserAvatarUri);
     const userTier = useSettingsStore(state => state.userTier);
@@ -68,8 +69,31 @@ function UserProfileScreenBase({
     const topArtistImg = useStatsStore(state => state.topArtistImg);
     const topArtistId = useStatsStore(state => state.topArtistId);
 
+    // Top Artists and Top Albums (Total Usage)
+    const [topAlbums, setTopAlbums] = useState<any[]>([]);
+    const [topArtists, setTopArtists] = useState<any[]>([]);
+
     useEffect(() => {
         useStatsStore.getState().fetchStats();
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+        const loadTopStats = async () => {
+            try {
+                const stats = await HistoryService.getDetailedStatsForPeriod('all', 'duration');
+                if (isMounted) {
+                    setTopAlbums(stats.topAlbums.slice(0, 10));
+                    setTopArtists(stats.topArtists.slice(0, 10));
+                }
+            } catch (err) {
+                console.error('Error loading top albums/artists in UserProfile:', err);
+            }
+        };
+        loadTopStats();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     // Smart playlists
@@ -106,10 +130,10 @@ function UserProfileScreenBase({
         };
     }, [t]);
 
-    // Edit Name via WelcomeModal
+    // Edit Name via EditAliasSheet
     const handleEditName = useCallback(() => {
-        setForceWelcomeModal(true);
-    }, [setForceWelcomeModal]);
+        openEditAlias();
+    }, []);
 
     // Pick / Delete Photo
     const performPickPhoto = useCallback(async () => {
@@ -199,8 +223,6 @@ function UserProfileScreenBase({
 
     const styles = useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
 
-    const metaInfo = `${tracksCount} ${t('library.songs')} · ${albumsCount} ${t('library.albums')} · ${artistsCount} ${t('library.artists')}`;
-
     return (
         <View style={styles.container}>
             <ScrollView
@@ -209,7 +231,7 @@ function UserProfileScreenBase({
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Cabecera idéntica al estilo ArtistDetail con DetailHeaderLayout */}
+                {/* Cabecera limpia con avatar, alias, insignias de tier y acciones */}
                 <DetailHeaderLayout
                     title={userAlias || t('profile.default_user', 'Usuario')}
                     imageUrl={userAvatarUri}
@@ -239,16 +261,14 @@ function UserProfileScreenBase({
                                     {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
                                 </Text>
                             </TouchableOpacity>
-                            <Text style={styles.subtitleText}>{t('profile.title', 'Perfil de Usuario')}</Text>
                         </View>
                     }
-                    metaInfo={metaInfo}
                     onBack={() => navigation.goBack()}
                     onPickPhoto={handlePickPhoto}
                     onEditTitle={handleEditName}
                 />
 
-                {/* --- 1. CONTADOR DE BIBLIOTECA (COMO EN AJUSTES) --- */}
+                {/* --- 1. CONTADOR DE BIBLIOTECA (VISUAL) --- */}
                 <View style={styles.sectionWrapper}>
                     <TouchableOpacity
                         style={styles.statsCard}
@@ -283,7 +303,61 @@ function UserProfileScreenBase({
                     </TouchableOpacity>
                 </View>
 
-                {/* --- 2. LISTAS INTELIGENTES (SMART PLAYLISTS) --- */}
+                {/* --- 2. ARTISTAS FAVORITOS (MÁS ESCUCHADOS TOTAL) --- */}
+                {topArtists.length > 0 && (
+                    <View style={styles.sectionWrapper}>
+                        <SectionHeader
+                            title={t('profile.top_artists_title') || 'Tus artistas favoritos'}
+                        />
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.horizontalScrollContent}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {topArtists.map((artist) => (
+                                <MediaCard
+                                    key={`profile-top-artist-${artist.id}`}
+                                    id={artist.id}
+                                    type="artist"
+                                    title={artist.name}
+                                    subtitle={t('library.artist_singular')}
+                                    imageUrl={artist.imageUrl}
+                                    onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id })}
+                                />
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {/* --- 3. ÁLBUMES FAVORITOS (MÁS ESCUCHADOS TOTAL) --- */}
+                {topAlbums.length > 0 && (
+                    <View style={styles.sectionWrapper}>
+                        <SectionHeader
+                            title={t('profile.top_albums_title') || 'Tus álbumes favoritos'}
+                        />
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.horizontalScrollContent}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {topAlbums.map((album) => (
+                                <MediaCard
+                                    key={`profile-top-album-${album.id}`}
+                                    id={album.id}
+                                    type="album"
+                                    title={album.title}
+                                    subtitle={album.artistName || t('library.album_singular')}
+                                    imageUrl={album.coverUrl}
+                                    onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id })}
+                                />
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {/* --- 4. LISTAS INTELIGENTES (SMART PLAYLISTS) --- */}
                 {smartLists.length > 0 && (
                     <View style={styles.sectionWrapper}>
                         <SectionHeader
@@ -309,7 +383,7 @@ function UserProfileScreenBase({
                     </View>
                 )}
 
-                {/* --- 3. SUS PLAYLISTS (MIS LISTAS DE REPRODUCCIÓN) --- */}
+                {/* --- 5. SUS PLAYLISTS (MIS LISTAS DE REPRODUCCIÓN) --- */}
                 <View style={styles.sectionWrapper}>
                     <SectionHeader
                         title={t('profile.my_playlists_title') || 'Tus playlists'}
@@ -343,7 +417,7 @@ function UserProfileScreenBase({
                     </ScrollView>
                 </View>
 
-                {/* --- 4. RESUMEN RÁPIDO DE ACTIVIDAD / DESTACADOS --- */}
+                {/* --- 6. RESUMEN RÁPIDO DE ACTIVIDAD / DESTACADOS --- */}
                 <View style={styles.sectionWrapper}>
                     <SectionHeader
                         title={t('profile.quick_stats_title') || 'Destacados de reproducción'}
@@ -478,12 +552,6 @@ const getStyles = (
     },
     userTierBadgeTextVip: {
         color: '#FBBF24',
-    },
-    subtitleText: {
-        color: colors.textSecondary,
-        fontSize: 15,
-        fontFamily: fonts.regular,
-        fontWeight: '700',
     },
     sectionWrapper: {
         marginBottom: 20,

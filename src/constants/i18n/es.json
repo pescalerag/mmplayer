@@ -645,7 +645,13 @@
     "view_full_stats": "Ver estadísticas completas",
     "empty_playlists": "Aún no tienes listas de reproducción creadas.",
     "empty_smart": "Escucha música para activar tus listas inteligentes.",
-    "empty_stats": "Escucha música para ver tus destacados aquí."
+    "empty_stats": "Escucha música para ver tus destacados aquí.",
+    "edit_alias_title": "Cambiar alias",
+    "edit_alias_subtitle": "Elige cómo quieres que te llame MMPlayer",
+    "save_alias": "Guardar alias",
+    "alias_updated": "Alias actualizado correctamente",
+    "top_albums_title": "Tus álbumes favoritos",
+    "top_artists_title": "Tus artistas favoritos"
   },
   "support": {
     "screen_title": "Apoyo y Tiers",

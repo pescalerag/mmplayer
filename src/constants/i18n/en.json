@@ -645,7 +645,13 @@
     "view_full_stats": "View detailed statistics",
     "empty_playlists": "You don't have any playlists yet.",
     "empty_smart": "Play music to activate your smart playlists.",
-    "empty_stats": "Play music to see your highlights here."
+    "empty_stats": "Play music to see your highlights here.",
+    "edit_alias_title": "Change alias",
+    "edit_alias_subtitle": "Choose the name you want to use in MMPlayer",
+    "save_alias": "Save alias",
+    "alias_updated": "Alias updated successfully",
+    "top_albums_title": "Your favorite albums",
+    "top_artists_title": "Your favorite artists"
   },
   "support": {
     "screen_title": "Support & Tiers",
