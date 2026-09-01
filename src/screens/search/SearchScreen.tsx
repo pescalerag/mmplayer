@@ -117,6 +117,7 @@ const SearchTrackRowBase = ({
       contextId="search"
       coverUrl={album?.coverUrl}
       artistName={artistNames}
+      isLyricMatch={(track as any).isLyricMatch}
       onPress={handlePress}
     />
   );

@@ -3,7 +3,7 @@
     "name": "MMPlayer",
     "slug": "mmplayer",
     "icon": "./src/assets/images/icon.png",
-    "version": "2.0.0-rc.2",
+    "version": "2.0.0-rc.4",
     "orientation": "portrait",
     "scheme": "mmplayer",
     "userInterfaceStyle": "automatic",
@@ -26,14 +26,17 @@
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.WAKE_LOCK",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "com.android.vending.BILLING"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/android-icon-foreground.png",
         "backgroundImage": "./src/assets/images/android-icon-background.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 10,
+      "versionCode": 15,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
@@ -69,7 +72,15 @@
           }
         }
       ],
-      "./plugins/withJetifier"
+      "./plugins/withJetifier",
+
+      [
+        "react-native-google-cast",
+        {
+          "receiverAppId": "5622F67E",
+          "expandedController": false
+        }
+      ]
     ],
     "web": {
       "output": "static"

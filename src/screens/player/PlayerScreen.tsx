@@ -28,9 +28,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
     State as TrackPlayerState,
-    usePlaybackState,
     useProgress,
 } from 'react-native-track-player';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
 
 import { database } from '../../database';
@@ -245,6 +245,7 @@ const PlayerScreenUI = ({
     const isSpeedPitchActive = playbackSpeed !== 1.0 || playbackPitch !== 1.0;
 
     const queueVersion = usePlayerStore(state => state.queueVersion);
+    const windowVersion = usePlayerStore(state => state.windowVersion);
 
     // Estado para las canciones previa y siguiente
     const [prevTrackModel, setPrevTrackModel] = useState<Track | null>(null);
@@ -295,7 +296,7 @@ const PlayerScreenUI = ({
         syncAdjacentTracks();
 
         return () => { isMounted = false; };
-    }, [track.id, queueVersion]);
+    }, [track.id, queueVersion, windowVersion]);
 
     const [prevCoverUrl, setPrevCoverUrl] = useState<string | null>(null);
     const [nextCoverUrl, setNextCoverUrl] = useState<string | null>(null);
@@ -325,6 +326,15 @@ const PlayerScreenUI = ({
     }, [nextTrackModel]);
 
     const [isTransitioning, setIsTransitioning] = React.useState(false);
+
+    // ── Shared values for swipe gesture (worklet-safe, no stale closures) ─────────────────────────────
+    // panGesture runs in a Reanimated worklet and cannot safely read React state via
+    // closure — the value freezes at render time. Using shared values ensures the
+    // worklet always sees the current value even after drag reorders update the store.
+    const hasNextShared = useSharedValue(hasNext);
+    const hasPreviousShared = useSharedValue(hasPrevious);
+    useEffect(() => { hasNextShared.value = hasNext; }, [hasNext, hasNextShared]);
+    useEffect(() => { hasPreviousShared.value = hasPrevious; }, [hasPrevious, hasPreviousShared]);
 
     React.useEffect(() => {
         if (!isFocused) {
@@ -591,6 +601,9 @@ const PlayerScreenUI = ({
     const performSkipNext = async () => {
         try {
             await TrackPlayer.skipToNext();
+            // Immediately bump windowVersion so adjacent slots in the swipe view refresh
+            // without waiting for the full PlaybackActiveTrackChanged event chain
+            usePlayerStore.setState((s: any) => ({ windowVersion: (s.windowVersion || 0) + 1 }));
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
@@ -599,10 +612,30 @@ const PlayerScreenUI = ({
     const performSkipPrevious = async () => {
         try {
             await TrackPlayer.skipToPrevious();
+            usePlayerStore.setState((s: any) => ({ windowVersion: (s.windowVersion || 0) + 1 }));
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
     };
+
+    // Derive hasNext/hasPrevious from the live queue at gesture time (not the potentially
+    // stale Zustand values) so swipe is never blocked after a drag reorder.
+    const getCanSkipNext = React.useCallback(async () => {
+        try {
+            const queue = await TrackPlayer.getQueue();
+            const idx = await TrackPlayer.getActiveTrackIndex();
+            if (idx === undefined || idx === null) return false;
+            return idx < queue.length - 1;
+        } catch { return hasNext; }
+    }, [hasNext]);
+
+    const getCanSkipPrevious = React.useCallback(async () => {
+        try {
+            const idx = await TrackPlayer.getActiveTrackIndex();
+            if (idx === undefined || idx === null) return false;
+            return idx > 0;
+        } catch { return hasPrevious; }
+    }, [hasPrevious]);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
@@ -610,13 +643,13 @@ const PlayerScreenUI = ({
         .onUpdate((event) => {
             let tx = event.translationX;
 
-            // Bloquear deslizamiento a la izquierda si no hay canción siguiente
-            if (!hasNext && tx < 0) {
+            // Block left swipe if there is no next track
+            if (!hasNextShared.value && tx < 0) {
                 tx = 0;
             }
 
-            // Bloquear deslizamiento a la derecha si no hay canción anterior
-            if (!hasPrevious && tx > 0) {
+            // Block right swipe if there is no previous track
+            if (!hasPreviousShared.value && tx > 0) {
                 tx = 0;
             }
 
@@ -633,14 +666,14 @@ const PlayerScreenUI = ({
             const SWIPE_THRESHOLD = width * 0.25;
             const velocityX = event.velocityX;
 
-            if ((translateX.value < -SWIPE_THRESHOLD || velocityX < -400) && hasNext) {
-                // Animar a -width y llamar al skip. translateX se reseteará a 0 automáticamente al cambiar el track.id
+            if ((translateX.value < -SWIPE_THRESHOLD || velocityX < -400) && hasNextShared.value) {
+                // Animate off-screen and call skip. translateX resets to 0 when track.id changes.
                 translateX.value = withTiming(-width, { duration: 220 }, (finished) => {
                     if (finished) {
                         runOnJS(performSkipNext)();
                     }
                 });
-            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && hasPrevious) {
+            } else if ((translateX.value > SWIPE_THRESHOLD || velocityX > 400) && hasPreviousShared.value) {
                 translateX.value = withTiming(width, { duration: 220 }, (finished) => {
                     if (finished) {
                         runOnJS(performSkipPrevious)();
@@ -670,6 +703,46 @@ const PlayerScreenUI = ({
         Gesture.Exclusive(longPressGesture, tapGesture)
     );
 
+    const screenHeight = Dimensions.get('window').height;
+    const dismissTranslateY = useSharedValue(0);
+
+    useEffect(() => {
+        if (isFocused) {
+            dismissTranslateY.value = 0;
+        }
+    }, [isFocused, track.id, dismissTranslateY]);
+
+    const performGoBack = React.useCallback(() => {
+        navigation.goBack();
+    }, [navigation]);
+
+    const dismissPanGesture = Gesture.Pan()
+        .activeOffsetY(15)
+        .failOffsetX([-25, 25])
+        .onUpdate((event) => {
+            if (event.translationY > 0) {
+                dismissTranslateY.value = event.translationY;
+            } else {
+                dismissTranslateY.value = 0;
+            }
+        })
+        .onEnd((event) => {
+            const DISMISS_THRESHOLD = screenHeight * 0.18;
+            if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
+                dismissTranslateY.value = withTiming(screenHeight, { duration: 200 }, (finished) => {
+                    if (finished) {
+                        runOnJS(performGoBack)();
+                    }
+                });
+            } else {
+                dismissTranslateY.value = withSpring(0, { damping: 25, stiffness: 150 });
+            }
+        });
+
+    const screenDismissAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: dismissTranslateY.value }],
+    }));
+
     const swipeAnimatedStyle = useAnimatedStyle(() => {
         return {
             transform: [
@@ -680,6 +753,9 @@ const PlayerScreenUI = ({
     });
 
     const isServerRunning = useCastStore(state => state.isServerRunning);
+    const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
+    const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
+    const isCasting = isLocalCastActive || isChromecastConnected;
     const openCastSheet = openLocalCast;
 
     const handleLikePress = async () => {
@@ -806,7 +882,12 @@ const PlayerScreenUI = ({
     });
 
     return (
-        <View style={[styles.container, playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor }]}>
+        <GestureDetector gesture={dismissPanGesture}>
+            <Animated.View style={[
+                styles.container,
+                playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor },
+                screenDismissAnimatedStyle
+            ]}>
             {/* 3-Slot Sliding Background Stage Container */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Animated.View style={[
@@ -826,14 +907,14 @@ const PlayerScreenUI = ({
                     }}>
                         {prevTrackModel && showCanvas && !!prevTrackModel.bgVideo ? (
                             <CanvasVideo
-                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}`}
+                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}-${windowVersion}`}
                                 sourceUri={prevTrackModel.bgVideo}
                                 isImmersive={false}
                                 gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-prev-${prevTrackModel?.id || 'none'}`}
+                                key={`blur-prev-${prevTrackModel?.id || 'none'}-${windowVersion}`}
                                 imageUrl={prevCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
@@ -878,14 +959,14 @@ const PlayerScreenUI = ({
                     }}>
                         {nextTrackModel && showCanvas && !!nextTrackModel.bgVideo ? (
                             <CanvasVideo
-                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}`}
+                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}-${windowVersion}`}
                                 sourceUri={nextTrackModel.bgVideo}
                                 isImmersive={false}
                                 gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-next-${nextTrackModel?.id || 'none'}`}
+                                key={`blur-next-${nextTrackModel?.id || 'none'}-${windowVersion}`}
                                 imageUrl={nextCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
@@ -966,7 +1047,7 @@ const PlayerScreenUI = ({
                                         return (
                                             <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
                                                 <Image
-                                                    key={`prev-${prevTrackModel.id}`}
+                                                    key={`prev-${prevTrackModel.id}-${windowVersion}`}
                                                     source={{ uri: formattedUri }}
                                                     style={styles.artwork}
                                                     contentFit="cover"
@@ -1125,7 +1206,7 @@ const PlayerScreenUI = ({
                                         return (
                                             <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
                                                 <Image
-                                                    key={`next-${nextTrackModel.id}`}
+                                                    key={`next-${nextTrackModel.id}-${windowVersion}`}
                                                     source={{ uri: formattedUri }}
                                                     style={styles.artwork}
                                                     contentFit="cover"
@@ -1170,11 +1251,16 @@ const PlayerScreenUI = ({
                 </View>
 
                 {hasLyrics && (
-                    <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                        <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
-                            {displayedPhrase}
-                        </Animated.Text>
-                    </Animated.View>
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate('Lyrics')}
+                    >
+                        <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                            <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
+                                {displayedPhrase}
+                            </Animated.Text>
+                        </Animated.View>
+                    </TouchableOpacity>
                 )}
 
                 {/* Info */}
@@ -1273,36 +1359,45 @@ const PlayerScreenUI = ({
                     style={[bottomControlsAnimatedStyle]}
                     pointerEvents={isImmersive ? 'none' : 'auto'}
                 >
-                    {/* Progress Slider */}
-                    <View style={styles.progressSection}>
-                        <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
-                            <ABSliderMarkers duration={duration} />
-                            <Slider
-                                style={{ width: '100%', height: 40 }}
-                                minimumValue={0}
-                                maximumValue={duration > 0 ? duration : 1}
-                                value={isSeeking ? seekValue : position}
-                                minimumTrackTintColor={colors.text}
-                                maximumTrackTintColor={colors.overlayAlpha20}
-                                thumbTintColor={colors.text}
-                                onSlidingStart={(value) => {
-                                    setIsSeeking(true);
-                                    setSeekValue(value);
-                                }}
-                                onValueChange={(value) => {
-                                    setSeekValue(value);
-                                }}
-                                onSlidingComplete={(value) => {
-                                    setIsSeeking(false);
-                                    TrackPlayer.seekTo(value).catch(() => { });
-                                }}
-                            />
+                    {/* Progress Slider or Cast Remote Indicator */}
+                    {isLocalCastActive ? (
+                        <View style={styles.castingRemoteBanner}>
+                            <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
+                            <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
+                                {'LocalCast activo · Modo control remoto'}
+                            </Text>
                         </View>
-                        <View style={styles.timeContainer}>
-                            <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
-                            <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
+                    ) : (
+                        <View style={styles.progressSection}>
+                            <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+                                <ABSliderMarkers duration={duration} />
+                                <Slider
+                                    style={{ width: '100%', height: 40 }}
+                                    minimumValue={0}
+                                    maximumValue={duration > 0 ? duration : 1}
+                                    value={isSeeking ? seekValue : position}
+                                    minimumTrackTintColor={colors.text}
+                                    maximumTrackTintColor={colors.overlayAlpha20}
+                                    thumbTintColor={colors.text}
+                                    onSlidingStart={(value) => {
+                                        setIsSeeking(true);
+                                        setSeekValue(value);
+                                    }}
+                                    onValueChange={(value) => {
+                                        setSeekValue(value);
+                                    }}
+                                    onSlidingComplete={(value) => {
+                                        setIsSeeking(false);
+                                        TrackPlayer.seekTo(value).catch(() => { });
+                                    }}
+                                />
+                            </View>
+                            <View style={styles.timeContainer}>
+                                <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
+                                <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
 
                     {/* Controls */}
                     <View style={styles.controlsContainer}>
@@ -1411,22 +1506,22 @@ const PlayerScreenUI = ({
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <Ionicons
-                                    name={isServerRunning ? "desktop" : "desktop-outline"}
+                                    name={isChromecastConnected ? "tv" : isLocalCastActive ? "desktop" : "desktop-outline"}
                                     size={24}
-                                    color={isServerRunning ? colors.accentLight : colors.textSecondary}
+                                    color={isCasting ? (isChromecastConnected ? "#60A5FA" : colors.accentLight) : colors.textSecondary}
                                 />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => handleABButtonPress(position)}
                                 style={styles.footerButton}
-                                disabled={isServerRunning}
+                                disabled={isCasting}
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <Ionicons
                                     name={pointA !== null ? "infinite" : "infinite-outline"}
                                     size={24}
                                     color={
-                                        isServerRunning
+                                        isCasting
                                             ? colors.disabled
                                             : pointB !== null
                                                 ? colors.accentLight
@@ -1462,8 +1557,9 @@ const PlayerScreenUI = ({
                     </View>
                 </Animated.View>
             </View>
-        </View>
-    );
+        </Animated.View>
+    </GestureDetector>
+);
 };
 
 const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
@@ -1669,6 +1765,23 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
     },
     timeText: {
         color: colors.textSecondary,
+        fontSize: 12,
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
+    },
+    castingRemoteBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        marginBottom: 8,
+        borderRadius: radii.full || 9999,
+        backgroundColor: colors.overlayAlpha10 || 'rgba(255,255,255,0.06)',
+        alignSelf: 'center',
+        gap: 8,
+    },
+    castingRemoteText: {
         fontSize: 12,
         fontFamily: fonts.regular,
         fontWeight: fontWeights.bold,

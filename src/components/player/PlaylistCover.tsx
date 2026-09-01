@@ -47,6 +47,16 @@ export default function PlaylistCover({
             gradientColors = ['#3B82F6', '#1D4ED8']; // Blue
         } else if (id.includes('month')) {
             gradientColors = ['#10B981', '#047857']; // Green
+        } else if (id === 'rating_5') {
+            gradientColors = ['#F59E0B', '#B45309']; // Gold
+        } else if (id === 'rating_unrated') {
+            gradientColors = ['#4B5563', '#1F2937']; // Slate Gray
+        } else if (id === 'rating_1_2') {
+            gradientColors = ['#EF4444', '#B91C1C']; // Red
+        } else if (id === 'rating_2_3') {
+            gradientColors = ['#F97316', '#C2410C']; // Orange
+        } else if (id === 'rating_3_4') {
+            gradientColors = ['#8B5CF6', '#6D28D9']; // Purple
         } else if (id.includes('rating')) {
             gradientColors = ['#EC4899', '#BE185D']; // Pink
         } else if (id === 'top_50') {

@@ -88,6 +88,7 @@ interface PlayerState {
   isFetchingLyrics: boolean;
   setIsFetchingLyrics: (value: boolean) => void;
   queueVersion: number;
+  windowVersion: number;
   updateTrackMetadata: (trackId: string) => Promise<void>;
 }
 
@@ -167,12 +168,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isFetchingLyrics: false,
   setIsFetchingLyrics: (value) => set({ isFetchingLyrics: value }),
   queueVersion: 0,
+  windowVersion: 0,
 
   loadQueue: async (tracks, index, context = "unknown") => {
     const loadId = ++currentLoadId;
     try {
       set({ isQueueLoading: true });
-      const CHUNK_SIZE = 50;
+      const CHUNK_SIZE = 15;
 
       const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
       const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
@@ -182,15 +184,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
-        await TrackPlayer.pause();
-      } else {
-        await TrackPlayer.play();
       }
+      await TrackPlayer.play();
 
       set({
         activeTrack: tracks[index],
@@ -216,7 +217,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               await TrackPlayer.add(tpChunk, insertIndex);
               insertIndex += chunk.length;
               await get().updateQueueStatus();
-              await new Promise(resolve => setTimeout(resolve, 50));
+              await new Promise(resolve => setTimeout(resolve, 100));
             }
 
             // 2. Cargar pistas posteriores restantes y agregarlas al final
@@ -227,7 +228,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               if (currentLoadId !== loadId) break;
               await TrackPlayer.add(tpChunk);
               await get().updateQueueStatus();
-              await new Promise(resolve => setTimeout(resolve, 50));
+              await new Promise(resolve => setTimeout(resolve, 100));
             }
 
             if (currentLoadId === loadId) {
@@ -253,7 +254,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   startShuffled: async (tracks, context = "unknown") => {
     const loadId = ++currentLoadId;
     try {
-      const CHUNK_SIZE = 50;
+      const CHUNK_SIZE = 15;
 
       const indices = Array.from({ length: tracks.length }, (_, i) => i);
       const shuffledIndices = indices.sort(() => Math.random() - 0.5);
@@ -269,15 +270,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
-        await TrackPlayer.pause();
-      } else {
-        await TrackPlayer.play();
       }
+      await TrackPlayer.play();
 
       set({
         activeTrack: initialChunk[0],
@@ -314,7 +314,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               await TrackPlayer.add(tpChunk);
 
               await get().updateQueueStatus();
-              await new Promise(resolve => setTimeout(resolve, 50));
+              await new Promise(resolve => setTimeout(resolve, 100));
             }
           } catch (bgError) {
             console.error("Background shuffle loading error:", bgError);
@@ -334,15 +334,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add([tpTrack]);
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
-        await TrackPlayer.pause();
-      } else {
-        await TrackPlayer.play();
       }
+      await TrackPlayer.play();
       set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
       await get().updateQueueStatus();
       await get().savePlaybackState();
@@ -617,7 +616,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
           await TrackPlayer.remove(chunk);
           // Pausa corta para liberar el hilo de UI
-          await new Promise((resolve) => setTimeout(resolve, 16));
+          await new Promise((resolve) => setTimeout(resolve, 30));
         }
       }
 
@@ -648,7 +647,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       for (let i = 0; i < indicesToRemove.length; i += CHUNK_SIZE) {
         const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
         await TrackPlayer.remove(chunk);
-        await new Promise((resolve) => setTimeout(resolve, 16));
+        await new Promise((resolve) => setTimeout(resolve, 30));
       }
 
       await get().updateQueueStatus();

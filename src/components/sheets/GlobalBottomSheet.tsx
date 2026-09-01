@@ -11,6 +11,8 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetType, useUIStore } from '../../store/useUIStore';
 
@@ -37,6 +39,7 @@ import TagMenuSheet from '@/components/sheets/TagMenuSheet';
 import TrackMenuSheet from '@/components/sheets/TrackMenuSheet';
 import BatchMenuSheet from '@/components/sheets/BatchMenuSheet';
 import AdvancedTagSearchSheet from '@/components/sheets/AdvancedTagSearchSheet';
+import EditAliasSheet from '@/components/sheets/EditAliasSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -55,8 +58,40 @@ export default function GlobalBottomSheet() {
 
   // Animated values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const keyboardHeight = useRef(new Animated.Value(0)).current;
+
+  const slideTranslateY = useSharedValue(SCREEN_HEIGHT);
+  const dragTranslateY = useSharedValue(0);
+
+  const performCloseSheet = React.useCallback(() => {
+    closeSheet();
+  }, [closeSheet]);
+
+  const handlePanGesture = Gesture.Pan()
+    .activeOffsetY(5)
+    .onUpdate((event) => {
+      if (event.translationY > 0) {
+        dragTranslateY.value = event.translationY;
+      } else {
+        dragTranslateY.value = 0;
+      }
+    })
+    .onEnd((event) => {
+      const DISMISS_THRESHOLD = 90;
+      if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
+        dragTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 180 }, (finished) => {
+          if (finished) {
+            runOnJS(performCloseSheet)();
+          }
+        });
+      } else {
+        dragTranslateY.value = withSpring(0, { damping: 25, stiffness: 150 });
+      }
+    });
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideTranslateY.value + dragTranslateY.value }],
+  }));
 
   // Track activeSheet changes to handle mount/unmount and transitions
   useEffect(() => {
@@ -65,36 +100,26 @@ export default function GlobalBottomSheet() {
       if (Platform.OS === 'android') {
         NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
       }
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 50,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      dragTranslateY.value = 0;
+      slideTranslateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.8 });
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
     } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setRenderedSheet(null);
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      slideTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, (finished) => {
+        if (finished) {
+          runOnJS(setRenderedSheet)(null);
+        }
       });
     }
-  }, [effectiveSheet, fadeAnim, slideAnim]);
+  }, [effectiveSheet, fadeAnim, slideTranslateY, dragTranslateY]);
 
   // Handle hardware back press on Android
   useEffect(() => {
@@ -182,13 +207,13 @@ export default function GlobalBottomSheet() {
         return <BatchMenuSheet />;
       case 'advanced-tag-search':
         return <AdvancedTagSearchSheet />;
+      case 'edit-alias':
+        return <EditAliasSheet />;
       default:
         return null;
     }
   };
 
-  // Some sheets might need specific styling (e.g. customized max-height or scroll indicators).
-  // These parameters can be customized per component within the rendered view or via global overrides.
   const getContainerMaxHeight = () => {
     if (renderedSheet === 'queue') return SCREEN_HEIGHT * 0.90;
     if (renderedSheet === 'metadata-editor') return SCREEN_HEIGHT * 0.92;
@@ -211,19 +236,23 @@ export default function GlobalBottomSheet() {
         style={[styles.keyboardAvoid, { paddingBottom: keyboardHeight }]}
         pointerEvents="box-none"
       >
-        <Animated.View
+        <AnimatedReanimated.View
           style={[
             styles.sheetContainer,
             {
               maxHeight: getContainerMaxHeight(),
               paddingBottom: Math.max(insets.bottom, 12),
-              transform: [{ translateY: slideAnim }],
             },
+            sheetAnimatedStyle,
           ]}
         >
-          <View style={styles.dragIndicator} />
+          <GestureDetector gesture={handlePanGesture}>
+            <View style={styles.handleContainer}>
+              <View style={styles.dragIndicator} />
+            </View>
+          </GestureDetector>
           {renderContent()}
-        </Animated.View>
+        </AnimatedReanimated.View>
       </Animated.View>
     </View>
   );
@@ -249,12 +278,19 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     borderColor: colors.cardBackground || '#282828',
     overflow: 'hidden',
   },
+  handleContainer: {
+    width: '100%',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -6,
+    marginBottom: 8,
+  },
   dragIndicator: {
     width: 36,
     height: 4,
     backgroundColor: '#333',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 20,
   },
 });

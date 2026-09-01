@@ -11,6 +11,7 @@ const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
+const USER_AVATAR_DIR = `${BASE_MEDIA_DIR}user_avatar/`;
 
 const getFileExtension = (uri: string, defaultExt: string = 'jpg'): string => {
     if (!uri) return defaultExt;
@@ -70,6 +71,29 @@ export const MediaAssetService = {
         await ensureDirectoryExists(PLAYLIST_DIR);
         await ensureDirectoryExists(CD_DIR);
         await ensureDirectoryExists(CANVAS_DIR);
+        await ensureDirectoryExists(USER_AVATAR_DIR);
+    },
+
+    saveUserAvatar: async (sourceUri: string): Promise<string> => {
+        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+        await MediaAssetService.init();
+
+        const ext = getFileExtension(sourceUri, 'jpg');
+        const prefix = `user_avatar.`;
+        await purgeEntityFiles(USER_AVATAR_DIR, prefix);
+
+        const destPath = `${USER_AVATAR_DIR}user_avatar.${ext}`;
+
+        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
+
+        await FileSystem.copyAsync({ from: sourceUri, to: destPath });
+        await cleanupTempSource(sourceUri);
+        return `${destPath}?t=${Date.now()}`;
+    },
+
+    removeUserAvatar: async (): Promise<void> => {
+        if (Platform.OS === 'web') return;
+        await purgeEntityFiles(USER_AVATAR_DIR, `user_avatar.`);
     },
 
     saveArtistImage: async (artistId: string, sourceUri: string): Promise<string> => {
@@ -82,11 +106,11 @@ export const MediaAssetService = {
 
         const destPath = `${ARTIST_DIR}artist_${artistId}.${ext}`;
 
-        if (sourceUri === destPath) return destPath;
+        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
 
         await FileSystem.copyAsync({ from: sourceUri, to: destPath });
         await cleanupTempSource(sourceUri);
-        return destPath;
+        return `${destPath}?t=${Date.now()}`;
     },
 
     removeArtistImage: async (artistId: string): Promise<void> => {
@@ -104,11 +128,11 @@ export const MediaAssetService = {
 
         const destPath = `${PLAYLIST_DIR}playlist_${playlistId}.${ext}`;
 
-        if (sourceUri === destPath) return destPath;
+        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
 
         await FileSystem.copyAsync({ from: sourceUri, to: destPath });
         await cleanupTempSource(sourceUri);
-        return destPath;
+        return `${destPath}?t=${Date.now()}`;
     },
 
     removePlaylistCover: async (playlistId: string): Promise<void> => {
@@ -126,11 +150,11 @@ export const MediaAssetService = {
 
         const destPath = `${CD_DIR}album_cd_${albumId}.${ext}`;
 
-        if (sourceUri === destPath) return destPath;
+        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
 
         await FileSystem.copyAsync({ from: sourceUri, to: destPath });
         await cleanupTempSource(sourceUri);
-        return destPath;
+        return `${destPath}?t=${Date.now()}`;
     },
 
     removeAlbumCDCover: async (albumId: string): Promise<void> => {

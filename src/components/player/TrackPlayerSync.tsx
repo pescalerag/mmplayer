@@ -49,20 +49,9 @@ const isTrackChangeIgnored = (track: any): boolean => {
 };
 
 const handleCastOrLocalPlay = async (track: any) => {
-    if (useCastStore.getState().isServerRunning) {
-        const playState = await TrackPlayer.getPlaybackState();
-        const playWhenReady = await TrackPlayer.getPlayWhenReady().catch(() => false);
-        const shouldPlay = isPlayingState(playState.state) || wasPlayingBeforeTransition || playWhenReady;
-
-        if (shouldPlay) {
-            LocalCastService.setPlayIntent(true);
-        }
-        await TrackPlayer.pause();
-    } else {
-        const isRestoring = usePlayerStore.getState().isRestoring;
-        if (!isRestoring && track?.id) {
-            await TrackPlayer.play();
-        }
+    const isRestoring = usePlayerStore.getState().isRestoring;
+    if (!isRestoring && track?.id) {
+        await TrackPlayer.play();
     }
 };
 

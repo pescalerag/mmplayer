@@ -24,7 +24,8 @@ export type SheetType =
   | 'tag-manager'
   | 'player-menu'
   | 'batch-menu'
-  | 'advanced-tag-search';
+  | 'advanced-tag-search'
+  | 'edit-alias';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -146,3 +147,7 @@ export const openTagManagerForBatch = (tracks: any[]) =>
     targetTitle: `${tracks.length} canciones`,
     tracks,
   });
+
+export const openEditAlias = () =>
+  useUIStore.getState().openSheet('edit-alias');
+

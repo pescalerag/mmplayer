@@ -1,5 +1,6 @@
 import { usePlaybackState as useRNTPPlaybackState, State } from 'react-native-track-player';
 import { useState, useEffect } from 'react';
+import { useCastStore } from '../store/useCastStore';
 
 let isFadingOut = false;
 let shouldStopFadingOut = false;
@@ -34,6 +35,8 @@ export function getShouldStopFadingOut() {
 }
 
 export function usePlaybackState() {
+  const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
+  const isCastPlaying = useCastStore(state => state.isCastPlaying);
   const playbackState = useRNTPPlaybackState();
   const [fading, setFading] = useState(isFadingOut);
 
@@ -61,6 +64,10 @@ export function usePlaybackState() {
       setIsFadingOut(false);
     }
   }, [fading, isNativePaused]);
+
+  if (isLocalCastActive) {
+    return { state: isCastPlaying ? State.Playing : State.Paused };
+  }
 
   if (fading && !isNativePaused) {
     return { ...playbackState, state: State.Paused };

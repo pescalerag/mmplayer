@@ -7,11 +7,14 @@ import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Platform,
   StyleSheet,
   Text,
   View,
+  Linking,
 } from "react-native";
+import TrackPlayer, { State } from "react-native-track-player";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GlobalToast from "./src/components/common/GlobalToast";
@@ -30,6 +33,8 @@ import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
+import { ChromecastService } from "./src/services/ChromecastService";
+import { PurchasesService } from "./src/services/PurchasesService";
 SystemUI.setBackgroundColorAsync('#000000');
 
 export default function App() {
@@ -50,6 +55,8 @@ export default function App() {
         });
 
         await setupPlayer();
+        ChromecastService.init();
+        PurchasesService.init().catch(err => console.warn('PurchasesService init warning:', err));
         // Restaurar cola persistida del último cierre de la app
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
@@ -77,6 +84,63 @@ export default function App() {
       SplashScreen.hideAsync().catch(() => { });
     });
   }, []);
+
+  // Escuchador en vivo para resincronizar RevenueCat al volver a primer plano (reembolsos, compras)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        PurchasesService.syncCustomerInfo().catch(() => {});
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!fontsLoaded) return;
+
+    const handleWidgetUrl = async (url: string | null) => {
+      if (!url || !url.includes('widget')) return;
+      try {
+        const match = url.match(/[?&]action=([^&]+)/);
+        const action = match ? match[1] : null;
+
+        if (action === 'play') {
+          const state = await TrackPlayer.getPlaybackState();
+          if (state.state === State.Playing) {
+            await TrackPlayer.pause();
+          } else {
+            await TrackPlayer.play();
+          }
+        } else if (action === 'next') {
+          await TrackPlayer.skipToNext();
+        } else if (action === 'prev') {
+          const { position } = await TrackPlayer.getProgress();
+          if (position > 3) {
+            await TrackPlayer.seekTo(0);
+          } else {
+            await TrackPlayer.skipToPrevious();
+          }
+        }
+      } catch (e) {
+        console.error('[App] Error handling widget action url:', e);
+      }
+    };
+
+    Linking.getInitialURL().then(url => {
+      handleWidgetUrl(url);
+    });
+
+    const subscription = Linking.addEventListener('url', event => {
+      handleWidgetUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return (

@@ -18,6 +18,7 @@ import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
 import { MainNavigationProp } from '../../navigation/types';
 import { usePlayerStore } from '../../store/usePlayerStore';
+import { useCastStore } from '../../store/useCastStore';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { extractColorFromImage } from '../../../modules/native-equalizer';
@@ -165,9 +166,13 @@ interface MiniPlayerUIProps {
 }
 
 const MiniProgressBar = () => {
+    const isCasting = useCastStore(state => state.isLocalCastActive || state.isChromecastConnected);
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const { position, duration } = useProgress();
+
+    if (isCasting) return null;
+
     const progress = duration > 0 ? (position / duration) * 100 : 0;
 
     return (

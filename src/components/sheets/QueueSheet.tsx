@@ -17,15 +17,16 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     Event,
     State,
     Track as TPTrack,
-    usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
@@ -123,9 +124,41 @@ export default function QueueSheet() {
         }
     }, [queue, fetchDbMetadataForQueue]);
 
-    const slideAnim = useRef(new Animated.Value(height)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
+
+    const slideTranslateY = useSharedValue(height);
+    const dragTranslateY = useSharedValue(0);
+
+    const performCloseQueue = React.useCallback(() => {
+        closeQueue();
+    }, [closeQueue]);
+
+    const handlePanGesture = Gesture.Pan()
+        .activeOffsetY(5)
+        .onUpdate((event) => {
+            if (event.translationY > 0) {
+                dragTranslateY.value = event.translationY;
+            } else {
+                dragTranslateY.value = 0;
+            }
+        })
+        .onEnd((event) => {
+            const DISMISS_THRESHOLD = 90;
+            if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
+                slideTranslateY.value = withTiming(height, { duration: 180 }, (finished) => {
+                    if (finished) {
+                        runOnJS(performCloseQueue)();
+                    }
+                });
+            } else {
+                dragTranslateY.value = withSpring(0, { damping: 25, stiffness: 150 });
+            }
+        });
+
+    const sheetAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: slideTranslateY.value + dragTranslateY.value }],
+    }));
 
     const isReordering = useRef(false);
 
@@ -138,24 +171,15 @@ export default function QueueSheet() {
 
     useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async () => {
         if (isReordering.current) return;
-
         try {
-            const [fullQueue, realIdx] = await Promise.all([
+            const [fullQueue, idx] = await Promise.all([
                 TrackPlayer.getQueue(),
                 TrackPlayer.getActiveTrackIndex(),
             ]);
-
-            const isQueueIdentical = fullQueue.length === queue.length &&
-                fullQueue.every((track, i) => track.id === queue[i]?.id);
-
-            if (!isQueueIdentical) {
-                setQueue(fullQueue);
-            }
-            if (realIdx !== undefined && realIdx !== null) {
-                setActiveIndex(realIdx);
-            }
+            if (fullQueue) setQueue(fullQueue);
+            if (idx !== undefined && idx !== null) setActiveIndex(idx);
         } catch (e) {
-            console.error('QueueSheet: error sincronizando cola post-evento', e);
+            console.error('QueueSheet: error leyendo active index', e);
         }
     });
 
@@ -180,19 +204,18 @@ export default function QueueSheet() {
     useEffect(() => {
         if (isVisible) {
             setShouldRender(true);
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-                Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true })
-            ]).start();
+            dragTranslateY.value = 0;
+            slideTranslateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.8 });
+            Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
         } else {
             setShowTrashMenu(false);
             setShowAddPlaylistMenu(false);
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-                Animated.timing(slideAnim, { toValue: height, duration: 250, useNativeDriver: true })
-            ]).start(() => setShouldRender(false));
+            Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+            slideTranslateY.value = withTiming(height, { duration: 220 }, (finished) => {
+                if (finished) runOnJS(setShouldRender)(false);
+            });
         }
-    }, [isVisible, fadeAnim, slideAnim]);
+    }, [isVisible, fadeAnim, slideTranslateY, dragTranslateY]);
 
     useEffect(() => {
         if (!isVisible) return;
@@ -228,10 +251,19 @@ export default function QueueSheet() {
 
         isReordering.current = true;
 
-        const globalFrom = activeIndex + 1 + from;
-        const globalTo = activeIndex + 1 + to;
+        const upcomingCount = Math.max(0, queue.length - (activeIndex + 1));
+        const safeFrom = Math.max(0, Math.min(from, upcomingCount - 1));
+        const safeTo = Math.max(0, Math.min(to, upcomingCount - 1));
 
-        // Actualización optimista inmediata en la UI
+        const globalFrom = activeIndex + 1 + safeFrom;
+        const globalTo = activeIndex + 1 + safeTo;
+
+        if (globalFrom === globalTo) {
+            isReordering.current = false;
+            return;
+        }
+
+        // Optimistic UI update — instant visual feedback before native bridge confirms
         const newQueue = [
             ...queue.slice(0, activeIndex + 1),
             ...data
@@ -239,9 +271,20 @@ export default function QueueSheet() {
         setQueue(newQueue);
 
         try {
-            // Movimiento atómico nativo súper rápido
             await TrackPlayer.move(globalFrom, globalTo);
+            // Sync store so PlayerScreen prev/next badges update correctly
+            await usePlayerStore.getState().updateQueueStatus();
             await usePlayerStore.getState().savePlaybackState();
+            usePlayerStore.setState((state: any) => ({ windowVersion: (state.windowVersion || 0) + 1 }));
+
+            // Immediately re-buffer the newly placed next track for LocalCast
+            try {
+                const { useCastStore } = require('../../store/useCastStore');
+                if (useCastStore.getState().isLocalCastActive) {
+                    const { LocalCastService } = require('../../services/LocalCastService');
+                    LocalCastService.triggerPreloadNext(activeIndex).catch(() => {});
+                }
+            } catch (castErr) {}
         } catch (error) {
             console.error('Error reordering track:', error);
             const fullQueue = await TrackPlayer.getQueue();
@@ -255,9 +298,17 @@ export default function QueueSheet() {
 
     const handleSkipTo = React.useCallback(async (globalIndex: number) => {
         try {
+            // Skip only — do NOT call TrackPlayer.play() here.
+            // The PlaybackActiveTrackChanged event in PlaybackService will:
+            //   1. Update Zustand activeTrack via setActiveTrackById
+            //   2. Update updateQueueStatus (prev/next in PlayerScreen)
+            // Calling play() here could accidentally start playback of whatever
+            // ends up at globalIndex after a drag reorder.
             await TrackPlayer.skip(globalIndex);
             await TrackPlayer.play();
             setActiveIndex(globalIndex);
+            // Also refresh queue status immediately so PlayerScreen doesn't wait for the event
+            await usePlayerStore.getState().updateQueueStatus(globalIndex);
         } catch (error) {
             console.error('Error skipping to track:', error);
         }
@@ -372,15 +423,19 @@ export default function QueueSheet() {
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
             </TouchableWithoutFeedback>
 
-            <Animated.View style={[
+            <AnimatedReanimated.View style={[
                 styles.sheetContainer,
                 {
                     height: height * 0.82,
                     paddingBottom: insets.bottom,
-                    transform: [{ translateY: slideAnim }]
-                }
+                },
+                sheetAnimatedStyle
             ]}>
-                <View style={styles.dragIndicator} />
+                <GestureDetector gesture={handlePanGesture}>
+                    <View style={styles.handleContainer}>
+                        <View style={styles.dragIndicator} />
+                    </View>
+                </GestureDetector>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24, marginBottom: 16 }}>
                     <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
@@ -460,7 +515,7 @@ export default function QueueSheet() {
                             keyExtractor={(item) => item.id}
                             renderItem={renderQueueItem}
                             onDragEnd={handleDragEnd}
-                            activationDistance={10} // Previene inicio accidental de drag al hacer scroll
+                            activationDistance={5}
                             autoscrollThreshold={50}
                             autoscrollSpeed={100}
                             getItemLayout={(_data, index) => ({
@@ -497,7 +552,7 @@ export default function QueueSheet() {
                         showsVerticalScrollIndicator={false}
                     />
                 )}
-            </Animated.View>
+            </AnimatedReanimated.View>
 
             {showTrashMenu && (() => {
                 const upcomingList = queue.slice(activeIndex + 1);
@@ -726,7 +781,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
         <View style={[styles.trackRow, isActive && styles.trackRowActive]}>
             <GHTouchableOpacity
                 onLongPress={drag}
-                delayLongPress={100}
+                delayLongPress={60}
                 style={styles.dragHandle}
                 hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
                 activeOpacity={0.6}
@@ -842,14 +897,20 @@ const styles = StyleSheet.create({
         borderColor: Colors.cardBackground,
         overflow: 'hidden',
     },
+    handleContainer: {
+        width: '100%',
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 0,
+        marginBottom: 4,
+    },
     dragIndicator: {
         width: 40,
         height: 4,
         backgroundColor: Colors.disabled,
         borderRadius: 2,
         alignSelf: 'center',
-        marginTop: 14,
-        marginBottom: 16,
     },
     tabBar: {
         flexDirection: 'row',

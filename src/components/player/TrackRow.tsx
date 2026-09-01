@@ -31,6 +31,7 @@ interface TrackRowProps {
   readonly playlistId?: string;
   readonly onPress?: (trackId: string) => void;
   readonly preventAutoHistory?: boolean;
+  readonly isLyricMatch?: boolean;
 }
 
 function TrackRow({
@@ -42,6 +43,7 @@ function TrackRow({
   playlistId,
   onPress,
   preventAutoHistory,
+  isLyricMatch,
 }: Readonly<TrackRowProps>) {
   const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
@@ -245,6 +247,11 @@ function TrackRow({
                   )}
                 </View>
               )}
+              {(isLyricMatch ?? (track as any).isLyricMatch) && (
+                <View style={styles.lyricCoverBadge}>
+                  <Ionicons name="document-text" size={10} color="#FFFFFF" />
+                </View>
+              )}
             </View>
 
             {/* Info */}
@@ -258,11 +265,11 @@ function TrackRow({
                 </Text>
                 {isCurrentTrack && <PlayingIndicator isPaused={!isActuallyPlaying} />}
               </View>
-              {artistName && (
+              {artistName ? (
                 <Text style={styles.artist} numberOfLines={1}>
                   {artistName}
                 </Text>
-              )}
+              ) : null}
             </View>
 
             {/* Duración y Más */}
@@ -324,7 +331,19 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
     backgroundColor: colors.accentAlpha10, // El "moradito" de la cola
   },
   leftCol: {
+    position: 'relative',
     marginRight: spacing.sm || 12, // 12 can fallback to sm
+  },
+  lyricCoverBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(139, 92, 246, 0.75)',
+    borderRadius: 4,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cover: {
     width: 44,

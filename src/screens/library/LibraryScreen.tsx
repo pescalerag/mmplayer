@@ -23,8 +23,10 @@ import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
 import Playlist from '../../database/models/Playlist';
 import Track from '../../database/models/Track';
+import PlaybackHistory from '../../database/models/PlaybackHistory';
 import { LibraryNavigationProp } from '../../navigation/types';
 import { ScannerService } from '../../services/ScannerService';
+import { SmartListService, SmartList } from '../../services/SmartListService';
 
 
 
@@ -467,10 +469,14 @@ const PlaylistCard = memo(function PlaylistCard({
 });
 
 const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
-    playlist: playlist.observe(),
+    playlist: playlist && typeof playlist.observe === 'function' ? playlist.observe().pipe(catchError(() => of(playlist))) : of(playlist),
 }))(({ playlist, onPress }: { playlist: Playlist, onPress?: () => void }) => {
     const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
+
+    if (!playlist || typeof playlist.observe !== 'function') {
+        return null;
+    }
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
@@ -492,9 +498,143 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
     );
 });
 
+// ─── REACTIVE SMART LIST CARD COMPONENTS ───
+const getRatingQuery = (id: string) => {
+    const coll = database.collections.get<Track>('tracks');
+    if (id === 'rating_1_2') {
+        return coll.query(Q.where('rating', Q.oneOf([1.0, 1.5, 2.0])));
+    }
+    if (id === 'rating_2_3') {
+        return coll.query(Q.where('rating', Q.oneOf([2.0, 2.5, 3.0])));
+    }
+    if (id === 'rating_3_4') {
+        return coll.query(Q.where('rating', Q.oneOf([3.0, 3.5, 4.0])));
+    }
+    if (id === 'rating_4_5') {
+        return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5, 5.0])));
+    }
+    if (id === 'rating_unrated') {
+        return coll.query(
+            Q.or(
+                Q.where('rating', Q.eq(null as any)),
+                Q.where('rating', 0)
+            )
+        );
+    }
+    if (id === 'rating_5') {
+        return coll.query(Q.where('rating', 5.0));
+    }
+    if (id === 'rating_4') {
+        return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5])));
+    }
+    return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5, 5.0])));
+};
+
+interface SmartListCardBaseProps {
+    smartList: SmartList;
+    tracks: Track[];
+    colIndex: number;
+    onPress: () => void;
+}
+
+const SmartListCardBase = memo(function SmartListCardBase({
+    smartList,
+    tracks,
+    colIndex,
+    onPress,
+}: SmartListCardBaseProps) {
+    const { t } = useTranslation();
+    const count = tracks ? tracks.length : 0;
+
+    let alignItems: GridAlignment = 'flex-end';
+    const rem = colIndex % 3;
+    if (rem === 0) {
+        alignItems = 'flex-start';
+    } else if (rem === 1) {
+        alignItems = 'center';
+    }
+
+    const subtitle = `${count} ${count === 1 ? t('library.song_singular') : t('library.song_plural')}`;
+
+    return (
+        <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+            <PlaylistCard
+                playlistId={`smart-list-${smartList.id}`}
+                title={smartList.name}
+                subtitle={subtitle}
+                onPress={onPress}
+            />
+        </View>
+    );
+});
+
+const RatingSmartListCard = withObservables(
+    ['smartListId'],
+    ({ smartListId }: { smartListId: string }) => ({
+        tracks: getRatingQuery(smartListId).observe().pipe(catchError(() => of([]))),
+    })
+)(function RatingSmartListCardWrapper({
+    smartList,
+    tracks,
+    colIndex,
+    onPress,
+}: {
+    smartList: SmartList;
+    tracks: Track[];
+    colIndex: number;
+    onPress: () => void;
+}) {
+    return (
+        <SmartListCardBase
+            smartList={smartList}
+            tracks={tracks}
+            colIndex={colIndex}
+            onPress={onPress}
+        />
+    );
+});
+
+const HistorySmartListCard = withObservables(
+    ['smartListId'],
+    ({ smartListId }: { smartListId: string }) => ({
+        history: database.collections.get<PlaybackHistory>('playback_history').query().observe().pipe(catchError(() => of([]))),
+    })
+)(function HistorySmartListCardWrapper({
+    smartList,
+    history,
+    colIndex,
+    onPress,
+}: {
+    smartList: SmartList;
+    history: PlaybackHistory[];
+    colIndex: number;
+    onPress: () => void;
+}) {
+    const [tracks, setTracks] = useState<Track[]>([]);
+
+    useEffect(() => {
+        let isMounted = true;
+        smartList.getTracks().then(resolved => {
+            if (isMounted) setTracks(resolved);
+        });
+        return () => { isMounted = false; };
+    }, [smartList, history]);
+
+    return (
+        <SmartListCardBase
+            smartList={smartList}
+            tracks={tracks}
+            colIndex={colIndex}
+            onPress={onPress}
+        />
+    );
+});
+
 const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
+    const playlistFilter = useLibraryStore(state => state.playlistFilter);
+    const setPlaylistFilter = useLibraryStore(state => state.setPlaylistFilter);
 
     const handleCreatePlaylist = React.useCallback(() => {
         openPlaylistSelectorCreate();
@@ -521,19 +661,114 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     }, [playlists, sortOption]);
 
     const data = React.useMemo(() => {
+        if (playlistFilter === 'smart') {
+            const allSmartLists = SmartListService.getSmartLists();
+            const listeningLists = allSmartLists.filter(l => l.group === 'listening');
+            const ratingLists = allSmartLists.filter(l => l.group === 'rating');
+
+            const smartItems: any[] = [];
+            if (listeningLists.length > 0) {
+                smartItems.push({
+                    id: 'header_listening',
+                    isHeader: true,
+                    title: t('library.smart_listening_title')
+                });
+                listeningLists.forEach((list, idx) => {
+                    smartItems.push({
+                        id: `smart_${list.id}`,
+                        smartList: list,
+                        colIndex: idx,
+                        isSmart: true
+                    });
+                });
+            }
+            if (ratingLists.length > 0) {
+                smartItems.push({
+                    id: 'header_rating',
+                    isHeader: true,
+                    title: t('library.smart_rating_title')
+                });
+                ratingLists.forEach((list, idx) => {
+                    smartItems.push({
+                        id: `smart_${list.id}`,
+                        smartList: list,
+                        colIndex: idx,
+                        isSmart: true
+                    });
+                });
+            }
+            return smartItems;
+        }
         return [
             { id: 'create_new', isCreateNew: true, name: t('library.create_playlist') },
             { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
             ...sortedPlaylists
         ];
-    }, [sortedPlaylists, t]);
+    }, [playlistFilter, sortedPlaylists, t]);
 
     return (
         <FlashList
             ref={scrollRef}
             data={data}
-            keyExtractor={p => p.id}
+            extraData={playlistFilter}
+            keyExtractor={(item: any, index: number) => {
+                if (!item) return `item_${index}`;
+                if (item.id) return String(item.id);
+                return `item_${index}`;
+            }}
+            getItemType={(item: any) => {
+                if (!item) return 'item';
+                if (item.isHeader) return 'header';
+                if (item.isSmart) return 'smart';
+                if (item.isCreateNew) return 'create';
+                if (item.isFavorites) return 'favorites';
+                return 'playlist';
+            }}
+            overrideItemLayout={(layout: any, item: any) => {
+                if (!layout) return;
+                if (item && item.isHeader) {
+                    layout.span = 3;
+                } else {
+                    layout.span = 1;
+                }
+            }}
             renderItem={({ item, index }) => {
+                if (!item) return null;
+
+                if ('isHeader' in item && item.isHeader) {
+                    return (
+                        <View style={styles.smartSectionHeaderContainer}>
+                            <Text style={styles.smartSectionHeaderTitle}>{item.title}</Text>
+                        </View>
+                    );
+                }
+
+                if ('isSmart' in item && item.isSmart) {
+                    const list: SmartList = item.smartList;
+                    const isRating = list.id.startsWith('rating_');
+                    const handlePress = () => navigation.navigate('SmartListDetail', { smartListId: list.id });
+
+                    if (isRating) {
+                        return (
+                            <RatingSmartListCard
+                                smartListId={list.id}
+                                smartList={list}
+                                colIndex={item.colIndex}
+                                onPress={handlePress}
+                            />
+                        );
+                    }
+
+                    return (
+                        <HistorySmartListCard
+                            smartListId={list.id}
+                            smartList={list}
+                            colIndex={item.colIndex}
+                            onPress={handlePress}
+                        />
+                    );
+                }
+
                 let content;
                 if ('isCreateNew' in item) {
                     content = (
@@ -563,12 +798,14 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                                 }}
                             />
                         );
-                    } else {
+                    } else if (item && typeof (item as any).observe === 'function') {
                         content = (
                             <EnhancedPlaylistCard
                                 playlist={item as Playlist}
                             />
                         );
+                    } else {
+                        content = null;
                     }
                 }
 
@@ -587,6 +824,42 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             }}
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
+            ListHeaderComponent={
+                <View style={styles.artistSelectorContainer}>
+                    <TouchableOpacity
+                        style={[
+                            styles.artistSelectorBtn,
+                            playlistFilter === 'user' && styles.artistSelectorBtnActive,
+                            { flex: 1 }
+                        ]}
+                        onPress={() => setPlaylistFilter('user')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[
+                            styles.artistSelectorText,
+                            playlistFilter === 'user' && styles.artistSelectorTextActive
+                        ]}>
+                            {t('library.user_playlists')}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.artistSelectorBtn,
+                            playlistFilter === 'smart' && styles.artistSelectorBtnActive,
+                            { flex: 1 }
+                        ]}
+                        onPress={() => setPlaylistFilter('smart')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[
+                            styles.artistSelectorText,
+                            playlistFilter === 'smart' && styles.artistSelectorTextActive
+                        ]}>
+                            {t('library.smart_playlists')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            }
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="list-outline"
@@ -598,7 +871,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     );
 };
 
-const EnhancedPlaylistsList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
+const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], ({ sortOption, playlistFilter }: { sortOption: SortOption, playlistFilter: 'user' | 'smart' }) => {
     let orderCol = 'created_at';
     let orderDir = Q.desc;
     if (sortOption === 'name_asc') {
@@ -819,6 +1092,7 @@ export default function LibraryScreen() {
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
     const artistFilter = useLibraryStore(state => state.artistFilter);
+    const playlistFilter = useLibraryStore(state => state.playlistFilter);
 
     const getActiveSortOption = (): SortOption => {
         if (activeTab === 'albums') return albumSort;
@@ -860,7 +1134,7 @@ export default function LibraryScreen() {
             case 'artists': return <EnhancedArtistList artistFilter={artistFilter} sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'folders': return <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'tracks': return <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
-            case 'playlists': return <EnhancedPlaylistsList sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'playlists': return <EnhancedPlaylistsList playlistFilter={playlistFilter} sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             default: return null;
         }
     };
@@ -1183,5 +1457,17 @@ const styles = StyleSheet.create({
     },
     artistSelectorTextActive: {
         color: '#FFFFFF',
+    },
+    smartSectionHeaderContainer: {
+        width: '100%',
+        marginTop: 12,
+        marginBottom: 12,
+        paddingHorizontal: 4,
+    },
+    smartSectionHeaderTitle: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
     },
 });

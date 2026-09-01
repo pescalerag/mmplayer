@@ -25,6 +25,7 @@ interface DetailHeaderLayoutProps {
     onHome?: () => void;
     onDelete?: () => void;
     onEdit?: () => void;
+    onEditTitle?: () => void;
     onPickPhoto?: () => void;
     onMore?: () => void;
     renderExtra?: () => React.ReactNode;
@@ -43,6 +44,7 @@ const DetailHeaderLayout = ({
     onHome,
     onDelete,
     onEdit,
+    onEditTitle,
     onPickPhoto,
     onMore,
     renderExtra,
@@ -75,6 +77,7 @@ const DetailHeaderLayout = ({
                 </LinearGradient>
             ) : imageUrl ? (
                 <Image
+                    key={imageUrl}
                     source={imageSource}
                     style={styles.headerImage}
                     contentFit="cover"
@@ -130,14 +133,26 @@ const DetailHeaderLayout = ({
             {/* Info */}
             <View style={styles.headerInfo}>
                 {renderHeaderPrefix?.()}
-                <View style={renderExtra ? { marginRight: 60 } : null}>
-                    <MarqueeText
-                        text={title}
-                        style={styles.title}
-                        speed={30}
-                        pauseDuration={2000}
-                        spacing={80}
-                    />
+                <View style={[styles.titleRow, renderExtra ? { marginRight: 60 } : null]}>
+                    <View style={onEditTitle ? { flexShrink: 1, maxWidth: '84%' } : { flex: 1 }}>
+                        <MarqueeText
+                            text={title}
+                            style={styles.title}
+                            speed={30}
+                            pauseDuration={2000}
+                            spacing={80}
+                        />
+                    </View>
+                    {onEditTitle && (
+                        <TouchableOpacity
+                            style={styles.editTitleButton}
+                            onPress={onEditTitle}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                            <Ionicons name="pencil" size={15} color={colors.text} />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {subtitle && (
@@ -224,6 +239,20 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         bottom: 20,
         left: 20,
         right: 20,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    editTitleButton: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 4,
     },
     title: {
         color: colors.text,

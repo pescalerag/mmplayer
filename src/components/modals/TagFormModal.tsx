@@ -15,6 +15,8 @@ import {
   View,
 } from "react-native";
 import { scheduleOnRN } from "react-native-worklets";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ColorPicker, {
   HueSlider,
@@ -50,11 +52,43 @@ export default function TagFormModal() {
 
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const keyboardHeight = useRef(new Animated.Value(0)).current;
+
+  const slideTranslateY = useSharedValue(SCREEN_HEIGHT);
+  const dragTranslateY = useSharedValue(0);
 
   // Bridge from UI thread (worklet) → JS thread for setState
   const setHexOnJS = (hex: string) => setCustomHexCode(hex);
+
+  const performCloseForm = React.useCallback(() => {
+    closeForm();
+  }, [closeForm]);
+
+  const handlePanGesture = Gesture.Pan()
+    .activeOffsetY(5)
+    .onUpdate((event) => {
+      if (event.translationY > 0) {
+        dragTranslateY.value = event.translationY;
+      } else {
+        dragTranslateY.value = 0;
+      }
+    })
+    .onEnd((event) => {
+      const DISMISS_THRESHOLD = 90;
+      if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
+        dragTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 180 }, (finished) => {
+          if (finished) {
+            runOnJS(performCloseForm)();
+          }
+        });
+      } else {
+        dragTranslateY.value = withSpring(0, { damping: 25, stiffness: 150 });
+      }
+    });
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideTranslateY.value + dragTranslateY.value }],
+  }));
 
   useEffect(() => {
     if (isVisible) {
@@ -75,36 +109,23 @@ export default function TagFormModal() {
         setCustomHexCode("");
       }
 
-      // Animación de entrada
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 50,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      dragTranslateY.value = 0;
+      slideTranslateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.8 });
+
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
     } else {
-      // Animación de salida
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      slideTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 });
     }
-  }, [isVisible, tag, fadeAnim, slideAnim]);
+  }, [isVisible, tag, fadeAnim, slideTranslateY, dragTranslateY]);
 
   // Manejar botón físico de atrás en Android
   useEffect(() => {
@@ -214,19 +235,21 @@ export default function TagFormModal() {
         style={[styles.keyboardAvoid, { paddingBottom: keyboardHeight }]}
         pointerEvents="box-none"
       >
-        <Animated.View
+        <AnimatedReanimated.View
           style={[
             styles.sheetContainer,
             {
               paddingBottom: insets.bottom + 20,
-              transform: [{ translateY: slideAnim }],
             },
             customColorMode && { minHeight: 560 },
+            sheetAnimatedStyle,
           ]}
         >
-          <View style={styles.dragIndicator} />
-
-          <View style={styles.dragIndicator} />
+          <GestureDetector gesture={handlePanGesture}>
+            <View style={styles.handleContainer}>
+              <View style={styles.dragIndicator} />
+            </View>
+          </GestureDetector>
 
           <View style={styles.header}>
             <Text style={styles.headerTitle} numberOfLines={1}>
@@ -370,7 +393,7 @@ export default function TagFormModal() {
               {tag ? t('actions.save_changes') : t('tags.create_tag')}
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </AnimatedReanimated.View>
       </Animated.View>
     </View>
   );
@@ -397,13 +420,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: "#282828",
   },
+  handleContainer: {
+    width: "100%",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -12,
+    marginBottom: 8,
+  },
   dragIndicator: {
     width: 36,
     height: 4,
     backgroundColor: "#333",
     borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 20,
   },
   header: {
     marginBottom: 20,

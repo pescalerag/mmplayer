@@ -242,8 +242,214 @@ index 0b188b7..eaca4de 100644
 + */
 +export async function setPitch(pitch: number): Promise<void> {
 +  return TrackPlayer.setPitch(pitch);
+gradle.version=8.9
+diff --git a/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties b/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-track-player/android/.project b/node_modules/react-native-track-player/android/.project
+new file mode 100644
+index 0000000..52e8720
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/.project
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>react-native-track-player</name>
++	<comment>Project react-native-track-player created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.jdt.core.javabuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.jdt.core.javanature</nature>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1780507355664</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/react-native-track-player/android/.settings/org.eclipse.buildship.core.prefs b/node_modules/react-native-track-player/android/.settings/org.eclipse.buildship.core.prefs
+new file mode 100644
+index 0000000..1675490
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/.settings/org.eclipse.buildship.core.prefs
+@@ -0,0 +1,2 @@
++connection.project.dir=../../../android
++eclipse.preferences.version=1
+diff --git a/node_modules/react-native-track-player/android/.settings/org.eclipse.jdt.core.prefs b/node_modules/react-native-track-player/android/.settings/org.eclipse.jdt.core.prefs
+new file mode 100644
+index 0000000..626e0e1
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/.settings/org.eclipse.jdt.core.prefs
+@@ -0,0 +1,4 @@
++eclipse.preferences.version=1
++org.eclipse.jdt.core.compiler.codegen.targetPlatform=17
++org.eclipse.jdt.core.compiler.compliance=17
++org.eclipse.jdt.core.compiler.source=17
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
+index 13a6c60..8d279ca 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
+@@ -446,13 +446,55 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+         callback.resolve(musicService.getVolume())
+     }
+ 
++    private var currentRate: Float = 1.0f
++    private var currentPitch: Float = 1.0f
++
+     override fun setRate(rate: Double, callback: Promise) = launchInScope {
+         if (verifyServiceBoundOrReject(callback)) return@launchInScope
+ 
+-        musicService.setRate(rate.toFloat())
++        currentRate = rate.toFloat()
++        musicService.setRate(currentRate)
++        applySpeedAndPitch(currentRate, currentPitch)
++        callback.resolve(null)
++    }
++
++    override fun setPitch(pitch: Double, callback: Promise) = launchInScope {
++        if (verifyServiceBoundOrReject(callback)) return@launchInScope
++
++        currentPitch = pitch.toFloat()
++        applySpeedAndPitch(currentRate, currentPitch)
+         callback.resolve(null)
+     }
+ 
++    private fun applySpeedAndPitch(rate: Float, pitch: Float) {
++        try {
++            var playerClass: Class<*>? = musicService.javaClass
++            var playerField: java.lang.reflect.Field? = null
++            while (playerClass != null) {
++                try {
++                    playerField = playerClass.getDeclaredField("player")
++                    break
++                } catch (e: NoSuchFieldException) {
++                    playerClass = playerClass.superclass
++                }
++            }
++            if (playerField == null) return
++            playerField.isAccessible = true
++            val queuedAudioPlayer = playerField.get(musicService) ?: return
++            
++            var audioPlayerClass: Class<*>? = queuedAudioPlayer.javaClass
++            var exoPlayerField: java.lang.reflect.Field? = null
++            while (audioPlayerClass != null) {
++                try {
++                    exoPlayerField = audioPlayerClass.getDeclaredField("exoPlayer")
++                    break
++                } catch (e: NoSuchFieldException) {
++                    audioPlayerClass = audioPlayerClass.superclass
++                }
++            }
++            if (exoPlayerField == null) return
++            exoPlayerField.isAccessible = true
++            val exoPlayer = exoPlayerField.get(queuedAudioPlayer) as? androidx.media3.common.Player ?: return
++
++            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(rate, pitch)
++        } catch (e: Exception) {
++            timber.log.Timber.e(e, "Failed to apply Pitch Master Hack")
++        }
++    }
++
+     override fun getRate(callback: Promise) = launchInScope {
+         if (verifyServiceBoundOrReject(callback)) return@launchInScope
+ 
+diff --git a/node_modules/react-native-track-player/lib/module/trackPlayer.js b/node_modules/react-native-track-player/lib/module/trackPlayer.js
+index d748072..b549a5d 100644
+--- a/node_modules/react-native-track-player/lib/module/trackPlayer.js
++++ b/node_modules/react-native-track-player/lib/module/trackPlayer.js
+@@ -279,6 +279,15 @@ export async function setRate(rate) {
+   return TrackPlayer.setRate(rate);
+ }
+ 
++/**
++ * Sets the playback pitch.
++ *
++ * @param pitch The playback pitch to change to.
++ */
++export async function setPitch(pitch) {
++  return TrackPlayer.setPitch(pitch);
 +}
 +
  /**
   * Sets the queue.
   *
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts b/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
+index 85d300f..0ab7ba7 100644
+--- a/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
+@@ -156,6 +156,12 @@ export declare function setVolume(level: number): Promise<void>;
+  * 1 would be regular speed, 2 would be double speed etc.
+  */
+ export declare function setRate(rate: number): Promise<void>;
++/**
++ * Sets the playback pitch.
++ *
++ * @param pitch The playback pitch to change to.
++ */
++export declare function setPitch(pitch: number): Promise<void>;
+ /**
+  * Sets the queue.
+  *
+diff --git a/node_modules/react-native-track-player/src/NativeTrackPlayer.ts b/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
+index a5dcd75..7367a05 100644
+--- a/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
++++ b/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
+@@ -20,6 +20,7 @@ export interface Spec extends TurboModule {
+   getVolume(): Promise<number>;
+   setRate(rate: number): Promise<void>;
+   getRate(): Promise<number>;
++  setPitch(pitch: number): Promise<void>;
+   getProgress(): Promise<UnsafeObject>;
+   getPlaybackState(): Promise<UnsafeObject>;
+   retry(): Promise<void>;
+diff --git a/node_modules/react-native-track-player/src/trackPlayer.ts b/node_modules/react-native-track-player/src/trackPlayer.ts
+index 0b188b7..eaca4de 100644
+--- a/node_modules/react-native-track-player/src/trackPlayer.ts
++++ b/node_modules/react-native-track-player/src/trackPlayer.ts
+@@ -328,6 +328,15 @@ export async function setRate(rate: number): Promise<void> {
+   return TrackPlayer.setRate(rate);
+ }
+ 
++/**
++ * Sets the playback pitch.
++ *
++ * @param pitch The playback pitch to change to.
++ */
++export async function setPitch(pitch: number): Promise<void> {
++  return TrackPlayer.setPitch(pitch);
++}
++
+ /**
+  * Sets the queue.
+  *
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
+@@ -202,7 +202,7 @@ class QueuedAudioPlayer(
+         exoPlayer.moveMediaItem(fromIndex, toIndex)
+         val item = queue[fromIndex]
+         queue.removeAt(fromIndex)
+-        queue.add(max(0, min(items.size, if (toIndex > fromIndex) toIndex else toIndex - 1)), item)
++        queue.add(max(0, min(queue.size, toIndex)), item)
+     }
+ 
+     /**

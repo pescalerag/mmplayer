@@ -70,6 +70,28 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- MENÚ DE OPCIONES DE CONFIGURACIÓN --- */}
                 <View style={styles.sectionCard}>
+                    {/* ALMACENAMIENTO */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => navigation.navigate('SettingsStorage')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="pie-chart-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.storage_title', 'Almacenamiento')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.storage_desc', 'Gestiona el espacio del móvil y de MMPlayer')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
                     {/* APARIENCIA */}
                     <TouchableOpacity
                         style={styles.menuRow}
@@ -278,8 +300,53 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     </TouchableOpacity>
                 </View>
 
-                {/* --- SECCIÓN SÍGUENOS --- */}
+                {/* --- SECCIÓN APOYO, DONACIONES Y SÍGUENOS --- */}
                 <View style={styles.sectionCard}>
+                    {/* Apoyo y Tiers */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => navigation.navigate('Support')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="sparkles-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.support_tiers')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.support_tiers_desc')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    {/* Donaciones (Ko-Fi) */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => Linking.openURL('https://ko-fi.com/pescalerag')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="cafe-outline" size={22} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.donations_kofi')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.donations_kofi_desc')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="open-outline" size={18} color="#8B5CF6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    {/* Proyecto Oficial GitHub */}
                     <TouchableOpacity
                         style={styles.menuRow}
                         onPress={() => Linking.openURL('https://github.com/pescalerag/mmplayer')}
@@ -302,7 +369,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.0.0-rc.2'}</Text>
+                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.0.0-rc.3'}</Text>
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>

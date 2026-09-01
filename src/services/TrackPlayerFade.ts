@@ -24,6 +24,8 @@ const originalPause = TrackPlayer.pause.bind(TrackPlayer);
 const originalReset = TrackPlayer.reset.bind(TrackPlayer);
 const originalSetVolume = TrackPlayer.setVolume.bind(TrackPlayer);
 const originalGetPlaybackState = TrackPlayer.getPlaybackState.bind(TrackPlayer);
+const originalSeekTo = TrackPlayer.seekTo.bind(TrackPlayer);
+const originalGetProgress = TrackPlayer.getProgress.bind(TrackPlayer);
 
 let fadeIntervalId: any = null;
 let targetVolume = 1.0;
@@ -36,9 +38,59 @@ function clearFadeInterval() {
   }
 }
 
+// Override getProgress
+TrackPlayer.getProgress = async () => {
+  const { useCastStore } = require('../store/useCastStore');
+  const castState = useCastStore.getState();
+  if (castState.isLocalCastActive) {
+    const { usePlayerStore } = require('../store/usePlayerStore');
+    const activeTrack = usePlayerStore.getState().activeTrack;
+    const dur = castState.castDuration > 0 ? castState.castDuration : (activeTrack?.duration || 0);
+    return {
+      position: castState.castPosition || 0,
+      duration: dur,
+      buffered: dur,
+    };
+  }
+  return originalGetProgress();
+};
+
+// Override seekTo to sync with Chromecast and LocalCast
+TrackPlayer.seekTo = async (position: number) => {
+  try {
+    const { useCastStore } = require('../store/useCastStore');
+    if (useCastStore.getState().isChromecastConnected) {
+      const { ChromecastService } = require('./ChromecastService');
+      ChromecastService.seekTo(position);
+    }
+    if (useCastStore.getState().isLocalCastActive) {
+      useCastStore.setState({ castPosition: position });
+      const { LocalCastService } = require('./LocalCastService');
+      LocalCastService.emitSeek(position);
+      return;
+    }
+  } catch (e) {}
+  return originalSeekTo(position);
+};
+
 // Override getPlaybackState
 TrackPlayer.getPlaybackState = async () => {
+  const { useCastStore } = require('../store/useCastStore');
+  const isLocalCast = useCastStore.getState().isLocalCastActive;
+  if (isLocalCast) {
+    setIsFadingOut(false);
+    return { state: useCastStore.getState().isCastPlaying ? State.Playing : State.Paused };
+  }
+
   const originalState = await originalGetPlaybackState();
+  const castState = useCastStore.getState();
+  const isCasting = castState.isServerRunning && (castState.isLocalCastActive || castState.isChromecastConnected);
+
+  if (isCasting) {
+    setIsFadingOut(false);
+    return originalState;
+  }
+
   const isNativePaused = 
     originalState.state === State.Paused || 
     originalState.state === State.Stopped || 
@@ -57,7 +109,22 @@ TrackPlayer.getPlaybackState = async () => {
 
 // Override setVolume
 TrackPlayer.setVolume = async (volume: number) => {
-  targetVolume = volume;
+  const { useCastStore } = require('../store/useCastStore');
+  const castState = useCastStore.getState();
+  const isCasting = castState.isServerRunning && (castState.isLocalCastActive || castState.isChromecastConnected);
+
+  if (isCasting) {
+    clearFadeInterval();
+    setIsFadingOut(false);
+    currentVolume = 0;
+    return originalSetVolume(0);
+  }
+
+  if (volume > 0.05) {
+    targetVolume = volume;
+  } else if (volume === 0) {
+    targetVolume = 0;
+  }
 
   // Si hay un fade en progreso (in o out), dejamos que el intervalo de fade continúe
   // actualizando el volumen hasta targetVolume de forma progresiva.
@@ -71,7 +138,7 @@ TrackPlayer.setVolume = async (volume: number) => {
 
 // Override getVolume - returns the logical volume (targetVolume)
 TrackPlayer.getVolume = async () => {
-  return targetVolume;
+  return targetVolume > 0.05 ? targetVolume : 1.0;
 };
 
 // Override reset
@@ -86,6 +153,38 @@ TrackPlayer.reset = async () => {
 TrackPlayer.play = async (bypassFade = false) => {
   clearFadeInterval();
   setIsFadingOut(false);
+
+  const { useCastStore } = require('../store/useCastStore');
+  const castState = useCastStore.getState();
+  const isCasting = castState.isServerRunning && (castState.isLocalCastActive || castState.isChromecastConnected);
+
+  try {
+    if (useCastStore.getState().isChromecastConnected) {
+      const { ChromecastService } = require('./ChromecastService');
+      ChromecastService.play();
+    }
+  } catch (e) {}
+
+  // When casting (local or chromecast), phone's native audio must remain silent
+  if (isCasting) {
+    currentVolume = 0;
+    await originalSetVolume(0);
+    try {
+      if (useCastStore.getState().isLocalCastActive) {
+        useCastStore.getState().setCastPlaying(true);
+        const { LocalCastService } = require('./LocalCastService');
+        LocalCastService.emitPlay();
+        await originalPause(); // Prevent ExoPlayer from running in silence and auto-advancing on its own
+        return;
+      }
+    } catch (e) {}
+    return originalPlay();
+  }
+
+  // If not casting and targetVolume was stuck at 0 (e.g. from previous cast), restore default 1.0
+  if (targetVolume <= 0.05) {
+    targetVolume = 1.0;
+  }
 
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
   if (!isFadeEnabled) {
@@ -148,8 +247,23 @@ TrackPlayer.play = async (bypassFade = false) => {
 
 // Override pause
 TrackPlayer.pause = async (bypassFade = false) => {
+  const { useCastStore } = require('../store/useCastStore');
+  const castState = useCastStore.getState();
+
+  try {
+    if (castState.isChromecastConnected) {
+      const { ChromecastService } = require('./ChromecastService');
+      ChromecastService.pause();
+    }
+  } catch (e) {}
+
+  // When LocalCast (or Chromecast) is active the phone volume is already 0.
+  // Doing a fade-out via BackgroundTimer.setInterval is pointless and,
+  // critically, Android freezes those intervals when the screen is off —
+  // leaving the native player stuck in Playing state and never pausing.
+  const isCasting = castState.isServerRunning && (castState.isLocalCastActive || castState.isChromecastConnected);
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
-  if (!isFadeEnabled) {
+  if (!isFadeEnabled || isCasting) {
     bypassFade = true;
   }
 
@@ -159,6 +273,13 @@ TrackPlayer.pause = async (bypassFade = false) => {
     await originalPause();
     await originalSetVolume(0);
     setIsFadingOut(false);
+    try {
+      if (castState.isLocalCastActive) {
+        castState.setCastPlaying(false);
+        const { LocalCastService } = require('./LocalCastService');
+        LocalCastService.emitPause();
+      }
+    } catch (e) {}
     return;
   }
 

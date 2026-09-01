@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections } from '@/store/useUIStore';
+import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections, openEditAlias } from '@/store/useUIStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 
@@ -15,7 +15,6 @@ export default function SettingsAppearanceScreen() {
         hideSyncToastOnResume,
         setHideSyncToastOnResume,
         userAlias,
-        setForceWelcomeModal,
         isKeepAwakeEnabled,
         setIsKeepAwakeEnabled,
         showPlayerLyrics,
@@ -44,7 +43,7 @@ export default function SettingsAppearanceScreen() {
                     <View style={styles.sectionCard}>
                         <TouchableOpacity
                             style={styles.buttonRow}
-                            onPress={() => setForceWelcomeModal(true)}
+                            onPress={openEditAlias}
                         >
                             <View style={{ flex: 1, paddingRight: 15 }}>
                                 <Text style={styles.settingLabel}>{t('welcome.subtitle') || 'Cambiar alias'}</Text>

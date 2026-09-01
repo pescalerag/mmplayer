@@ -8,6 +8,8 @@ export type HomeStackParamList = {
     FavoritesDetail: undefined;
     WeeklyActivity: undefined;
     SmartListDetail: { smartListId: string };
+    UserProfile: undefined;
+    Support: undefined;
 };
 
 export type LibraryStackParamList = {
@@ -18,6 +20,7 @@ export type LibraryStackParamList = {
     FavoritesDetail: undefined;
     PlaylistDetail: { playlistId: string };
     SmartListDetail: { smartListId: string };
+    Support: undefined;
 };
 
 export type SearchStackParamList = {
@@ -49,6 +52,14 @@ export type RootStackParamList = {
     Main: undefined;
     Player: undefined | NavigatorScreenParams<PlayerStackParamList>;
     DebugHistory: undefined;
+    ShareStats: {
+        formattedPeriodText: string;
+        metric: 'duration' | 'plays';
+        totalHours: number;
+        totalPlays: number;
+        topArtists: any[];
+        topSongs: any[];
+    };
 };
 
 export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
