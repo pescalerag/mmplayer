@@ -262,13 +262,13 @@ export const PlaybackService = async function () {
         }
       }
 
-      // Pre-buffer next track in LocalCast if active
-      if (useCastStore.getState().isLocalCastActive) {
+      // Pre-buffer next track if casting (LocalCast or Chromecast)
+      if (useCastStore.getState().isLocalCastActive || useCastStore.getState().isChromecastConnected) {
         try {
           const { LocalCastService } = require('./LocalCastService');
           LocalCastService.triggerPreloadNext().catch(() => {});
-        } catch (localCastErr) {
-          console.error('[PlaybackService] Error preloading next track in LocalCast:', localCastErr);
+        } catch (preloadErr) {
+          console.error('[PlaybackService] Error preloading next track during cast:', preloadErr);
         }
       }
 

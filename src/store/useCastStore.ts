@@ -18,8 +18,11 @@ interface CastState {
     castPosition: number;
     castDuration: number;
     isCastPlaying: boolean;
+    castVolume: number;
+
     setCastPlayback: (pos: number, isPlaying: boolean, dur?: number) => void;
     setCastPlaying: (isPlaying: boolean) => void;
+    setCastVolume: (volume: number) => void;
     setSelectedMode: (mode: 'local' | 'chromecast' | null) => void;
     startServer: () => Promise<string>;
     stopServer: () => Promise<void>;
@@ -34,6 +37,7 @@ export const useCastStore = create<CastState>((set, get) => ({
     isServerRunning: false,
     isLocalCastActive: false,
     serverIp: '',
+
     previousVolume: 1.0,
     selectedMode: null,
     isChromecastConnected: false,
@@ -43,6 +47,7 @@ export const useCastStore = create<CastState>((set, get) => ({
     castPosition: 0,
     castDuration: 0,
     isCastPlaying: false,
+    castVolume: 0.8,
 
     setCastPlayback: (pos, isPlaying, dur) => {
         set((state) => ({
@@ -54,6 +59,10 @@ export const useCastStore = create<CastState>((set, get) => ({
 
     setCastPlaying: (isPlaying) => {
         set({ isCastPlaying: isPlaying });
+    },
+
+    setCastVolume: (volume) => {
+        set({ castVolume: volume });
     },
 
     setSelectedMode: (mode) => set({ selectedMode: mode }),
@@ -155,6 +164,13 @@ export const useCastStore = create<CastState>((set, get) => ({
             const prevVol = (get().previousVolume !== undefined && get().previousVolume > 0.05)
                 ? get().previousVolume
                 : 1.0;
+            
+            try {
+                await TrackPlayer.setVolume(prevVol);
+            } catch (err) {
+                console.error("[useCastStore] Failed to restore volume", err);
+            }
+
             set({
                 isServerRunning: false,
                 isLocalCastActive: false,

@@ -73,6 +73,7 @@
         }
       ],
       "./plugins/withJetifier",
+
       [
         "react-native-google-cast",
         {

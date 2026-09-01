@@ -5,6 +5,7 @@ import CastContext, {
 } from 'react-native-google-cast';
 import TrackPlayer from 'react-native-track-player';
 import { LocalCastService } from './LocalCastService';
+
 import { useCastStore } from '../store/useCastStore';
 import { useToastStore } from '../store/useToastStore';
 import { database } from '../database';
@@ -14,6 +15,9 @@ const CAST_NAMESPACE = 'urn:x-cast:com.pescalerag.mmplayer';
 
 let isInitialized = false;
 let sessionListenersAttached = false;
+let activeCastChannel: any = null;
+let lastSkipTime = 0;
+
 
 export const ChromecastService = {
     init() {
@@ -54,6 +58,43 @@ export const ChromecastService = {
                     '#60A5FA'
                 );
 
+                let initialTrackLoaded = false;
+                let loadInitialTrackFn: (() => Promise<void>) | null = null;
+
+                // Setup custom bidirectional message channel
+                try {
+                    if (activeCastChannel) {
+                        try { activeCastChannel.offMessage(); activeCastChannel.remove(); } catch (e) {}
+                        activeCastChannel = null;
+                    }
+                    activeCastChannel = await session.addChannel(CAST_NAMESPACE);
+                    if (activeCastChannel) {
+                        activeCastChannel.onMessage((msg: any) => {
+                            try {
+                                const data = typeof msg === 'string' ? JSON.parse(msg) : msg;
+                                console.log('[ChromecastService] Message received from TV:', data);
+                                if (data?.action === 'RECEIVER_READY') {
+                                    console.log('[ChromecastService] TV Receiver ready signal received!');
+                                    if (loadInitialTrackFn) {
+                                        loadInitialTrackFn();
+                                    }
+                                } else if (data?.action === 'TRACK_ENDED' || data?.action === 'NEXT_TRACK') {
+                                    const now = Date.now();
+                                    if (now - lastSkipTime > 2000) {
+                                        lastSkipTime = now;
+                                        console.log('[ChromecastService] Advancing queue from TV message...');
+                                        TrackPlayer.skipToNext().then(() => TrackPlayer.play()).catch(() => {});
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('[ChromecastService] Error processing TV message:', err);
+                            }
+                        });
+                    }
+                } catch (channelErr) {
+                    console.warn('[ChromecastService] Error setting up Cast channel:', channelErr);
+                }
+
                 try {
                     // Ensure the local HTTP media server is running so Chromecast can fetch audio
                     let serverUrl = useCastStore.getState().serverIp;
@@ -74,28 +115,37 @@ export const ChromecastService = {
                         } catch (e) {}
                     }
                     if (trackToLoad) {
-                        console.log('[ChromecastService] Loading initial track on connect:', trackToLoad.title);
+                        console.log('[ChromecastService] Preparing initial track on connect:', trackToLoad.title);
                         const { LocalCastService } = require('./LocalCastService');
                         const preparePromise = LocalCastService.prepareTrack(trackToLoad).catch((e: any) => {
                             console.warn('[ChromecastService] Early prepareTrack failed:', e);
                             return null;
                         });
 
-                        // Capture current playback position to transfer to Chromecast on initial connect ONLY
                         const progress = await TrackPlayer.getProgress().catch(() => ({ position: 0, duration: 0 }));
                         const initialPosition = progress.position || 0;
 
-                        setTimeout(async () => {
+                        loadInitialTrackFn = async () => {
+                            if (initialTrackLoaded) return;
+                            initialTrackLoaded = true;
                             try {
                                 await preparePromise;
                                 await this.loadTrack(trackToLoad, session.client, initialPosition);
                             } catch (loadErr) {
-                                console.warn('[ChromecastService] Initial loadTrack attempt failed, retrying in 1.5s...', loadErr);
+                                console.warn('[ChromecastService] Initial loadTrack attempt failed, retrying in 1s with position 0...', loadErr);
                                 setTimeout(() => {
-                                    this.loadTrack(trackToLoad, null, initialPosition).catch(() => {});
-                                }, 1500);
+                                    this.loadTrack(trackToLoad, null, 0).catch(() => {});
+                                }, 1000);
                             }
-                        }, 600);
+                        };
+
+                        // Fallback trigger after 1.2s if RECEIVER_READY message was not caught
+                        setTimeout(() => {
+                            if (!initialTrackLoaded && loadInitialTrackFn) {
+                                console.log('[ChromecastService] Triggering initial track load via timeout fallback...');
+                                loadInitialTrackFn();
+                            }
+                        }, 1200);
                     } else {
                         console.log('[ChromecastService] No active track found to load on connect');
                     }
@@ -115,6 +165,11 @@ export const ChromecastService = {
 
             sessionManager.onSessionEnded(async () => {
                 console.log('[ChromecastService] Session ended');
+                if (activeCastChannel) {
+                    try { activeCastChannel.offMessage(); activeCastChannel.remove(); } catch (e) {}
+                    activeCastChannel = null;
+                }
+
                 useCastStore.getState().setChromecastConnected(false, null, null);
                 if (!useCastStore.getState().isLocalCastActive) {
                     await useCastStore.getState().stopServer();
@@ -123,6 +178,10 @@ export const ChromecastService = {
 
             sessionManager.onSessionStartFailed(async (session: CastSession, error: string) => {
                 console.error('[ChromecastService] Session start failed:', error, session);
+                if (activeCastChannel) {
+                    try { activeCastChannel.offMessage(); activeCastChannel.remove(); } catch (e) {}
+                    activeCastChannel = null;
+                }
                 const errorDetails = error || 'Error al iniciar conexión';
                 useToastStore.getState().showToast(
                     `Fallo al conectar con Chromecast: ${errorDetails}`,
@@ -191,6 +250,10 @@ export const ChromecastService = {
         } catch (error: any) {
             console.error('[ChromecastService] Failed to end session:', error);
         } finally {
+            if (activeCastChannel) {
+                try { activeCastChannel.offMessage(); activeCastChannel.remove(); } catch (e) {}
+                activeCastChannel = null;
+            }
             useCastStore.getState().setChromecastConnected(false, null, null);
             if (!useCastStore.getState().isLocalCastActive) {
                 await useCastStore.getState().stopServer();
@@ -200,15 +263,23 @@ export const ChromecastService = {
 
     async sendLyricsUpdate(lyricsLRC: string): Promise<void> {
         try {
+            if (activeCastChannel) {
+                await activeCastChannel.sendMessage({
+                    action: 'UPDATE_LYRICS',
+                    lyricsLRC,
+                });
+                console.log('[ChromecastService] Sent out-of-band lyrics to TV via activeCastChannel');
+                return;
+            }
             const sessionManager = CastContext.getSessionManager();
             const session = await sessionManager.getCurrentCastSession();
             if (session) {
                 const channel = await session.addChannel(CAST_NAMESPACE);
                 if (channel) {
-                    await channel.sendMessage(JSON.stringify({
+                    await channel.sendMessage({
                         action: 'UPDATE_LYRICS',
                         lyricsLRC,
-                    }));
+                    });
                     console.log('[ChromecastService] Sent out-of-band lyrics to TV');
                 }
             }
@@ -233,6 +304,9 @@ export const ChromecastService = {
                 serverUrl = await useCastStore.getState().startServer();
             }
 
+            const baseUrl = serverUrl;
+            console.log(`[ChromecastService] Using baseUrl for Chromecast: ${baseUrl}`);
+
             const cacheInfo = await LocalCastService.prepareTrack(track);
             if (!cacheInfo || !cacheInfo.filePath) {
                 const errMsg = 'No se pudo preparar el archivo de audio para transmitir.';
@@ -250,9 +324,9 @@ export const ChromecastService = {
             let artist = track.artist || 'Desconocido';
             let albumTitle = track.album || track.albumTitle || '';
 
-            if (track.id) {
+            const cleanId = track.id ? track.id.toString().split('-')[0] : '';
+            if (cleanId) {
                 try {
-                    const cleanId = track.id.toString().split('-')[0];
                     const trackModel = await database.get<Track>('tracks').find(cleanId);
                     if (trackModel) {
                         lyricsLRC = trackModel.lyricsLRC || null;
@@ -263,7 +337,7 @@ export const ChromecastService = {
                             if (albumModel.coverUrl) {
                                 const coverFileName = await LocalCastService.prepareCover(cleanId, albumModel);
                                 if (coverFileName) {
-                                    cleanCoverUrl = encodeURI(`${serverUrl}/static/${coverFileName}`);
+                                    cleanCoverUrl = `${baseUrl}/static/${coverFileName}`;
                                 }
                             }
                         }
@@ -273,28 +347,50 @@ export const ChromecastService = {
                 }
             }
 
-            const cleanAudioUrl = encodeURI(`${serverUrl}/static/${fileName}`);
+            const cleanAudioUrl = `${baseUrl}/static/${fileName}`;
 
             console.log(`[ChromecastService] Official loadMedia: "${title}" -> ${cleanAudioUrl} (startPosition: ${startPosition})`);
 
-            // 1. Carga Ligera Oficial: SDK nativo toma control (pantalla bloqueo, volumen, notificaciones)
-            await client.loadMedia({
+            // Proactively preload next track audio & cover
+            const activeIndex = await TrackPlayer.getActiveTrackIndex().catch(() => null);
+            if (activeIndex !== null && activeIndex !== undefined) {
+                LocalCastService.triggerPreloadNext(activeIndex).catch(() => {});
+            }
+
+            const mediaPayload = {
                 autoplay: true,
                 startTime: startPosition > 0 ? startPosition : 0,
+                customData: {
+                    serverUrl: baseUrl,
+                    lyricsLRC: lyricsLRC || null,
+                },
                 mediaInfo: {
                     contentId: cleanAudioUrl,
                     contentUrl: cleanAudioUrl,
                     streamType: MediaStreamType.BUFFERED,
                     contentType: mimeType,
+                    customData: {
+                        serverUrl: baseUrl,
+                        lyricsLRC: lyricsLRC || null,
+                    },
                     metadata: {
-                        type: 'musicTrack',
+                        type: 'musicTrack' as const,
                         title,
                         artist,
                         albumTitle,
                         images: cleanCoverUrl ? [{ url: cleanCoverUrl }] : undefined,
                     },
                 },
-            });
+            };
+
+            // 1. Carga Ligera Oficial con reintento automático
+            try {
+                await client.loadMedia(mediaPayload as any);
+            } catch (firstErr: any) {
+                console.warn('[ChromecastService] loadMedia attempt 1 failed, retrying in 800ms...', firstErr);
+                await new Promise(res => setTimeout(res, 800));
+                await client.loadMedia(mediaPayload as any);
+            }
 
             console.log('[ChromecastService] Official loadMedia accepted by Cast SDK!');
 
@@ -304,11 +400,11 @@ export const ChromecastService = {
             // 3. Reset castPosition in store so UI shows startPosition for the track
             useCastStore.setState({ castPosition: startPosition > 0 ? startPosition : 0 });
 
-            // 4. Datos Fuera de Banda: Envío de letras LRC por canal personalizado
+            // 4. Datos Fuera de Banda: Asegurar envío de letras LRC por canal personalizado
             if (lyricsLRC) {
                 setTimeout(() => {
                     this.sendLyricsUpdate(lyricsLRC!).catch(() => {});
-                }, 500);
+                }, 300);
             }
         } catch (error: any) {
             console.error('[ChromecastService] Error loading track on Chromecast:', error);

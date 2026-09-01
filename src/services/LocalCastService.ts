@@ -127,6 +127,7 @@ async function prepareTrackCache(track: any): Promise<CachedAudioInfo | null> {
     if (!fileSource) return null;
     const trackId = (track.id || 'current').toString();
     const cleanId = trackId.split('-')[0];
+    currentActiveCleanId = cleanId;
 
     // 1. Check existing in-memory cache and file existence
     const existing = trackCacheMap.get(cleanId);
@@ -148,9 +149,12 @@ async function prepareTrackCache(track: any): Promise<CachedAudioInfo | null> {
     const copyPromise = (async (): Promise<CachedAudioInfo | null> => {
         try {
             let filePath = fileSource;
-
-            if (!filePath.startsWith('content://') && !filePath.startsWith('file://')) {
-                if (filePath.startsWith('/')) filePath = `file://${filePath}`;
+            if (filePath.startsWith('content://')) {
+                filePath = filePath.split('?')[0];
+            } else if (filePath.startsWith('file://')) {
+                try { filePath = `file://${decodeURIComponent(filePath.replace('file://', ''))}`; } catch { }
+            } else if (filePath.startsWith('/')) {
+                try { filePath = `file://${decodeURIComponent(filePath)}`; } catch { filePath = `file://${filePath}`; }
             }
 
             // Derive extension
@@ -163,10 +167,19 @@ async function prepareTrackCache(track: any): Promise<CachedAudioInfo | null> {
 
             const targetUri = `${FileSystem.cacheDirectory}cast_track_${cleanId}.${ext}`;
 
-            const fileCheck = await FileSystem.getInfoAsync(targetUri);
+            const fileCheck = await FileSystem.getInfoAsync(targetUri).catch(() => ({ exists: false, size: 0 }));
             if (!fileCheck.exists || (fileCheck as any).size === 0) {
                 try { await FileSystem.deleteAsync(targetUri, { idempotent: true }); } catch { }
-                await FileSystem.copyAsync({ from: filePath, to: targetUri });
+                try {
+                    await FileSystem.copyAsync({ from: filePath, to: targetUri });
+                } catch (copyErr) {
+                    console.warn(`[LocalCastService] Copy failed for ${cleanId} from ${filePath}:`, copyErr);
+                    try {
+                        await FileSystem.copyAsync({ from: fileSource, to: targetUri });
+                    } catch (rawErr) {
+                        console.error(`[LocalCastService] Raw copy also failed for ${cleanId}:`, rawErr);
+                    }
+                }
             }
 
             // MIME detection via magic bytes
@@ -179,7 +192,7 @@ async function prepareTrackCache(track: any): Promise<CachedAudioInfo | null> {
                     else if (headerB64.startsWith('UklGR')) mimeType = 'audio/wav';
                     else if (headerB64.startsWith('AAAA') || headerB64.startsWith('AAAB')) mimeType = 'audio/mp4';
                     else {
-                        const urlLower = fileSource.toLowerCase();
+                        const urlLower = (track.fileUrl || fileSource).toLowerCase();
                         if (urlLower.endsWith('.m4a') || urlLower.endsWith('.aac') || urlLower.endsWith('.mp4')) mimeType = 'audio/mp4';
                         else if (urlLower.endsWith('.flac')) mimeType = 'audio/flac';
                         else if (urlLower.endsWith('.wav')) mimeType = 'audio/wav';
@@ -190,15 +203,49 @@ async function prepareTrackCache(track: any): Promise<CachedAudioInfo | null> {
                 console.warn('[LocalCastService] Error reading magic bytes:', err);
             }
 
-            const fileInfo = await FileSystem.getInfoAsync(targetUri);
-            const fileSize = fileInfo.exists ? (fileInfo as any).size ?? 0 : 0;
+            const mimeToExt: Record<string, string> = {
+                'audio/flac': 'flac',
+                'audio/ogg': 'ogg',
+                'audio/wav': 'wav',
+                'audio/mp4': 'm4a',
+                'audio/mpeg': 'mp3',
+            };
+            const correctExt = mimeToExt[mimeType] || ext;
+            let finalTargetUri = targetUri;
+            if (correctExt !== ext) {
+                const correctedUri = `${FileSystem.cacheDirectory}cast_track_${cleanId}.${correctExt}`;
+                try {
+                    await FileSystem.copyAsync({ from: targetUri, to: correctedUri });
+                    await FileSystem.deleteAsync(targetUri, { idempotent: true });
+                    finalTargetUri = correctedUri;
+                } catch { }
+            }
 
-            const result: CachedAudioInfo = { filePath: targetUri, fileSize, mimeType };
-            trackCacheMap.set(cleanId, result);
-            console.log(`[LocalCastService] Audio cached for trackId=${cleanId} (${(fileSize / (1024 * 1024)).toFixed(2)} MB, ${mimeType})`);
-            return result;
+            let fileInfo = await FileSystem.getInfoAsync(finalTargetUri).catch(() => ({ exists: false, size: 0 }));
+            if (fileInfo.exists && (fileInfo as any).size > 0) {
+                const fileSize = (fileInfo as any).size ?? 0;
+                const result: CachedAudioInfo = { filePath: finalTargetUri, fileSize, mimeType };
+                trackCacheMap.set(cleanId, result);
+                console.log(`[LocalCastService] Audio cached for trackId=${cleanId} (${(fileSize / (1024 * 1024)).toFixed(2)} MB, ${mimeType}, ${correctExt})`);
+                return result;
+            }
+
+            // Fallback: check if the original source file is directly accessible on device storage
+            const sourceCheck = await FileSystem.getInfoAsync(filePath).catch(() => ({ exists: false, size: 0 }));
+            if (sourceCheck.exists && (sourceCheck as any).size > 0) {
+                const fileSize = (sourceCheck as any).size ?? 0;
+                const result: CachedAudioInfo = { filePath: filePath, fileSize, mimeType };
+                trackCacheMap.set(cleanId, result);
+                console.log(`[LocalCastService] Using direct source audio for trackId=${cleanId} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`);
+                return result;
+            }
+
+            console.error(`[LocalCastService] Audio file preparation failed for trackId=${cleanId} - target does not exist`);
+            trackCacheMap.delete(cleanId);
+            return null;
         } catch (err) {
             console.error(`[LocalCastService] Error preparing track cache for ${cleanId}:`, err);
+            trackCacheMap.delete(cleanId);
             return null;
         } finally {
             trackCopyPromises.delete(cleanId);
@@ -252,11 +299,15 @@ async function preloadNextTrack(currentTrackIndex?: number): Promise<void> {
 async function pruneOldCaches(keepCleanIds: string[]) {
     try {
         const keepSet = new Set(keepCleanIds.filter(Boolean));
-        // Prune large audio files
-        for (const [cleanId, info] of trackCacheMap.entries()) {
-            if (!keepSet.has(cleanId)) {
-                try { await FileSystem.deleteAsync(info.filePath, { idempotent: true }); } catch { }
-                trackCacheMap.delete(cleanId);
+        // Retain up to 8 recent audio files in cache (FIFO / LRU style)
+        if (trackCacheMap.size > 8) {
+            const entries = Array.from(trackCacheMap.entries());
+            const toDelete = entries.slice(0, entries.length - 5);
+            for (const [cleanId, info] of toDelete) {
+                if (!keepSet.has(cleanId)) {
+                    try { await FileSystem.deleteAsync(info.filePath, { idempotent: true }); } catch { }
+                    trackCacheMap.delete(cleanId);
+                }
             }
         }
         // Retain up to 30 recent covers instead of deleting immediately

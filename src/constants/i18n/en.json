@@ -785,6 +785,9 @@
     "chromecast_open_system_dialog": "Open system dialog",
     "chromecast_no_devices": "No Chromecast devices found",
     "chromecast_retry": "Search again",
+    "chromecast_internet_required": "Internet required",
+    "chromecast_internet_desc": "Chromecast requires an internet connection to securely stream audio. Enable mobile data or make sure your Wi-Fi has internet access.",
+
     "status_active": "Casting",
     "status_idle": "Not casting",
     "open_in_browser": "Open this address in your browser:",

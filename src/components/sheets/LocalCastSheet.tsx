@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import CastContext, { CastButton, useDevices } from 'react-native-google-cast';
 import { useActiveTrack } from 'react-native-track-player';
 import { ChromecastService } from '../../services/ChromecastService';
@@ -37,6 +38,8 @@ export default function LocalCastSheet() {
     isChromecastConnecting,
     connectedDeviceName,
     disconnectChromecast,
+    castVolume,
+    setCastVolume,
   } = useCastStore();
 
   const { t } = useTranslation();
@@ -44,8 +47,8 @@ export default function LocalCastSheet() {
   const activeTrack = useActiveTrack();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [castVolume, setCastVolume] = useState(0.8);
   const [isBatteryIgnored, setIsBatteryIgnored] = useState(true);
+  const [hasInternet, setHasInternet] = useState<boolean | null>(null);
 
   const checkBattery = async () => {
     if (Platform.OS === 'android') {
@@ -57,11 +60,18 @@ export default function LocalCastSheet() {
   useEffect(() => {
     ChromecastService.init();
     checkBattery();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+    const checkInternet = () =>
+      NetInfo.fetch().then(netState => setHasInternet(!!netState.isConnected && !!netState.isInternetReachable));
+
+    const sub = AppState.addEventListener('change', (appState) => {
+      if (appState === 'active') {
         checkBattery();
+        // Re-check internet when app comes to foreground
+        checkInternet();
       }
     });
+    // Initial internet check
+    checkInternet();
     return () => sub.remove();
   }, []);
 
@@ -337,6 +347,17 @@ export default function LocalCastSheet() {
         </Text>
       </View>
 
+      {/* Internet required warning - only when not connected and internet unavailable */}
+      {!isChromecastConnected && hasInternet === false && (
+        <View style={styles.internetWarningBox}>
+          <Ionicons name="wifi-outline" size={20} color="#F59E0B" />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.internetWarningTitle}>{t('cast.chromecast_internet_required')}</Text>
+            <Text style={styles.internetWarningDesc}>{t('cast.chromecast_internet_desc')}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Connected State */}
       {isChromecastConnected ? (
         <View style={styles.connectedContainer}>
@@ -454,6 +475,27 @@ const getStyles = (colors: any, fonts: any) =>
   StyleSheet.create({
     container: {
       width: '100%',
+    },
+    internetWarningBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(245, 158, 11, 0.35)',
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 12,
+    },
+    internetWarningTitle: {
+      color: '#F59E0B',
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    internetWarningDesc: {
+      color: colors.textSecondary || '#888',
+      fontSize: 12,
+      lineHeight: 17,
     },
     header: {
       marginBottom: 16,

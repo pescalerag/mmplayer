@@ -1360,11 +1360,11 @@ const PlayerScreenUI = ({
                     pointerEvents={isImmersive ? 'none' : 'auto'}
                 >
                     {/* Progress Slider or Cast Remote Indicator */}
-                    {isCasting ? (
+                    {isLocalCastActive ? (
                         <View style={styles.castingRemoteBanner}>
                             <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
                             <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
-                                {isLocalCastActive ? 'LocalCast activo · Modo control remoto' : 'Chromecast activo · Modo control remoto'}
+                                {'LocalCast activo · Modo control remoto'}
                             </Text>
                         </View>
                     ) : (
