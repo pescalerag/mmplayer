@@ -24,9 +24,9 @@ import TrackPlayer, {
     Event,
     State,
     Track as TPTrack,
-    usePlaybackState,
     useTrackPlayerEvents,
 } from 'react-native-track-player';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
@@ -276,6 +276,15 @@ export default function QueueSheet() {
             await usePlayerStore.getState().updateQueueStatus();
             await usePlayerStore.getState().savePlaybackState();
             usePlayerStore.setState((state: any) => ({ windowVersion: (state.windowVersion || 0) + 1 }));
+
+            // Immediately re-buffer the newly placed next track for LocalCast
+            try {
+                const { useCastStore } = require('../../store/useCastStore');
+                if (useCastStore.getState().isLocalCastActive) {
+                    const { LocalCastService } = require('../../services/LocalCastService');
+                    LocalCastService.triggerPreloadNext(activeIndex).catch(() => {});
+                }
+            } catch (castErr) {}
         } catch (error) {
             console.error('Error reordering track:', error);
             const fullQueue = await TrackPlayer.getQueue();

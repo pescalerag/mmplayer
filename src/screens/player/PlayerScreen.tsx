@@ -28,9 +28,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
     State as TrackPlayerState,
-    usePlaybackState,
     useProgress,
 } from 'react-native-track-player';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
 
 import { database } from '../../database';
@@ -1359,36 +1359,45 @@ const PlayerScreenUI = ({
                     style={[bottomControlsAnimatedStyle]}
                     pointerEvents={isImmersive ? 'none' : 'auto'}
                 >
-                    {/* Progress Slider */}
-                    <View style={styles.progressSection}>
-                        <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
-                            <ABSliderMarkers duration={duration} />
-                            <Slider
-                                style={{ width: '100%', height: 40 }}
-                                minimumValue={0}
-                                maximumValue={duration > 0 ? duration : 1}
-                                value={isSeeking ? seekValue : position}
-                                minimumTrackTintColor={colors.text}
-                                maximumTrackTintColor={colors.overlayAlpha20}
-                                thumbTintColor={colors.text}
-                                onSlidingStart={(value) => {
-                                    setIsSeeking(true);
-                                    setSeekValue(value);
-                                }}
-                                onValueChange={(value) => {
-                                    setSeekValue(value);
-                                }}
-                                onSlidingComplete={(value) => {
-                                    setIsSeeking(false);
-                                    TrackPlayer.seekTo(value).catch(() => { });
-                                }}
-                            />
+                    {/* Progress Slider or Cast Remote Indicator */}
+                    {isCasting ? (
+                        <View style={styles.castingRemoteBanner}>
+                            <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
+                            <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
+                                {isLocalCastActive ? 'LocalCast activo · Modo control remoto' : 'Chromecast activo · Modo control remoto'}
+                            </Text>
                         </View>
-                        <View style={styles.timeContainer}>
-                            <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
-                            <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
+                    ) : (
+                        <View style={styles.progressSection}>
+                            <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+                                <ABSliderMarkers duration={duration} />
+                                <Slider
+                                    style={{ width: '100%', height: 40 }}
+                                    minimumValue={0}
+                                    maximumValue={duration > 0 ? duration : 1}
+                                    value={isSeeking ? seekValue : position}
+                                    minimumTrackTintColor={colors.text}
+                                    maximumTrackTintColor={colors.overlayAlpha20}
+                                    thumbTintColor={colors.text}
+                                    onSlidingStart={(value) => {
+                                        setIsSeeking(true);
+                                        setSeekValue(value);
+                                    }}
+                                    onValueChange={(value) => {
+                                        setSeekValue(value);
+                                    }}
+                                    onSlidingComplete={(value) => {
+                                        setIsSeeking(false);
+                                        TrackPlayer.seekTo(value).catch(() => { });
+                                    }}
+                                />
+                            </View>
+                            <View style={styles.timeContainer}>
+                                <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
+                                <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
 
                     {/* Controls */}
                     <View style={styles.controlsContainer}>
@@ -1756,6 +1765,23 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
     },
     timeText: {
         color: colors.textSecondary,
+        fontSize: 12,
+        fontFamily: fonts.regular,
+        fontWeight: fontWeights.bold,
+    },
+    castingRemoteBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        marginBottom: 8,
+        borderRadius: radii.full || 9999,
+        backgroundColor: colors.overlayAlpha10 || 'rgba(255,255,255,0.06)',
+        alignSelf: 'center',
+        gap: 8,
+    },
+    castingRemoteText: {
         fontSize: 12,
         fontFamily: fonts.regular,
         fontWeight: fontWeights.bold,

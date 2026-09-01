@@ -277,9 +277,13 @@ export default function LocalCastSheet() {
               disabled={isLoading}
               activeOpacity={0.8}
             >
-              <Ionicons name="stop-circle-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" style={{ marginRight: 10 }} />
+              ) : (
+                <Ionicons name="stop-circle-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
+              )}
               <Text style={styles.actionButtonText}>
-                {isLoading ? t('cast.stopping') : t('cast.stop')}
+                {isLoading ? (t('cast.stopping') || 'Desconectando...') : t('cast.stop')}
               </Text>
             </TouchableOpacity>
           ) : (

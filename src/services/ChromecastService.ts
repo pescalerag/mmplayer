@@ -81,14 +81,18 @@ export const ChromecastService = {
                             return null;
                         });
 
+                        // Capture current playback position to transfer to Chromecast on initial connect ONLY
+                        const progress = await TrackPlayer.getProgress().catch(() => ({ position: 0, duration: 0 }));
+                        const initialPosition = progress.position || 0;
+
                         setTimeout(async () => {
                             try {
                                 await preparePromise;
-                                await this.loadTrack(trackToLoad, session.client);
+                                await this.loadTrack(trackToLoad, session.client, initialPosition);
                             } catch (loadErr) {
                                 console.warn('[ChromecastService] Initial loadTrack attempt failed, retrying in 1.5s...', loadErr);
                                 setTimeout(() => {
-                                    this.loadTrack(trackToLoad).catch(() => {});
+                                    this.loadTrack(trackToLoad, null, initialPosition).catch(() => {});
                                 }, 1500);
                             }
                         }, 600);
@@ -213,7 +217,7 @@ export const ChromecastService = {
         }
     },
 
-    async loadTrack(track: any, clientOverride?: RemoteMediaClient | null): Promise<void> {
+    async loadTrack(track: any, clientOverride?: RemoteMediaClient | null, startPosition: number = 0): Promise<void> {
         try {
             const sessionManager = CastContext.getSessionManager();
             const session = await sessionManager.getCurrentCastSession();
@@ -257,8 +261,10 @@ export const ChromecastService = {
                         if (albumModel) {
                             albumTitle = albumModel.title || albumTitle;
                             if (albumModel.coverUrl) {
-                                await LocalCastService.prepareCover(cleanId, albumModel);
-                                cleanCoverUrl = encodeURI(`${serverUrl}/static/temp_cover.jpg`);
+                                const coverFileName = await LocalCastService.prepareCover(cleanId, albumModel);
+                                if (coverFileName) {
+                                    cleanCoverUrl = encodeURI(`${serverUrl}/static/${coverFileName}`);
+                                }
                             }
                         }
                     }
@@ -267,16 +273,14 @@ export const ChromecastService = {
                 }
             }
 
-            const progress = await TrackPlayer.getProgress().catch(() => ({ position: 0, duration: 0 }));
-            const position = progress.position || 0;
             const cleanAudioUrl = encodeURI(`${serverUrl}/static/${fileName}`);
 
-            console.log(`[ChromecastService] Official loadMedia: "${title}" -> ${cleanAudioUrl}`);
+            console.log(`[ChromecastService] Official loadMedia: "${title}" -> ${cleanAudioUrl} (startPosition: ${startPosition})`);
 
             // 1. Carga Ligera Oficial: SDK nativo toma control (pantalla bloqueo, volumen, notificaciones)
             await client.loadMedia({
                 autoplay: true,
-                startTime: position > 0 ? position : 0,
+                startTime: startPosition > 0 ? startPosition : 0,
                 mediaInfo: {
                     contentId: cleanAudioUrl,
                     contentUrl: cleanAudioUrl,
@@ -297,7 +301,10 @@ export const ChromecastService = {
             // 2. Silenciar el reproductor local para evitar audio doble
             await TrackPlayer.setVolume(0);
 
-            // 3. Datos Fuera de Banda: Envío de letras LRC por canal personalizado
+            // 3. Reset castPosition in store so UI shows startPosition for the track
+            useCastStore.setState({ castPosition: startPosition > 0 ? startPosition : 0 });
+
+            // 4. Datos Fuera de Banda: Envío de letras LRC por canal personalizado
             if (lyricsLRC) {
                 setTimeout(() => {
                     this.sendLyricsUpdate(lyricsLRC!).catch(() => {});

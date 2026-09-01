@@ -5,6 +5,7 @@ export function getChromecastHtml(): string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MMPlayer Chromecast</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
     <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -351,6 +352,11 @@ export function getChromecastHtml(): string {
                 statusEl.style.borderColor = "rgba(139,92,246,0.3)";
             }
         }
+
+        coverEl.onerror = function() {
+            coverEl.src = FALLBACK_COVER;
+            backgroundBlur.style.backgroundImage = "none";
+        };
 
         function updateCover(url) {
             if (url) {

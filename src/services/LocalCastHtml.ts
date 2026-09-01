@@ -32,6 +32,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${t.appTitle}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -231,13 +232,80 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             color: #64748B;
         }
 
-        .volume-container {
+        .player-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             width: 100%;
+            margin-top: 4px;
+        }
+
+        .controls-row {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 4px 0;
-            margin-top: 2px;
+            justify-content: space-between;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .playback-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #E2E8F0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+        }
+
+        .control-btn:hover {
+            color: #FFFFFF;
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(167, 139, 250, 0.4);
+            transform: scale(1.08);
+        }
+
+        .control-btn:active {
+            transform: scale(0.94);
+        }
+
+        .play-pause-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(139, 92, 246, 0.25);
+            border-color: rgba(139, 92, 246, 0.5);
+            color: #FFFFFF;
+            box-shadow: 0 0 14px rgba(139, 92, 246, 0.25);
+        }
+
+        .play-pause-btn:hover {
+            background: rgba(139, 92, 246, 0.45);
+            border-color: #A78BFA;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.45);
+            transform: scale(1.1);
+        }
+
+        .volume-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            min-width: 130px;
         }
 
         .volume-btn {
@@ -248,7 +316,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 6px;
+            padding: 4px;
             border-radius: 8px;
             transition: color 0.2s, background-color 0.2s;
         }
@@ -315,7 +383,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             font-size: 12px;
             font-weight: 700;
             color: #64748B;
-            min-width: 38px;
+            min-width: 34px;
             text-align: right;
             font-variant-numeric: tabular-nums;
         }
@@ -430,17 +498,42 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                         <span id="time-total">0:00</span>
                     </div>
                 </div>
-                <div class="volume-container">
-                    <button id="volume-btn" class="volume-btn" aria-label="Volumen" title="Silenciar / Activar sonido">
-                        <svg id="vol-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                    </button>
-                    <div class="volume-slider-wrapper">
-                        <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" class="volume-slider">
+                <div class="controls-row">
+                    <div class="playback-buttons">
+                        <button id="prev-btn" class="control-btn" aria-label="Anterior" title="Anterior">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                                <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                            </svg>
+                        </button>
+                        <button id="play-pause-btn" class="control-btn play-pause-btn" aria-label="Reproducir / Pausar" title="Reproducir / Pausar">
+                            <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="6 4 19 12 6 20 6 4"></polygon>
+                            </svg>
+                            <svg id="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                                <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+                                <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+                            </svg>
+                        </button>
+                        <button id="next-btn" class="control-btn" aria-label="Siguiente" title="Siguiente">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                                <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+                            </svg>
+                        </button>
                     </div>
-                    <span id="volume-percent" class="volume-percent">100%</span>
+                    <div class="volume-container">
+                        <button id="volume-btn" class="volume-btn" aria-label="Volumen" title="Silenciar / Activar sonido">
+                            <svg id="vol-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            </svg>
+                        </button>
+                        <div class="volume-slider-wrapper">
+                            <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" class="volume-slider">
+                        </div>
+                        <span id="volume-percent" class="volume-percent">100%</span>
+                    </div>
                 </div>
             </div>
             <audio id="audio-player" preload="auto"></audio>
@@ -474,6 +567,53 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         const volumePercent    = document.getElementById('volume-percent');
         const volumeBtn        = document.getElementById('volume-btn');
         const volIcon          = document.getElementById('vol-icon');
+        const prevBtn          = document.getElementById('prev-btn');
+        const playPauseBtn     = document.getElementById('play-pause-btn');
+        const playIcon         = document.getElementById('play-icon');
+        const pauseIcon        = document.getElementById('pause-icon');
+        const nextBtn          = document.getElementById('next-btn');
+
+        function updatePlayPauseUI(isPlaying) {
+            if (isPlaying) {
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+            } else {
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+            }
+        }
+
+        playPauseBtn.addEventListener('click', () => {
+            if (audioPlayer.paused) {
+                audioPlayer.play().then(() => {
+                    updatePlayPauseUI(true);
+                    fetch('/api/play', { method: 'POST' }).catch(() => {});
+                }).catch(handleAutoplayBlock);
+            } else {
+                audioPlayer.pause();
+                updatePlayPauseUI(false);
+                fetch('/api/pause', { method: 'POST' }).catch(() => {});
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            fetch('/api/previous', { method: 'POST' })
+                .catch(() => {})
+                .finally(() => {
+                    triggerImmediateUpdate();
+                });
+        });
+
+        nextBtn.addEventListener('click', () => {
+            fetch('/api/next', { method: 'POST' })
+                .catch(() => {})
+                .finally(() => {
+                    triggerImmediateUpdate();
+                });
+        });
+
+        audioPlayer.onplay = () => updatePlayPauseUI(true);
+        audioPlayer.onpause = () => updatePlayPauseUI(false);
 
         // Local browser-only volume persistence
         let savedVol = localStorage.getItem('mmplayer_cast_volume');
@@ -528,15 +668,33 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             }
         });
 
-        let currentSongTitle   = "";
-        let isFetchingAudio    = false;
-        let lyrics             = [];
-        let currentActiveIndex = -1;
-        let isAutoplayBlocked  = false;
-        let lastActionTime     = 0;
-        let currentLyricsLRC   = null;
-        let currentCoverToken  = null;
-        let pollTimeoutId      = null;
+        const progressBarContainer = document.querySelector('.progress-bar-container');
+        progressBarContainer.style.cursor = 'pointer';
+        progressBarContainer.addEventListener('click', (e) => {
+            if (!audioPlayer.duration) return;
+            const rect = progressBarContainer.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const pct = Math.max(0, Math.min(1, clickX / rect.width));
+            const targetTime = pct * audioPlayer.duration;
+            audioPlayer.currentTime = targetTime;
+            progressFill.style.width = (pct * 100) + '%';
+            timeCurrentEl.innerText = formatTime(targetTime);
+            fetch('/api/seek?position=' + targetTime.toFixed(2), { method: 'POST' }).catch(() => {});
+        });
+
+        let currentSongTitle       = "";
+        let currentLoadedMediaFile = null;
+        let lyrics                 = [];
+        let currentActiveIndex     = -1;
+        let isAutoplayBlocked      = false;
+        let lastActionTime         = 0;
+        let currentLyricsLRC       = null;
+        let currentCoverFileName   = null;
+        let lastHandledCmdId       = 0;
+        let pollTimeoutId          = null;
+        let pendingSeek            = 0;
+        let currentSessionId       = null;
+        let consecutiveErrors      = 0;
 
         const FALLBACK_COVER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2'><rect width='20' height='20' x='2' y='2' rx='2'/><circle cx='12' cy='12' r='4'/></svg>";
 
@@ -560,14 +718,17 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         function resetToIdle(statusMessage) {
             audioPlayer.pause();
             audioPlayer.removeAttribute('src');
-            currentSongTitle   = "";
-            currentLyricsLRC   = null;
-            currentCoverToken  = null;
-            currentActiveIndex = -1;
+            currentSongTitle       = "";
+            currentLoadedMediaFile = null;
+            currentLyricsLRC       = null;
+            currentCoverFileName   = null;
+            currentActiveIndex     = -1;
+            lastHandledCmdId       = 0;
             
             titleEl.innerText  = i18n.noSong;
             artistEl.innerText = "";
             updateCover(null);
+            updatePlayPauseUI(false);
             renderLyrics('');
             progressFill.style.width = '0%';
             timeCurrentEl.innerText  = '0:00';
@@ -580,28 +741,24 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             statusEl.onclick = null;
         }
 
-        async function updateCover(token) {
-            if (token === currentCoverToken) return;
-            currentCoverToken = token;
-            if (!token) {
+        coverEl.onerror = () => {
+            coverEl.src = FALLBACK_COVER;
+            backgroundBlur.style.backgroundImage = "none";
+        };
+
+        function updateCover(fileName) {
+            if (fileName === currentCoverFileName) return;
+            currentCoverFileName = fileName;
+
+            if (!fileName) {
                 coverEl.src = FALLBACK_COVER;
                 backgroundBlur.style.backgroundImage = "none";
                 return;
             }
-            try {
-                const resp = await fetch('/api/cover?token=' + encodeURIComponent(token));
-                const data = await resp.json();
-                if (data.cover) {
-                    coverEl.src = data.cover;
-                    backgroundBlur.style.backgroundImage = "url('" + data.cover + "')";
-                } else {
-                    coverEl.src = FALLBACK_COVER;
-                    backgroundBlur.style.backgroundImage = "none";
-                }
-            } catch (err) {
-                coverEl.src = FALLBACK_COVER;
-                backgroundBlur.style.backgroundImage = "none";
-            }
+
+            const coverUrl = '/static/' + fileName;
+            coverEl.src = coverUrl;
+            backgroundBlur.style.backgroundImage = "url('" + coverUrl + "')";
         }
 
         function parseLRC(lrcText) {
@@ -693,6 +850,17 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             }
         }
 
+        function handleAutoplayBlock(err) {
+            if (err && err.name === 'NotAllowedError') {
+                isAutoplayBlocked = true;
+                statusEl.innerText = i18n.clickToUnmute;
+                statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
+                statusEl.style.color = "#FCA5A5";
+                statusEl.style.cursor = "pointer";
+                statusEl.onclick = () => tryPlayAudio();
+            }
+        }
+
         function tryPlayAudio() {
             isAutoplayBlocked = false;
             audioPlayer.play().then(() => {
@@ -701,16 +869,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 statusEl.style.color = "#A78BFA";
                 statusEl.style.cursor = "default";
                 statusEl.onclick = null;
-            }).catch(err => {
-                if (err.name === 'NotAllowedError') {
-                    isAutoplayBlocked = true;
-                    statusEl.innerText = i18n.clickToUnmuteLong;
-                    statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-                    statusEl.style.color = "#FCA5A5";
-                    statusEl.style.cursor = "pointer";
-                    statusEl.onclick = () => tryPlayAudio();
-                }
-            });
+            }).catch(handleAutoplayBlock);
         }
 
         document.body.addEventListener('click', () => {
@@ -718,21 +877,26 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 tryPlayAudio();
             }
         });
-        let isPolling = false; // Re-entrancy guard — prevents concurrent updateState calls
+        let isPolling = false; 
 
         async function updateState() {
-            // If already running, skip this tick — next scheduleNextPoll will retry
             if (isPolling) return;
             isPolling = true;
 
             let nextPollInterval = 2500;
             try {
                 const controller = new AbortController();
-                const timeoutId  = setTimeout(() => controller.abort(), 4000); // 4s hard timeout
+                const timeoutId  = setTimeout(() => controller.abort(), 4000); 
 
                 let response;
                 try {
-                    response = await fetch('/api/state', { signal: controller.signal });
+                    let currentPos = '-1';
+                    if (currentLoadedMediaFile && audioPlayer.readyState > 0) {
+                        currentPos = (audioPlayer.currentTime || 0).toFixed(1);
+                    }
+                    const isAudioPlaying = !audioPlayer.paused && !audioPlayer.ended && audioPlayer.readyState > 2;
+                    const audioDur = (audioPlayer.duration || 0).toFixed(1);
+                    response = await fetch('/api/state?pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || ''), { signal: controller.signal });
                 } finally {
                     clearTimeout(timeoutId);
                 }
@@ -741,120 +905,133 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
 
                 const state = await response.json();
 
+                if (currentSessionId !== null && currentSessionId !== state.sessionId) {
+                    currentLoadedMediaFile = null; 
+                    currentSessionId = state.sessionId;
+                } else if (currentSessionId === null && state.sessionId) {
+                    currentSessionId = state.sessionId;
+                }
+
                 // ── Idle / stopped ────────────────────────────────────────────
                 if (!state.title || state.isStopped) {
-                    isFetchingAudio = false; // Always reset on idle
                     resetToIdle(i18n.noSong);
                     nextPollInterval = 2000;
                     return;
                 }
 
-                // ── Cover (non-blocking, best-effort retry) ───────────────────
-                if (state.coverToken && state.coverToken !== currentCoverToken) {
-                    updateCover(state.coverToken); // fire-and-forget; updateCover guards dedup internally
-                }
-
-                // ── New song loaded ───────────────────────────────────────────
-                if (currentSongTitle !== state.title && !isFetchingAudio) {
-                    isFetchingAudio = true;
-                    try {
-                        currentSongTitle  = state.title;
-                        isAutoplayBlocked = false;
-                        lastActionTime    = Date.now();
-
-                        titleEl.innerText  = state.title;
-                        artistEl.innerText = state.artist || '';
-
-                        // Lyrics
-                        if (currentLyricsLRC !== state.lyricsLRC) {
-                            currentLyricsLRC = state.lyricsLRC;
-                            renderLyrics(state.lyricsLRC);
+                // ── Remote Commands from Mobile (SEEK, PLAY, PAUSE) ───────────
+                if (state.command && state.command.id > lastHandledCmdId) {
+                    lastHandledCmdId = state.command.id;
+                    if (state.command.type === 'SEEK' && typeof state.command.position === 'number') {
+                        audioPlayer.currentTime = state.command.position;
+                        if (audioPlayer.duration) {
+                            progressFill.style.width = ((state.command.position / audioPlayer.duration) * 100) + '%';
+                            timeCurrentEl.innerText  = formatTime(state.command.position);
                         }
-
-                        // Audio
-                        if (state.mediaFileName) {
-                            const mediaUrl = '/static/' + state.mediaFileName + '?t=' + Date.now();
-                            audioPlayer.removeAttribute('src');
-                            audioPlayer.src = mediaUrl;
-                            if (state.position > 1) {
-                                audioPlayer.currentTime = state.position;
-                            }
-                            audioPlayer.play().then(() => {
-                                statusEl.innerText = i18n.streaming;
-                                statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
-                                statusEl.style.color = "#A78BFA";
-                                statusEl.style.cursor = "default";
-                                statusEl.onclick = null;
-                            }).catch(err => {
-                                if (err.name === 'NotAllowedError') {
-                                    isAutoplayBlocked = true;
-                                    statusEl.innerText = i18n.clickToUnmute;
-                                    statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-                                    statusEl.style.color = "#FCA5A5";
-                                    statusEl.style.cursor = "pointer";
-                                    statusEl.onclick = () => tryPlayAudio();
-                                }
-                            });
+                    } else if (state.command.type === 'PLAY') {
+                        if (audioPlayer.paused && !isAutoplayBlocked) {
+                            audioPlayer.play().catch(handleAutoplayBlock);
                         }
-
-                        // Schedule a quick follow-up to fetch cover/lyrics that may not be ready yet
-                        nextPollInterval = 800;
-                    } finally {
-                        isFetchingAudio = false; // Always release, even if something threw
-                    }
-
-                // ── Same song playing — keep in sync ─────────────────────────
-                } else if (!isFetchingAudio) {
-                    // Cover retry: if server didn't have it cached on first poll, retry
-                    if (state.coverToken && state.coverToken !== currentCoverToken) {
-                        updateCover(state.coverToken);
-                    }
-
-                    // Lyrics update (may arrive a cycle late if LRC is large)
-                    if (currentLyricsLRC !== state.lyricsLRC) {
-                        currentLyricsLRC = state.lyricsLRC;
-                        renderLyrics(state.lyricsLRC);
-                        syncLyrics(audioPlayer.currentTime);
-                    }
-
-                    // Playback sync — throttled by lastActionTime to avoid fighting user clicks
-                    if (Date.now() - lastActionTime > 400) {
-                        const isNearEnd  = audioPlayer.duration && (audioPlayer.currentTime > audioPlayer.duration - 2);
-                        const shouldPlay = state.isPlaying && !audioPlayer.ended && !isNearEnd;
-
-                        if (shouldPlay && audioPlayer.paused && !isAutoplayBlocked && !audioPlayer.error) {
-                            audioPlayer.play().catch(err => {
-                                if (err.name === 'NotAllowedError') {
-                                    isAutoplayBlocked = true;
-                                    statusEl.innerText = i18n.clickToUnmute;
-                                    statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-                                    statusEl.style.color = "#FCA5A5";
-                                    statusEl.style.cursor = "pointer";
-                                    statusEl.onclick = () => tryPlayAudio();
-                                }
-                            });
-                        } else if (!state.isPlaying && !audioPlayer.paused) {
+                    } else if (state.command.type === 'PAUSE') {
+                        if (!audioPlayer.paused) {
                             audioPlayer.pause();
                         }
-
-                        if (audioPlayer.duration && !audioPlayer.seeking) {
-                            const drift = Math.abs(audioPlayer.currentTime - state.position);
-                            if (drift > 3) {
-                                audioPlayer.currentTime = state.position;
-                            }
-                        }
+                    } else if (state.command.type === 'STOP') {
+                        audioPlayer.pause();
+                        audioPlayer.removeAttribute('src');
+                        audioPlayer.load();
+                        resetToIdle(i18n.noSong);
                     }
-
-                    nextPollInterval = state.isPlaying ? 2500 : 2000;
                 }
 
+                // ── Metadata: Title & Artist ───────────────────────────────────
+                if (currentSongTitle !== state.title) {
+                    currentSongTitle   = state.title;
+                    titleEl.innerText  = state.title;
+                    artistEl.innerText = state.artist || '';
+                    lastActionTime     = Date.now();
+                }
+
+                // ── Cover Image (static HTTP streaming) ────────────────────────
+                const resolvedCover = state.coverFileName || state.coverToken || null;
+                if (resolvedCover !== currentCoverFileName) {
+                    updateCover(resolvedCover);
+                }
+
+                // ── Lyrics ────────────────────────────────────────────────────
+                if (currentLyricsLRC !== state.lyricsLRC) {
+                    currentLyricsLRC = state.lyricsLRC;
+                    renderLyrics(state.lyricsLRC);
+                    syncLyrics(audioPlayer.currentTime);
+                }
+
+                // ── Audio Media Loading (Autonomous audio decoding on PC) ─────
+                if (state.mediaFileName && currentLoadedMediaFile !== state.mediaFileName) {
+                    currentLoadedMediaFile = state.mediaFileName;
+                    isAutoplayBlocked = false;
+                    const mediaUrl = '/static/' + state.mediaFileName + '?t=' + Date.now();
+                    audioPlayer.pause();
+                    audioPlayer.removeAttribute('src');
+                    audioPlayer.src = mediaUrl;
+                    audioPlayer.load();
+
+                    if (state.position > 0) {
+                        pendingSeek = state.position;
+                        const onLoaded = () => {
+                            if (pendingSeek > 0) {
+                                audioPlayer.currentTime = pendingSeek;
+                                pendingSeek = 0;
+                            }
+                            audioPlayer.removeEventListener('loadedmetadata', onLoaded);
+                        };
+                        audioPlayer.addEventListener('loadedmetadata', onLoaded);
+                        try { audioPlayer.currentTime = state.position; } catch(e){}
+                    }
+
+                    if (state.isPlaying) {
+                        audioPlayer.play().then(() => {
+                            statusEl.innerText = i18n.streaming;
+                            statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
+                            statusEl.style.color = "#A78BFA";
+                            statusEl.style.cursor = "default";
+                            statusEl.onclick = null;
+                        }).catch(handleAutoplayBlock);
+                    }
+                    nextPollInterval = 1000;
+                }
+
+                // ── Sync Play/Pause with Mobile Remote State ──────────────────
+                if (currentLoadedMediaFile && !isAutoplayBlocked && !audioPlayer.error) {
+                    if (state.isPlaying && audioPlayer.paused) {
+                        audioPlayer.play().catch(handleAutoplayBlock);
+                    } else if (!state.isPlaying && !audioPlayer.paused) {
+                        audioPlayer.pause();
+                    }
+                }
+
+                if (!isAutoplayBlocked && !audioPlayer.error && state.isPlaying) {
+                    statusEl.innerText = i18n.streaming;
+                    statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
+                    statusEl.style.color = "#A78BFA";
+                }
+
+                updatePlayPauseUI(!audioPlayer.paused);
+
+                consecutiveErrors = 0;
+                nextPollInterval = 1000;
+
             } catch (error) {
-                // Network / timeout error — reset zombie variables and retry
-                isFetchingAudio = false;
                 console.warn('[LocalCast] Poll error:', error && error.message);
+                consecutiveErrors++;
+                if (consecutiveErrors >= 2 && !audioPlayer.paused) {
+                    audioPlayer.pause();
+                    statusEl.innerText = 'Desconectado';
+                    statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
+                    statusEl.style.color = "#FCA5A5";
+                }
                 nextPollInterval = 1500;
             } finally {
-                isPolling = false; // Always release re-entrancy guard
+                isPolling = false; 
                 scheduleNextPoll(nextPollInterval);
             }
         }
@@ -878,7 +1055,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             fetch('/api/next', { method: 'POST' })
                 .catch(() => {})
                 .finally(() => {
-                    currentSongTitle = ''; // Force next poll to treat next song as new
+                    currentSongTitle = '';
+                    currentLoadedMediaFile = null;
                     triggerImmediateUpdate();
                 });
         };
@@ -886,8 +1064,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         audioPlayer.onerror = () => {
             const err = audioPlayer.error;
             console.error("[AudioErrorEvent] Audio player error:", err ? err.code : 'unknown');
-            isFetchingAudio  = false; // Unblock zombie on media error
-            currentSongTitle = '';    // Force reload on next poll
+            currentSongTitle = '';
+            currentLoadedMediaFile = null;
             statusEl.innerText = i18n.retryingAudio;
             statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
             statusEl.style.color = "#FCA5A5";

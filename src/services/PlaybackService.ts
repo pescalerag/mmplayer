@@ -210,6 +210,9 @@ export const PlaybackService = async function () {
       // Reiniciar estado de repetición A-B al cambiar la canción
       useABRepeatStore.getState().clearAB();
 
+      // Reset cast position on track change so new song starts at 0:00
+      useCastStore.setState({ castPosition: 0 });
+
       // Limpiar minutaje y acumulado persistido de la canción anterior
       storage.set("@player_position", 0);
       storage.set("@player_accumulated", 0);
@@ -249,11 +252,11 @@ export const PlaybackService = async function () {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
 
-      // Sync track to Chromecast if connected
+      // Sync track to Chromecast if connected (starts at 0:00 for new track)
       if (useCastStore.getState().isChromecastConnected && event.track) {
         try {
           const { ChromecastService } = require('./ChromecastService');
-          ChromecastService.loadTrack(event.track);
+          ChromecastService.loadTrack(event.track, null, 0);
         } catch (castErr) {
           console.error('[PlaybackService] Error loading track on Chromecast:', castErr);
         }

@@ -184,6 +184,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await get().applySpeedAndPitch();
@@ -269,6 +270,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add(initialTpTracks);
       await get().applySpeedAndPitch();
@@ -332,6 +334,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await TrackPlayer.add([tpTrack]);
       await get().applySpeedAndPitch();
