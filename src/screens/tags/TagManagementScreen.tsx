@@ -11,6 +11,7 @@ import { database } from '../../database';
 import Tag from '../../database/models/Tag';
 import { TagsNavigationProp } from '../../navigation/types';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface TagManagementContentProps {
     tags: Tag[];
@@ -20,6 +21,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
     const openForCreate = () => openTagForm();
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
+    const { colors } = useAppTheme();
 
     const renderItem = ({ item }: { item: Tag }) => {
         return (
@@ -62,7 +64,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                         ]}
                         ListHeaderComponent={
                             <TouchableOpacity
-                                style={styles.createTagButton}
+                                style={[styles.createTagButton, { backgroundColor: colors.accent, shadowColor: colors.accent }]}
                                 onPress={() => {
                                     openForCreate();
                                 }}

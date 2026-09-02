@@ -5,42 +5,52 @@
 
 import { Platform } from 'react-native';
 import { DefaultTheme as NavigationDefaultTheme, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
+import { hexToRgba, lightenColor } from '../utils/color';
 
 const tintColorDark = '#fff';
 
-export const Colors = {
-  text: '#ECEDEE',
-  textSecondary: '#9BA1A6',
-  disabled: '#535353',
-  background: '#0F0F0F', // Un negro ligeramente grisáceo para mejorar la legibilidad
-  cardBackground: '#1E1E1E',
-  heartIcon: '#EF4444',
-  tint: tintColorDark,
-  icon: '#9BA1A6',
-  tabIconDefault: '#9BA1A6',
-  tabIconSelected: tintColorDark,
-  accent: '#8B5CF6',
-  accentLight: '#A78BFA',
-  accentAlpha5: 'rgba(139, 92, 246, 0.05)',
-  accentAlpha8: 'rgba(139, 92, 246, 0.08)',
-  accentAlpha10: 'rgba(139, 92, 246, 0.1)',
-  accentAlpha15: 'rgba(139, 92, 246, 0.15)',
-  accentAlpha18: 'rgba(139, 92, 246, 0.18)',
-  accentAlpha20: 'rgba(139, 92, 246, 0.2)',
-  accentAlpha30: 'rgba(139, 92, 246, 0.3)',
-  accentAlpha40: 'rgba(139, 92, 246, 0.4)',
-  accentLightAlpha12: 'rgba(167, 139, 250, 0.12)',
-  accentLightAlpha30: 'rgba(167, 139, 250, 0.3)',
-  accentLightAlpha35: 'rgba(167, 139, 250, 0.35)',
-  overlayAlpha02: 'rgba(255, 255, 255, 0.02)',
-  overlayAlpha03: 'rgba(255, 255, 255, 0.03)',
-  overlayAlpha04: 'rgba(255, 255, 255, 0.04)',
-  overlayAlpha05: 'rgba(255, 255, 255, 0.05)',
-  overlayAlpha08: 'rgba(255, 255, 255, 0.08)',
-  overlayAlpha10: 'rgba(255, 255, 255, 0.1)',
-  overlayAlpha15: 'rgba(255, 255, 255, 0.15)',
-  overlayAlpha20: 'rgba(255, 255, 255, 0.2)',
-};
+export const DEFAULT_ACCENT_COLOR = '#8B5CF6';
+
+export function getAppColors(customAccent?: string | null) {
+  const accent = customAccent || DEFAULT_ACCENT_COLOR;
+  const accentLight = lightenColor(accent, 0.22);
+
+  return {
+    text: '#ECEDEE',
+    textSecondary: '#9BA1A6',
+    disabled: '#535353',
+    background: '#0F0F0F', // Un negro ligeramente grisáceo para mejorar la legibilidad
+    cardBackground: '#1E1E1E',
+    heartIcon: '#EF4444',
+    tint: tintColorDark,
+    icon: '#9BA1A6',
+    tabIconDefault: '#9BA1A6',
+    tabIconSelected: tintColorDark,
+    accent: accent,
+    accentLight: accentLight,
+    accentAlpha5: hexToRgba(accent, 0.05),
+    accentAlpha8: hexToRgba(accent, 0.08),
+    accentAlpha10: hexToRgba(accent, 0.1),
+    accentAlpha15: hexToRgba(accent, 0.15),
+    accentAlpha18: hexToRgba(accent, 0.18),
+    accentAlpha20: hexToRgba(accent, 0.2),
+    accentAlpha30: hexToRgba(accent, 0.3),
+    accentAlpha40: hexToRgba(accent, 0.4),
+    accentLightAlpha12: hexToRgba(accentLight, 0.12),
+    accentLightAlpha30: hexToRgba(accentLight, 0.3),
+    accentLightAlpha35: hexToRgba(accentLight, 0.35),
+    overlayAlpha02: 'rgba(255, 255, 255, 0.02)',
+    overlayAlpha03: 'rgba(255, 255, 255, 0.03)',
+    overlayAlpha04: 'rgba(255, 255, 255, 0.04)',
+    overlayAlpha05: 'rgba(255, 255, 255, 0.05)',
+    overlayAlpha08: 'rgba(255, 255, 255, 0.08)',
+    overlayAlpha10: 'rgba(255, 255, 255, 0.1)',
+    overlayAlpha15: 'rgba(255, 255, 255, 0.15)',
+    overlayAlpha20: 'rgba(255, 255, 255, 0.2)',
+  };
+}
+
+export const Colors = getAppColors();
 
 import { Fonts } from './fonts';
 

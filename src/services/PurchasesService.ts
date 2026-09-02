@@ -134,6 +134,19 @@ class PurchasesServiceImpl {
         return tier;
     }
 
+    private handleTierUpdate(tier: UserTier) {
+        useSettingsStore.getState().setUserTier(tier);
+        if (tier === 'USER' && useSettingsStore.getState().appIcon !== 'DEFAULT') {
+            useSettingsStore.getState().setAppIcon('DEFAULT');
+            try {
+                const { setAppIcon } = require('@howincodes/expo-dynamic-app-icon');
+                setAppIcon('DEFAULT');
+            } catch (e) {
+                console.warn('Failed to reset app icon:', e);
+            }
+        }
+    }
+
     /**
      * Refresh and sync customer info from RevenueCat / Google Play in real-time
      */
@@ -142,7 +155,7 @@ class PurchasesServiceImpl {
         try {
             const customerInfo = await Purchases.getCustomerInfo();
             const tier = this.determineUserTier(customerInfo);
-            useSettingsStore.getState().setUserTier(tier);
+            this.handleTierUpdate(tier);
             return tier;
         } catch (error) {
             console.error('Error syncing customer info in PurchasesService:', error);
@@ -169,13 +182,13 @@ class PurchasesServiceImpl {
             // Listen for customer info updates (e.g. background purchase sync, restore, subscription changes)
             Purchases.addCustomerInfoUpdateListener((customerInfo) => {
                 const newTier = this.determineUserTier(customerInfo);
-                useSettingsStore.getState().setUserTier(newTier);
+                this.handleTierUpdate(newTier);
             });
 
             // Fetch initial customer info
             const initialInfo = await Purchases.getCustomerInfo();
             const currentTier = this.determineUserTier(initialInfo);
-            useSettingsStore.getState().setUserTier(currentTier);
+            this.handleTierUpdate(currentTier);
 
             this.isInitialized = true;
         } catch (error) {

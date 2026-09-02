@@ -80,6 +80,26 @@
           "receiverAppId": "5622F67E",
           "expandedController": false
         }
+      ],
+      [
+        "@howincodes/expo-dynamic-app-icon",
+        {
+          "dark": {
+            "image": "./src/assets/images/dark-icon.png",
+            "android": "./src/assets/images/dark-icon.png",
+            "ios": "./src/assets/images/dark-icon.png"
+          },
+          "supporter": {
+            "image": "./src/assets/images/supporter-icon.png",
+            "android": "./src/assets/images/supporter-icon.png",
+            "ios": "./src/assets/images/supporter-icon.png"
+          },
+          "retro": {
+            "image": "./src/assets/images/retro-icon.png",
+            "android": "./src/assets/images/retro-icon.png",
+            "ios": "./src/assets/images/retro-icon.png"
+          }
+        }
       ]
     ],
     "web": {

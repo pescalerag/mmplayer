@@ -6,10 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScannerService } from '../../services/ScannerService';
 import { useSyncStore } from '../../store/useSyncStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsDebugScreen() {
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const isScanning = useSyncStore(state => state.isScanning);
 
     return (
@@ -38,7 +40,7 @@ export default function SettingsDebugScreen() {
                                     {t('settings.debug_history_desc')}
                                 </Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                         </TouchableOpacity>
                         
                         <View style={styles.separator} />
@@ -69,7 +71,7 @@ export default function SettingsDebugScreen() {
                                     {t('settings.repair_library_desc')}
                                 </Text>
                             </View>
-                            <Ionicons name="build" size={20} color="#8B5CF6" />
+                            <Ionicons name="build" size={20} color={colors.accent} />
                         </TouchableOpacity>
 
                         <View style={styles.separator} />
@@ -113,7 +115,7 @@ export default function SettingsDebugScreen() {
                                     {t('settings.repair_covers_desc') || 'Corrige las carátulas de los álbumes que se quedaron en blanco tras el último fallo del escáner'}
                                 </Text>
                             </View>
-                            <Ionicons name="image" size={20} color="#8B5CF6" />
+                            <Ionicons name="image" size={20} color={colors.accent} />
                         </TouchableOpacity>
 
                         <View style={styles.separator} />

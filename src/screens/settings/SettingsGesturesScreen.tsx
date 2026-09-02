@@ -5,9 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { SwipeAction, useSettingsStore } from '../../store/useSettingsStore';
 import { openSwipeAction } from '@/store/useUIStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsGesturesScreen() {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const { swipeLeftAction, swipeRightAction } = useSettingsStore();
     const openSheet = openSwipeAction;
 
@@ -47,7 +49,7 @@ export default function SettingsGesturesScreen() {
                                     {swipeOptions.find(o => o.value === swipeLeftAction)?.label}
                                 </Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                         </TouchableOpacity>
                         <View style={styles.separator} />
                         <TouchableOpacity
@@ -62,7 +64,7 @@ export default function SettingsGesturesScreen() {
                                     {swipeOptions.find(o => o.value === swipeRightAction)?.label}
                                 </Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

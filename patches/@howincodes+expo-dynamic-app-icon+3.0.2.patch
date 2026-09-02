@@ -1,0 +1,216 @@
+diff --git a/node_modules/@howincodes/expo-dynamic-app-icon/android/src/main/java/expo/modules/dynamicappicon/ExpoDynamicAppIconModule.kt b/node_modules/@howincodes/expo-dynamic-app-icon/android/src/main/java/expo/modules/dynamicappicon/ExpoDynamicAppIconModule.kt
+index 7ec820c..1f2ebdf 100644
+--- a/node_modules/@howincodes/expo-dynamic-app-icon/android/src/main/java/expo/modules/dynamicappicon/ExpoDynamicAppIconModule.kt
++++ b/node_modules/@howincodes/expo-dynamic-app-icon/android/src/main/java/expo/modules/dynamicappicon/ExpoDynamicAppIconModule.kt
+@@ -12,35 +12,27 @@ class ExpoDynamicAppIconModule : Module() {
+     override fun definition() = ModuleDefinition {
+         Name("ExpoDynamicAppIcon")
+ 
+-        // [C1] Keep as synchronous Function on Android — the icon change is deferred to
+-        // onPause/onDestroy by design. The JS async wrapper resolves this immediately.
+-        // On iOS, AsyncFunction is used because the icon change happens inline.
+         Function("setAppIcon") { name: String?, isInBackground: Boolean? ->
+             try {
+                 val ctx = context
+                 val pkgName = ctx.packageName
+-                val pkgManager = currentActivity.packageManager
+-
+-                synchronized(IconState) {
+-                    IconState.packageName = pkgName
+-                    IconState.pm = pkgManager
+-                    IconState.isInBackground = isInBackground ?: true
+-                    IconState.shouldChangeIcon = true
+-
+-                    val targetIcon = if (name == null) {
+-                        "$pkgName.MainActivity"
+-                    } else {
+-                        "$pkgName.MainActivity$name"
+-                    }
++                val pkgManager = ctx.packageManager
+ 
+-                    // Skip if already set to the same icon
+-                    val currentEnabled = getEnabledLauncherActivity(pkgManager, pkgName)
+-                    if (currentEnabled == targetIcon) {
+-                        IconState.shouldChangeIcon = false
+-                        return@Function if (name == null) "DEFAULT" else name
+-                    }
++                val targetIcon = if (name == null || name == "DEFAULT") {
++                    "$pkgName.MainActivity"
++                } else {
++                    "$pkgName.MainActivity$name"
++                }
+ 
+-                    IconState.icon = targetIcon
++                // Skip if already set to the same icon
++                val currentEnabled = getEnabledLauncherActivity(pkgManager, pkgName)
++                if (currentEnabled == targetIcon) {
++                    return@Function if (name == null) "DEFAULT" else name
++                }
++
++                val success = applyIconChange(targetIcon, pkgManager, pkgName)
++                if (!success) {
++                    return@Function false
+                 }
+ 
+                 return@Function if (name == null) "DEFAULT" else name
+@@ -52,20 +44,21 @@ class ExpoDynamicAppIconModule : Module() {
+ 
+         Function("getAppIcon") {
+             try {
+-                val pkgName = context.packageName
+-                val pm = currentActivity.packageManager
++                val ctx = context
++                val pkgName = ctx.packageName
++                val pm = ctx.packageManager
+                 val enabledActivity = getEnabledLauncherActivity(pm, pkgName)
+ 
+                 if (enabledActivity.isEmpty() || enabledActivity == "$pkgName.MainActivity") {
+                     return@Function "DEFAULT"
+                 }
+ 
+-                val parts = enabledActivity.split(".MainActivity")
+-                return@Function if (parts.size > 1 && parts.last().isNotEmpty()) {
+-                    parts.last()
+-                } else {
+-                    "DEFAULT"
++                val prefix = "$pkgName.MainActivity"
++                if (enabledActivity.startsWith(prefix) && enabledActivity.length > prefix.length) {
++                    return@Function enabledActivity.substring(prefix.length)
+                 }
++
++                return@Function "DEFAULT"
+             } catch (e: Exception) {
+                 Log.e("ExpoDynamicAppIcon", "Error in getAppIcon", e)
+                 return@Function "DEFAULT"
+@@ -73,17 +66,99 @@ class ExpoDynamicAppIconModule : Module() {
+         }
+     }
+ 
+-    /**
+-     * Query the PackageManager for the currently enabled launcher activity.
+-     * This reflects actual system state, not module-internal state.
+-     */
++    private fun applyIconChange(targetIcon: String, pm: PackageManager, packageName: String): Boolean {
++        if (targetIcon.isEmpty()) return false
++
++        val newComponent = ComponentName(packageName, targetIcon)
++        if (!doesComponentExist(pm, packageName, newComponent)) {
++            Log.e("ExpoDynamicAppIcon", "Component does not exist: $targetIcon")
++            return false
++        }
++
++        try {
++            // Enable the target icon first to ensure an entry point is always available
++            pm.setComponentEnabledSetting(
++                newComponent,
++                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
++                PackageManager.DONT_KILL_APP
++            )
++            Log.i("ExpoDynamicAppIcon", "Enabled new icon component: $targetIcon")
++
++            // Disable all other launcher activities for this app
++            val packageInfo = pm.getPackageInfo(
++                packageName,
++                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
++            )
++
++            val mainActivityPrefix = "$packageName.MainActivity"
++            packageInfo.activities?.forEach { activityInfo ->
++                if (activityInfo.name.startsWith(mainActivityPrefix) && activityInfo.name != targetIcon) {
++                    try {
++                        pm.setComponentEnabledSetting(
++                            ComponentName(packageName, activityInfo.name),
++                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
++                            PackageManager.DONT_KILL_APP
++                        )
++                    } catch (e: Exception) {
++                        Log.w("ExpoDynamicAppIcon", "Failed to disable component: ${activityInfo.name}", e)
++                    }
++                }
++            }
++            return true
++        } catch (e: Exception) {
++            Log.e("ExpoDynamicAppIcon", "Error during icon change", e)
++            ensureAtLeastOneComponentEnabled(pm, packageName)
++            return false
++        }
++    }
++
++    private fun ensureAtLeastOneComponentEnabled(pm: PackageManager, packageName: String) {
++        try {
++            val packageInfo = pm.getPackageInfo(
++                packageName,
++                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
++            )
++
++            val mainActivityPrefix = "$packageName.MainActivity"
++            val hasEnabled = packageInfo.activities?.any { activityInfo ->
++                activityInfo.name.startsWith(mainActivityPrefix) &&
++                    pm.getComponentEnabledSetting(
++                        ComponentName(packageName, activityInfo.name)
++                    ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
++            } ?: false
++
++            if (!hasEnabled) {
++                val mainComponent = ComponentName(packageName, "$packageName.MainActivity")
++                pm.setComponentEnabledSetting(
++                    mainComponent,
++                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
++                    PackageManager.DONT_KILL_APP
++                )
++                Log.i("ExpoDynamicAppIcon", "Fallback: re-enabled $packageName.MainActivity")
++            }
++        } catch (e: Exception) {
++            Log.e("ExpoDynamicAppIcon", "Error in ensureAtLeastOneComponentEnabled", e)
++        }
++    }
++
++    private fun doesComponentExist(pm: PackageManager, packageName: String, componentName: ComponentName): Boolean {
++        return try {
++            val packageInfo = pm.getPackageInfo(
++                packageName,
++                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
++            )
++            packageInfo.activities?.any { it.name == componentName.className } == true
++        } catch (e: Exception) {
++            false
++        }
++    }
++
+     private fun getEnabledLauncherActivity(pm: PackageManager, packageName: String): String {
+         return try {
+             val packageInfo = pm.getPackageInfo(
+                 packageName,
+                 PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
+             )
+-            // [I3] Prefer explicitly enabled components over default-enabled ones
+             val mainActivityPrefix = "$packageName.MainActivity"
+             val explicitlyEnabled = packageInfo.activities?.firstOrNull { activityInfo ->
+                 val componentName = ComponentName(packageName, activityInfo.name)
+@@ -94,7 +169,6 @@ class ExpoDynamicAppIconModule : Module() {
+             if (explicitlyEnabled != null) {
+                 return explicitlyEnabled.name
+             }
+-            // Fall back to default-enabled activities
+             packageInfo.activities?.firstOrNull { activityInfo ->
+                 val componentName = ComponentName(packageName, activityInfo.name)
+                 val state = pm.getComponentEnabledSetting(componentName)
+@@ -109,7 +183,4 @@ class ExpoDynamicAppIconModule : Module() {
+ 
+     private val context: Context
+         get() = requireNotNull(appContext.reactContext) { "React Application Context is null" }
+-
+-    private val currentActivity
+-        get() = requireNotNull(appContext.activityProvider?.currentActivity)
+ }
+diff --git a/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts b/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts
+index 33743a5..324d42b 100644
+--- a/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts
++++ b/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts
+@@ -1,4 +1,4 @@
+ export interface DynamicAppIconRegistry {
+-    IconName: string;
++    IconName: "dark" | "supporter" | "retro"
+ }
+ //# sourceMappingURL=types.d.ts.map
+\ No newline at end of file

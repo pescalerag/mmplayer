@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../../database';
-import { Colors, Layout } from '../../theme/theme';
+import { Layout } from '../../theme/theme';
+import { useAppTheme } from '../../hooks/useAppTheme';
 import { BackupService } from '../../services/BackupService';
 
 interface SettingsProps {
@@ -27,6 +28,7 @@ interface SettingsProps {
 function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsProps) {
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
 
     return (
         <ScreenHeaderLayout title={t('settings.title')} showBackButton={false} titleStyle={styles.headerTitle}>
@@ -52,17 +54,17 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{tracksCount}</Text>
+                            <Text style={[styles.statValue, { color: colors.accent }]}>{tracksCount}</Text>
                             <Text style={styles.statLabel}>{t('library.songs')}</Text>
                         </View>
                         <View style={styles.divider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{albumsCount}</Text>
+                            <Text style={[styles.statValue, { color: colors.accent }]}>{albumsCount}</Text>
                             <Text style={styles.statLabel}>{t('library.albums')}</Text>
                         </View>
                         <View style={styles.divider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{artistsCount}</Text>
+                            <Text style={[styles.statValue, { color: colors.accent }]}>{artistsCount}</Text>
                             <Text style={styles.statLabel}>{t('library.artists')}</Text>
                         </View>
                     </View>
@@ -78,7 +80,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="pie-chart-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="pie-chart-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.storage_title', 'Almacenamiento')}</Text>
@@ -87,7 +89,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -100,7 +102,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="eye-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="eye-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.visualization')}</Text>
@@ -109,7 +111,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -122,7 +124,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="volume-high-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="volume-high-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.audio_section')}</Text>
@@ -131,7 +133,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -144,7 +146,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="hand-left-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="hand-left-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.swipe_actions')}</Text>
@@ -153,7 +155,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -166,7 +168,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="language-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="language-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.language')}</Text>
@@ -175,7 +177,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -188,7 +190,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="image-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="image-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.artist_images_title')}</Text>
@@ -197,7 +199,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -210,7 +212,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="close-circle-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="close-circle-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.exclusions')}</Text>
@@ -219,7 +221,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -232,7 +234,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="bug-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="bug-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.debug')}</Text>
@@ -241,7 +243,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
                 </View>
 
@@ -255,7 +257,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="cloud-upload-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="cloud-upload-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -269,7 +271,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -282,7 +284,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="cloud-download-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="cloud-download-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -296,7 +298,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
                 </View>
 
@@ -310,7 +312,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="sparkles-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="sparkles-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.support_tiers')}</Text>
@@ -319,7 +321,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -332,7 +334,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="cafe-outline" size={22} color="#8B5CF6" />
+                                <Ionicons name="cafe-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.donations_kofi')}</Text>
@@ -341,7 +343,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="open-outline" size={18} color="#8B5CF6" />
+                        <Ionicons name="open-outline" size={18} color={colors.accent} />
                     </TouchableOpacity>
 
                     <View style={styles.separator} />
@@ -354,7 +356,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                     >
                         <View style={styles.menuRowLeft}>
                             <View style={styles.iconContainer}>
-                                <Ionicons name="logo-github" size={22} color="#8B5CF6" />
+                                <Ionicons name="logo-github" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
                                 <Text style={styles.settingLabel}>{t('settings.follow_us')}</Text>
@@ -363,7 +365,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 </Text>
                             </View>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
                 </View>
 

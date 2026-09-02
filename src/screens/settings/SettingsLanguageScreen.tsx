@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsLanguageScreen() {
     const { language, setLanguage } = useSettingsStore();
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
 
     return (
         <ScreenHeaderLayout title={t('settings.language')}>
@@ -28,7 +30,7 @@ export default function SettingsLanguageScreen() {
                             <TouchableOpacity
                                 style={[
                                     styles.languageButton,
-                                    language === 'es' && styles.languageButtonActive
+                                    language === 'es' && { backgroundColor: colors.accentAlpha15, borderColor: colors.accent }
                                 ]}
                                 onPress={() => setLanguage('es')}
                                 activeOpacity={0.7}
@@ -36,13 +38,13 @@ export default function SettingsLanguageScreen() {
                                 <Text style={styles.flagEmoji}>🇪🇸</Text>
                                 <Text style={[
                                     styles.languageText,
-                                    language === 'es' && styles.languageTextActive
+                                    language === 'es' && { color: colors.accent, fontWeight: '700' }
                                 ]}>Español</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.languageButton,
-                                    language === 'en' && styles.languageButtonActive
+                                    language === 'en' && { backgroundColor: colors.accentAlpha15, borderColor: colors.accent }
                                 ]}
                                 onPress={() => setLanguage('en')}
                                 activeOpacity={0.7}
@@ -50,7 +52,7 @@ export default function SettingsLanguageScreen() {
                                 <Text style={styles.flagEmoji}>🇬🇧</Text>
                                 <Text style={[
                                     styles.languageText,
-                                    language === 'en' && styles.languageTextActive
+                                    language === 'en' && { color: colors.accent, fontWeight: '700' }
                                 ]}>English</Text>
                             </TouchableOpacity>
                         </View>

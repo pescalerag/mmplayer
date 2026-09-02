@@ -5,10 +5,20 @@ import * as Localization from 'expo-localization';
 import i18n from '../constants/i18n';
 
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
+export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
+export type LocalCastTheme = 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 
 interface SettingsState {
     userTier: UserTier;
     setUserTier: (tier: UserTier) => void;
+    appIcon: string;
+    setAppIcon: (iconName: string) => void;
+    statsCardTheme: StatsCardTheme;
+    setStatsCardTheme: (theme: StatsCardTheme) => void;
+    localCastTheme: LocalCastTheme;
+    setLocalCastTheme: (theme: LocalCastTheme) => void;
+    customAccentColor: string | null;
+    setCustomAccentColor: (color: string | null) => void;
     hasOrphanedUpgrade: boolean;
     setHasOrphanedUpgrade: (val: boolean) => void;
     showTagColors: boolean;
@@ -165,6 +175,14 @@ export const useSettingsStore = create<SettingsState>()(
             setShowPlayerLyrics: (value) => set({ showPlayerLyrics: value }),
             userTier: 'USER',
             setUserTier: (tier) => set({ userTier: tier }),
+            appIcon: 'DEFAULT',
+            setAppIcon: (iconName) => set({ appIcon: iconName }),
+            statsCardTheme: 'default',
+            setStatsCardTheme: (theme) => set({ statsCardTheme: theme }),
+            localCastTheme: 'default',
+            setLocalCastTheme: (theme) => set({ localCastTheme: theme }),
+            customAccentColor: null,
+            setCustomAccentColor: (color) => set({ customAccentColor: color }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],
