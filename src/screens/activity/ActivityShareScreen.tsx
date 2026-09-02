@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -121,6 +122,64 @@ const THEME_CONFIGS: Record<StatsCardTheme, ThemeConfig> = {
     songBorderColor: 'rgba(225, 29, 72, 0.5)',
   },
 };
+
+interface StatsThemeOption {
+  id: StatsCardTheme;
+  nameKey: string;
+  colors: [string, string, string];
+  accent: string;
+}
+
+const STATS_THEMES: StatsThemeOption[] = [
+  {
+    id: 'default',
+    nameKey: 'support.stats_theme_default',
+    colors: ['#05020a', '#1a0a33', '#33125d'],
+    accent: '#8B5CF6',
+  },
+  {
+    id: 'glass',
+    nameKey: 'support.stats_theme_glass',
+    colors: ['#020617', '#0d3257', '#174f85'],
+    accent: '#38BDF8',
+  },
+  {
+    id: 'holographic',
+    nameKey: 'support.stats_theme_holographic',
+    colors: ['#060012', '#3b0a57', '#8a1674'],
+    accent: '#EC4899',
+  },
+  {
+    id: 'gold',
+    nameKey: 'support.stats_theme_gold',
+    colors: ['#070501', '#2d1f07', '#5c3e0c'],
+    accent: '#FBBF24',
+  },
+  {
+    id: 'emerald',
+    nameKey: 'support.stats_theme_emerald',
+    colors: ['#010906', '#063321', '#0b5a38'],
+    accent: '#10B981',
+  },
+  {
+    id: 'sunset',
+    nameKey: 'support.stats_theme_sunset',
+    colors: ['#0c0309', '#4a0d24', '#851b2e'],
+    accent: '#F43F5E',
+  },
+  {
+    id: 'midnight',
+    nameKey: 'support.stats_theme_midnight',
+    colors: ['#000000', '#12151f', '#222838'],
+    accent: '#E2E8F0',
+  },
+  {
+    id: 'crimson',
+    nameKey: 'support.stats_theme_crimson',
+    colors: ['#080103', '#380611', '#660b1e'],
+    accent: '#E11D48',
+  },
+];
 
 interface ShareCardProps {
   formattedPeriodText: string;
@@ -345,6 +404,7 @@ export default function ActivityShareScreen() {
 
   const userTier = useSettingsStore(state => state.userTier);
   const statsCardTheme = useSettingsStore(state => state.statsCardTheme) || 'default';
+  const setStatsCardTheme = useSettingsStore(state => state.setStatsCardTheme);
   const isVip = userTier === 'VIP';
   const effectiveTheme: StatsCardTheme = isVip ? statsCardTheme : 'default';
 
@@ -361,8 +421,9 @@ export default function ActivityShareScreen() {
   const viewShotRef = useRef<any>(null);
 
   // Calculate 9:16 card dimensions to fit on screen without scrolling
-  const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 130;
-  let cardHeight = Math.min(availableHeight, 560);
+  const themeBarHeight = isVip ? 48 : 0;
+  const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 130 - themeBarHeight;
+  let cardHeight = Math.min(availableHeight, 550);
   let cardWidth = cardHeight * (9 / 16);
 
   if (cardWidth > SCREEN_WIDTH - 40) {
@@ -442,6 +503,52 @@ export default function ActivityShareScreen() {
         />
       </View>
 
+      {/* Selector Horizontal de Temas (Exclusivo para VIP) */}
+      {isVip && (
+        <View style={styles.themesSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.themesScroll}
+          >
+            {STATS_THEMES.map((item) => {
+              const isSelected = effectiveTheme === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.themeChip,
+                    isSelected && [styles.themeChipActive, { borderColor: item.accent }],
+                  ]}
+                  onPress={() => setStatsCardTheme(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={item.colors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.themeSwatch}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                    )}
+                  </LinearGradient>
+                  <Text
+                    style={[
+                      styles.themeChipText,
+                      isSelected && { color: item.accent, fontWeight: '700' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {t(item.nameKey)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Share Button Below Card */}
       <TouchableOpacity
         onPress={handleCaptureAndShare}
@@ -506,13 +613,49 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B5CF6',
     paddingVertical: 14,
     borderRadius: 25,
-    marginTop: 6,
-    marginBottom: 6,
+    marginTop: 4,
+    marginBottom: 4,
   },
   shareBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  // Selector horizontal de temas VIP
+  themesSection: {
+    width: '100%',
+    paddingVertical: 4,
+  },
+  themesScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  themeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 7,
+  },
+  themeChipActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  themeSwatch: {
+    width: 15,
+    height: 15,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeChipText: {
+    color: '#D4D4D8',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

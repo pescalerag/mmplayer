@@ -1,0 +1,36 @@
+{
+  "vip": [
+    {
+      "id": "vip-001",
+      "name": "peper",
+      "date": "2026-08",
+      "badge": "VIP Legend",
+      "quote": "MMPlayer Creator"
+    },
+    {
+      "id": "vip-002",
+      "name": "Carlos M.",
+      "date": "2026-08",
+      "badge": "VIP Legend",
+      "quote": "Best offline music player!"
+    }
+  ],
+  "supporters": [
+    {
+      "id": "sup-001",
+      "name": "Elena_99",
+      "date": "2026-08"
+    },
+    {
+      "id": "sup-002",
+      "name": "Marcos R.",
+      "date": "2026-08"
+    },
+    {
+      "id": "sup-003",
+      "name": "Alex",
+      "date": "2026-09"
+    }
+  ],
+  "lastUpdated": "2026-09-02"
+}
