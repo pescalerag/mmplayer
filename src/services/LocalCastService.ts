@@ -7,6 +7,7 @@ import Track from '../database/models/Track';
 import i18n from '../constants/i18n';
 import { getClientHtml, LocalCastTranslations } from './LocalCastHtml';
 import { getChromecastHtml } from './ChromecastHtml';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 // ─── Server instance ─────────────────────────────────────────────────────────
 let server: BridgeServer | null = null;
@@ -369,7 +370,10 @@ export const LocalCastService = {
                         brandName: 'MMPlayer',
                         lang: currentLang,
                     };
-                    res.html(getClientHtml(translations), 200);
+                    const userTier = useSettingsStore.getState().userTier;
+                    const isVip = userTier === 'VIP';
+                    const localCastTheme = isVip ? (useSettingsStore.getState().localCastTheme || 'default') : 'default';
+                    res.html(getClientHtml(translations, localCastTheme), 200);
                     return;
                 }
 

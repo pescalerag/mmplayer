@@ -19,6 +19,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { Layout } from '../../theme/theme';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { PurchasesService, PRODUCT_IDS } from '../../services/PurchasesService';
+import BenefitsView from './BenefitsView';
 
 export default function SupportScreen() {
     const navigation = useNavigation<any>();
@@ -36,6 +37,8 @@ export default function SupportScreen() {
     const [supporterPack, setSupporterPack] = useState<PurchasesPackage | null>(null);
     const [vipPack, setVipPack] = useState<PurchasesPackage | null>(null);
     const [upgradeVipPack, setUpgradeVipPack] = useState<PurchasesPackage | null>(null);
+
+    const [activeTab, setActiveTab] = useState<'tiers' | 'benefits'>('tiers');
 
     const loadOfferings = useCallback(async () => {
         setIsLoadingOfferings(true);
@@ -178,6 +181,31 @@ export default function SupportScreen() {
                 }}
                 showsVerticalScrollIndicator={false}
             >
+                <View style={styles.tabsContainer}>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'tiers' && styles.activeTab]}
+                        onPress={() => setActiveTab('tiers')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'tiers' && styles.activeTabText]}>
+                            {t('support.tab_tiers') || 'Tiers'}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'benefits' && styles.activeTab]}
+                        onPress={() => setActiveTab('benefits')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'benefits' && styles.activeTabText]}>
+                            {t('support.tab_benefits') || 'Beneficios'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {activeTab === 'benefits' ? (
+                    <BenefitsView />
+                ) : (
+                    <>
                 {/* Hero / Intro Card */}
                 <LinearGradient
                     colors={
@@ -624,6 +652,8 @@ export default function SupportScreen() {
 
                 {/* Disclaimer */}
                 <Text style={styles.disclaimerText}>{t('support.disclaimer')}</Text>
+                    </>
+                )}
             </ScrollView>
         </View>
     );
@@ -976,5 +1006,27 @@ const getStyles = (
         textAlign: 'center',
         opacity: 0.6,
         paddingHorizontal: 16,
+    },
+    tabsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginBottom: 20,
+        gap: 10,
+    },
+    tabButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: '#282828',
+    },
+    activeTab: {
+        backgroundColor: colors.accent || '#8B5CF6',
+    },
+    tabText: {
+        color: '#B3B3B3',
+        fontFamily: fonts.semiBold,
+    },
+    activeTabText: {
+        color: '#FFFFFF',
     },
 });

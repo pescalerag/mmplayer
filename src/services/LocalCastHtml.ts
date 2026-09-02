@@ -1,3 +1,5 @@
+import { LocalCastTheme } from '../store/useSettingsStore';
+
 export interface LocalCastTranslations {
     appTitle?: string;
     noSong?: string;
@@ -11,7 +13,186 @@ export interface LocalCastTranslations {
     lang?: string;
 }
 
-export function getClientHtml(customTranslations?: Partial<LocalCastTranslations>): string {
+const THEME_CSS: Record<LocalCastTheme, string> = {
+    default: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(13, 15, 18, 0.4) 0%, rgba(13, 15, 18, 0.85) 100%);
+            --panel-bg: rgba(22, 27, 34, 0.45);
+            --panel-border: 1px solid rgba(255, 255, 255, 0.08);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            --play-btn-bg: rgba(139, 92, 246, 0.25);
+            --play-btn-border: rgba(139, 92, 246, 0.5);
+            --play-btn-shadow: 0 0 14px rgba(139, 92, 246, 0.25);
+            --play-btn-hover-bg: rgba(139, 92, 246, 0.45);
+            --play-btn-hover-border: #A78BFA;
+            --play-btn-hover-shadow: 0 0 20px rgba(139, 92, 246, 0.45);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.4), 0 0 20px rgba(139, 92, 246, 0.4);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 30px rgba(139, 92, 246, 0.6), 0 0 10px rgba(255, 255, 255, 0.4);
+            --badge-bg: rgba(139, 92, 246, 0.15);
+            --badge-border: 1px solid rgba(139, 92, 246, 0.3);
+            --badge-color: #A78BFA;
+            --volume-thumb-hover: #A78BFA;
+        }
+    `,
+    cyberpunk: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(5, 14, 30, 0.55) 0%, rgba(2, 6, 18, 0.97) 100%), linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+            --panel-bg: rgba(6, 16, 36, 0.7);
+            --panel-border: 1px solid rgba(0, 240, 255, 0.38);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(0, 240, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25);
+            --play-btn-bg: rgba(0, 240, 255, 0.22);
+            --play-btn-border: rgba(0, 240, 255, 0.7);
+            --play-btn-shadow: 0 0 20px rgba(0, 240, 255, 0.45);
+            --play-btn-hover-bg: rgba(0, 240, 255, 0.45);
+            --play-btn-hover-border: #00F0FF;
+            --play-btn-hover-shadow: 0 0 30px rgba(0, 240, 255, 0.8);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.6), 0 0 18px rgba(0, 240, 255, 0.7);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(0, 240, 255, 0.9), 0 0 45px rgba(255, 0, 127, 0.6);
+            --badge-bg: rgba(0, 240, 255, 0.18);
+            --badge-border: 1px solid rgba(0, 240, 255, 0.5);
+            --badge-color: #00F0FF;
+            --volume-thumb-hover: #00F0FF;
+        }
+    `,
+    gold: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(24, 17, 6, 0.5) 0%, rgba(7, 5, 1, 0.97) 100%);
+            --panel-bg: rgba(28, 20, 7, 0.68);
+            --panel-border: 1px solid rgba(251, 191, 36, 0.4);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(245, 158, 11, 0.22), inset 0 1px 0 rgba(253, 230, 138, 0.28);
+            --play-btn-bg: rgba(245, 158, 11, 0.28);
+            --play-btn-border: rgba(251, 191, 36, 0.7);
+            --play-btn-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            --play-btn-hover-bg: rgba(245, 158, 11, 0.5);
+            --play-btn-hover-border: #FBBF24;
+            --play-btn-hover-shadow: 0 0 30px rgba(251, 191, 36, 0.7);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 18px rgba(251, 191, 36, 0.6);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(245, 158, 11, 0.85), 0 0 40px rgba(251, 191, 36, 0.5);
+            --badge-bg: rgba(245, 158, 11, 0.22);
+            --badge-border: 1px solid rgba(251, 191, 36, 0.55);
+            --badge-color: #FBBF24;
+            --volume-thumb-hover: #FBBF24;
+        }
+    `,
+    aurora: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(4, 28, 32, 0.5) 0%, rgba(2, 10, 14, 0.97) 100%);
+            --panel-bg: rgba(5, 34, 38, 0.68);
+            --panel-border: 1px solid rgba(52, 211, 153, 0.38);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 38px rgba(16, 185, 129, 0.22), inset 0 1px 0 rgba(110, 231, 183, 0.28);
+            --play-btn-bg: rgba(16, 185, 129, 0.28);
+            --play-btn-border: rgba(52, 211, 153, 0.7);
+            --play-btn-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+            --play-btn-hover-bg: rgba(16, 185, 129, 0.5);
+            --play-btn-hover-border: #34D399;
+            --play-btn-hover-shadow: 0 0 30px rgba(16, 185, 129, 0.7);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 18px rgba(16, 185, 129, 0.6);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(16, 185, 129, 0.85), 0 0 40px rgba(6, 182, 212, 0.5);
+            --badge-bg: rgba(16, 185, 129, 0.22);
+            --badge-border: 1px solid rgba(52, 211, 153, 0.55);
+            --badge-color: #34D399;
+            --volume-thumb-hover: #10B981;
+        }
+    `,
+    emerald: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(3, 25, 16, 0.5) 0%, rgba(1, 9, 6, 0.97) 100%);
+            --panel-bg: rgba(3, 30, 20, 0.68);
+            --panel-border: 1px solid rgba(16, 185, 129, 0.38);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(110, 231, 183, 0.25);
+            --play-btn-bg: rgba(16, 185, 129, 0.25);
+            --play-btn-border: rgba(16, 185, 129, 0.7);
+            --play-btn-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+            --play-btn-hover-bg: rgba(16, 185, 129, 0.5);
+            --play-btn-hover-border: #34D399;
+            --play-btn-hover-shadow: 0 0 30px rgba(16, 185, 129, 0.75);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 18px rgba(16, 185, 129, 0.6);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(16, 185, 129, 0.9), 0 0 45px rgba(52, 211, 153, 0.5);
+            --badge-bg: rgba(16, 185, 129, 0.2);
+            --badge-border: 1px solid rgba(16, 185, 129, 0.5);
+            --badge-color: #6EE7B7;
+            --volume-thumb-hover: #10B981;
+        }
+    `,
+    sunset: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(36, 6, 22, 0.55) 0%, rgba(12, 3, 9, 0.97) 100%);
+            --panel-bg: rgba(45, 10, 28, 0.68);
+            --panel-border: 1px solid rgba(244, 63, 94, 0.4);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(244, 63, 94, 0.22), inset 0 1px 0 rgba(253, 164, 175, 0.28);
+            --play-btn-bg: rgba(244, 63, 94, 0.28);
+            --play-btn-border: rgba(244, 63, 94, 0.7);
+            --play-btn-shadow: 0 0 20px rgba(244, 63, 94, 0.45);
+            --play-btn-hover-bg: rgba(244, 63, 94, 0.5);
+            --play-btn-hover-border: #FB7185;
+            --play-btn-hover-shadow: 0 0 30px rgba(244, 63, 94, 0.75);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 18px rgba(244, 63, 94, 0.6);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(244, 63, 94, 0.85), 0 0 45px rgba(251, 146, 60, 0.55);
+            --badge-bg: rgba(244, 63, 94, 0.22);
+            --badge-border: 1px solid rgba(244, 63, 94, 0.55);
+            --badge-color: #FDA4AF;
+            --volume-thumb-hover: #F43F5E;
+        }
+    `,
+    midnight: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(18, 21, 31, 0.6) 0%, rgba(0, 0, 0, 0.98) 100%);
+            --panel-bg: rgba(15, 18, 26, 0.75);
+            --panel-border: 1px solid rgba(226, 232, 240, 0.25);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.95), 0 0 35px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            --play-btn-bg: rgba(226, 232, 240, 0.18);
+            --play-btn-border: rgba(226, 232, 240, 0.6);
+            --play-btn-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+            --play-btn-hover-bg: rgba(226, 232, 240, 0.4);
+            --play-btn-hover-border: #FFFFFF;
+            --play-btn-hover-shadow: 0 0 28px rgba(255, 255, 255, 0.6);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.6), 0 0 18px rgba(203, 213, 225, 0.5);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(226, 232, 240, 0.8), 0 0 45px rgba(148, 163, 184, 0.45);
+            --badge-bg: rgba(226, 232, 240, 0.15);
+            --badge-border: 1px solid rgba(226, 232, 240, 0.4);
+            --badge-color: #E2E8F0;
+            --volume-thumb-hover: #FFFFFF;
+        }
+    `,
+    crimson: `
+        :root {
+            --bg-overlay: radial-gradient(circle at center, rgba(28, 3, 8, 0.55) 0%, rgba(8, 1, 3, 0.97) 100%);
+            --panel-bg: rgba(35, 4, 11, 0.7);
+            --panel-border: 1px solid rgba(225, 29, 72, 0.4);
+            --panel-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(225, 29, 72, 0.25), inset 0 1px 0 rgba(254, 205, 211, 0.25);
+            --play-btn-bg: rgba(225, 29, 72, 0.28);
+            --play-btn-border: rgba(225, 29, 72, 0.7);
+            --play-btn-shadow: 0 0 20px rgba(225, 29, 72, 0.45);
+            --play-btn-hover-bg: rgba(225, 29, 72, 0.5);
+            --play-btn-hover-border: #FB7185;
+            --play-btn-hover-shadow: 0 0 30px rgba(225, 29, 72, 0.75);
+            --progress-fill-bg: #FFFFFF;
+            --progress-fill-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 18px rgba(225, 29, 72, 0.6);
+            --active-lyric-color: #FFFFFF;
+            --active-lyric-shadow: 0 0 25px rgba(225, 29, 72, 0.9), 0 0 45px rgba(244, 63, 94, 0.5);
+            --badge-bg: rgba(225, 29, 72, 0.22);
+            --badge-border: 1px solid rgba(225, 29, 72, 0.55);
+            --badge-color: #FECDD3;
+            --volume-thumb-hover: #E11D48;
+        }
+    `,
+};
+
+export function getClientHtml(customTranslations?: Partial<LocalCastTranslations>, theme: LocalCastTheme = 'default'): string {
     const t: LocalCastTranslations = {
         appTitle: 'MMPlayer LocalCast',
         noSong: 'No hay canción',
@@ -26,6 +207,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         ...customTranslations,
     };
 
+    const themeCss = THEME_CSS[theme] || THEME_CSS.default;
+
     return `<!DOCTYPE html>
 <html lang="${t.lang || 'es'}">
 <head>
@@ -37,6 +220,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
+        ${themeCss}
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -77,7 +262,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             left: 0;
             right: 0;
             bottom: 0;
-            background: radial-gradient(circle at center, rgba(13, 15, 18, 0.4) 0%, rgba(13, 15, 18, 0.85) 100%);
+            background: var(--bg-overlay, radial-gradient(circle at center, rgba(13, 15, 18, 0.4) 0%, rgba(13, 15, 18, 0.85) 100%));
             z-index: 1;
         }
 
@@ -87,14 +272,14 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             width: 90vw;
             max-width: 1400px;
             height: 85vh;
-            background: rgba(22, 27, 34, 0.45);
+            background: var(--panel-bg, rgba(22, 27, 34, 0.45));
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: var(--panel-border, 1px solid rgba(255, 255, 255, 0.08));
             border-radius: 32px;
             padding: 48px;
             gap: 56px;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            box-shadow: var(--panel-shadow, 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1));
             z-index: 2;
             overflow: hidden;
             transition: max-width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), padding 0.45s ease;
@@ -218,10 +403,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         .progress-fill {
             height: 100%;
             width: 0%;
-            background: #FFFFFF;
+            background: var(--progress-fill-bg, #FFFFFF);
             border-radius: 6px;
             transition: width 0.2s linear;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+            box-shadow: var(--progress-fill-shadow, 0 0 10px rgba(255, 255, 255, 0.4));
         }
 
         .time-container {
@@ -272,7 +457,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         .control-btn:hover {
             color: #FFFFFF;
             background: rgba(255, 255, 255, 0.15);
-            border-color: rgba(167, 139, 250, 0.4);
+            border-color: var(--play-btn-hover-border, rgba(167, 139, 250, 0.4));
             transform: scale(1.08);
         }
 
@@ -283,16 +468,16 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         .play-pause-btn {
             width: 40px;
             height: 40px;
-            background: rgba(139, 92, 246, 0.25);
-            border-color: rgba(139, 92, 246, 0.5);
+            background: var(--play-btn-bg, rgba(139, 92, 246, 0.25));
+            border-color: var(--play-btn-border, rgba(139, 92, 246, 0.5));
             color: #FFFFFF;
-            box-shadow: 0 0 14px rgba(139, 92, 246, 0.25);
+            box-shadow: var(--play-btn-shadow, 0 0 14px rgba(139, 92, 246, 0.25));
         }
 
         .play-pause-btn:hover {
-            background: rgba(139, 92, 246, 0.45);
-            border-color: #A78BFA;
-            box-shadow: 0 0 20px rgba(139, 92, 246, 0.45);
+            background: var(--play-btn-hover-bg, rgba(139, 92, 246, 0.45));
+            border-color: var(--play-btn-hover-border, #A78BFA);
+            box-shadow: var(--play-btn-hover-shadow, 0 0 20px rgba(139, 92, 246, 0.45));
             transform: scale(1.1);
         }
 
@@ -360,7 +545,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
 
         .volume-slider:hover::-webkit-slider-thumb {
             transform: scale(1.25);
-            background: #A78BFA;
+            background: var(--volume-thumb-hover, #A78BFA);
         }
 
         .volume-slider::-moz-range-thumb {
@@ -376,7 +561,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
 
         .volume-slider:hover::-moz-range-thumb {
             transform: scale(1.25);
-            background: #A78BFA;
+            background: var(--volume-thumb-hover, #A78BFA);
         }
 
         .volume-percent {
@@ -394,9 +579,9 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             gap: 6px;
             padding: 6px 14px;
             border-radius: 20px;
-            background: rgba(139, 92, 246, 0.15);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            color: #A78BFA;
+            background: var(--badge-bg, rgba(139, 92, 246, 0.15));
+            border: var(--badge-border, 1px solid rgba(139, 92, 246, 0.3));
+            color: var(--badge-color, #A78BFA);
             font-size: 13px;
             font-weight: 700;
             letter-spacing: 0.5px;
@@ -446,10 +631,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         }
 
         .lyric-line.active {
-            color: #FFFFFF;
+            color: var(--active-lyric-color, #FFFFFF);
             font-size: 32px;
             transform: scale(1.05);
-            text-shadow: 0 0 30px rgba(139, 92, 246, 0.6), 0 0 10px rgba(255, 255, 255, 0.4);
+            text-shadow: var(--active-lyric-shadow, 0 0 30px rgba(139, 92, 246, 0.6), 0 0 10px rgba(255, 255, 255, 0.4));
         }
 
         @media (max-width: 900px) {
@@ -715,6 +900,24 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             updateState();
         }
 
+        function setStatusActive(text) {
+            statusEl.innerText = text;
+            statusEl.style.backgroundColor = "var(--badge-bg, rgba(139, 92, 246, 0.15))";
+            statusEl.style.border = "var(--badge-border, 1px solid rgba(139, 92, 246, 0.3))";
+            statusEl.style.color = "var(--badge-color, #A78BFA)";
+            statusEl.style.cursor = "default";
+            statusEl.onclick = null;
+        }
+
+        function setStatusError(text, isClickable = false, clickHandler = null) {
+            statusEl.innerText = text;
+            statusEl.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+            statusEl.style.border = "1px solid rgba(239, 68, 68, 0.35)";
+            statusEl.style.color = "#FCA5A5";
+            statusEl.style.cursor = isClickable ? "pointer" : "default";
+            statusEl.onclick = clickHandler;
+        }
+
         function resetToIdle(statusMessage) {
             audioPlayer.pause();
             audioPlayer.removeAttribute('src');
@@ -734,11 +937,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             timeCurrentEl.innerText  = '0:00';
             timeTotalEl.innerText    = '0:00';
             
-            statusEl.innerText = statusMessage || i18n.noSong;
-            statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-            statusEl.style.color = "#FCA5A5";
-            statusEl.style.cursor = "default";
-            statusEl.onclick = null;
+            setStatusError(statusMessage || i18n.noSong);
         }
 
         coverEl.onerror = () => {
@@ -853,22 +1052,14 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         function handleAutoplayBlock(err) {
             if (err && err.name === 'NotAllowedError') {
                 isAutoplayBlocked = true;
-                statusEl.innerText = i18n.clickToUnmute;
-                statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-                statusEl.style.color = "#FCA5A5";
-                statusEl.style.cursor = "pointer";
-                statusEl.onclick = () => tryPlayAudio();
+                setStatusError(i18n.clickToUnmute, true, () => tryPlayAudio());
             }
         }
 
         function tryPlayAudio() {
             isAutoplayBlocked = false;
             audioPlayer.play().then(() => {
-                statusEl.innerText = i18n.playing;
-                statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
-                statusEl.style.color = "#A78BFA";
-                statusEl.style.cursor = "default";
-                statusEl.onclick = null;
+                setStatusActive(i18n.playing);
             }).catch(handleAutoplayBlock);
         }
 
@@ -990,11 +1181,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
 
                     if (state.isPlaying) {
                         audioPlayer.play().then(() => {
-                            statusEl.innerText = i18n.streaming;
-                            statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
-                            statusEl.style.color = "#A78BFA";
-                            statusEl.style.cursor = "default";
-                            statusEl.onclick = null;
+                            setStatusActive(i18n.streaming);
                         }).catch(handleAutoplayBlock);
                     }
                     nextPollInterval = 1000;
@@ -1010,9 +1197,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 }
 
                 if (!isAutoplayBlocked && !audioPlayer.error && state.isPlaying) {
-                    statusEl.innerText = i18n.streaming;
-                    statusEl.style.backgroundColor = "rgba(139,92,246,0.2)";
-                    statusEl.style.color = "#A78BFA";
+                    setStatusActive(i18n.streaming);
                 }
 
                 updatePlayPauseUI(!audioPlayer.paused);
@@ -1025,9 +1210,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 consecutiveErrors++;
                 if (consecutiveErrors >= 2 && !audioPlayer.paused) {
                     audioPlayer.pause();
-                    statusEl.innerText = 'Desconectado';
-                    statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-                    statusEl.style.color = "#FCA5A5";
+                    setStatusError('Desconectado');
                 }
                 nextPollInterval = 1500;
             } finally {
@@ -1066,9 +1249,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             console.error("[AudioErrorEvent] Audio player error:", err ? err.code : 'unknown');
             currentSongTitle = '';
             currentLoadedMediaFile = null;
-            statusEl.innerText = i18n.retryingAudio;
-            statusEl.style.backgroundColor = "rgba(239,68,68,0.2)";
-            statusEl.style.color = "#FCA5A5";
+            setStatusError(i18n.retryingAudio);
             scheduleNextPoll(1500);
         };
 

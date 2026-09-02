@@ -11,10 +11,11 @@ import {
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSettingsStore, StatsCardTheme } from '../../store/useSettingsStore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,6 +27,100 @@ function formatDuration(seconds: number, t: any): string {
   return `${hours} ${t('activity.hour_suffix', { defaultValue: 'h' })}`;
 }
 
+interface ThemeConfig {
+  backgroundColors: [string, string, string, string];
+  badgeBackgroundColor: string;
+  badgeTextColor: string;
+  sectionTitleColor: string;
+  cleanRankColor: string;
+  totalStatValueColor: string;
+  artistBorderColor: string;
+  songBorderColor: string;
+}
+
+const THEME_CONFIGS: Record<StatsCardTheme, ThemeConfig> = {
+  default: {
+    backgroundColors: ['#05020a', '#0d051a', '#1a0a33', '#33125d'],
+    badgeBackgroundColor: '#8B5CF6',
+    badgeTextColor: '#FFFFFF',
+    sectionTitleColor: '#A78BFA',
+    cleanRankColor: '#C4B5FD',
+    totalStatValueColor: '#FFFFFF',
+    artistBorderColor: 'rgba(167, 139, 250, 0.4)',
+    songBorderColor: 'rgba(167, 139, 250, 0.4)',
+  },
+  glass: {
+    backgroundColors: ['#020617', '#06182a', '#0d3257', '#174f85'],
+    badgeBackgroundColor: '#38BDF8',
+    badgeTextColor: '#020617',
+    sectionTitleColor: '#38BDF8',
+    cleanRankColor: '#7DD3FC',
+    totalStatValueColor: '#F0F9FF',
+    artistBorderColor: 'rgba(56, 189, 248, 0.5)',
+    songBorderColor: 'rgba(56, 189, 248, 0.5)',
+  },
+  holographic: {
+    backgroundColors: ['#060012', '#1a0430', '#3b0a57', '#8a1674'],
+    badgeBackgroundColor: '#EC4899',
+    badgeTextColor: '#FFFFFF',
+    sectionTitleColor: '#F472B6',
+    cleanRankColor: '#F0ABFC',
+    totalStatValueColor: '#FDF4FF',
+    artistBorderColor: 'rgba(236, 72, 153, 0.55)',
+    songBorderColor: 'rgba(236, 72, 153, 0.55)',
+  },
+  gold: {
+    backgroundColors: ['#070501', '#171104', '#2d1f07', '#5c3e0c'],
+    badgeBackgroundColor: '#FBBF24',
+    badgeTextColor: '#1A1002',
+    sectionTitleColor: '#FBBF24',
+    cleanRankColor: '#FDE68A',
+    totalStatValueColor: '#FFFBEB',
+    artistBorderColor: 'rgba(251, 191, 36, 0.6)',
+    songBorderColor: 'rgba(251, 191, 36, 0.6)',
+  },
+  emerald: {
+    backgroundColors: ['#010906', '#031910', '#063321', '#0b5a38'],
+    badgeBackgroundColor: '#10B981',
+    badgeTextColor: '#010906',
+    sectionTitleColor: '#34D399',
+    cleanRankColor: '#6EE7B7',
+    totalStatValueColor: '#ECFDF5',
+    artistBorderColor: 'rgba(16, 185, 129, 0.5)',
+    songBorderColor: 'rgba(16, 185, 129, 0.5)',
+  },
+  sunset: {
+    backgroundColors: ['#0c0309', '#240616', '#4a0d24', '#851b2e'],
+    badgeBackgroundColor: '#F43F5E',
+    badgeTextColor: '#FFFFFF',
+    sectionTitleColor: '#FB7185',
+    cleanRankColor: '#FDA4AF',
+    totalStatValueColor: '#FFF1F2',
+    artistBorderColor: 'rgba(244, 63, 94, 0.5)',
+    songBorderColor: 'rgba(244, 63, 94, 0.5)',
+  },
+  midnight: {
+    backgroundColors: ['#000000', '#090a0f', '#12151f', '#222838'],
+    badgeBackgroundColor: '#E2E8F0',
+    badgeTextColor: '#0F172A',
+    sectionTitleColor: '#94A3B8',
+    cleanRankColor: '#CBD5E1',
+    totalStatValueColor: '#FFFFFF',
+    artistBorderColor: 'rgba(226, 232, 240, 0.45)',
+    songBorderColor: 'rgba(226, 232, 240, 0.45)',
+  },
+  crimson: {
+    backgroundColors: ['#080103', '#1c0308', '#380611', '#660b1e'],
+    badgeBackgroundColor: '#E11D48',
+    badgeTextColor: '#FFFFFF',
+    sectionTitleColor: '#FB7185',
+    cleanRankColor: '#FECDD3',
+    totalStatValueColor: '#FFF1F2',
+    artistBorderColor: 'rgba(225, 29, 72, 0.5)',
+    songBorderColor: 'rgba(225, 29, 72, 0.5)',
+  },
+};
+
 interface ShareCardProps {
   formattedPeriodText: string;
   metric: 'duration' | 'plays';
@@ -35,6 +130,7 @@ interface ShareCardProps {
   topSongs: any[];
   cardWidth: number;
   cardHeight: number;
+  theme: StatsCardTheme;
   t: any;
 }
 
@@ -49,6 +145,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
       topSongs,
       cardWidth,
       cardHeight,
+      theme,
       t,
     },
     ref
@@ -59,6 +156,8 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
     const top3Songs = topSongs.slice(0, 3);
     const remainingSongs = topSongs.slice(3, 5);
 
+    const cfg = THEME_CONFIGS[theme] || THEME_CONFIGS.default;
+
     return (
       <ViewShot
         ref={ref}
@@ -67,25 +166,25 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
         <View style={[cardStyles.card, { width: cardWidth, height: cardHeight }]}>
           {/* Full Background Gradient */}
           <LinearGradient
-            colors={['#030106', '#080314', '#150729', '#321063']}
+            colors={cfg.backgroundColors}
             start={{ x: 0.9, y: 0.05 }}
             end={{ x: 0.05, y: 0.95 }}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Header Branding: Transparent Splash Icon + STATS Badge */}
+          {/* Header Branding */}
           <View style={cardStyles.brandHeader}>
             <Image
               source={require('../../assets/images/splash-icon.png')}
               style={cardStyles.appIcon}
               contentFit="contain"
             />
-            <View style={cardStyles.statsBadge}>
-              <Text style={cardStyles.statsBadgeText}>STATS</Text>
+            <View style={[cardStyles.statsBadge, { backgroundColor: cfg.badgeBackgroundColor }]}>
+              <Text style={[cardStyles.statsBadgeText, { color: cfg.badgeTextColor }]}>STATS</Text>
             </View>
           </View>
 
-          {/* Date Range: Clean text without icon or background */}
+          {/* Date Range */}
           <Text style={cardStyles.dateRangeText}>{formattedPeriodText}</Text>
 
           {/* Main Content (Top Artists + Top Songs) */}
@@ -93,23 +192,23 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
             {/* Top 5 Artists */}
             {topArtists.length > 0 && (
               <View style={cardStyles.section}>
-                <Text style={cardStyles.sectionTitle}>
+                <Text style={[cardStyles.sectionTitle, { color: cfg.sectionTitleColor }]}>
                   {t('activity.top_artists', { defaultValue: 'TOP ARTISTAS' })}
                 </Text>
 
                 {/* Top 3 Artists */}
                 <View style={cardStyles.top3Container}>
                   {top3Artists.map((artist, idx) => (
-                    <View key={artist.id || idx} style={[cardStyles.top3Col, { width: (cardWidth - 56) / 3 }]}>
+                    <View key={artist.id || idx} style={[cardStyles.top3Col, { width: (cardWidth - 40) / 3 }]}>
                       <View style={cardStyles.avatarWrapper}>
                         {artist.imageUrl ? (
                           <Image
                             source={{ uri: artist.imageUrl }}
-                            style={cardStyles.artistAvatar}
+                            style={[cardStyles.artistAvatar, { borderColor: cfg.artistBorderColor }]}
                             contentFit="cover"
                           />
                         ) : (
-                          <View style={[cardStyles.artistAvatar, cardStyles.placeholderAvatar]}>
+                          <View style={[cardStyles.artistAvatar, cardStyles.placeholderAvatar, { borderColor: cfg.artistBorderColor }]}>
                             <Ionicons name="person" size={20} color="#666666" />
                           </View>
                         )}
@@ -139,7 +238,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
                   <View style={cardStyles.cleanList}>
                     {remainingArtists.map((artist, idx) => (
                       <View key={artist.id || idx} style={cardStyles.cleanRow}>
-                        <Text style={cardStyles.cleanRank}>{idx + 4}.</Text>
+                        <Text style={[cardStyles.cleanRank, { color: cfg.cleanRankColor }]}>{idx + 4}.</Text>
                         <Text style={cardStyles.cleanName} numberOfLines={1}>
                           {artist.name}
                         </Text>
@@ -158,23 +257,23 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
             {/* Top 5 Songs */}
             {topSongs.length > 0 && (
               <View style={cardStyles.section}>
-                <Text style={cardStyles.sectionTitle}>
+                <Text style={[cardStyles.sectionTitle, { color: cfg.sectionTitleColor }]}>
                   {t('activity.top_songs', { defaultValue: 'TOP CANCIONES' })}
                 </Text>
 
                 {/* Top 3 Songs */}
                 <View style={cardStyles.top3Container}>
                   {top3Songs.map((song, idx) => (
-                    <View key={song.id || idx} style={[cardStyles.top3Col, { width: (cardWidth - 56) / 3 }]}>
+                    <View key={song.id || idx} style={[cardStyles.top3Col, { width: (cardWidth - 40) / 3 }]}>
                       <View style={cardStyles.coverWrapper}>
                         {song.coverUrl ? (
                           <Image
                             source={{ uri: song.coverUrl }}
-                            style={cardStyles.songCover}
+                            style={[cardStyles.songCover, { borderColor: cfg.songBorderColor }]}
                             contentFit="cover"
                           />
                         ) : (
-                          <View style={[cardStyles.songCover, cardStyles.placeholderAvatar]}>
+                          <View style={[cardStyles.songCover, cardStyles.placeholderAvatar, { borderColor: cfg.songBorderColor }]}>
                             <Ionicons name="musical-note" size={18} color="#666666" />
                           </View>
                         )}
@@ -202,7 +301,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
                   <View style={cardStyles.cleanList}>
                     {remainingSongs.map((song, idx) => (
                       <View key={song.id || idx} style={cardStyles.cleanRow}>
-                        <Text style={cardStyles.cleanRank}>{idx + 4}.</Text>
+                        <Text style={[cardStyles.cleanRank, { color: cfg.cleanRankColor }]}>{idx + 4}.</Text>
                         <Text style={cardStyles.cleanName} numberOfLines={1}>
                           {song.title} <Text style={{ color: '#666666' }}>• {song.artistName}</Text>
                         </Text>
@@ -219,10 +318,10 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
             )}
           </View>
 
-          {/* Large Total Stat Block (Total Value in White) */}
+          {/* Large Total Stat Block */}
           <View style={cardStyles.totalStatContainer}>
             <Text style={cardStyles.totalStatLabel}>{totalLabel}</Text>
-            <Text style={cardStyles.totalStatValue}>{totalValue}</Text>
+            <Text style={[cardStyles.totalStatValue, { color: cfg.totalStatValueColor }]}>{totalValue}</Text>
           </View>
 
           {/* Footer Slogan */}
@@ -260,6 +359,12 @@ export default function ActivityShareModal({
 }: ActivityShareModalProps) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+
+  const userTier = useSettingsStore(state => state.userTier);
+  const statsCardTheme = useSettingsStore(state => state.statsCardTheme) || 'default';
+  const isVip = userTier === 'VIP';
+  const effectiveTheme: StatsCardTheme = isVip ? statsCardTheme : 'default';
+
   const [isCapturing, setIsCapturing] = useState(false);
   const viewShotRef = useRef<any>(null);
 
@@ -346,6 +451,7 @@ export default function ActivityShareModal({
               topSongs={topSongs}
               cardWidth={cardWidth}
               cardHeight={cardHeight}
+              theme={effectiveTheme}
               t={t}
             />
           </View>
@@ -436,8 +542,6 @@ const cardStyles = StyleSheet.create({
     backgroundColor: '#030106',
     borderRadius: 0,
     padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
@@ -599,9 +703,6 @@ const cardStyles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 10,
     paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'transparent',
   },
   totalStatLabel: {
     color: '#A1A1AA',
@@ -622,7 +723,7 @@ const cardStyles = StyleSheet.create({
     marginTop: 2,
   },
   cardFooterText: {
-    color: '#52525B',
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
