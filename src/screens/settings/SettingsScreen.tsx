@@ -260,12 +260,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 <Ionicons name="cloud-upload-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <Text style={styles.settingLabel}>{t('settings.backup_export')}</Text>
-                                    <View style={styles.betaBadge}>
-                                        <Text style={styles.betaBadgeText}>BETA</Text>
-                                    </View>
-                                </View>
+                                <Text style={styles.settingLabel}>{t('settings.backup_export')}</Text>
                                 <Text style={styles.settingDescription}>
                                     {t('settings.backup_export_desc')}
                                 </Text>
@@ -287,12 +282,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                 <Ionicons name="cloud-download-outline" size={22} color={colors.accent} />
                             </View>
                             <View style={styles.menuTextContainer}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <Text style={styles.settingLabel}>{t('settings.backup_import')}</Text>
-                                    <View style={styles.betaBadge}>
-                                        <Text style={styles.betaBadgeText}>BETA</Text>
-                                    </View>
-                                </View>
+                                <Text style={styles.settingLabel}>{t('settings.backup_import')}</Text>
                                 <Text style={styles.settingDescription}>
                                     {t('settings.backup_import_desc')}
                                 </Text>
