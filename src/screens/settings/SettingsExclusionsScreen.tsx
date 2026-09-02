@@ -4,10 +4,12 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsExclusionsScreen() {
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
 
     return (
         <ScreenHeaderLayout title={t('settings.exclusions') || 'Exclusiones'}>
@@ -32,7 +34,7 @@ export default function SettingsExclusionsScreen() {
                             <View style={{ flex: 1, paddingRight: 15 }}>
                                 <Text style={styles.settingLabel}>{t('settings.excluded_folders')}</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                         </TouchableOpacity>
                         <View style={styles.separator} />
                         <TouchableOpacity
@@ -42,7 +44,7 @@ export default function SettingsExclusionsScreen() {
                             <View style={{ flex: 1, paddingRight: 15 }}>
                                 <Text style={styles.settingLabel}>{t('settings.excluded_songs')}</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

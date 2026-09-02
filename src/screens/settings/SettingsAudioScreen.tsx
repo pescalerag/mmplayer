@@ -11,9 +11,11 @@ import { EqualizerService } from '../../services/EqualizerService';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsAudioScreen() {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const isScanning = useSyncStore(state => state.isScanning);
 
     const {
@@ -102,7 +104,7 @@ export default function SettingsAudioScreen() {
                                         console.error("Error actualizando volumen al activar/desactivar normalización:", err);
                                     }
                                 }}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={isNormalizationEnabled ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -115,7 +117,7 @@ export default function SettingsAudioScreen() {
                                 <View style={{ marginVertical: 8 }}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Text style={styles.settingLabel}>{t('settings.preamp')}</Text>
-                                        <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                        <Text style={[styles.settingLabel, { color: colors.accent }]}>
                                             {preampLevel >= 0 ? `+${preampLevel.toFixed(1)}` : preampLevel.toFixed(1)} dB
                                         </Text>
                                     </View>
@@ -148,7 +150,7 @@ export default function SettingsAudioScreen() {
                                                 console.error("Error actualizando volumen en tiempo real:", err);
                                             }
                                         }}
-                                        minimumTrackTintColor="#8B5CF6"
+                                        minimumTrackTintColor={colors.accent}
                                         maximumTrackTintColor="#282828"
                                         thumbTintColor="#FFFFFF"
                                     />
@@ -159,7 +161,7 @@ export default function SettingsAudioScreen() {
                                 <View style={{ marginVertical: 8 }}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Text style={styles.settingLabel}>{t('settings.fallback_gain')}</Text>
-                                        <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                        <Text style={[styles.settingLabel, { color: colors.accent }]}>
                                             {fallbackGainDB.toFixed(0)} dB
                                         </Text>
                                     </View>
@@ -193,7 +195,7 @@ export default function SettingsAudioScreen() {
                                                 console.error("Error actualizando volumen fallback en tiempo real:", err);
                                             }
                                         }}
-                                        minimumTrackTintColor="#8B5CF6"
+                                        minimumTrackTintColor={colors.accent}
                                         maximumTrackTintColor="#282828"
                                         thumbTintColor="#FFFFFF"
                                     />
@@ -215,7 +217,7 @@ export default function SettingsAudioScreen() {
                                 onValueChange={(value) => {
                                     setIsFadeEnabled(value);
                                 }}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={isFadeEnabled ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -262,7 +264,7 @@ export default function SettingsAudioScreen() {
                                     {t('settings.scan_replaygain_desc') || 'Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos'}
                                 </Text>
                             </View>
-                            <Ionicons name="volume-high" size={20} color="#8B5CF6" />
+                            <Ionicons name="volume-high" size={20} color={colors.accent} />
                         </TouchableOpacity>
                     </View>
 
@@ -283,7 +285,7 @@ export default function SettingsAudioScreen() {
                                         await EqualizerService.applyCurrentSettings();
                                     }
                                 }}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={isEqualizerEnabled ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -306,7 +308,7 @@ export default function SettingsAudioScreen() {
                                             }}
                                             style={styles.eqResetBtn}
                                         >
-                                            <Text style={styles.eqResetText}>{t('settings.eq_reset')}</Text>
+                                            <Text style={[styles.eqResetText, { color: colors.accent }]}>{t('settings.eq_reset')}</Text>
                                         </TouchableOpacity>
                                     </View>
 
@@ -322,7 +324,7 @@ export default function SettingsAudioScreen() {
                                             const isPositive = level > 0;
                                             return (
                                                 <View key={index} style={styles.eqBand}>
-                                                    <Text style={[styles.eqBandDb, { color: isPositive ? '#8B5CF6' : level < 0 ? '#999' : '#555' }]}>
+                                                    <Text style={[styles.eqBandDb, { color: isPositive ? colors.accent : level < 0 ? '#999' : '#555' }]}>
                                                         {isPositive ? `+${dbValue}` : dbValue}
                                                     </Text>
                                                     <View style={styles.eqSliderTrack}>
@@ -330,7 +332,7 @@ export default function SettingsAudioScreen() {
                                                             styles.eqSliderFill,
                                                             {
                                                                 height: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
-                                                                backgroundColor: isPositive ? '#8B5CF6' : '#444',
+                                                                backgroundColor: isPositive ? colors.accent : '#444',
                                                             }
                                                         ]} />
                                                         <Animated.View
@@ -339,6 +341,7 @@ export default function SettingsAudioScreen() {
                                                                 {
                                                                     bottom: `${((level - bandRange.min) / (bandRange.max - bandRange.min)) * 100}%`,
                                                                     marginBottom: -8,
+                                                                    shadowColor: colors.accent,
                                                                 }
                                                             ]}
                                                         />
@@ -380,7 +383,7 @@ export default function SettingsAudioScreen() {
                                 <View style={{ marginVertical: 8 }}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Text style={styles.settingLabel}>{t('settings.bass_boost')}</Text>
-                                        <Text style={[styles.settingLabel, { color: '#8B5CF6' }]}>
+                                        <Text style={[styles.settingLabel, { color: colors.accent }]}>
                                             {Math.round(bassBoostStrength / 10)}%
                                         </Text>
                                     </View>
@@ -395,7 +398,7 @@ export default function SettingsAudioScreen() {
                                             setBassBoostStrength(value);
                                             await EqualizerService.setBassBoost(value);
                                         }}
-                                        minimumTrackTintColor="#8B5CF6"
+                                        minimumTrackTintColor={colors.accent}
                                         maximumTrackTintColor="#282828"
                                         thumbTintColor="#FFFFFF"
                                     />

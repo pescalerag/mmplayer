@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { formatBytes, StorageBreakdown, StorageService } from '../../services/StorageService';
 import { useToastStore } from '../../store/useToastStore';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsStorageScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const { colors } = useAppTheme();
   const [loading, setLoading] = useState(true);
   const [clearingItem, setClearingItem] = useState<string | null>(null);
   const [data, setData] = useState<StorageBreakdown | null>(null);
@@ -106,7 +108,7 @@ export default function SettingsStorageScreen() {
         >
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#8B5CF6" />
+              <ActivityIndicator size="large" color={colors.accent} />
               <Text style={styles.loadingText}>
                 {t('common.loading', 'Calculando espacio de almacenamiento...')}
               </Text>
@@ -116,7 +118,7 @@ export default function SettingsStorageScreen() {
               {/* --- TARJETA 1: ALMACENAMIENTO DEL DISPOSITIVO --- */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="hardware-chip-outline" size={22} color="#8B5CF6" />
+                  <Ionicons name="hardware-chip-outline" size={22} color={colors.accent} />
                   <Text style={styles.cardTitle}>{t('settings.device_storage', 'Almacenamiento del móvil')}</Text>
                 </View>
 
@@ -174,8 +176,8 @@ export default function SettingsStorageScreen() {
                   {/* 1. Imágenes de Artistas */}
                   <View style={styles.breakdownRow}>
                     <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                        <Ionicons name="person-outline" size={18} color="#8B5CF6" />
+                      <View style={[styles.itemIconBg, { backgroundColor: colors.accentAlpha15 }]}>
+                        <Ionicons name="person-outline" size={18} color={colors.accent} />
                       </View>
                       <Text style={styles.itemTitle}>{t('settings.custom_artist_images', 'Imágenes de artistas personalizadas')}</Text>
                     </View>

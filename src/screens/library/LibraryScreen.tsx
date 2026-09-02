@@ -37,6 +37,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 import { Colors, Layout } from '../../theme/theme';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 import { getSafeFileName, safeDecodeURIComponent } from '../../utils/safeDecode';
 
@@ -445,6 +446,7 @@ const PlaylistCard = memo(function PlaylistCard({
     onPress,
     onLongPress
 }: PlaylistCardProps) {
+    const { colors } = useAppTheme();
     return (
         <TouchableOpacity style={styles.playlistCard} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
             <View style={styles.playlistImageContainer}>
@@ -457,7 +459,7 @@ const PlaylistCard = memo(function PlaylistCard({
             </View>
             <View style={styles.titleContainer}>
                 {isPinned && (
-                    <Ionicons name="pin" size={13} color="#8B5CF6" style={styles.pinIconInline} />
+                    <Ionicons name="pin" size={13} color={colors.accent} style={styles.pinIconInline} />
                 )}
                 <Text style={styles.playlistTitle} numberOfLines={1}>{title}</Text>
             </View>
@@ -913,6 +915,7 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
     const isFocused = useIsFocused();
 
@@ -1004,9 +1007,9 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                 ListHeaderComponent={
                     <View style={styles.folderHeaderContainer}>
                         <View style={styles.folderTitleRow}>
-                            <TouchableOpacity onPress={() => setActiveFolderPath(null)} style={styles.folderBackBtn} activeOpacity={0.7}>
-                                <Ionicons name="chevron-back" size={20} color="#8B5CF6" />
-                                <Text style={styles.folderBackBtnText}>{t('library.back')}</Text>
+                            <TouchableOpacity onPress={() => setActiveFolderPath(null)} style={[styles.folderBackBtn, { backgroundColor: colors.accentAlpha10 }]} activeOpacity={0.7}>
+                                <Ionicons name="chevron-back" size={20} color={colors.accent} />
+                                <Text style={[styles.folderBackBtnText, { color: colors.accent }]}>{t('library.back')}</Text>
                             </TouchableOpacity>
                             <Text style={[styles.currentFolderTitle, { marginLeft: 8 }]} numberOfLines={1}>
                                 📁 {activeFolderName}
@@ -1139,8 +1142,10 @@ export default function LibraryScreen() {
         }
     };
 
+    const { colors } = useAppTheme();
+
     return (
-        <View style={[styles.container, { backgroundColor: Colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
@@ -1175,9 +1180,9 @@ export default function LibraryScreen() {
                 pointerEvents="none"
             />
 
-            {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
+            {/* 2.5 CAPA DE ILUMINACIÓN DE ACENTO (SOBRE EL HUMO) */}
             <LinearGradient
-                colors={[Colors.accentAlpha20, "transparent"]}
+                colors={[colors.accentAlpha20, "transparent"]}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
@@ -1194,14 +1199,14 @@ export default function LibraryScreen() {
                             onPress={() => ScannerService.syncLibrary()}
                             style={styles.filterButton}
                         >
-                            <Ionicons name="refresh" size={22} color="#8B5CF6" />
+                            <Ionicons name="refresh" size={22} color={colors.accent} />
                         </TouchableOpacity>
                         {activeTab !== 'folders' && (
                             <TouchableOpacity
                                 onPress={() => openSortModal({ activeTab, activeSort: getActiveSortOption() })}
                                 style={styles.filterButton}
                             >
-                                <Ionicons name="filter" size={22} color="#8B5CF6" />
+                                <Ionicons name="filter" size={22} color={colors.accent} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -1217,7 +1222,7 @@ export default function LibraryScreen() {
                     {routes.map((route, i) => (
                         <TouchableOpacity
                             key={route.key}
-                            style={[styles.tabButton, index === i && styles.activeTab]}
+                            style={[styles.tabButton, index === i && { backgroundColor: colors.accent }]}
                             onPress={() => setIndex(i)}
                         >
                             <Text style={[styles.tabText, index === i && styles.activeTabText]}>{route.title}</Text>

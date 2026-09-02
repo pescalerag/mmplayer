@@ -5,9 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections, openEditAlias } from '@/store/useUIStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsAppearanceScreen() {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
 
     const {
         showTagColors,
@@ -51,7 +53,7 @@ export default function SettingsAppearanceScreen() {
                                     {userAlias ? `Actual: ${userAlias}` : 'No tienes alias configurado'}
                                 </Text>
                             </View>
-                            <Ionicons name="person" size={20} color="#8B5CF6" />
+                            <Ionicons name="person" size={20} color={colors.accent} />
                         </TouchableOpacity>
 
                         <View style={styles.separator} />
@@ -66,7 +68,7 @@ export default function SettingsAppearanceScreen() {
                             <Switch
                                 value={showTagColors}
                                 onValueChange={setShowTagColors}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={showTagColors ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -84,7 +86,7 @@ export default function SettingsAppearanceScreen() {
                             <Switch
                                 value={showPlayerLyrics}
                                 onValueChange={setShowPlayerLyrics}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={showPlayerLyrics ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -102,7 +104,7 @@ export default function SettingsAppearanceScreen() {
                             <Switch
                                 value={hideSyncToastOnResume}
                                 onValueChange={setHideSyncToastOnResume}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={hideSyncToastOnResume ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -120,7 +122,7 @@ export default function SettingsAppearanceScreen() {
                             <Switch
                                 value={isKeepAwakeEnabled}
                                 onValueChange={setIsKeepAwakeEnabled}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={isKeepAwakeEnabled ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                             />
@@ -138,7 +140,7 @@ export default function SettingsAppearanceScreen() {
                                     {t('settings.tab_order_desc')}
                                 </Text>
                             </View>
-                            <Ionicons name="list" size={20} color="#8B5CF6" />
+                            <Ionicons name="list" size={20} color={colors.accent} />
                         </TouchableOpacity>
 
                         <View style={styles.separator} />
@@ -153,7 +155,7 @@ export default function SettingsAppearanceScreen() {
                                     {t('settings.app_tabs_desc') || 'Personaliza la barra inferior'}
                                 </Text>
                             </View>
-                            <Ionicons name="apps" size={20} color="#8B5CF6" />
+                            <Ionicons name="apps" size={20} color={colors.accent} />
                         </TouchableOpacity>
 
                         <View style={styles.separator} />
@@ -168,7 +170,7 @@ export default function SettingsAppearanceScreen() {
                                     {t('settings.home_sections_desc') || 'Elige qué secciones se muestran en la pantalla de inicio'}
                                 </Text>
                             </View>
-                            <Ionicons name="grid-outline" size={20} color="#8B5CF6" />
+                            <Ionicons name="grid-outline" size={20} color={colors.accent} />
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

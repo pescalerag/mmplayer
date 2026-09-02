@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import { scheduleOnRN } from 'react-native-worklets';
+import ColorPicker, {
+    HueSlider,
+    Panel1,
+    Swatches,
+} from 'reanimated-color-picker';
 import { useSettingsStore, StatsCardTheme, LocalCastTheme } from '../../store/useSettingsStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { getDynamicTagTextColor } from '../../utils/color';
 
 // Using require to safely handle the dynamic import if not installed fully native
 let setAppIcon: (name: string | null, isInBackground?: boolean) => Promise<any>;
@@ -195,6 +202,40 @@ const LOCALCAST_THEMES: LocalCastThemeOption[] = [
     },
 ];
 
+interface AccentPresetOption {
+    id: string;
+    nameKey: string;
+    color: string;
+    isVipOnly: boolean;
+}
+
+const ACCENT_PRESETS: AccentPresetOption[] = [
+    {
+        id: 'purple',
+        nameKey: 'support.accent_preset_purple',
+        color: '#8B5CF6',
+        isVipOnly: false,
+    },
+    {
+        id: 'blue',
+        nameKey: 'support.accent_preset_blue',
+        color: '#3B82F6',
+        isVipOnly: true,
+    },
+    {
+        id: 'emerald',
+        nameKey: 'support.accent_preset_emerald',
+        color: '#10B981',
+        isVipOnly: true,
+    },
+    {
+        id: 'pink',
+        nameKey: 'support.accent_preset_pink',
+        color: '#EC4899',
+        isVipOnly: true,
+    },
+];
+
 export default function BenefitsView() {
     const { t } = useTranslation();
     const { colors, fonts } = useAppTheme();
@@ -209,9 +250,36 @@ export default function BenefitsView() {
     const activeLocalCastTheme = useSettingsStore(state => state.localCastTheme) || 'default';
     const setStoreLocalCastTheme = useSettingsStore(state => state.setLocalCastTheme);
 
+    const activeCustomAccent = useSettingsStore(state => state.customAccentColor);
+    const setStoreCustomAccent = useSettingsStore(state => state.setCustomAccentColor);
+
     // Hierarchy: VIP unlocks both SUPPORTER and VIP benefits
     const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
     const isVip = userTier === 'VIP';
+
+    const currentAccentColor = (isVip && activeCustomAccent) ? activeCustomAccent : '#8B5CF6';
+
+    const [customColorMode, setCustomColorMode] = useState(false);
+    const [customHexCode, setCustomHexCode] = useState(currentAccentColor);
+
+    const setHexOnJS = (hex: string) => setCustomHexCode(hex);
+
+    const handleAccentSelect = (hexColor: string) => {
+        if (!isVip && hexColor.toUpperCase() !== '#8B5CF6') {
+            Alert.alert(
+                t('support.vip_benefits_locked_title'),
+                t('support.vip_benefits_locked_desc')
+            );
+            return;
+        }
+
+        const targetColor = hexColor.toUpperCase() === '#8B5CF6' ? null : hexColor;
+        setStoreCustomAccent(targetColor);
+        Alert.alert(
+            t('common.success'),
+            t('support.accent_updated_success')
+        );
+    };
 
     React.useEffect(() => {
         if (Platform.OS === 'android' || Platform.OS === 'ios') {
@@ -361,7 +429,177 @@ export default function BenefitsView() {
             </View>
 
             {/* ========================================================================= */}
-            {/* 2. SECCIÓN VIP: ESTADÍSTICAS PREMIUM                                      */}
+            {/* 2. SECCIÓN VIP: COLOR DE ACENTO DE LA APP                                 */}
+            {/* ========================================================================= */}
+            <View style={styles.vipCard}>
+                <LinearGradient
+                    colors={['rgba(245, 158, 11, 0.12)', 'rgba(0, 0, 0, 0)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                />
+
+                <View style={styles.vipBadgeContainer}>
+                    <MaterialCommunityIcons name="crown" size={13} color="#FBBF24" style={{ marginRight: 4 }} />
+                    <Text style={styles.vipBadgeText}>{t('support.vip.badge')}</Text>
+                </View>
+
+                <View style={styles.header}>
+                    <Ionicons name="color-palette-outline" size={24} color="#FBBF24" style={{ marginRight: 8 }} />
+                    <Text style={[styles.title, { color: colors.text, fontFamily: fonts.bold }]}>
+                        {t('support.accent_color_title')}
+                    </Text>
+                </View>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                    {t('support.accent_color_subtitle')}
+                </Text>
+
+                {/* Active Accent Summary Chip */}
+                <View style={[styles.activeAccentRow, { backgroundColor: colors.cardBackground }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={[styles.activeAccentSwatch, { backgroundColor: currentAccentColor }]} />
+                        <View>
+                            <Text style={[styles.activeAccentLabel, { color: colors.textSecondary }]}>
+                                {t('support.accent_active_label')}
+                            </Text>
+                            <Text style={[styles.activeAccentHex, { color: colors.text }]}>
+                                {currentAccentColor.toUpperCase()}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {activeCustomAccent && (
+                        <TouchableOpacity
+                            style={styles.resetAccentBtn}
+                            onPress={() => handleAccentSelect('#8B5CF6')}
+                        >
+                            <Ionicons name="refresh-outline" size={14} color="#FBBF24" style={{ marginRight: 4 }} />
+                            <Text style={styles.resetAccentText}>{t('support.accent_reset_default')}</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* 4 Presets + Custom Color Button */}
+                <View style={styles.accentPresetsGrid}>
+                    {ACCENT_PRESETS.map((preset) => {
+                        const isSelected = currentAccentColor.toUpperCase() === preset.color.toUpperCase() && !customColorMode;
+                        const isLocked = !isVip && preset.isVipOnly;
+
+                        return (
+                            <TouchableOpacity
+                                key={preset.id}
+                                style={[
+                                    styles.accentPresetCard,
+                                    { backgroundColor: colors.cardBackground },
+                                    isSelected && { borderColor: '#FBBF24', borderWidth: 2 }
+                                ]}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                    setCustomColorMode(false);
+                                    handleAccentSelect(preset.color);
+                                }}
+                            >
+                                <View style={[styles.accentCircle, { backgroundColor: preset.color }]}>
+                                    {isSelected && (
+                                        <Ionicons
+                                            name="checkmark"
+                                            size={18}
+                                            color={getDynamicTagTextColor(preset.color)}
+                                        />
+                                    )}
+                                    {isLocked && (
+                                        <View style={styles.lockedOverlayCircle}>
+                                            <MaterialCommunityIcons name="lock" size={14} color="#FFFFFF" />
+                                        </View>
+                                    )}
+                                </View>
+                                <Text style={[styles.accentPresetName, { color: colors.text }, isSelected && { color: '#FBBF24', fontFamily: fonts.bold }]} numberOfLines={1}>
+                                    {t(preset.nameKey)}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+
+                    {/* Custom HEX Trigger Button */}
+                    <TouchableOpacity
+                        style={[
+                            styles.accentPresetCard,
+                            { backgroundColor: colors.cardBackground },
+                            customColorMode && { borderColor: '#FBBF24', borderWidth: 2 }
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                            if (!isVip) {
+                                Alert.alert(
+                                    t('support.vip_benefits_locked_title'),
+                                    t('support.vip_benefits_locked_desc')
+                                );
+                                return;
+                            }
+                            setCustomColorMode(!customColorMode);
+                        }}
+                    >
+                        <View style={[styles.accentCircle, { backgroundColor: customColorMode || !ACCENT_PRESETS.some(p => p.color.toUpperCase() === currentAccentColor.toUpperCase()) ? currentAccentColor : '#333333' }]}>
+                            <Ionicons name="color-palette" size={18} color="#FFFFFF" />
+                            {!isVip && (
+                                <View style={styles.lockedOverlayCircle}>
+                                    <MaterialCommunityIcons name="lock" size={14} color="#FFFFFF" />
+                                </View>
+                            )}
+                        </View>
+                        <Text style={[styles.accentPresetName, { color: colors.text }, customColorMode && { color: '#FBBF24', fontFamily: fonts.bold }]} numberOfLines={1}>
+                            {t('support.accent_custom')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Expanded ColorPicker Mode */}
+                {customColorMode && (
+                    <View style={[styles.customColorPickerContainer, { backgroundColor: colors.cardBackground }]}>
+                        <View style={styles.pickerHeaderRow}>
+                            <View style={[styles.pickerPreviewDot, { backgroundColor: customHexCode || currentAccentColor }]} />
+                            <Text style={[styles.pickerHexText, { color: colors.text }]}>
+                                {(customHexCode || currentAccentColor).toUpperCase()}
+                            </Text>
+                        </View>
+
+                        <ColorPicker
+                            style={{ width: '100%', justifyContent: 'center' }}
+                            value={customHexCode || currentAccentColor}
+                            onComplete={(result: { hex: string }) => {
+                                'worklet';
+                                scheduleOnRN(setHexOnJS, result.hex);
+                            }}
+                        >
+                            <Panel1 style={{ height: 160, borderRadius: 12 }} />
+                            <HueSlider style={{ marginTop: 14, borderRadius: 10 }} />
+                            <Swatches style={{ marginTop: 14 }} />
+                        </ColorPicker>
+
+                        <TouchableOpacity
+                            style={[styles.applyAccentBtn, { backgroundColor: customHexCode || colors.accent }]}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                                handleAccentSelect(customHexCode || currentAccentColor);
+                                setCustomColorMode(false);
+                            }}
+                        >
+                            <Ionicons
+                                name="checkmark-circle"
+                                size={18}
+                                color={getDynamicTagTextColor(customHexCode || colors.accent)}
+                                style={{ marginRight: 6 }}
+                            />
+                            <Text style={[styles.applyAccentBtnText, { color: getDynamicTagTextColor(customHexCode || colors.accent) }]}>
+                                {t('support.accent_confirm_color')}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+
+            {/* ========================================================================= */}
+            {/* 3. SECCIÓN VIP: ESTADÍSTICAS PREMIUM                                      */}
             {/* ========================================================================= */}
             <View style={styles.vipCard}>
                 <LinearGradient
@@ -789,5 +1027,133 @@ const styles = StyleSheet.create({
         right: 8,
         backgroundColor: '#1E1E1E',
         borderRadius: 12,
+    },
+    // Accent Color Styles
+    activeAccentRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 14,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    activeAccentSwatch: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    activeAccentLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    activeAccentHex: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
+    },
+    resetAccentBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    resetAccentText: {
+        color: '#FBBF24',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    accentPresetsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
+    accentPresetCard: {
+        width: '18%',
+        aspectRatio: 0.85,
+        borderRadius: 14,
+        padding: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: 'transparent',
+        position: 'relative',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    accentCircle: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 4,
+        position: 'relative',
+    },
+    lockedOverlayCircle: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        borderRadius: 17,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    accentPresetName: {
+        fontSize: 10,
+        textAlign: 'center',
+        fontWeight: '600',
+    },
+    customColorPickerContainer: {
+        marginTop: 16,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    pickerHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 14,
+    },
+    pickerPreviewDot: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 1.5,
+        borderColor: '#FFFFFF',
+    },
+    pickerHexText: {
+        fontSize: 14,
+        fontWeight: '800',
+        letterSpacing: 0.8,
+    },
+    applyAccentBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginTop: 16,
+        elevation: 3,
+    },
+    applyAccentBtnText: {
+        fontSize: 14,
+        fontWeight: '800',
     },
 });

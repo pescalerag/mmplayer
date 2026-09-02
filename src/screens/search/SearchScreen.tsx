@@ -44,6 +44,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { Colors, Layout } from "../../theme/theme";
+import { useAppTheme } from '../../hooks/useAppTheme';
 import { getDynamicTagTextColor } from '../../utils/color';
 
 import { useTranslation } from "react-i18next";
@@ -425,6 +426,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [headerHeight, setHeaderHeight] = useState(150);
+  const { colors } = useAppTheme();
 
   const getFilterLabel = (id: FilterOption) => {
     switch (id) {
@@ -586,16 +588,16 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const renderHeader = () => (
     <View style={styles.header}>
       {isAdvancedSearching && (
-        <View style={styles.advancedFilterStrip}>
+        <View style={[styles.advancedFilterStrip, { borderColor: colors.accentAlpha30 }]}>
           <View style={styles.advancedFilterTextContainer}>
-            <Ionicons name="color-filter" size={18} color="#8B5CF6" style={{ marginRight: 8 }} />
+            <Ionicons name="color-filter" size={18} color={colors.accent} style={{ marginRight: 8 }} />
             <Text style={styles.advancedFilterTitle}>
               {t('search.advanced_search_active') || "Búsqueda de etiquetas activa"}
               {` (${advancedSearchResults.length})`}
             </Text>
           </View>
           <View style={styles.advancedFilterActions}>
-            <TouchableOpacity onPress={openAdvancedSearchSheet} style={styles.advancedFilterEditBtn}>
+            <TouchableOpacity onPress={openAdvancedSearchSheet} style={[styles.advancedFilterEditBtn, { backgroundColor: colors.accent }]}>
               <Text style={styles.advancedFilterEditBtnText}>
                 {t('actions.edit') || "Editar"}
               </Text>
@@ -612,7 +614,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           <View style={styles.sectionHeaderWithAction}>
             <SectionHeader title={t('search.recent')} />
             <TouchableOpacity onPress={clearHistory}>
-              <Text style={styles.clearHistoryText}>{t('actions.clear_all')}</Text>
+              <Text style={[styles.clearHistoryText, { color: colors.accent }]}>{t('actions.clear_all')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.historyList}>
@@ -852,7 +854,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
       <LinearGradient
         colors={[
@@ -873,9 +875,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         pointerEvents="none"
       />
 
-      {/* 2.5 CAPA DE ILUMINACIÓN MORADA (SOBRE EL HUMO) */}
+      {/* 2.5 CAPA DE ILUMINACIÓN DE ACENTO (SOBRE EL HUMO) */}
       <LinearGradient
-        colors={["#8B5CF633", "transparent"]}
+        colors={[colors.accentAlpha20, "transparent"]}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
         pointerEvents="none"
       />
@@ -908,7 +910,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               value={query}
               onChangeText={setQuery}
               autoCorrect={false}
-              selectionColor="#8B5CF6"
+              selectionColor={colors.accent}
               onSubmitEditing={handleSearchSubmit}
               returnKeyType="search"
             />
@@ -923,7 +925,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           </View>
           {isLoading && (
             <View style={styles.loaderContainer}>
-              <ActivityIndicator size="small" color="#8B5CF6" />
+              <ActivityIndicator size="small" color={colors.accent} />
             </View>
           )}
         </View>
@@ -944,7 +946,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                   key={tab.id}
                   style={[
                     styles.filterPill,
-                    isActive && styles.filterPillActive,
+                    isActive && { backgroundColor: colors.accent },
                   ]}
                   onPress={() => setActiveFilter(tab.id)}
                 >
@@ -991,7 +993,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             if (!isLoadingMore) return <View style={{ height: 20 }} />;
             return (
               <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                <ActivityIndicator size="small" color="#8B5CF6" />
+                <ActivityIndicator size="small" color={colors.accent} />
               </View>
             );
           }}
@@ -1054,7 +1056,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         />
       ) : (
         <View style={{ flex: 1, paddingTop: headerHeight + 60, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       )}
     </View>

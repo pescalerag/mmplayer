@@ -12,7 +12,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Layout } from '../../theme/theme';
+import { Layout } from '../../theme/theme';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 interface ScreenHeaderLayoutProps {
   title: string;
@@ -37,6 +38,7 @@ export function ScreenHeaderLayout({
 }: ScreenHeaderLayoutProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { colors } = useAppTheme();
   const estimatedHeight = insets.top + (showBackButton ? 66 : 60);
   const [headerHeight, setHeaderHeight] = useState(estimatedHeight);
 
@@ -59,7 +61,7 @@ export function ScreenHeaderLayout({
     insets.bottom;
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
       {/* CAPA DEL HUMO */}
       <LinearGradient
         colors={['#000000', 'rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'transparent']}
@@ -68,9 +70,9 @@ export function ScreenHeaderLayout({
         pointerEvents="none"
       />
 
-      {/* CAPA DE ILUMINACIÓN MORADA */}
+      {/* CAPA DE ILUMINACIÓN DE ACENTO */}
       <LinearGradient
-        colors={['#8B5CF633', 'transparent']}
+        colors={[colors.accentAlpha20, 'transparent']}
         style={styles.purpleGlow}
         pointerEvents="none"
       />
@@ -83,7 +85,7 @@ export function ScreenHeaderLayout({
         <View style={styles.headerRow}>
           {showBackButton ? (
             <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={28} color="#8B5CF6" />
+              <Ionicons name="chevron-back" size={28} color={colors.accent} />
             </TouchableOpacity>
           ) : null}
           <Text
@@ -107,7 +109,6 @@ export function ScreenHeaderLayout({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   smokeEffect: {
     position: 'absolute',

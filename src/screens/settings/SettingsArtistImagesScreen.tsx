@@ -6,9 +6,11 @@ import { ArtistImageService } from '../../services/ArtistImageService';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsArtistImagesScreen() {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
 
     const {
         artistImageDownloadMode,
@@ -29,45 +31,38 @@ export default function SettingsArtistImagesScreen() {
             await ArtistImageService.processMissingArtistImages({ forceRefresh });
             Alert.alert(
                 t('settings.success') || 'Éxito',
-                t('settings.artist_images_download_success') || '¡Imágenes de artistas descargadas con éxito!'
+                t('settings.artist_images_download_success') || 'Se han procesado y descargado las imágenes de artistas disponibles.'
             );
-        } catch (error) {
-            console.error(error);
+        } catch (e) {
+            console.error('Error downloading artist images:', e);
             Alert.alert(
-                t('actions.error') || 'Error',
-                t('settings.artist_images_download_error') || 'Error al descargar las imágenes de artistas.'
+                t('common.error') || 'Error',
+                t('settings.artist_images_download_error') || 'Hubo un problema al procesar las imágenes de artistas.'
             );
         }
     };
 
     const handleStartDownload = () => {
-        if (artistImageDownloadMode === 'disabled') {
-            Alert.alert(
-                t('actions.error') || 'Error',
-                t('settings.artist_images_select_mode_first') || 'Por favor, selecciona un modo de descarga primero.'
-            );
-            return;
-        }
-
         Alert.alert(
-            t('settings.artist_images_download_title') || 'Descargar imágenes',
-            t('settings.artist_images_download_prompt') || '¿Qué tipo de descarga deseas realizar?',
+            t('settings.artist_images_download_title') || 'Descargar imágenes de artistas',
+            t('settings.artist_images_download_confirm') || '¿Deseas buscar y descargar imágenes para todos los artistas que no tengan una?',
             [
                 { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
                 {
-                    text: t('settings.artist_images_download_missing') || 'Descargar las que faltan',
-                    onPress: () => executeDownload(false)
+                    text: t('settings.artist_images_download_all_btn') || 'Descargar solo faltantes',
+                    onPress: () => executeDownload(false),
                 },
                 {
-                    text: t('settings.artist_images_download_all') || 'Actualizar todas las imágenes',
-                    onPress: () => executeDownload(true)
-                }
+                    text: t('settings.artist_images_refresh_all_btn') || 'Re-descargar todo',
+                    style: 'destructive',
+                    onPress: () => executeDownload(true),
+                },
             ]
         );
     };
 
     return (
-        <ScreenHeaderLayout title={t('settings.artist_images_title') || 'Imágenes de artistas'}>
+        <ScreenHeaderLayout title={t('settings.artist_images_title') || 'Imágenes de Artistas'}>
             {({ headerHeight, bottomPadding }) => (
                 <ScrollView
                     style={{ flex: 1 }}
@@ -75,14 +70,14 @@ export default function SettingsArtistImagesScreen() {
                         styles.scrollContent,
                         {
                             paddingTop: headerHeight + 20,
-                            paddingBottom: bottomPadding
+                            paddingBottom: bottomPadding + 20
                         }
                     ]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* CONFIGURACIÓN DEL MODO DE DESCARGA */}
-                    <Text style={styles.sectionTitle}>{t('settings.artist_images_mode') || 'Modo de descarga'}</Text>
+                    {/* SELECTOR DE MODO */}
+                    <Text style={styles.sectionTitle}>{t('settings.artist_images_mode_section') || 'Modo de descarga'}</Text>
                     <View style={styles.sectionCard}>
                         {modes.map((mode, index) => {
                             const active = artistImageDownloadMode === mode.value;
@@ -94,11 +89,11 @@ export default function SettingsArtistImagesScreen() {
                                         activeOpacity={0.7}
                                         disabled={isDownloading}
                                     >
-                                        <Text style={[styles.optionLabel, active && styles.optionLabelActive]}>
+                                        <Text style={[styles.optionLabel, active && [styles.optionLabelActive, { color: colors.accent }]]}>
                                             {mode.label}
                                         </Text>
                                         {active && (
-                                            <Ionicons name="checkmark" size={20} color="#8B5CF6" />
+                                            <Ionicons name="checkmark" size={20} color={colors.accent} />
                                         )}
                                     </TouchableOpacity>
                                     {index < modes.length - 1 && <View style={styles.separator} />}
@@ -122,7 +117,7 @@ export default function SettingsArtistImagesScreen() {
                             <Switch
                                 value={artistImageBackgroundDownload}
                                 onValueChange={setArtistImageBackgroundDownload}
-                                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                                trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={artistImageBackgroundDownload && artistImageDownloadMode !== 'disabled' ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
                                 disabled={isDownloading || artistImageDownloadMode === 'disabled'}
@@ -132,7 +127,7 @@ export default function SettingsArtistImagesScreen() {
 
                     {/* ADVERTENCIA E INFORMACIÓN */}
                     <View style={styles.infoCard}>
-                        <Ionicons name="information-circle-outline" size={24} color="#8B5CF6" style={styles.infoIcon} />
+                        <Ionicons name="information-circle-outline" size={24} color={colors.accent} style={styles.infoIcon} />
                         <Text style={styles.infoText}>
                             {t('settings.artist_images_download_desc') ||
                                 'Busca y descarga automáticamente imágenes locales para los artistas que no las tienen. Este proceso consume datos de internet y almacenamiento.'}
@@ -143,6 +138,7 @@ export default function SettingsArtistImagesScreen() {
                     <TouchableOpacity
                         style={[
                             styles.downloadButton,
+                            { backgroundColor: colors.accent },
                             (artistImageDownloadMode === 'disabled' || isDownloading) && styles.downloadButtonDisabled
                         ]}
                         onPress={handleStartDownload}

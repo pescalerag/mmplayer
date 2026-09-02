@@ -17,6 +17,8 @@ interface SettingsState {
     setStatsCardTheme: (theme: StatsCardTheme) => void;
     localCastTheme: LocalCastTheme;
     setLocalCastTheme: (theme: LocalCastTheme) => void;
+    customAccentColor: string | null;
+    setCustomAccentColor: (color: string | null) => void;
     hasOrphanedUpgrade: boolean;
     setHasOrphanedUpgrade: (val: boolean) => void;
     showTagColors: boolean;
@@ -179,6 +181,8 @@ export const useSettingsStore = create<SettingsState>()(
             setStatsCardTheme: (theme) => set({ statsCardTheme: theme }),
             localCastTheme: 'default',
             setLocalCastTheme: (theme) => set({ localCastTheme: theme }),
+            customAccentColor: null,
+            setCustomAccentColor: (color) => set({ customAccentColor: color }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],

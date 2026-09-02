@@ -9,6 +9,7 @@ import GlobalSyncIndicator from '@/components/common/GlobalSyncIndicator';
 import { ScannerService } from "../services/ScannerService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { Colors } from "../theme/theme";
+import { useAppTheme } from '../hooks/useAppTheme';
 
 import MiniPlayer from '@/components/player/MiniPlayer';
 import { useCastStore } from "../store/useCastStore";
@@ -37,10 +38,11 @@ const CastingBanner = () => {
 
   const openCastSheet = openLocalCast;
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const opacity = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(12)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: isCasting ? 1 : 0,
@@ -60,12 +62,12 @@ const CastingBanner = () => {
   return (
     <Animated.View style={[castBannerStyles.wrapper, { opacity, transform: [{ translateY }] }]}>
       <TouchableOpacity
-        style={castBannerStyles.banner}
+        style={[castBannerStyles.banner, { borderColor: colors.accentAlpha40 }]}
         onPress={openCastSheet}
         activeOpacity={0.8}
       >
         {/* Dot de estado activo */}
-        <View style={castBannerStyles.dot} />
+        <View style={[castBannerStyles.dot, { backgroundColor: colors.accentLight }]} />
         <Ionicons name={isChromecastConnected ? "tv" : "desktop"} size={13} color="#fff" style={{ marginRight: 5 }} />
         <Text style={castBannerStyles.label}>
           {isChromecastConnected
@@ -215,12 +217,13 @@ const createTabListener = (navigation: any, route: any) => ({
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const { appTabsOrder, initialAppRoute } = useSettingsStore();
+  const { colors } = useAppTheme();
 
   const screenOptions = React.useMemo(
     () => ({
       tabBarShowLabel: false,
-      tabBarActiveTintColor: Colors.tabIconSelected,
-      tabBarInactiveTintColor: Colors.tabIconDefault,
+      tabBarActiveTintColor: colors.tabIconSelected,
+      tabBarInactiveTintColor: colors.tabIconDefault,
       tabBarStyle: {
         borderTopWidth: 0,
         backgroundColor: "transparent",
@@ -235,7 +238,7 @@ function MainTabs() {
       tabBarBackground: TabBarBackground,
       headerShown: false,
     }),
-    [insets],
+    [insets, colors],
   );
 
   return (
