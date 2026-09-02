@@ -372,20 +372,48 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         openPlaylistSelector(track);
     }, [track]);
 
-    const handleShare = React.useCallback(async () => {
-        if (!track?.fileUrl) return;
-        try {
-            const isAvailable = await Sharing.isAvailableAsync();
-            if (isAvailable) {
-                await Sharing.shareAsync(track.fileUrl, {
-                    dialogTitle: `Compartir ${track.title}`,
-                    mimeType: 'audio/*',
-                });
-            }
-        } catch (error) {
-            console.error('Error al compartir el archivo de audio:', error);
+    const artistName = React.useMemo(() => {
+        if (artists && artists.length > 0) {
+            return artists.map(a => a.name).join(', ');
         }
-    }, [track]);
+        return artist?.name || '';
+    }, [artist, artists]);
+
+    const handleShare = React.useCallback(() => {
+        const hasParsed = parsedLyrics && parsedLyrics.length > 0;
+        const hasPlain = !!lyricsText && lyricsText.trim().length > 0;
+
+        if (hasParsed || hasPlain) {
+            const lines = hasParsed
+                ? parsedLyrics.map(p => ({ time: p.time, text: p.text }))
+                : lyricsText!
+                      .split(/\r?\n/)
+                      .map(l => ({ text: l.trim() }))
+                      .filter(l => l.text.length > 0);
+
+            navigation.navigate('ShareLyrics', {
+                trackId: track.id,
+                title: track.title,
+                artist: artistName,
+                album: album?.title || '',
+                coverUrl: album?.coverUrl || null,
+                lyricsLines: lines,
+                initialIndex: activeIndex >= 0 ? activeIndex : 0,
+            });
+            return;
+        }
+
+        if (!track?.fileUrl) return;
+        navigation.navigate('ShareSong', {
+            trackId: track.id,
+            title: track.title,
+            artist: artistName,
+            album: album?.title || '',
+            coverUrl: album?.coverUrl || null,
+            fileUrl: track.fileUrl,
+            duration: track.duration,
+        });
+    }, [track, artistName, album, navigation, parsedLyrics, lyricsText, activeIndex]);
 
     const heartAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
 

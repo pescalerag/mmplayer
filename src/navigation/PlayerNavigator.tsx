@@ -7,6 +7,8 @@ import PlayerScreen from '../screens/player/PlayerScreen';
 import LyricsScreen from '../screens/player/LyricsScreen';
 import LyricsEditorScreen from '../screens/player/LyricsEditorScreen';
 import LyricsSyncScreen from '../screens/player/LyricsSyncScreen';
+import SongShareScreen from '../screens/player/SongShareScreen';
+import LyricsShareScreen from '../screens/player/LyricsShareScreen';
 import { PlayerStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -32,6 +34,22 @@ export default function PlayerNavigator() {
             />
             <Stack.Screen name="LyricsEditor" component={LyricsEditorScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="LyricsSync" component={LyricsSyncScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen
+                name="ShareSong"
+                component={SongShareScreen}
+                options={{
+                    animation: 'slide_from_bottom',
+                    presentation: 'fullScreenModal',
+                }}
+            />
+            <Stack.Screen
+                name="ShareLyrics"
+                component={LyricsShareScreen}
+                options={{
+                    animation: 'slide_from_bottom',
+                    presentation: 'fullScreenModal',
+                }}
+            />
         </Stack.Navigator>
     );
 }

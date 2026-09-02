@@ -93,8 +93,8 @@ export default function HomeScreen() {
 
     const getGreetingKey = () => {
         const hour = new Date().getHours();
-        if (hour < 12) return 'home.welcome_morning';
-        if (hour < 20) return 'home.welcome_afternoon';
+        if (hour >= 6 && hour < 13) return 'home.welcome_morning';
+        if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
         return 'home.welcome_evening';
     };
 
@@ -105,6 +105,8 @@ export default function HomeScreen() {
     const userAlias = useSettingsStore(state => state.userAlias);
     const userAvatarUri = useSettingsStore(state => state.userAvatarUri);
     const userTier = useSettingsStore(state => state.userTier);
+    const homeProfilePosition = useSettingsStore(state => state.homeProfilePosition) || 'left';
+    const isProfileRight = homeProfilePosition === 'right';
 
     const homeSectionsOrderRaw = useSettingsStore(state => state.homeSectionsOrder);
     const homeSectionsVisibilityRaw = useSettingsStore(state => state.homeSectionsVisibility);
@@ -347,7 +349,7 @@ export default function HomeScreen() {
                     zIndex: 10,
                 }}
             >
-                <View style={styles.headerRow}>
+                <View style={[styles.headerRow, isProfileRight && { flexDirection: 'row-reverse' }]}>
                     <TouchableOpacity
                         style={styles.profileBadge}
                         onPress={() => navigation.navigate('UserProfile')}
@@ -398,10 +400,13 @@ export default function HomeScreen() {
                         </Text>
                     </TouchableOpacity>
 
-                    <View style={styles.welcomeTextWrapper}>
+                    <View style={[
+                        styles.welcomeTextWrapper,
+                        isProfileRight && { alignItems: 'flex-start', marginLeft: 0, marginRight: 4 }
+                    ]}>
                         <MarqueeText
                             text={t(getGreetingKey())}
-                            style={styles.welcomeText}
+                            style={[styles.welcomeText, isProfileRight && { textAlign: 'left' }]}
                             speed={25}
                             pauseDuration={2000}
                             spacing={40}

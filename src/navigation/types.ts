@@ -39,6 +39,26 @@ export type TagsStackParamList = {
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
 };
 
+export interface ShareSongParams {
+    trackId: string;
+    title: string;
+    artist: string;
+    album?: string;
+    coverUrl?: string | null;
+    fileUrl: string;
+    duration?: number;
+}
+
+export interface ShareLyricsParams {
+    trackId: string;
+    title: string;
+    artist: string;
+    album?: string;
+    coverUrl?: string | null;
+    lyricsLines: { time?: number; text: string }[];
+    initialIndex?: number;
+}
+
 export type PlayerStackParamList = {
     PlayerHome: undefined;
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
@@ -46,6 +66,8 @@ export type PlayerStackParamList = {
     Lyrics: undefined;
     LyricsEditor: undefined;
     LyricsSync: undefined;
+    ShareSong: ShareSongParams;
+    ShareLyrics: ShareLyricsParams;
 };
 
 export type RootStackParamList = {
@@ -60,6 +82,8 @@ export type RootStackParamList = {
         topArtists: any[];
         topSongs: any[];
     };
+    ShareSong: ShareSongParams;
+    ShareLyrics: ShareLyricsParams;
 };
 
 export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;

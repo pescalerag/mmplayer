@@ -23,6 +23,8 @@ import PlayerNavigator from "./PlayerNavigator";
 import SearchNavigator from "./SearchNavigator";
 import SettingsNavigator from "./SettingsNavigator";
 import ActivityShareScreen from "../screens/activity/ActivityShareScreen";
+import SongShareScreen from "../screens/player/SongShareScreen";
+import LyricsShareScreen from "../screens/player/LyricsShareScreen";
 import { RootStackParamList } from "./types";
 import MultiSelectActionBar from '@/components/common/MultiSelectActionBar';
 
@@ -346,6 +348,22 @@ export default function MainNavigator() {
         <RootStack.Screen
           name="ShareStats"
           component={ActivityShareScreen}
+          options={{
+            presentation: "fullScreenModal",
+            animation: "slide_from_bottom",
+          }}
+        />
+        <RootStack.Screen
+          name="ShareSong"
+          component={SongShareScreen}
+          options={{
+            presentation: "fullScreenModal",
+            animation: "slide_from_bottom",
+          }}
+        />
+        <RootStack.Screen
+          name="ShareLyrics"
+          component={LyricsShareScreen}
           options={{
             presentation: "fullScreenModal",
             animation: "slide_from_bottom",
