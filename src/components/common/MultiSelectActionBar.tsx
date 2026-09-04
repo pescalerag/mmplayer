@@ -78,7 +78,7 @@ export default function MultiSelectActionBar() {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accent }]} onPress={handleAddToPlaylist}>
-                    <Ionicons name="add" size={26} color="#FFFFFF" />
+                    <Ionicons name="add" size={26} color={colors.onAccent} />
                 </TouchableOpacity>
             </View>
         </Animated.View>

@@ -187,7 +187,7 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                                 <Ionicons
                                     name={isCurrentContextPlaying ? "pause" : "play"}
                                     size={28}
-                                    color={colors.text}
+                                    color={colors.onAccent}
                                     style={isCurrentContextPlaying ? {} : { marginLeft: 4 }}
                                 />
                             </TouchableOpacity>

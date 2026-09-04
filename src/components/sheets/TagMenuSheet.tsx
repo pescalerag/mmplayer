@@ -78,7 +78,7 @@ export default function TagMenuSheet() {
           width: 56,
           height: 56,
           borderRadius: 12,
-          backgroundColor: selectedTag.color || '#8B5CF6'
+          backgroundColor: selectedTag.color || colors.accent
         }} />
       }
     >

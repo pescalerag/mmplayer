@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { HomeSection, useSettingsStore } from '../../store/useSettingsStore';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const SECTIONS_METADATA: { id: HomeSection; labelKey: string; fallbackLabel: string; icon: any }[] = [
   { id: 'stats', labelKey: 'home.weekly_highlights', fallbackLabel: 'Destacados de la semana', icon: 'stats-chart' },
@@ -22,6 +23,7 @@ const SECTIONS_METADATA: { id: HomeSection; labelKey: string; fallbackLabel: str
 
 export default function HomeSectionsSheet() {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
 
   const {
     homeSectionsVisibility,
@@ -51,13 +53,13 @@ export default function HomeSectionsSheet() {
           return (
             <View key={section.id} style={styles.itemContainer}>
               <View style={styles.itemLeft}>
-                <Ionicons name={section.icon} size={22} color="#8B5CF6" style={styles.itemIcon} />
+                <Ionicons name={section.icon} size={22} color={colors.accent} style={styles.itemIcon} />
                 <Text style={styles.itemText}>{t(section.labelKey) || section.fallbackLabel}</Text>
               </View>
               <Switch
                 value={isEnabled}
                 onValueChange={(val) => handleToggle(section.id, val)}
-                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                trackColor={{ false: '#282828', true: colors.accent }}
                 thumbColor={isEnabled ? '#FFFFFF' : '#888888'}
                 ios_backgroundColor="#282828"
               />
@@ -69,13 +71,13 @@ export default function HomeSectionsSheet() {
 
         <View style={styles.itemContainer}>
           <View style={styles.itemLeft}>
-            <Ionicons name="shuffle" size={22} color="#8B5CF6" style={styles.itemIcon} />
+            <Ionicons name="shuffle" size={22} color={colors.accent} style={styles.itemIcon} />
             <Text style={styles.itemText}>{t('home.home_shuffle_button') || "Botón de reproducción aleatoria"}</Text>
           </View>
           <Switch
             value={showGlobalShuffle}
             onValueChange={setShowGlobalShuffle}
-            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+            trackColor={{ false: '#282828', true: colors.accent }}
             thumbColor={showGlobalShuffle ? '#FFFFFF' : '#888888'}
             ios_backgroundColor="#282828"
           />

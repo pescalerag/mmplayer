@@ -89,6 +89,7 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
     const playbackContext = usePlayerStore(state => state.playbackContext);
@@ -136,9 +137,9 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
                     <Ionicons name="shuffle" size={20} color="#FFFFFF" />
                     <Text style={styles.shuffleBtnText}>{t('actions.shuffle')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.playBtn, { flex: 1 }]} onPress={handlePlayPress}>
-                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={isCurrentContextPlaying ? {} : { marginLeft: 4 }} />
-                    <Text style={styles.playBtnText}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
+                <TouchableOpacity style={[styles.playBtn, { flex: 1, backgroundColor: colors.accent }]} onPress={handlePlayPress}>
+                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color={colors.onAccent} style={isCurrentContextPlaying ? {} : { marginLeft: 4 }} />
+                    <Text style={[styles.playBtnText, { color: colors.onAccent }]}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -313,6 +314,7 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
     const setArtistFilter = useLibraryStore(state => state.setArtistFilter);
 
@@ -357,7 +359,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            artistFilter === 'album' && styles.artistSelectorBtnActive,
+                            artistFilter === 'album' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setArtistFilter('album')}
@@ -365,7 +367,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            artistFilter === 'album' && styles.artistSelectorTextActive
+                            artistFilter === 'album' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.album_artists')}
                         </Text>
@@ -373,7 +375,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            artistFilter === 'all' && styles.artistSelectorBtnActive,
+                            artistFilter === 'all' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setArtistFilter('all')}
@@ -381,7 +383,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            artistFilter === 'all' && styles.artistSelectorTextActive
+                            artistFilter === 'all' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.all_artists')}
                         </Text>
@@ -634,6 +636,7 @@ const HistorySmartListCard = withObservables(
 
 const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const navigation = useNavigation<LibraryNavigationProp>();
     const playlistFilter = useLibraryStore(state => state.playlistFilter);
     const setPlaylistFilter = useLibraryStore(state => state.setPlaylistFilter);
@@ -831,7 +834,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            playlistFilter === 'user' && styles.artistSelectorBtnActive,
+                            playlistFilter === 'user' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setPlaylistFilter('user')}
@@ -839,7 +842,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            playlistFilter === 'user' && styles.artistSelectorTextActive
+                            playlistFilter === 'user' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.user_playlists')}
                         </Text>
@@ -847,7 +850,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            playlistFilter === 'smart' && styles.artistSelectorBtnActive,
+                            playlistFilter === 'smart' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setPlaylistFilter('smart')}
@@ -855,7 +858,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            playlistFilter === 'smart' && styles.artistSelectorTextActive
+                            playlistFilter === 'smart' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.smart_playlists')}
                         </Text>
@@ -1225,7 +1228,7 @@ export default function LibraryScreen() {
                             style={[styles.tabButton, index === i && { backgroundColor: colors.accent }]}
                             onPress={() => setIndex(i)}
                         >
-                            <Text style={[styles.tabText, index === i && styles.activeTabText]}>{route.title}</Text>
+                            <Text style={[styles.tabText, index === i && [styles.activeTabText, { color: colors.onAccent }]]}>{route.title}</Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
@@ -1412,7 +1415,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
     },
     folderBackBtnText: {
-        color: '#8B5CF6',
+        color: Colors.accent,
         fontSize: 13,
         fontFamily: 'Montserrat',
         fontWeight: '700',

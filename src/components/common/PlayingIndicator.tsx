@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface PlayingIndicatorProps {
     color?: string;
@@ -31,7 +32,9 @@ const loopBar = (anim: Animated.Value, pausedRef: React.RefObject<boolean>) => {
     makeBarSequence(anim).start(onFinish);
 };
 
-export const PlayingIndicator = ({ color = '#8B5CF6', isPaused = false }: PlayingIndicatorProps) => {
+export const PlayingIndicator = ({ color, isPaused = false }: PlayingIndicatorProps) => {
+    const { colors } = useAppTheme();
+    const activeColor = color || colors.accentLight || colors.accent;
     const scale1 = useRef(new Animated.Value(0.3)).current;
     const scale2 = useRef(new Animated.Value(0.3)).current;
     const scale3 = useRef(new Animated.Value(0.3)).current;
@@ -68,7 +71,7 @@ export const PlayingIndicator = ({ color = '#8B5CF6', isPaused = false }: Playin
             style={[
                 styles.bar,
                 {
-                    backgroundColor: color,
+                    backgroundColor: activeColor,
                     height: BAR_HEIGHT,
                     transform: [
                         { translateY: BAR_HEIGHT / 2 },

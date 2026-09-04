@@ -27,7 +27,7 @@ export default function ZipProgressModal() {
                         <View style={[styles.card, { backgroundColor: '#161616', borderColor: '#282828' }]}>
                             <ActivityIndicator
                                 size="large"
-                                color={colors.accent || '#8B5CF6'}
+                                color={colors.accent}
                                 style={styles.spinner}
                             />
                             <Text style={[styles.message, { color: colors.text || '#FFFFFF', fontFamily: fonts.regular }]}>

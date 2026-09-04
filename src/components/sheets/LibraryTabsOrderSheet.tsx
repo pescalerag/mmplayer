@@ -8,6 +8,7 @@ import { useSheetProps } from '@/hooks/useSheetProps';
 import { LibraryTabType, useSettingsStore } from '../../store/useSettingsStore';
 import { saveSettingsAndRestart } from '../../utils/restartHelper';
 import { DraggableTabItem } from '@/components/common/DraggableTabItem';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const ALL_TABS: { id: LibraryTabType, labelKey: string, icon: any }[] = [
   { id: 'albums', labelKey: 'library.albums', icon: 'albums' },
@@ -19,6 +20,7 @@ const ALL_TABS: { id: LibraryTabType, labelKey: string, icon: any }[] = [
 
 export default function LibraryTabsOrderSheet() {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const { close: closeSheet } = useSheetProps('library-tabs-order');
   const { libraryTabsOrder } = useSettingsStore();
 
@@ -82,16 +84,16 @@ export default function LibraryTabsOrderSheet() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]}
+          style={[styles.confirmButton, { backgroundColor: colors.accent }, isRestarting && { opacity: 0.7 }]}
           onPress={handleConfirmAndRestart}
           disabled={isRestarting}
         >
           {isRestarting ? (
-            <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
+            <ActivityIndicator size="small" color={colors.onAccent} style={{ marginRight: 8 }} />
           ) : (
-            <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
+            <Ionicons name="refresh" size={20} color={colors.onAccent} style={{ marginRight: 8 }} />
           )}
-          <Text style={styles.confirmButtonText}>
+          <Text style={[styles.confirmButtonText, { color: colors.onAccent }]}>
             {isRestarting
               ? (t('settings.restarting') || 'Reiniciando...')
               : (t('settings.confirm_restart') || 'Confirmar y Reiniciar')}

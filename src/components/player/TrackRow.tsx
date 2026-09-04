@@ -176,12 +176,12 @@ function TrackRow({
       <View style={[styles.underlay, { backgroundColor: colors.accent }]}>
         {swipeRightAction !== 'none' && (
           <Animated.View style={[styles.underlayIconContainer, styles.underlayIconLeft, leftIconStyle]}>
-            <Ionicons name={getActionIcon(swipeRightAction)} size={24} color="#FFFFFF" />
+            <Ionicons name={getActionIcon(swipeRightAction)} size={24} color={colors.onAccent} />
           </Animated.View>
         )}
         {swipeLeftAction !== 'none' && (
           <Animated.View style={[styles.underlayIconContainer, styles.underlayIconRight, rightIconStyle]}>
-            <Ionicons name={getActionIcon(swipeLeftAction)} size={24} color="#FFFFFF" />
+            <Ionicons name={getActionIcon(swipeLeftAction)} size={24} color={colors.onAccent} />
           </Animated.View>
         )}
       </View>

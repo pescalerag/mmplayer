@@ -147,15 +147,15 @@ export default function SettingsArtistImagesScreen() {
                     >
                         {isDownloading ? (
                             <View style={styles.buttonInner}>
-                                <ActivityIndicator size="small" color="#FFFFFF" />
-                                <Text style={styles.downloadButtonText}>
+                                <ActivityIndicator size="small" color={colors.onAccent} />
+                                <Text style={[styles.downloadButtonText, { color: colors.onAccent }]}>
                                     {t('settings.artist_images_download_btn_running') || 'Descargando...'}
                                 </Text>
                             </View>
                         ) : (
                             <View style={styles.buttonInner}>
-                                <Ionicons name="cloud-download-outline" size={20} color="#FFFFFF" />
-                                <Text style={styles.downloadButtonText}>
+                                <Ionicons name="cloud-download-outline" size={20} color={colors.onAccent} />
+                                <Text style={[styles.downloadButtonText, { color: colors.onAccent }]}>
                                     {t('settings.artist_images_download_btn') || 'Descargar imágenes ahora'}
                                 </Text>
                             </View>

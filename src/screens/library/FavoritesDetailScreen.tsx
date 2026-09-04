@@ -166,7 +166,7 @@ function FavoritesDetailContent({ tracks }: Readonly<FavoritesDetailProps>) {
                                 <Ionicons
                                     name={isCurrentContextPlaying ? "pause" : "play"}
                                     size={28}
-                                    color={colors.text}
+                                    color={colors.onAccent}
                                     style={isCurrentContextPlaying ? {} : { marginLeft: 4 }}
                                 />
                             </TouchableOpacity>

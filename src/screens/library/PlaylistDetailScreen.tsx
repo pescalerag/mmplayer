@@ -491,11 +491,11 @@ function PlaylistDetailContent({
               </TouchableOpacity>
 
               {/* Play/Pause Button */}
-              <TouchableOpacity style={styles.playFab} onPress={handleFabPress}>
+              <TouchableOpacity style={[styles.playFab, { backgroundColor: colors.accent }]} onPress={handleFabPress}>
                 <Ionicons
                   name={isCurrentPlaylistPlaying ? "pause" : "play"}
                   size={28}
-                  color="#FFFFFF"
+                  color={colors.onAccent}
                   style={!isCurrentPlaylistPlaying ? { marginLeft: 4 } : {}}
                 />
               </TouchableOpacity>
@@ -573,7 +573,7 @@ function PlaylistDetailContent({
   const listEmptyComponent = (
     loadingTracks ? (
       <ActivityIndicator
-        color="#8B5CF6"
+        color={colors.accent}
         size="large"
         style={{ marginTop: 40 }}
       />
@@ -598,7 +598,7 @@ function PlaylistDetailContent({
 
   if (isReorderMode) {
     return (
-      <GestureHandlerRootView style={styles.container}>
+      <GestureHandlerRootView style={[styles.container, { backgroundColor: colors.background }]}>
         <DraggableFlatList
           data={localPlaylistTracks}
           keyExtractor={(item) => item.id}
@@ -617,7 +617,7 @@ function PlaylistDetailContent({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlashList
         data={localPlaylistTracks}
         keyExtractor={(item) => item.id}
@@ -646,7 +646,7 @@ function PlaylistDetailErrorFallback() {
         onPress={() => navigation.goBack()}
         style={{ backgroundColor: colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, marginTop: 16 }}
       >
-        <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
+        <Text style={{ color: colors.onAccent, fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
       </TouchableOpacity>
     </View>
   );

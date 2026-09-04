@@ -194,29 +194,29 @@ export default function SupportScreen() {
             >
                 <View style={styles.tabsContainer}>
                     <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'tiers' && styles.activeTab]}
+                        style={[styles.tabButton, activeTab === 'tiers' && [styles.activeTab, { backgroundColor: colors.accent }]]}
                         onPress={() => setActiveTab('tiers')}
                         activeOpacity={0.8}
                     >
-                        <Text style={[styles.tabText, activeTab === 'tiers' && styles.activeTabText]}>
+                        <Text style={[styles.tabText, activeTab === 'tiers' && [styles.activeTabText, { color: colors.onAccent }]]}>
                             {t('support.tab_tiers') || 'Tiers'}
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'benefits' && styles.activeTab]}
+                        style={[styles.tabButton, activeTab === 'benefits' && [styles.activeTab, { backgroundColor: colors.accent }]]}
                         onPress={() => setActiveTab('benefits')}
                         activeOpacity={0.8}
                     >
-                        <Text style={[styles.tabText, activeTab === 'benefits' && styles.activeTabText]}>
+                        <Text style={[styles.tabText, activeTab === 'benefits' && [styles.activeTabText, { color: colors.onAccent }]]}>
                             {t('support.tab_benefits') || 'Beneficios'}
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.tabButton, activeTab === 'hall_of_fame' && styles.activeTab]}
+                        style={[styles.tabButton, activeTab === 'hall_of_fame' && [styles.activeTab, { backgroundColor: colors.accent }]]}
                         onPress={() => setActiveTab('hall_of_fame')}
                         activeOpacity={0.8}
                     >
-                        <Text style={[styles.tabText, activeTab === 'hall_of_fame' && styles.activeTabText]}>
+                        <Text style={[styles.tabText, activeTab === 'hall_of_fame' && [styles.activeTabText, { color: colors.onAccent }]]}>
                             {t('support.tab_hall_of_fame') || 'Hall of Fame'}
                         </Text>
                     </TouchableOpacity>

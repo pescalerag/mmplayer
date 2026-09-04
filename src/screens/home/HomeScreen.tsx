@@ -364,7 +364,7 @@ export default function HomeScreen() {
                             />
                         ) : (
                             <View style={styles.profileAvatarPlaceholder}>
-                                <Ionicons name="person" size={18} color="#FFFFFF" />
+                                <Ionicons name="person" size={18} color={colors.onAccent} />
                             </View>
                         )}
                         <Text

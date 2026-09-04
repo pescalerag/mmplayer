@@ -80,7 +80,7 @@ export default function PlayerMenuSheet() {
                             style={[styles.optionBtn, playerCoverStyle === 'cover' && styles.optionBtnActive]}
                             onPress={() => setPlayerCoverStyle('cover')}
                         >
-                            <Ionicons name="image" size={18} color={playerCoverStyle === 'cover' ? '#8B5CF6' : colors.textSecondary} />
+                            <Ionicons name="image" size={18} color={playerCoverStyle === 'cover' ? colors.accent : colors.textSecondary} />
                             <Text style={[styles.optionText, playerCoverStyle === 'cover' && styles.optionTextActive]}>
                                 {t('visualizer.cover_style_cover') || 'Carátula Original'}
                             </Text>
@@ -90,7 +90,7 @@ export default function PlayerMenuSheet() {
                             style={[styles.optionBtn, playerCoverStyle === 'cd' && styles.optionBtnActive]}
                             onPress={() => setPlayerCoverStyle('cd')}
                         >
-                            <Ionicons name="disc" size={18} color={playerCoverStyle === 'cd' ? '#8B5CF6' : colors.textSecondary} />
+                            <Ionicons name="disc" size={18} color={playerCoverStyle === 'cd' ? colors.accent : colors.textSecondary} />
                             <Text style={[styles.optionText, playerCoverStyle === 'cd' && styles.optionTextActive]}>
                                 {t('visualizer.cover_style_cd') || 'CD Giratorio'}
                             </Text>
@@ -100,7 +100,7 @@ export default function PlayerMenuSheet() {
                             style={[styles.optionBtn, playerCoverStyle === 'vinyl' && styles.optionBtnActive]}
                             onPress={() => setPlayerCoverStyle('vinyl')}
                         >
-                            <Ionicons name="radio" size={18} color={playerCoverStyle === 'vinyl' ? '#8B5CF6' : colors.textSecondary} />
+                            <Ionicons name="radio" size={18} color={playerCoverStyle === 'vinyl' ? colors.accent : colors.textSecondary} />
                             <Text style={[styles.optionText, playerCoverStyle === 'vinyl' && styles.optionTextActive]}>
                                 {t('visualizer.cover_style_vinyl') || 'Vinilo Giratorio'}
                             </Text>
@@ -116,7 +116,7 @@ export default function PlayerMenuSheet() {
                             style={[styles.optionBtn, playerBackgroundStyle === 'cover' && styles.optionBtnActive]}
                             onPress={() => setPlayerBackgroundStyle('cover')}
                         >
-                            <Ionicons name="image-outline" size={18} color={playerBackgroundStyle === 'cover' ? '#8B5CF6' : colors.textSecondary} />
+                            <Ionicons name="image-outline" size={18} color={playerBackgroundStyle === 'cover' ? colors.accent : colors.textSecondary} />
                             <Text style={[styles.optionText, playerBackgroundStyle === 'cover' && styles.optionTextActive]}>
                                 {t('visualizer.background_style_cover') || 'Carátula Difuminada'}
                             </Text>
@@ -126,7 +126,7 @@ export default function PlayerMenuSheet() {
                             style={[styles.optionBtn, playerBackgroundStyle === 'gradient' && styles.optionBtnActive]}
                             onPress={() => setPlayerBackgroundStyle('gradient')}
                         >
-                            <Ionicons name="color-palette-outline" size={18} color={playerBackgroundStyle === 'gradient' ? '#8B5CF6' : colors.textSecondary} />
+                            <Ionicons name="color-palette-outline" size={18} color={playerBackgroundStyle === 'gradient' ? colors.accent : colors.textSecondary} />
                             <Text style={[styles.optionText, playerBackgroundStyle === 'gradient' && styles.optionTextActive]}>
                                 {t('visualizer.background_style_gradient') || 'Degradado de Color'}
                             </Text>
@@ -144,7 +144,7 @@ export default function PlayerMenuSheet() {
                         <Switch
                             value={showPlayerVisualizer}
                             onValueChange={handleVisualizerToggle}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            trackColor={{ false: '#282828', true: colors.accent }}
                             thumbColor={showPlayerVisualizer ? '#FFFFFF' : '#888888'}
                             ios_backgroundColor="#282828"
                         />
@@ -161,7 +161,7 @@ export default function PlayerMenuSheet() {
                         <Switch
                             value={showCanvas}
                             onValueChange={setShowCanvas}
-                            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                            trackColor={{ false: '#282828', true: colors.accent }}
                             thumbColor={showCanvas ? '#FFFFFF' : '#888888'}
                             ios_backgroundColor="#282828"
                         />
@@ -178,7 +178,7 @@ export default function PlayerMenuSheet() {
                                 style={[styles.optionBtn, playerVisualizerType === 'bars' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerType('bars')}
                             >
-                                <Ionicons name="stats-chart" size={18} color={playerVisualizerType === 'bars' && showPlayerVisualizer ? '#8B5CF6' : colors.textSecondary} />
+                                <Ionicons name="stats-chart" size={18} color={playerVisualizerType === 'bars' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
                                 <Text style={[styles.optionText, playerVisualizerType === 'bars' && showPlayerVisualizer && styles.optionTextActive]}>
                                     {t('visualizer.style_bars') || 'Barras de Ecualizador'}
                                 </Text>
@@ -188,7 +188,7 @@ export default function PlayerMenuSheet() {
                                 style={[styles.optionBtn, playerVisualizerType === 'wave' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerType('wave')}
                             >
-                                <Ionicons name="pulse" size={18} color={playerVisualizerType === 'wave' && showPlayerVisualizer ? '#8B5CF6' : colors.textSecondary} />
+                                <Ionicons name="pulse" size={18} color={playerVisualizerType === 'wave' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
                                 <Text style={[styles.optionText, playerVisualizerType === 'wave' && showPlayerVisualizer && styles.optionTextActive]}>
                                     {t('visualizer.style_wave') || 'Onda Oscilante'}
                                 </Text>
@@ -198,7 +198,7 @@ export default function PlayerMenuSheet() {
                                 style={[styles.optionBtn, playerVisualizerType === 'spectrum' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerType('spectrum')}
                             >
-                                <Ionicons name="analytics" size={18} color={playerVisualizerType === 'spectrum' && showPlayerVisualizer ? '#8B5CF6' : colors.textSecondary} />
+                                <Ionicons name="analytics" size={18} color={playerVisualizerType === 'spectrum' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
                                 <Text style={[styles.optionText, playerVisualizerType === 'spectrum' && showPlayerVisualizer && styles.optionTextActive]}>
                                     {t('visualizer.style_spectrum') || 'Espectro Completo'}
                                 </Text>
@@ -208,7 +208,7 @@ export default function PlayerMenuSheet() {
                                 style={[styles.optionBtn, playerVisualizerType === 'circle' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerType('circle')}
                             >
-                                <Ionicons name="radio-button-on" size={18} color={playerVisualizerType === 'circle' && showPlayerVisualizer ? '#8B5CF6' : colors.textSecondary} />
+                                <Ionicons name="radio-button-on" size={18} color={playerVisualizerType === 'circle' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
                                 <Text style={[styles.optionText, playerVisualizerType === 'circle' && showPlayerVisualizer && styles.optionTextActive]}>
                                     {t('visualizer.style_circle') || 'Círculo Pulsante'}
                                 </Text>
@@ -223,7 +223,7 @@ export default function PlayerMenuSheet() {
                                 style={[styles.optionBtn, playerVisualizerColorMode === 'cover' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerColorMode('cover')}
                             >
-                                <Ionicons name="color-palette" size={18} color={playerVisualizerColorMode === 'cover' && showPlayerVisualizer ? '#8B5CF6' : colors.textSecondary} />
+                                <Ionicons name="color-palette" size={18} color={playerVisualizerColorMode === 'cover' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
                                 <Text style={[styles.optionText, playerVisualizerColorMode === 'cover' && showPlayerVisualizer && styles.optionTextActive]}>
                                     {t('visualizer.color_cover') || 'Adaptarse a Portada'}
                                 </Text>
@@ -233,7 +233,7 @@ export default function PlayerMenuSheet() {
                                 style={[styles.optionBtn, playerVisualizerColorMode === 'accent' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerColorMode('accent')}
                             >
-                                <Ionicons name="color-fill" size={18} color={playerVisualizerColorMode === 'accent' && showPlayerVisualizer ? '#8B5CF6' : colors.textSecondary} />
+                                <Ionicons name="color-fill" size={18} color={playerVisualizerColorMode === 'accent' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
                                 <Text style={[styles.optionText, playerVisualizerColorMode === 'accent' && showPlayerVisualizer && styles.optionTextActive]}>
                                     {t('visualizer.color_accent') || 'Color Temático Morado'}
                                 </Text>
@@ -298,8 +298,8 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any, radii: an
         borderColor: 'transparent',
     },
     optionBtnActive: {
-        backgroundColor: 'rgba(139, 92, 246, 0.08)',
-        borderColor: 'rgba(139, 92, 246, 0.3)',
+        backgroundColor: colors.accentAlpha8,
+        borderColor: colors.accentAlpha30,
     },
     optionText: {
         fontSize: 14,
@@ -308,7 +308,7 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any, radii: an
         color: 'rgba(255,255,255,0.8)',
     },
     optionTextActive: {
-        color: '#8B5CF6',
+        color: colors.accent,
         fontWeight: '700',
     },
 });

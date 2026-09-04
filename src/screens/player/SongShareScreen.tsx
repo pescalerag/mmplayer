@@ -358,15 +358,15 @@ export default function SongShareScreen() {
         <TouchableOpacity
           onPress={handleCaptureAndShareImage}
           disabled={isCapturing || isSharingAudio}
-          style={[styles.primaryShareBtn, { backgroundColor: colors.accentLight || '#8B5CF6' }]}
+          style={[styles.primaryShareBtn, { backgroundColor: colors.accent }]}
           activeOpacity={0.8}
         >
           {isCapturing ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={colors.onAccent} />
           ) : (
             <>
-              <Ionicons name="image-outline" size={19} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.primaryShareBtnText}>
+              <Ionicons name="image-outline" size={19} color={colors.onAccent} style={{ marginRight: 8 }} />
+              <Text style={[styles.primaryShareBtnText, { color: colors.onAccent }]}>
                 {t('player.share_as_image', { defaultValue: 'Compartir imagen' })}
               </Text>
             </>

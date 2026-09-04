@@ -122,12 +122,12 @@ export default function PlaylistCover({
     if (isFavorites) {
         return (
             <LinearGradient
-                colors={['#7C3AED', '#4C1D95']}
+                colors={[colors.accent, colors.accentDark || '#4C1D95']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.container, { width: w, height: h, borderRadius }]}
             >
-                <Ionicons name="heart" size={Math.min(w, h) * 0.45} color={colors.text} />
+                <Ionicons name="heart" size={Math.min(w, h) * 0.45} color={colors.onAccent} />
             </LinearGradient>
         );
     }
