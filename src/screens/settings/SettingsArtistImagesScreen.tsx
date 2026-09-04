@@ -44,16 +44,16 @@ export default function SettingsArtistImagesScreen() {
 
     const handleStartDownload = () => {
         Alert.alert(
-            t('settings.artist_images_download_title') || 'Descargar imágenes de artistas',
-            t('settings.artist_images_download_confirm') || '¿Deseas buscar y descargar imágenes para todos los artistas que no tengan una?',
+            t('settings.artist_images_download_title'),
+            t('settings.artist_images_download_prompt'),
             [
-                { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
+                { text: t('actions.cancel'), style: 'cancel' },
                 {
-                    text: t('settings.artist_images_download_all_btn') || 'Descargar solo faltantes',
+                    text: t('settings.artist_images_download_missing'),
                     onPress: () => executeDownload(false),
                 },
                 {
-                    text: t('settings.artist_images_refresh_all_btn') || 'Re-descargar todo',
+                    text: t('settings.artist_images_download_all'),
                     style: 'destructive',
                     onPress: () => executeDownload(true),
                 },
@@ -77,7 +77,7 @@ export default function SettingsArtistImagesScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
                     {/* SELECTOR DE MODO */}
-                    <Text style={styles.sectionTitle}>{t('settings.artist_images_mode_section') || 'Modo de descarga'}</Text>
+                    <Text style={styles.sectionTitle}>{t('settings.artist_images_mode') || 'Modo de descarga'}</Text>
                     <View style={styles.sectionCard}>
                         {modes.map((mode, index) => {
                             const active = artistImageDownloadMode === mode.value;
