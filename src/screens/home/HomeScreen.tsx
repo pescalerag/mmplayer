@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
 import { database } from '../../database';
@@ -165,11 +165,71 @@ export default function HomeScreen() {
             );
             setSmartLists(loadedSmart.filter(item => item.trackCount > 0));
 
-            // Fetch recently added albums
-            const addedAlbums = await database.collections
-                .get<Album>('albums')
-                .query(Q.sortBy('id', Q.desc), Q.take(10))
-                .fetch();
+            // Fetch recently added albums (ordered by newest track's last_modified date)
+            let addedAlbums: Album[] = [];
+            if (Platform.OS !== 'web') {
+                try {
+                    addedAlbums = await database.collections
+                        .get<Album>('albums')
+                        .query(
+                            Q.unsafeSqlQuery(
+                                `SELECT "albums".* FROM "albums"
+                                 INNER JOIN "tracks" ON "tracks"."album_id" = "albums"."id"
+                                 WHERE "albums"."_status" is not 'deleted' AND "tracks"."_status" is not 'deleted'
+                                 GROUP BY "albums"."id"
+                                 ORDER BY MAX(COALESCE("tracks"."last_modified", 0)) DESC, "albums"."title" ASC
+                                 LIMIT 10`
+                            ),
+                            Q.experimentalJoinTables(['tracks'])
+                        )
+                        .fetch();
+                } catch (e) {
+                    console.warn('[HomeScreen] Error fetching recently added albums via unsafeSqlQuery:', e);
+                }
+            }
+
+            if (!addedAlbums || addedAlbums.length === 0) {
+                try {
+                    // Fallback: Query recent tracks and collect distinct album IDs in order
+                    const recentTracks = await database.collections
+                        .get<Track>('tracks')
+                        .query(
+                            Q.where('album_id', Q.notEq(null)),
+                            Q.sortBy('last_modified', Q.desc),
+                            Q.take(150)
+                        )
+                        .fetch();
+
+                    const seenAlbumIds = new Set<string>();
+                    const albumIds: string[] = [];
+                    for (const track of recentTracks) {
+                        const aId = (track as any).albumId || (track._raw as any).album_id || track.album?.id;
+                        if (aId && !seenAlbumIds.has(aId)) {
+                            seenAlbumIds.add(aId);
+                            albumIds.push(aId);
+                            if (albumIds.length >= 10) break;
+                        }
+                    }
+
+                    if (albumIds.length > 0) {
+                        const fetched = await database.collections
+                            .get<Album>('albums')
+                            .query(Q.where('id', Q.oneOf(albumIds)))
+                            .fetch();
+                        const map = new Map(fetched.map(a => [a.id, a]));
+                        addedAlbums = albumIds.map(id => map.get(id)).filter((a): a is Album => !!a);
+                    }
+                } catch (e) {
+                    console.warn('[HomeScreen] Fallback for recently added albums failed:', e);
+                }
+            }
+
+            if (!addedAlbums || addedAlbums.length === 0) {
+                addedAlbums = await database.collections
+                    .get<Album>('albums')
+                    .query(Q.take(10))
+                    .fetch();
+            }
 
             const mappedAdded = await Promise.all(addedAlbums.map(async (album) => {
                 const artist = await album.artist.fetch();

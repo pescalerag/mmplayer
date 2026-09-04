@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 15,
+    version: 16,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -21,6 +21,7 @@ export const mySchema = appSchema({
                 { name: 'lyrics_fetch_failed', type: 'boolean', isOptional: true },
                 { name: 'bg_video', type: 'string', isOptional: true },
                 { name: 'rating', type: 'number', isOptional: true },
+                { name: 'genre', type: 'string', isOptional: true },
             ],
         }),
         tableSchema({

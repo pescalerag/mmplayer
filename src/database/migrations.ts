@@ -170,5 +170,14 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 16,
+      steps: [
+        addColumns({
+          table: "tracks",
+          columns: [{ name: "genre", type: "string", isOptional: true }],
+        }),
+      ],
+    },
   ],
 });

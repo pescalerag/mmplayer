@@ -431,6 +431,7 @@ class NativeAudioScannerModule : Module() {
         val validAlbumArts = mutableMapOf<Long, String?>()
         
         val supportsAlbumArtist = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
+        val supportsGenre = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
         val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         
         val projection = mutableListOf(
@@ -447,9 +448,40 @@ class NativeAudioScannerModule : Module() {
         if (supportsAlbumArtist) {
           projection.add("album_artist")
         }
+        if (supportsGenre) {
+          projection.add(MediaStore.Audio.Media.GENRE)
+        }
         
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         
+        val genreMap = mutableMapOf<Long, String>()
+        if (!supportsGenre) {
+          try {
+            val genresUri = MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI
+            val genresProjection = arrayOf(MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME)
+            context.contentResolver.query(genresUri, genresProjection, null, null, null)?.use { gCursor ->
+              val gIdCol = gCursor.getColumnIndex(MediaStore.Audio.Genres._ID)
+              val gNameCol = gCursor.getColumnIndex(MediaStore.Audio.Genres.NAME)
+              while (gCursor.moveToNext()) {
+                val gId = gCursor.getLong(gIdCol)
+                val gName = gCursor.getString(gNameCol) ?: continue
+                val membersUri = MediaStore.Audio.Genres.Members.getContentUri("external", gId)
+                context.contentResolver.query(membersUri, arrayOf(MediaStore.Audio.Genres.Members.AUDIO_ID), null, null, null)?.use { mCursor ->
+                  val aIdCol = mCursor.getColumnIndex(MediaStore.Audio.Genres.Members.AUDIO_ID)
+                  while (mCursor.moveToNext()) {
+                    val audioId = mCursor.getLong(aIdCol)
+                    if (!genreMap.containsKey(audioId)) {
+                      genreMap[audioId] = gName
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e: Exception) {
+            // Ignored on older devices
+          }
+        }
+
         context.contentResolver.query(
           uri,
           projection.toTypedArray(),
@@ -467,6 +499,7 @@ class NativeAudioScannerModule : Module() {
           val trackColumn = cursor.getColumnIndex(MediaStore.Audio.Media.TRACK)
           val dateModifiedColumn = cursor.getColumnIndex("date_modified")
           val albumArtistColumn = if (supportsAlbumArtist) cursor.getColumnIndex("album_artist") else -1
+          val genreColumn = if (supportsGenre) cursor.getColumnIndex(MediaStore.Audio.Media.GENRE) else -1
           val yearColumn = cursor.getColumnIndex("year")
 
           val sArtworkUri = Uri.parse("content://media/external/audio/albumart")
@@ -486,6 +519,8 @@ class NativeAudioScannerModule : Module() {
             val year = if (yearColumn >= 0) cursor.getInt(yearColumn) else 0
             val dateModifiedSec = if (dateModifiedColumn >= 0) cursor.getLong(dateModifiedColumn) else 0L
             val albumArtist = if (albumArtistColumn >= 0) cursor.getString(albumArtistColumn) else null
+            val rawGenre = if (genreColumn >= 0) cursor.getString(genreColumn) else null
+            val genre = if (!rawGenre.isNullOrBlank()) rawGenre else genreMap[id]
             
             var finalCoverUrl = validAlbumArts[albumId]
             if (!validAlbumArts.containsKey(albumId)) {
@@ -509,6 +544,7 @@ class NativeAudioScannerModule : Module() {
               "discNumber" to if (trackVal >= 1000) (trackVal / 1000) else 1,
               "year" to if (year > 0) year else null,
               "albumArtist" to albumArtist,
+              "genre" to genre,
               "lastModified" to (dateModifiedSec * 1000),
               "replayGain" to replayGain
             )

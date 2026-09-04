@@ -109,7 +109,9 @@
     "user_playlists": "Your Playlists",
     "smart_playlists": "Smart Playlists",
     "smart_listening_title": "Listens-based Playlists",
-    "smart_rating_title": "Rating-based Playlists"
+    "smart_rating_title": "Rating-based Playlists",
+    "smart_genre_title": "Genre Playlists",
+    "smart_genre_desc": "{{genre}} songs"
   },
   "search": {
     "placeholder": "Search artists, albums, or songs",

@@ -18,6 +18,7 @@ export type AudioTag = {
   albumArtist?: string | null;
   lastModified: number;
   replayGain?: number | null;
+  genre?: string | null;
 };
 
 export async function getAudioFiles(scanReplayGain: boolean = false): Promise<AudioTag[]> {

@@ -598,6 +598,39 @@ const RatingSmartListCard = withObservables(
     );
 });
 
+const getGenreQuery = (genre: string) => {
+    return database.collections.get<Track>('tracks').query(
+        Q.where('genre', genre),
+        Q.sortBy('title', Q.asc)
+    );
+};
+
+const GenreSmartListCard = withObservables(
+    ['genre'],
+    ({ genre }: { genre: string }) => ({
+        tracks: getGenreQuery(genre).observe().pipe(catchError(() => of([]))),
+    })
+)(function GenreSmartListCardWrapper({
+    smartList,
+    tracks,
+    colIndex,
+    onPress,
+}: {
+    smartList: SmartList;
+    tracks: Track[];
+    colIndex: number;
+    onPress: () => void;
+}) {
+    return (
+        <SmartListCardBase
+            smartList={smartList}
+            tracks={tracks}
+            colIndex={colIndex}
+            onPress={onPress}
+        />
+    );
+});
+
 const HistorySmartListCard = withObservables(
     ['smartListId'],
     ({ smartListId }: { smartListId: string }) => ({
@@ -648,6 +681,46 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     const handleNavFavorites = React.useCallback(() => {
         navigation.navigate('FavoritesDetail');
     }, [navigation]);
+
+    const [genreLists, setGenreLists] = React.useState<SmartList[]>([]);
+
+    React.useEffect(() => {
+        if (playlistFilter !== 'smart') return;
+        const sub = database.collections.get<Track>('tracks')
+            .query(
+                Q.where('genre', Q.notEq(null)),
+                Q.where('genre', Q.notEq(''))
+            )
+            .observe()
+            .pipe(catchError(() => of([])))
+            .subscribe((tracks) => {
+                const genreSet = new Set<string>();
+                for (const t of tracks) {
+                    const g = t.genre?.trim();
+                    if (g) {
+                        genreSet.add(g);
+                    }
+                }
+                const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+                const lists: SmartList[] = sortedGenres.map(genre => ({
+                    id: `genre_${encodeURIComponent(genre)}`,
+                    name: genre,
+                    description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
+                    placeholderIcon: 'disc-outline',
+                    group: 'genre' as const,
+                    genre,
+                    getTracks: async () => {
+                        return database.collections.get<Track>('tracks').query(
+                            Q.where('genre', genre),
+                            Q.sortBy('title', Q.asc)
+                        ).fetch();
+                    }
+                }));
+                setGenreLists(lists);
+            });
+
+        return () => sub.unsubscribe();
+    }, [playlistFilter, t]);
 
     const sortedPlaylists = React.useMemo(() => {
         if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
@@ -702,6 +775,21 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     });
                 });
             }
+            if (genreLists.length > 0) {
+                smartItems.push({
+                    id: 'header_genre',
+                    isHeader: true,
+                    title: t('library.smart_genre_title') || "Playlists por género"
+                });
+                genreLists.forEach((list, idx) => {
+                    smartItems.push({
+                        id: `smart_${list.id}`,
+                        smartList: list,
+                        colIndex: idx,
+                        isSmart: true
+                    });
+                });
+            }
             return smartItems;
         }
         return [
@@ -709,7 +797,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
             ...sortedPlaylists
         ];
-    }, [playlistFilter, sortedPlaylists, t]);
+    }, [playlistFilter, sortedPlaylists, genreLists, t]);
 
     return (
         <FlashList
@@ -751,12 +839,24 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                 if ('isSmart' in item && item.isSmart) {
                     const list: SmartList = item.smartList;
                     const isRating = list.id.startsWith('rating_');
+                    const isGenre = list.id.startsWith('genre_');
                     const handlePress = () => navigation.navigate('SmartListDetail', { smartListId: list.id });
 
                     if (isRating) {
                         return (
                             <RatingSmartListCard
                                 smartListId={list.id}
+                                smartList={list}
+                                colIndex={item.colIndex}
+                                onPress={handlePress}
+                            />
+                        );
+                    }
+
+                    if (isGenre) {
+                        return (
+                            <GenreSmartListCard
+                                genre={list.genre || decodeURIComponent(list.id.replace('genre_', ''))}
                                 smartList={list}
                                 colIndex={item.colIndex}
                                 onPress={handlePress}

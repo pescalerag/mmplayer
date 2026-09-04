@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -37,46 +37,10 @@ export default function PlaylistCover({
     const w = propWidth ?? size;
     const h = propHeight ?? size;
 
-    if (playlistId.startsWith('smart-list-')) {
-        const id = playlistId.replace('smart-list-', '');
-        const smartList = SmartListService.getSmartLists().find(l => l.id === id);
-        const iconName = smartList?.placeholderIcon || 'musical-notes';
-        
-        let gradientColors: readonly [string, string] = ['#F59E0B', '#D97706']; // Gold default
-        if (id.includes('week')) {
-            gradientColors = ['#3B82F6', '#1D4ED8']; // Blue
-        } else if (id.includes('month')) {
-            gradientColors = ['#10B981', '#047857']; // Green
-        } else if (id === 'rating_5') {
-            gradientColors = ['#F59E0B', '#B45309']; // Gold
-        } else if (id === 'rating_unrated') {
-            gradientColors = ['#4B5563', '#1F2937']; // Slate Gray
-        } else if (id === 'rating_1_2') {
-            gradientColors = ['#EF4444', '#B91C1C']; // Red
-        } else if (id === 'rating_2_3') {
-            gradientColors = ['#F97316', '#C2410C']; // Orange
-        } else if (id === 'rating_3_4') {
-            gradientColors = ['#8B5CF6', '#6D28D9']; // Purple
-        } else if (id.includes('rating')) {
-            gradientColors = ['#EC4899', '#BE185D']; // Pink
-        } else if (id === 'top_50') {
-            gradientColors = ['#8B5CF6', '#6D28D9']; // Violet
-        }
-
-        return (
-            <LinearGradient
-                colors={gradientColors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.container, { width: w, height: h, borderRadius }]}
-            >
-                <Ionicons name={iconName} size={Math.min(w, h) * 0.45} color={colors.text} />
-            </LinearGradient>
-        );
-    }
+    const isSmartList = playlistId.startsWith('smart-list-');
 
     useEffect(() => {
-        if (isFavorites || customCoverUrl) {
+        if (isFavorites || customCoverUrl || isSmartList) {
             setLoading(false);
             return;
         }
@@ -117,20 +81,7 @@ export default function PlaylistCover({
         };
 
         loadCover();
-    }, [playlistId, isFavorites, customCoverUrl]);
-
-    if (isFavorites) {
-        return (
-            <LinearGradient
-                colors={[colors.accent, colors.accentDark || '#4C1D95']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.container, { width: w, height: h, borderRadius }]}
-            >
-                <Ionicons name="heart" size={Math.min(w, h) * 0.45} color={colors.onAccent} />
-            </LinearGradient>
-        );
-    }
+    }, [playlistId, isFavorites, customCoverUrl, isSmartList]);
 
     const customSource = React.useMemo(() => {
         if (!customCoverUrl) return null;
@@ -147,6 +98,105 @@ export default function PlaylistCover({
         }
         return { uri: firstCover };
     }, [firstCover]);
+
+    if (isSmartList) {
+        const id = playlistId.replace('smart-list-', '');
+        const isGenre = id.startsWith('genre_');
+
+        let genreName = '';
+        if (isGenre) {
+            try {
+                genreName = decodeURIComponent(id.replace('genre_', ''));
+            } catch {
+                genreName = id.replace('genre_', '');
+            }
+        }
+
+        const smartList = SmartListService.getSmartLists().find(l => l.id === id);
+        const iconName = (smartList?.placeholderIcon || 'musical-notes') as any;
+        
+        let gradientColors: readonly [string, string] = ['#F59E0B', '#D97706']; // Gold default
+        if (isGenre) {
+            const GENRE_GRADIENTS: readonly (readonly [string, string])[] = [
+                ['#06B6D4', '#0E7490'], // Cyan / Teal
+                ['#8B5CF6', '#6D28D9'], // Purple
+                ['#EC4899', '#BE185D'], // Pink
+                ['#F59E0B', '#D97706'], // Amber / Orange
+                ['#10B981', '#047857'], // Emerald
+                ['#3B82F6', '#1D4ED8'], // Blue
+                ['#F43F5E', '#BE123C'], // Rose
+                ['#6366F1', '#4338CA'], // Indigo
+                ['#14B8A6', '#0F766E'], // Teal
+                ['#A855F7', '#7E22CE'], // Violet
+            ];
+            const hash = Math.abs(
+                genreName.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) | 0, 0)
+            );
+            gradientColors = GENRE_GRADIENTS[hash % GENRE_GRADIENTS.length];
+        } else if (id.includes('week')) {
+            gradientColors = ['#3B82F6', '#1D4ED8']; // Blue
+        } else if (id.includes('month')) {
+            gradientColors = ['#10B981', '#047857']; // Green
+        } else if (id === 'rating_5') {
+            gradientColors = ['#F59E0B', '#B45309']; // Gold
+        } else if (id === 'rating_unrated') {
+            gradientColors = ['#4B5563', '#1F2937']; // Slate Gray
+        } else if (id === 'rating_1_2') {
+            gradientColors = ['#EF4444', '#B91C1C']; // Red
+        } else if (id === 'rating_2_3') {
+            gradientColors = ['#F97316', '#C2410C']; // Orange
+        } else if (id === 'rating_3_4') {
+            gradientColors = ['#8B5CF6', '#6D28D9']; // Purple
+        } else if (id.includes('rating')) {
+            gradientColors = ['#EC4899', '#BE185D']; // Pink
+        } else if (id === 'top_50') {
+            gradientColors = ['#8B5CF6', '#6D28D9']; // Violet
+        }
+
+        const minDim = Math.min(w, h);
+
+        return (
+            <LinearGradient
+                colors={gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.container, { width: w, height: h, borderRadius }]}
+            >
+                {isGenre ? (
+                    <View style={styles.genreTextContainer}>
+                        <Text
+                            style={[
+                                styles.genreText,
+                                {
+                                    fontSize: Math.max(13, Math.min(minDim * 0.16, 38)),
+                                }
+                            ]}
+                            numberOfLines={2}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.65}
+                        >
+                            {genreName}
+                        </Text>
+                    </View>
+                ) : (
+                    <Ionicons name={iconName} size={minDim * 0.45} color={colors.text} />
+                )}
+            </LinearGradient>
+        );
+    }
+
+    if (isFavorites) {
+        return (
+            <LinearGradient
+                colors={[colors.accent, colors.accentDark || '#4C1D95']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.container, { width: w, height: h, borderRadius }]}
+            >
+                <Ionicons name="heart" size={Math.min(w, h) * 0.45} color={colors.onAccent} />
+            </LinearGradient>
+        );
+    }
 
     if (customSource) {
         return (
@@ -204,5 +254,21 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         backgroundColor: colors.cardBackground,
         borderWidth: 1,
         borderColor: '#2A2A2A',
+    },
+    genreTextContainer: {
+        width: '100%',
+        paddingHorizontal: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    genreText: {
+        color: '#FFFFFF',
+        fontWeight: '800',
+        textAlign: 'center',
+        textTransform: 'capitalize',
+        letterSpacing: 0.5,
+        textShadowColor: 'rgba(0, 0, 0, 0.45)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
     },
 });
