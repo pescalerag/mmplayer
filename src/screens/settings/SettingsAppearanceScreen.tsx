@@ -20,7 +20,9 @@ export default function SettingsAppearanceScreen() {
         isKeepAwakeEnabled,
         setIsKeepAwakeEnabled,
         showPlayerLyrics,
-        setShowPlayerLyrics
+        setShowPlayerLyrics,
+        homeProfilePosition,
+        setHomeProfilePosition
     } = useSettingsStore();
 
     const openLibraryTabsOrderSheet = openLibraryTabsOrder;
@@ -55,6 +57,24 @@ export default function SettingsAppearanceScreen() {
                             </View>
                             <Ionicons name="person" size={20} color={colors.accent} />
                         </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t('settings.home_profile_right')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.home_profile_right_desc')}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={homeProfilePosition === 'right'}
+                                onValueChange={(val) => setHomeProfilePosition(val ? 'right' : 'left')}
+                                trackColor={{ false: '#282828', true: colors.accent }}
+                                thumbColor={homeProfilePosition === 'right' ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
 
                         <View style={styles.separator} />
 

@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Alert,
+    Linking,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -19,7 +20,10 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { Layout } from '../../theme/theme';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { PurchasesService, PRODUCT_IDS } from '../../services/PurchasesService';
+import { UserTier } from '../../store/useSettingsStore';
 import BenefitsView from './BenefitsView';
+import { HallOfFameView } from './HallOfFameView';
+import { HallOfFameModal } from './HallOfFameModal';
 
 export default function SupportScreen() {
     const navigation = useNavigation<any>();
@@ -38,7 +42,9 @@ export default function SupportScreen() {
     const [vipPack, setVipPack] = useState<PurchasesPackage | null>(null);
     const [upgradeVipPack, setUpgradeVipPack] = useState<PurchasesPackage | null>(null);
 
-    const [activeTab, setActiveTab] = useState<'tiers' | 'benefits'>('tiers');
+    const [activeTab, setActiveTab] = useState<'tiers' | 'benefits' | 'hall_of_fame'>('tiers');
+    const [isHofModalVisible, setIsHofModalVisible] = useState(false);
+    const [purchasedTier, setPurchasedTier] = useState<UserTier>('SUPPORTER');
 
     const loadOfferings = useCallback(async () => {
         setIsLoadingOfferings(true);
@@ -101,10 +107,15 @@ export default function SupportScreen() {
         try {
             const res = await PurchasesService.purchasePackage(pack);
             if (res.success) {
-                Alert.alert(
-                    '¡Éxito!',
-                    t('support.purchase_success') || '¡Muchas gracias por apoyar a MMPlayer!'
-                );
+                if (res.userTier === 'SUPPORTER' || res.userTier === 'VIP') {
+                    setPurchasedTier(res.userTier);
+                    setIsHofModalVisible(true);
+                } else {
+                    Alert.alert(
+                        '¡Éxito!',
+                        t('support.purchase_success') || '¡Muchas gracias por apoyar a MMPlayer!'
+                    );
+                }
             } else if (res.error && !res.error.userCancelled) {
                 Alert.alert(
                     t('actions.error'),
@@ -200,10 +211,21 @@ export default function SupportScreen() {
                             {t('support.tab_benefits') || 'Beneficios'}
                         </Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tabButton, activeTab === 'hall_of_fame' && styles.activeTab]}
+                        onPress={() => setActiveTab('hall_of_fame')}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'hall_of_fame' && styles.activeTabText]}>
+                            {t('support.tab_hall_of_fame') || 'Hall of Fame'}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
                 {activeTab === 'benefits' ? (
                     <BenefitsView />
+                ) : activeTab === 'hall_of_fame' ? (
+                    <HallOfFameView />
                 ) : (
                     <>
                 {/* Hero / Intro Card */}
@@ -335,16 +357,6 @@ export default function SupportScreen() {
                             <View style={styles.benefitList}>
                                 <View style={styles.benefitItem}>
                                     <View style={[styles.benefitBullet, { backgroundColor: 'rgba(20, 184, 166, 0.2)' }]}>
-                                        <Ionicons name="sparkles" size={14} color="#2DD4BF" />
-                                    </View>
-                                    <View style={styles.benefitTexts}>
-                                        <Text style={styles.benefitTitle}>{t('support.supporter.benefit_badge')}</Text>
-                                        <Text style={styles.benefitDesc}>{t('support.supporter.benefit_badge_desc')}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.benefitItem}>
-                                    <View style={[styles.benefitBullet, { backgroundColor: 'rgba(20, 184, 166, 0.2)' }]}>
                                         <Ionicons name="apps" size={14} color="#2DD4BF" />
                                     </View>
                                     <View style={styles.benefitTexts}>
@@ -355,7 +367,7 @@ export default function SupportScreen() {
 
                                 <View style={styles.benefitItem}>
                                     <View style={[styles.benefitBullet, { backgroundColor: 'rgba(20, 184, 166, 0.2)' }]}>
-                                        <Ionicons name="ribbon" size={14} color="#2DD4BF" />
+                                        <Ionicons name="trophy" size={14} color="#2DD4BF" />
                                     </View>
                                     <View style={styles.benefitTexts}>
                                         <Text style={styles.benefitTitle}>{t('support.supporter.benefit_fame')}</Text>
@@ -437,6 +449,16 @@ export default function SupportScreen() {
 
                                     <View style={styles.benefitItem}>
                                         <View style={[styles.benefitBullet, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+                                            <Ionicons name="tv-outline" size={14} color="#FBBF24" />
+                                        </View>
+                                        <View style={styles.benefitTexts}>
+                                            <Text style={styles.benefitTitle}>{t('support.vip.benefit_localcast')}</Text>
+                                            <Text style={styles.benefitDesc}>{t('support.vip.benefit_localcast_desc')}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.benefitItem}>
+                                        <View style={[styles.benefitBullet, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
                                             <Ionicons name="stats-chart" size={14} color="#FBBF24" />
                                         </View>
                                         <View style={styles.benefitTexts}>
@@ -489,7 +511,7 @@ export default function SupportScreen() {
                 )}
 
                 {/* ========================================================================= */}
-                {/* CASO 2: ES SUPPORTER -> Muestra SOLO tarjeta de MEJORA A VIP              */}
+                {/* CASO 2: ES SUPPORTER -> Muestra SOLO tarjeta de MEJERA A VIP              */}
                 {/* ========================================================================= */}
                 {isSupporter && (
                     <View style={[styles.tierCard, styles.vipCard, styles.tierCardActiveVip]}>
@@ -535,21 +557,21 @@ export default function SupportScreen() {
 
                             <View style={styles.benefitItem}>
                                 <View style={[styles.benefitBullet, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-                                    <Ionicons name="stats-chart" size={14} color="#FBBF24" />
+                                    <Ionicons name="tv-outline" size={14} color="#FBBF24" />
                                 </View>
                                 <View style={styles.benefitTexts}>
-                                    <Text style={styles.benefitTitle}>{t('support.vip.benefit_stats')}</Text>
-                                    <Text style={styles.benefitDesc}>{t('support.vip.benefit_stats_desc')}</Text>
+                                    <Text style={styles.benefitTitle}>{t('support.vip.benefit_localcast')}</Text>
+                                    <Text style={styles.benefitDesc}>{t('support.vip.benefit_localcast_desc')}</Text>
                                 </View>
                             </View>
 
                             <View style={styles.benefitItem}>
                                 <View style={[styles.benefitBullet, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-                                    <MaterialCommunityIcons name="crown" size={14} color="#FBBF24" />
+                                    <Ionicons name="stats-chart" size={14} color="#FBBF24" />
                                 </View>
                                 <View style={styles.benefitTexts}>
-                                    <Text style={styles.benefitTitle}>{t('support.vip.benefit_badge')}</Text>
-                                    <Text style={styles.benefitDesc}>{t('support.vip.benefit_badge_desc')}</Text>
+                                    <Text style={styles.benefitTitle}>{t('support.vip.benefit_stats')}</Text>
+                                    <Text style={styles.benefitDesc}>{t('support.vip.benefit_stats_desc')}</Text>
                                 </View>
                             </View>
 
@@ -615,11 +637,11 @@ export default function SupportScreen() {
                             </View>
                             <View style={styles.vipActiveBenefitRow}>
                                 <Ionicons name="checkmark-circle" size={18} color="#FBBF24" />
-                                <Text style={styles.vipActiveBenefitText}>{t('support.vip.benefit_stats')}</Text>
+                                <Text style={styles.vipActiveBenefitText}>{t('support.vip.benefit_localcast')}</Text>
                             </View>
                             <View style={styles.vipActiveBenefitRow}>
                                 <Ionicons name="checkmark-circle" size={18} color="#FBBF24" />
-                                <Text style={styles.vipActiveBenefitText}>{t('support.vip.benefit_badge')}</Text>
+                                <Text style={styles.vipActiveBenefitText}>{t('support.vip.benefit_stats')}</Text>
                             </View>
                             <View style={styles.vipActiveBenefitRow}>
                                 <Ionicons name="checkmark-circle" size={18} color="#FBBF24" />
@@ -632,6 +654,72 @@ export default function SupportScreen() {
                         </View>
                     </View>
                 )}
+
+                {/* --- TIER 3: DONACIÓN LIBRE KO-FI (Marrón / Warm Coffee) - Visible para todos --- */}
+                <View style={[styles.tierCard, styles.kofiCard]}>
+                    <LinearGradient
+                        colors={['rgba(180, 83, 9, 0.16)', 'rgba(0, 0, 0, 0)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+
+                    <View style={styles.tierHeader}>
+                        <View style={styles.tierHeaderLeft}>
+                            <View style={[styles.tierIconContainer, styles.kofiIconContainer]}>
+                                <Ionicons name="cafe" size={24} color="#D97706" />
+                            </View>
+                            <View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.tierName}>{t('support.kofi.name')}</Text>
+                                    <View style={styles.kofiBadge}>
+                                        <Text style={styles.kofiBadgeText}>{t('support.kofi.badge')}</Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.tierPaymentType}>{t('support.kofi.type')}</Text>
+                            </View>
+                        </View>
+                        <View style={styles.priceContainer}>
+                            <Text style={[styles.tierPrice, { color: '#D97706' }]}>Ko-fi</Text>
+                        </View>
+                    </View>
+
+                    <Text style={styles.tierShortDesc}>{t('support.kofi.short_desc')}</Text>
+
+                    <View style={styles.benefitList}>
+                        <View style={styles.benefitItem}>
+                            <View style={[styles.benefitBullet, styles.kofiBullet]}>
+                                <Ionicons name="heart-outline" size={14} color="#D97706" />
+                            </View>
+                            <View style={styles.benefitTexts}>
+                                <Text style={styles.benefitTitle}>{t('support.kofi.benefit_direct')}</Text>
+                                <Text style={styles.benefitDesc}>{t('support.kofi.benefit_direct_desc')}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.benefitItem}>
+                            <View style={[styles.benefitBullet, styles.kofiBullet]}>
+                                <Ionicons name="gift-outline" size={14} color="#D97706" />
+                            </View>
+                            <View style={styles.benefitTexts}>
+                                <Text style={styles.benefitTitle}>{t('support.kofi.benefit_custom')}</Text>
+                                <Text style={styles.benefitDesc}>{t('support.kofi.benefit_custom_desc')}</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Ko-fi Action Button */}
+                    <TouchableOpacity
+                        style={[styles.purchaseButton, styles.kofiButton]}
+                        onPress={() => Linking.openURL('https://ko-fi.com/pescalerag')}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="cafe" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.purchaseButtonText}>
+                            {t('support.kofi.button')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
 
                 {/* Restore Purchases Button */}
                 <TouchableOpacity
@@ -655,6 +743,13 @@ export default function SupportScreen() {
                     </>
                 )}
             </ScrollView>
+
+            {/* Modal para captura de alias de Hall of Fame tras compra */}
+            <HallOfFameModal
+                visible={isHofModalVisible}
+                onClose={() => setIsHofModalVisible(false)}
+                tier={purchasedTier}
+            />
         </View>
     );
 }
@@ -789,6 +884,30 @@ const getStyles = (
     },
     tierCardActiveVip: {
         borderColor: '#FBBF24',
+    },
+    kofiCard: {
+        borderColor: 'rgba(180, 83, 9, 0.35)',
+    },
+    kofiIconContainer: {
+        backgroundColor: 'rgba(180, 83, 9, 0.22)',
+    },
+    kofiBadge: {
+        backgroundColor: 'rgba(180, 83, 9, 0.25)',
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        borderRadius: 4,
+    },
+    kofiBadgeText: {
+        color: '#D97706',
+        fontSize: 9,
+        fontWeight: '900',
+    },
+    kofiBullet: {
+        backgroundColor: 'rgba(180, 83, 9, 0.22)',
+    },
+    kofiButton: {
+        flexDirection: 'row',
+        backgroundColor: '#92400E',
     },
     tierHeader: {
         flexDirection: 'row',
@@ -1010,12 +1129,13 @@ const getStyles = (
     tabsContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
+        alignItems: 'center',
         marginBottom: 20,
-        gap: 10,
+        gap: 8,
     },
     tabButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        paddingVertical: 7,
+        paddingHorizontal: 14,
         borderRadius: 20,
         backgroundColor: '#282828',
     },

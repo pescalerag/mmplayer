@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { openTrackMenu } from '@/store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { LyricsService } from '../../services/LyricsService';
+import { LyricsService, parseLRC } from '../../services/LyricsService';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption } from '@/components/sheets/BaseMenuSheet';
 
@@ -25,6 +25,38 @@ export default function LyricsMenuSheet() {
       album: (albumId: any) => navigation.navigate('AlbumDetail', { albumId }),
       artist: (artistId: any) => navigation.navigate('ArtistDetail', { artistId }),
     });
+  };
+
+  const handleShareLyrics = async () => {
+    closeMenu();
+    try {
+      const album = await track.album?.fetch();
+      const artist = await track.artist?.fetch();
+      const collaborators = await track.queryCollaborators?.fetch();
+      const artistName = collaborators && collaborators.length > 0
+        ? collaborators.map((c: any) => c.name).join(', ')
+        : (artist?.name || '');
+
+      const parsed = track.lyricsLRC ? parseLRC(track.lyricsLRC) : [];
+      const lines = parsed.length > 0
+        ? parsed.map(p => ({ time: p.time, text: p.text }))
+        : (track.lyricsLRC || '')
+            .split(/\r?\n/)
+            .map((l: string) => ({ text: l.trim() }))
+            .filter((l: any) => l.text.length > 0);
+
+      navigation.navigate('ShareLyrics', {
+        trackId: track.id,
+        title: track.title,
+        artist: artistName,
+        album: album?.title || '',
+        coverUrl: album?.coverUrl || null,
+        lyricsLines: lines,
+        initialIndex: 0,
+      });
+    } catch (e) {
+      console.error('[LyricsMenuSheet] Error preparing lyrics share:', e);
+    }
   };
 
   const handleImportLRC = async () => {
@@ -95,6 +127,14 @@ export default function LyricsMenuSheet() {
         icon="information-circle-outline"
         text={t('actions.more_info') || 'Más info'}
         onPress={handleMorePress}
+      />
+
+      <MenuOption
+        icon="share-social-outline"
+        text={t('lyrics.share_lyrics') || 'Compartir letras'}
+        disabled={!hasLyrics || isFetchingLyrics}
+        containerStyle={(!hasLyrics || isFetchingLyrics) ? { opacity: 0.4 } : undefined}
+        onPress={handleShareLyrics}
       />
 
       <MenuOption

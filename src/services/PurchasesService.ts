@@ -269,6 +269,26 @@ class PurchasesServiceImpl {
             };
         }
     }
+
+    /**
+     * Set the user's display name and custom attributes in RevenueCat for Hall of Fame
+     */
+    public async setHallOfFameAlias(alias: string, tier: UserTier): Promise<void> {
+        if (Platform.OS !== 'android' && Platform.OS !== 'ios') return;
+        try {
+            const cleanAlias = alias.trim();
+            if (cleanAlias) {
+                await Purchases.setDisplayName(cleanAlias);
+                await Purchases.setAttributes({
+                    hall_of_fame_name: cleanAlias,
+                    tier: tier,
+                    submitted_at: new Date().toISOString(),
+                });
+            }
+        } catch (error) {
+            console.warn('Error setting Hall of Fame attributes in RevenueCat:', error);
+        }
+    }
 }
 
 export const PurchasesService = new PurchasesServiceImpl();

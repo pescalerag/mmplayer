@@ -94,6 +94,8 @@ interface SettingsState {
     setShowCanvas: (value: boolean) => void;
     showPlayerLyrics: boolean;
     setShowPlayerLyrics: (value: boolean) => void;
+    homeProfilePosition: 'left' | 'right';
+    setHomeProfilePosition: (position: 'left' | 'right') => void;
 }
 
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -215,6 +217,8 @@ export const useSettingsStore = create<SettingsState>()(
                 set({ language: lang });
                 i18n.changeLanguage(lang);
             },
+            homeProfilePosition: 'left',
+            setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
         }),
         {
             name: 'mmplayer-settings',

@@ -247,7 +247,7 @@ function TrackRow({
                   )}
                 </View>
               )}
-              {(isLyricMatch ?? (track as any).isLyricMatch) && (
+              {contextId === 'search' && (isLyricMatch ?? (track as any).isLyricMatch) && (
                 <View style={styles.lyricCoverBadge}>
                   <Ionicons name="document-text" size={10} color="#FFFFFF" />
                 </View>
