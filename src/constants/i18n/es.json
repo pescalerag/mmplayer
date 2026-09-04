@@ -351,7 +351,8 @@
     "save_to_playlist_title": "Añadir cola a lista de reproducción",
     "save_all_to_playlist": "Añadir toda la cola (incluye anteriores)",
     "save_upcoming_to_playlist": "Añadir cola siguiente (sin anteriores)",
-    "save_manual_to_playlist": "Añadir solo cola manual"
+    "save_manual_to_playlist": "Añadir solo cola manual",
+    "clear_all_upcoming": "Borrar toda la cola restante"
   },
   "playlist": {
     "new": "Nueva playlist",

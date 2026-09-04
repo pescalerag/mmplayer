@@ -10,8 +10,8 @@ import { Image } from 'expo-image';
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import TrackPlayer, { useProgress } from 'react-native-track-player';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import TrackPlayer, { State, useProgress } from 'react-native-track-player';
 import { scheduleOnRN } from 'react-native-worklets';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -19,6 +19,8 @@ import Track from '../../database/models/Track';
 import { MainNavigationProp } from '../../navigation/types';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useCastStore } from '../../store/useCastStore';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
+import { openClearQueueSheet } from '../../store/useUIStore';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { extractColorFromImage } from '../../../modules/native-equalizer';
@@ -187,6 +189,30 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const [imageError, setImageError] = React.useState(false);
 
+    const playbackState = usePlaybackState();
+    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const isPaused = !isPlaying;
+
+    const closeButtonProgress = useSharedValue(isPaused ? 1 : 0);
+
+    React.useEffect(() => {
+        closeButtonProgress.value = withTiming(isPaused ? 1 : 0, {
+            duration: 250,
+        });
+    }, [isPaused]);
+
+    const animatedCloseButtonStyle = useAnimatedStyle(() => ({
+        width: closeButtonProgress.value * 30,
+        marginRight: closeButtonProgress.value * 8,
+        opacity: closeButtonProgress.value,
+        transform: [{ scale: 0.6 + closeButtonProgress.value * 0.4 }],
+    }));
+
+    const handleOpenClearQueue = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        openClearQueueSheet();
+    };
+
     const hasNext = usePlayerStore(state => state.hasNext);
     const hasPrevious = usePlayerStore(state => state.hasPrevious);
 
@@ -237,34 +263,50 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
             <View style={styles.miniPlayerRow}>
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.swipeableArea, animatedStyle]}>
-                        <TouchableOpacity
-                            style={styles.swipeableContent}
-                            onPress={onPress}
-                            activeOpacity={0.9}
-                        >
-                            <View style={styles.artworkContainer}>
-                                {album?.coverUrl && !imageError ? (
-                                    <Image
-                                        key={track.id}
-                                        source={{ uri: album.coverUrl }}
-                                        style={styles.artwork}
-                                        contentFit="cover"
-                                        onError={() => setImageError(true)}
-                                    />
-                                ) : (
-                                    <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                        <Ionicons name="musical-notes" size={16} color={colors.textSecondary} />
-                                    </View>
-                                )}
-                            </View>
+                        <View style={styles.swipeableContent}>
+                            <Animated.View
+                                style={[styles.closeButtonWrapper, animatedCloseButtonStyle]}
+                                pointerEvents={isPaused ? 'auto' : 'none'}
+                            >
+                                <TouchableOpacity
+                                    style={styles.closeButton}
+                                    onPress={handleOpenClearQueue}
+                                    hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="close" size={17} color={colors.text} />
+                                </TouchableOpacity>
+                            </Animated.View>
 
-                            <View style={styles.info}>
-                                <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
-                                <Text style={styles.artist} numberOfLines={1}>
-                                    {artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.trackTouchable}
+                                onPress={onPress}
+                                activeOpacity={0.9}
+                            >
+                                <View style={styles.artworkContainer}>
+                                    {album?.coverUrl && !imageError ? (
+                                        <Image
+                                            key={track.id}
+                                            source={{ uri: album.coverUrl }}
+                                            style={styles.artwork}
+                                            contentFit="cover"
+                                            onError={() => setImageError(true)}
+                                        />
+                                    ) : (
+                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                            <Ionicons name="musical-notes" size={16} color={colors.textSecondary} />
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={styles.info}>
+                                    <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
+                                    <Text style={styles.artist} numberOfLines={1}>
+                                        {artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     </Animated.View>
                 </GestureDetector>
 
@@ -306,6 +348,16 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
     miniPlayerRow: { flex: 1, flexDirection: 'row', alignItems: 'center', width: '100%' },
     swipeableArea: { flex: 1 },
     swipeableContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingLeft: spacing.md || 12 },
+    closeButtonWrapper: { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    closeButton: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        backgroundColor: colors.overlayAlpha12 || 'rgba(255, 255, 255, 0.12)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    trackTouchable: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     safeControlsArea: { paddingHorizontal: spacing.md || 12, justifyContent: 'center', alignItems: 'center' },
     artwork: { width: 44, height: 44, borderRadius: radii.sm || 6, backgroundColor: colors.cardBackground },
     artworkPlaceholder: { justifyContent: 'center', alignItems: 'center' },
