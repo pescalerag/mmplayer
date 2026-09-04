@@ -29,7 +29,7 @@ async function fetchAndPersistLyrics(track: Track): Promise<'ok' | 'not_found' |
         const url = `https://lrclib.net/api/get?track_name=${title}&artist_name=${artist}`;
 
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'MMPlayer V2.0.0 (https://github.com/pescalerag/mmplayer)' }
+            headers: { 'User-Agent': 'MMPlayer V2.1.0 (https://github.com/pescalerag/mmplayer)' }
         });
 
         if (response.status === 429) return 'rate_limited';

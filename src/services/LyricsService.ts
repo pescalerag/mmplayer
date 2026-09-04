@@ -81,7 +81,7 @@ export const LyricsService = {
 
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'MMPlayer V2.0.0 (https://github.com/pescalerag/mmplayer)'
+                    'User-Agent': 'MMPlayer V2.1.0 (https://github.com/pescalerag/mmplayer)'
                 }
             });
 
