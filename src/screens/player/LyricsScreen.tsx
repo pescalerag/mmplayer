@@ -47,6 +47,7 @@ import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { LyricsService } from '../../services/LyricsService';
 import { formatTrackTime } from '../../utils/time';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
+import ABRepeatIcon from '@/components/player/ABRepeatIcon';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -256,6 +257,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const pointA = useABRepeatStore(state => state.pointA);
     const pointB = useABRepeatStore(state => state.pointB);
     const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
+    const handleABLongPress = useABRepeatStore(state => state.handleLongPress);
     const isServerRunning = useCastStore(state => state.isServerRunning);
 
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
@@ -657,22 +659,16 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => handleABButtonPress(position)}
+                            onLongPress={handleABLongPress}
+                            delayLongPress={350}
                             style={styles.footerButton}
                             disabled={isServerRunning}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
-                            <Ionicons
-                                name={pointA !== null ? "infinite" : "infinite-outline"}
-                                size={24}
-                                color={
-                                    isServerRunning
-                                        ? colors.disabled
-                                        : pointB !== null
-                                        ? colors.accentLight
-                                        : pointA !== null
-                                        ? "rgba(167, 139, 250, 0.5)"
-                                        : colors.textSecondary
-                                }
+                            <ABRepeatIcon
+                                pointA={pointA}
+                                pointB={pointB}
+                                disabled={isServerRunning}
                             />
                         </TouchableOpacity>
                     </View>

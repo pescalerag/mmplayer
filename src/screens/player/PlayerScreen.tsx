@@ -54,6 +54,7 @@ import { catchError } from 'rxjs/operators';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
+import ABRepeatIcon from '@/components/player/ABRepeatIcon';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
 import { getDynamicTagTextColor } from '../../utils/color';
@@ -389,6 +390,7 @@ const PlayerScreenUI = ({
     const pointA = useABRepeatStore(state => state.pointA);
     const pointB = useABRepeatStore(state => state.pointB);
     const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
+    const handleABLongPress = useABRepeatStore(state => state.handleLongPress);
 
     const artworkSource = React.useMemo(() =>
         album?.coverUrl ? { uri: album.coverUrl } : null
@@ -1513,22 +1515,16 @@ const PlayerScreenUI = ({
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => handleABButtonPress(position)}
+                                onLongPress={handleABLongPress}
+                                delayLongPress={350}
                                 style={styles.footerButton}
                                 disabled={isCasting}
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
-                                <Ionicons
-                                    name={pointA !== null ? "infinite" : "infinite-outline"}
-                                    size={24}
-                                    color={
-                                        isCasting
-                                            ? colors.disabled
-                                            : pointB !== null
-                                                ? colors.accentLight
-                                                : pointA !== null
-                                                    ? "rgba(167, 139, 250, 0.5)"
-                                                    : colors.textSecondary
-                                    }
+                                <ABRepeatIcon
+                                    pointA={pointA}
+                                    pointB={pointB}
+                                    disabled={isCasting}
                                 />
                             </TouchableOpacity>
                         </View>
