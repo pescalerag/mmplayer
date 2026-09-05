@@ -31,6 +31,17 @@ export interface StorageBreakdown {
   cacheBytes: number;
 }
 
+const getUtf8ByteLength = (str: string): number => {
+  let bytes = str.length;
+  for (let i = str.length - 1; i >= 0; i--) {
+    const code = str.charCodeAt(i);
+    if (code > 0x7f && code <= 0x7ff) bytes++;
+    else if (code > 0x7ff && code <= 0xffff) bytes += 2;
+    if (code >= 0xdc00 && code <= 0xdfff) i--;
+  }
+  return bytes;
+};
+
 const getDirectorySize = async (dirPath: string): Promise<number> => {
   if (Platform.OS === 'web' || !dirPath) return 0;
   try {
@@ -110,7 +121,7 @@ export const StorageService = {
           audioFilesBytes += tSize;
         }
         if (track.lyricsLRC) {
-          lyricsBytes += encodeURIComponent(track.lyricsLRC).replace(/%[a-f0-9]{2}/gi, 'x').length;
+          lyricsBytes += getUtf8ByteLength(track.lyricsLRC);
         }
       }
     } catch (e) {
