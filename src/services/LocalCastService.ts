@@ -40,6 +40,20 @@ const trackCacheMap = new Map<string, CachedAudioInfo>();
 const trackCopyPromises = new Map<string, Promise<CachedAudioInfo | null>>();
 let currentActiveCleanId: string | null = null;
 
+// ─── Active Track Metadata Cache (Avoid repeated DB/I/O per second) ─────────
+interface ActiveTrackMetadataCache {
+    cleanId: string;
+    title: string;
+    artist: string;
+    lyricsLRC: string | null;
+    coverFileName: string | null;
+    fileName: string | null;
+    fileSize: number;
+    mimeType: string;
+}
+let activeMetadataCache: ActiveTrackMetadataCache | null = null;
+let lastPreloadedIndex: number | null = null;
+
 // ─── Cover image cache ────────────────────────────────────────────────────────
 const coverCacheMap = new Map<string, string | null>(); // cleanId -> fileName (e.g. 'cast_cover_123.jpg') or null
 const coverCachePromises = new Map<string, Promise<string | null>>();
@@ -407,12 +421,44 @@ export const LocalCastService = {
                     const commandToSend = (currentCommand && currentCommand.id > lastClientCmdId && isSameSession) ? currentCommand : null;
 
                     const activeIndex = await TrackPlayer.getActiveTrackIndex();
-                    if (activeIndex === null || activeIndex === undefined) {
-                        res.json({ activeTrack: null, isPlaying: false, position: 0, duration: 0, command: commandToSend }, 200);
-                        return;
+                    let track: any = null;
+                    if (activeIndex !== null && activeIndex !== undefined) {
+                        track = await TrackPlayer.getTrack(activeIndex);
                     }
 
-                    let track = await TrackPlayer.getTrack(activeIndex);
+                    // Fallback to usePlayerStore activeTrack if TrackPlayer is temporarily resolving track switch
+                    if (!track) {
+                        try {
+                            const { usePlayerStore } = require('../store/usePlayerStore');
+                            track = usePlayerStore.getState().activeTrack;
+                        } catch { }
+                    }
+
+                    if (!track) {
+                        // If we had a previously active track and cast is not stopped, return last known state with isTransitioning: true
+                        if (activeMetadataCache && !isServerStopping) {
+                            res.json({
+                                title: activeMetadataCache.title,
+                                artist: activeMetadataCache.artist,
+                                isPlaying: castState.isCastPlaying,
+                                position: useCastStore.getState().castPosition || 0,
+                                duration: 0,
+                                coverFileName: activeMetadataCache.coverFileName,
+                                lyricsLRC: activeMetadataCache.lyricsLRC,
+                                fileSize: activeMetadataCache.fileSize,
+                                mimeType: activeMetadataCache.mimeType,
+                                mediaFileName: activeMetadataCache.fileName,
+                                isTransitioning: true,
+                                command: commandToSend,
+                                sessionId: serverSessionId,
+                                isStopped: false,
+                            }, 200);
+                            return;
+                        }
+
+                        res.json({ activeTrack: null, isPlaying: false, position: 0, duration: 0, command: commandToSend, isStopped: false }, 200);
+                        return;
+                    }
 
                     try {
                         const { usePlayerStore } = require('../store/usePlayerStore');
@@ -436,14 +482,28 @@ export const LocalCastService = {
                     const progress = await TrackPlayer.getProgress();
                     const isPlaying = castState.isCastPlaying;
 
-                    const title = track?.title || 'Unknown Title';
-                    const artist = track?.artist || 'Unknown Artist';
-                    let lyricsLRC: string | null = null;
-                    let coverFileName: string | null = null;
                     const cleanId = track?.id ? track.id.toString().split('-')[0] : '';
                     currentActiveCleanId = cleanId;
 
-                    if (cleanId) {
+                    let title = track?.title || 'Unknown Title';
+                    let artist = track?.artist || 'Unknown Artist';
+                    let lyricsLRC: string | null = null;
+                    let coverFileName: string | null = null;
+                    let resolvedMime = 'audio/mpeg';
+                    let resolvedSize = 0;
+                    let fileName: string | null = null;
+
+                    // ── In-Memory Metadata Cache Hit ──
+                    if (activeMetadataCache && activeMetadataCache.cleanId === cleanId && activeMetadataCache.fileName) {
+                        title = activeMetadataCache.title;
+                        artist = activeMetadataCache.artist;
+                        lyricsLRC = activeMetadataCache.lyricsLRC;
+                        coverFileName = activeMetadataCache.coverFileName;
+                        resolvedMime = activeMetadataCache.mimeType;
+                        resolvedSize = activeMetadataCache.fileSize;
+                        fileName = activeMetadataCache.fileName;
+                    } else if (cleanId) {
+                        // Cache miss: only query DB and generate cover/audio on track transition
                         try {
                             const trackModel = await database.get<Track>('tracks').find(cleanId);
                             lyricsLRC = trackModel.lyricsLRC || null;
@@ -455,15 +515,28 @@ export const LocalCastService = {
                         } catch (dbErr) {
                             console.error('[LocalCastService] DB error in /api/state:', dbErr);
                         }
-                    }
 
-                    const cacheInfo = await Promise.race([
-                        prepareTrackCache(track),
-                        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
-                    ]);
-                    const resolvedMime = cacheInfo?.mimeType ?? 'audio/mpeg';
-                    const resolvedSize = cacheInfo?.fileSize ?? 0;
-                    const fileName = cacheInfo?.filePath.split('/').pop() ?? null;
+                        const cacheInfo = await Promise.race([
+                            prepareTrackCache(track),
+                            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+                        ]);
+                        resolvedMime = cacheInfo?.mimeType ?? 'audio/mpeg';
+                        resolvedSize = cacheInfo?.fileSize ?? 0;
+                        fileName = cacheInfo?.filePath.split('/').pop() ?? null;
+
+                        if (fileName) {
+                            activeMetadataCache = {
+                                cleanId,
+                                title,
+                                artist,
+                                lyricsLRC,
+                                coverFileName,
+                                fileName,
+                                fileSize: resolvedSize,
+                                mimeType: resolvedMime,
+                            };
+                        }
+                    }
 
                     if (isSameSession && fileName) {
                         const clientPos = parseFloat(urlObj.searchParams.get('pos') || '-1');
@@ -496,7 +569,11 @@ export const LocalCastService = {
                         positionToSend = 0;
                     }
 
-                    preloadNextTrack(activeIndex).catch(() => {});
+                    // Only trigger preload once per song index change, NOT every second!
+                    if (activeIndex !== null && activeIndex !== undefined && activeIndex !== lastPreloadedIndex) {
+                        lastPreloadedIndex = activeIndex;
+                        preloadNextTrack(activeIndex).catch(() => {});
+                    }
 
                     console.log(`[LocalCastService] /api/state → "${title}" | playing:${isPlaying} | pos:${Math.round(positionToSend)}s | cmd:${commandToSend ? commandToSend.type : 'none'} | file:${fileName}`);
 
@@ -514,6 +591,7 @@ export const LocalCastService = {
                         mediaFileName: fileName,
                         command: commandToSend,
                         sessionId: serverSessionId,
+                        isStopped: false,
                     }, 200);
                     return;
                 }
@@ -612,6 +690,8 @@ export const LocalCastService = {
         playIntent = false;
         initialResumePosition = null;
         initialResumeCleanId = null;
+        activeMetadataCache = null;
+        lastPreloadedIndex = null;
 
         console.log('[LocalCastService] Server stopped, all track and cover caches cleared');
     },

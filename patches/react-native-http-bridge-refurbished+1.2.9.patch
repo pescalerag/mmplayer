@@ -6238,7 +6238,7 @@ index c35c36e..a36ba8f 100644
 +                    }
 +                }
 +
-+                boolean supportsRange = mimeType.equals("audio/mp4") || mimeType.startsWith("video/");
++                boolean supportsRange = mimeType.startsWith("audio/") || mimeType.startsWith("video/");
 +                if (supportsRange && rangeHeader != null && rangeHeader.startsWith("bytes=")) {
 +                    long start = 0;
 +                    long end = fileLength - 1;
@@ -6275,11 +6275,15 @@ index c35c36e..a36ba8f 100644
 +
 +                    java.io.FileInputStream fis = new java.io.FileInputStream(file);
 +                    if (start > 0) {
-+                        long skipped = 0;
-+                        while (skipped < start) {
-+                            long s = fis.skip(start - skipped);
-+                            if (s <= 0) break;
-+                            skipped += s;
++                        try {
++                            fis.getChannel().position(start);
++                        } catch (Exception e) {
++                            long skipped = 0;
++                            while (skipped < start) {
++                                long s = fis.skip(start - skipped);
++                                if (s <= 0) break;
++                                skipped += s;
++                            }
 +                        }
 +                    }
 +
