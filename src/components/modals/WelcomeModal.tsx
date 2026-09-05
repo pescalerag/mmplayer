@@ -2,6 +2,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +44,8 @@ export default function WelcomeModal() {
     const [permissionStatus, setPermissionStatus] = useState<MediaLibrary.PermissionStatus | null>(null);
 
     const {
+        hasSeenWelcomeModal,
+        setHasSeenWelcomeModal,
         lastSeenVersion,
         setLastSeenVersion,
         userAlias,
@@ -64,24 +67,31 @@ export default function WelcomeModal() {
     const currentVersion = Constants.expoConfig?.version || '2.0.0-beta.5';
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
+    // Silent background repair on version update without showing the welcome screen
+    useEffect(() => {
+        if (lastSeenVersion !== null && lastSeenVersion !== currentVersion) {
+            ScannerService.repairCorruptedData();
+            setLastSeenVersion(currentVersion);
+        }
+    }, [lastSeenVersion, currentVersion, setLastSeenVersion]);
+
     useEffect(() => {
         if (visible) return;
 
-        // Condition to show: First install (lastSeenVersion is null) OR Update (lastSeenVersion !== currentVersion)
-        // Also show if userAlias is null (in case they skipped it before)
-        if (lastSeenVersion !== currentVersion || !userAlias || forceWelcomeModal) {
-            if (lastSeenVersion !== null && lastSeenVersion !== currentVersion && !forceWelcomeModal) {
-                // Perform repair if it's an update (and not just changing alias)
-                ScannerService.repairCorruptedData();
-            }
-            // Pre-fill if they already have an alias
+        // Condition to show:
+        // ONLY the very first time the app is opened in its lifetime (brand new install),
+        // or if explicitly forced from settings.
+        // If hasSeenWelcomeModal is true, or if lastSeenVersion was already recorded in past versions, do not show!
+        const isFirstLaunchEver = !hasSeenWelcomeModal && lastSeenVersion === null;
+
+        if (forceWelcomeModal || isFirstLaunchEver) {
             if (userAlias) {
                 setAliasInput(userAlias);
             }
             setVisible(true);
             setStep('alias'); // Always start onboarding at alias step
         }
-    }, [lastSeenVersion, currentVersion, userAlias, forceWelcomeModal, visible]);
+    }, [hasSeenWelcomeModal, lastSeenVersion, forceWelcomeModal, visible, userAlias]);
 
     useEffect(() => {
         if (visible) {
@@ -158,6 +168,7 @@ export default function WelcomeModal() {
     };
 
     const handleFinishSetup = () => {
+        setHasSeenWelcomeModal(true);
         setLastSeenVersion(currentVersion);
         setForceWelcomeModal(false);
         setVisible(false);
@@ -173,7 +184,7 @@ export default function WelcomeModal() {
                     source={require('../../assets/images/splash-icon.png')}
                     style={styles.icon}
                     contentFit="contain"
-                    tintColor={colors.text}
+                    tintColor="#FFFFFF"
                 />
 
                 <Text style={styles.title}>{t('welcome.title')}</Text>
@@ -182,7 +193,7 @@ export default function WelcomeModal() {
                 <TextInput
                     style={styles.input}
                     placeholder={t('welcome.placeholder')}
-                    placeholderTextColor={colors.textSecondary}
+                    placeholderTextColor="rgba(255, 255, 255, 0.45)"
                     value={aliasInput}
                     onChangeText={setAliasInput}
                     maxLength={30}
@@ -204,7 +215,7 @@ export default function WelcomeModal() {
 
     const renderPermissionScreen = () => (
         <View style={[styles.content, { paddingTop: Math.max(insets.top, 24) }]}>
-            <Ionicons name="folder-open-outline" size={96} color={colors.accent} style={{ marginBottom: 20 }} />
+            <Ionicons name="folder-open-outline" size={96} color="#E9D5FF" style={{ marginBottom: 20 }} />
 
             <Text style={styles.title}>{t('welcome.permission_title')}</Text>
             <Text style={styles.subtitle}>{t('welcome.permission_subtitle')}</Text>
@@ -282,7 +293,7 @@ export default function WelcomeModal() {
                     {features.map((feat, idx) => (
                         <View key={idx} style={styles.featureItem2}>
                             <View style={styles.featureIconContainer2}>
-                                <Ionicons name={feat.icon as any} size={18} color={colors.accent} />
+                                <Ionicons name={feat.icon as any} size={18} color="#D8B4FE" />
                             </View>
                             <Text style={styles.featureText2}>{feat.text}</Text>
                         </View>
@@ -329,7 +340,7 @@ export default function WelcomeModal() {
                 <Text style={[styles.subtitle, { marginBottom: 16 }]}>{t('welcome.settings_subtitle')}</Text>
 
                 <View style={styles.infoBox}>
-                    <Ionicons name="information-circle-outline" size={20} color={colors.accent} />
+                    <Ionicons name="information-circle-outline" size={20} color="#D8B4FE" />
                     <Text style={styles.infoText}>{t('welcome.settings_notice')}</Text>
                 </View>
 
@@ -438,10 +449,28 @@ export default function WelcomeModal() {
 
     return (
         <View
-            style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: colors.background }]}
+            style={[StyleSheet.absoluteFill, { zIndex: 10000, backgroundColor: '#512878' }]}
             pointerEvents={visible ? 'auto' : 'none'}
         >
             <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+                {/* Background Radial Gradient */}
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                    <LinearGradient
+                        colors={['#1E022B', '#0A0312']}
+                        start={{ x: 0.5, y: 0.15 }}
+                        end={{ x: 0.5, y: 1.0 }}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <Image
+                        source={require('../../assets/images/welcome-radial-bg.svg')}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        priority="high"
+                    />
+                    {/* Darkening tint overlay */}
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]} />
+                </View>
+
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
@@ -459,7 +488,7 @@ export default function WelcomeModal() {
 const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
+        backgroundColor: 'transparent',
     },
     keyboardView: {
         flex: 1,
@@ -476,15 +505,18 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         marginBottom: 8,
     },
     title: {
-        color: colors.text,
+        color: '#FFFFFF',
         fontSize: 32,
         fontFamily: fonts.regular,
         fontWeight: '900',
         textAlign: 'center',
         marginBottom: 12,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 6,
     },
     subtitle: {
-        color: colors.textSecondary,
+        color: 'rgba(255, 255, 255, 0.82)',
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: '600',
@@ -494,16 +526,16 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     input: {
         width: '100%',
         height: 56,
-        backgroundColor: colors.cardBackground,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         borderRadius: 16,
         paddingHorizontal: 20,
-        color: colors.text,
+        color: '#FFFFFF',
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: '700',
         marginBottom: 32,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255, 255, 255, 0.18)',
         textAlign: 'center',
     },
     button: {
@@ -515,15 +547,17 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         alignItems: 'center',
         shadowColor: colors.accent,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.4,
         shadowRadius: 8,
         elevation: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
     },
     buttonDisabled: {
         opacity: 0.5,
     },
     buttonText: {
-        color: colors.onAccent,
+        color: '#FFFFFF',
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: '800',
@@ -537,7 +571,8 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         width: '100%',
         height: 56,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
+        borderColor: 'rgba(255, 255, 255, 0.25)',
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
@@ -549,7 +584,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         fontWeight: '800',
     },
     warningText: {
-        color: '#EF4444',
+        color: '#F87171',
         fontSize: 13,
         fontFamily: fonts.regular,
         fontWeight: '600',
@@ -565,29 +600,31 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     infoBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(139, 92, 246, 0.08)',
+        backgroundColor: 'rgba(15, 6, 24, 0.7)',
         borderRadius: 12,
         padding: 12,
         gap: 8,
         marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(168, 85, 247, 0.3)',
     },
     infoText: {
-        color: colors.textSecondary,
+        color: 'rgba(255, 255, 255, 0.85)',
         fontSize: 12,
         fontFamily: fonts.regular,
         fontWeight: '600',
         flex: 1,
     },
     card: {
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        backgroundColor: 'rgba(15, 6, 24, 0.7)',
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.04)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
     },
     cardHeader: {
-        color: colors.text,
+        color: '#FFFFFF',
         fontSize: 15,
         fontFamily: fonts.regular,
         fontWeight: '800',
@@ -599,20 +636,20 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         justifyContent: 'space-between',
     },
     settingLabel: {
-        color: colors.text,
+        color: '#FFFFFF',
         fontSize: 15,
         fontFamily: fonts.regular,
         fontWeight: '800',
     },
     settingLabelSub: {
-        color: colors.text,
+        color: '#E9D5FF',
         fontSize: 13,
         fontFamily: fonts.regular,
         fontWeight: '600',
         marginTop: 2,
     },
     settingDesc: {
-        color: colors.textSecondary,
+        color: 'rgba(255, 255, 255, 0.75)',
         fontSize: 11,
         fontFamily: fonts.regular,
         fontWeight: '600',
@@ -629,22 +666,22 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
         borderRadius: 12,
         paddingVertical: 12,
         gap: 8,
     },
     langBtnActive: {
-        backgroundColor: 'rgba(139, 92, 246, 0.15)',
-        borderColor: colors.accent,
+        backgroundColor: 'rgba(168, 85, 247, 0.35)',
+        borderColor: '#C084FC',
     },
     langEmoji: {
         fontSize: 20,
     },
     langText: {
-        color: '#888888',
+        color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 14,
         fontFamily: fonts.regular,
         fontWeight: '700',
@@ -663,19 +700,19 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         minWidth: '45%',
         paddingVertical: 10,
         paddingHorizontal: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
     swipeOptBtnActive: {
-        backgroundColor: 'rgba(139, 92, 246, 0.15)',
-        borderColor: colors.accent,
+        backgroundColor: 'rgba(168, 85, 247, 0.35)',
+        borderColor: '#C084FC',
     },
     swipeOptText: {
-        color: '#888888',
+        color: 'rgba(255, 255, 255, 0.7)',
         fontSize: 12,
         fontFamily: fonts.regular,
         fontWeight: '700',
@@ -696,30 +733,30 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         flexGrow: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backgroundColor: 'rgba(15, 6, 24, 0.7)',
         borderRadius: 12,
         padding: 10,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.04)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
         gap: 8,
     },
     featureIconContainer2: {
         width: 32,
         height: 32,
         borderRadius: 8,
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        backgroundColor: 'rgba(168, 85, 247, 0.25)',
         justifyContent: 'center',
         alignItems: 'center',
     },
     featureText2: {
-        color: colors.text,
+        color: '#FFFFFF',
         fontSize: 11,
         fontFamily: fonts.regular,
         fontWeight: '700',
         flex: 1,
     },
     andMuchMoreText: {
-        color: colors.textSecondary,
+        color: 'rgba(255, 255, 255, 0.85)',
         fontSize: 14,
         fontFamily: fonts.regular,
         fontWeight: '700',
@@ -727,12 +764,12 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         marginBottom: 20,
     },
     tipCard: {
-        backgroundColor: 'rgba(255, 215, 0, 0.08)',
+        backgroundColor: 'rgba(20, 10, 5, 0.65)',
         borderRadius: 20,
         padding: 20,
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255, 215, 0, 0.2)',
+        borderColor: 'rgba(255, 215, 0, 0.35)',
     },
     tipHeader: {
         flexDirection: 'row',
@@ -741,13 +778,13 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         marginBottom: 8,
     },
     tipTitle: {
-        color: '#FFD700',
+        color: '#FDE047',
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: '900',
     },
     tipDesc: {
-        color: colors.text,
+        color: 'rgba(255, 255, 255, 0.92)',
         fontSize: 13,
         fontFamily: fonts.regular,
         fontWeight: '600',

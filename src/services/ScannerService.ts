@@ -935,6 +935,7 @@ export const ScannerService = {
                 excludedFolders: [],
                 excludedSongs: [],
                 lastSeenVersion: null,
+                hasSeenWelcomeModal: false,
             });
 
             onProgress?.(0, 0, 'Reiniciando base de datos local...');

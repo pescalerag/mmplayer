@@ -37,6 +37,8 @@ interface SettingsState {
     setUserAvatarUri: (uri: string | null) => void;
     forceWelcomeModal: boolean;
     setForceWelcomeModal: (value: boolean) => void;
+    hasSeenWelcomeModal: boolean;
+    setHasSeenWelcomeModal: (value: boolean) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
     hideSyncToastOnResume: boolean;
@@ -217,6 +219,8 @@ export const useSettingsStore = create<SettingsState>()(
             setUserAvatarUri: (uri) => set({ userAvatarUri: uri }),
             forceWelcomeModal: false,
             setForceWelcomeModal: (value) => set({ forceWelcomeModal: value }),
+            hasSeenWelcomeModal: false,
+            setHasSeenWelcomeModal: (value) => set({ hasSeenWelcomeModal: value }),
             language: null,
             setLanguage: (lang) => {
                 set({ language: lang });
