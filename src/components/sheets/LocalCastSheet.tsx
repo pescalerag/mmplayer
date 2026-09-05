@@ -303,8 +303,8 @@ export default function LocalCastSheet() {
               disabled={isLoading}
               activeOpacity={0.8}
             >
-              <Ionicons name="wifi" size={20} color="#fff" style={{ marginRight: 10 }} />
-              <Text style={styles.actionButtonText}>
+              <Ionicons name="wifi" size={20} color={colors.onAccent} style={{ marginRight: 10 }} />
+              <Text style={[styles.actionButtonText, { color: colors.onAccent }]}>
                 {isLoading ? t('cast.starting') : t('cast.start')}
               </Text>
             </TouchableOpacity>

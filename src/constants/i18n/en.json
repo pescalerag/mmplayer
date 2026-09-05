@@ -109,7 +109,9 @@
     "user_playlists": "Your Playlists",
     "smart_playlists": "Smart Playlists",
     "smart_listening_title": "Listens-based Playlists",
-    "smart_rating_title": "Rating-based Playlists"
+    "smart_rating_title": "Rating-based Playlists",
+    "smart_genre_title": "Genre Playlists",
+    "smart_genre_desc": "{{genre}} songs"
   },
   "search": {
     "placeholder": "Search artists, albums, or songs",
@@ -217,8 +219,11 @@
     "artist_images_select_mode_first": "Please select a download mode first.",
     "artist_images_download_title": "Download Images",
     "artist_images_download_prompt": "What type of download would you like to perform?",
+    "artist_images_download_confirm": "What type of download would you like to perform?",
     "artist_images_download_missing": "Download missing images",
+    "artist_images_download_all_btn": "Download missing images",
     "artist_images_download_all": "Update all images",
+    "artist_images_refresh_all_btn": "Update all images",
     "artist_images_bg_download": "Background download",
     "artist_images_bg_download_label": "Enable background download",
     "artist_images_bg_download_desc": "Downloads images automatically during library scans. If disabled, they can only be downloaded manually.",
@@ -351,7 +356,8 @@
     "save_to_playlist_title": "Add queue to playlist",
     "save_all_to_playlist": "Add entire queue (includes previous)",
     "save_upcoming_to_playlist": "Add upcoming queue (without previous)",
-    "save_manual_to_playlist": "Add manual queue only"
+    "save_manual_to_playlist": "Add manual queue only",
+    "clear_all_upcoming": "Clear all upcoming tracks"
   },
   "playlist": {
     "new": "New playlist",

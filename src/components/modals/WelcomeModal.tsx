@@ -523,7 +523,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         opacity: 0.5,
     },
     buttonText: {
-        color: '#FFFFFF',
+        color: colors.onAccent,
         fontSize: 16,
         fontFamily: fonts.regular,
         fontWeight: '800',

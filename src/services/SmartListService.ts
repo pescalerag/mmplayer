@@ -9,8 +9,9 @@ export interface SmartList {
   id: string;
   name: string;
   description: string;
-  placeholderIcon: 'star-half-outline' | 'star' | 'star-outline' | 'time-outline' | 'calendar-outline' | 'stats-chart-outline';
-  group?: 'listening' | 'rating';
+  placeholderIcon: string;
+  group?: 'listening' | 'rating' | 'genre';
+  genre?: string;
   getTracks: () => Promise<Track[]>;
 }
 
@@ -170,6 +171,48 @@ export const SmartListService = {
         .filter((t): t is Track => !!t);
     } catch (e) {
       console.error('[SmartListService] Error getting top tracks by duration:', e);
+      return [];
+    }
+  },
+
+  async getGenreSmartLists(): Promise<SmartList[]> {
+    try {
+      const tracks = await database.collections.get<Track>('tracks')
+        .query(
+          Q.where('genre', Q.notEq(null)),
+          Q.where('genre', Q.notEq(''))
+        )
+        .fetch();
+
+      const lang = i18n.language || 'es';
+      const isEs = lang.startsWith('es');
+
+      const genreSet = new Set<string>();
+      for (const t of tracks) {
+        const g = t.genre?.trim();
+        if (g) {
+          genreSet.add(g);
+        }
+      }
+
+      const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+
+      return sortedGenres.map(genre => ({
+        id: `genre_${encodeURIComponent(genre)}`,
+        name: genre,
+        description: isEs ? `Canciones del género ${genre}` : `${genre} songs`,
+        placeholderIcon: 'disc-outline',
+        group: 'genre' as const,
+        genre,
+        getTracks: async () => {
+          return database.collections.get<Track>('tracks').query(
+            Q.where('genre', genre),
+            Q.sortBy('title', Q.asc)
+          ).fetch();
+        }
+      }));
+    } catch (e) {
+      console.error('[SmartListService] Error getting genre smart lists:', e);
       return [];
     }
   }

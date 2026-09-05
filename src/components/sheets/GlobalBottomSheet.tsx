@@ -40,6 +40,7 @@ import TrackMenuSheet from '@/components/sheets/TrackMenuSheet';
 import BatchMenuSheet from '@/components/sheets/BatchMenuSheet';
 import AdvancedTagSearchSheet from '@/components/sheets/AdvancedTagSearchSheet';
 import EditAliasSheet from '@/components/sheets/EditAliasSheet';
+import QueueManageSheet from '@/components/sheets/QueueManageSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -209,6 +210,8 @@ export default function GlobalBottomSheet() {
         return <AdvancedTagSearchSheet />;
       case 'edit-alias':
         return <EditAliasSheet />;
+      case 'clear-queue':
+        return <QueueManageSheet />;
       default:
         return null;
     }

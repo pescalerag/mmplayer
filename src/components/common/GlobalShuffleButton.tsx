@@ -47,7 +47,7 @@ export const GlobalShuffleButton: React.FC = () => {
       }}
     >
       <LinearGradient
-        colors={[colors.accent, '#4C1D95']}
+        colors={[colors.accent, colors.accentDark || '#4C1D95']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={[
@@ -58,15 +58,15 @@ export const GlobalShuffleButton: React.FC = () => {
         ]}
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#FFFFFF" style={{ alignSelf: 'center', width: '100%' }} />
+          <ActivityIndicator size="small" color={colors.onAccent} style={{ alignSelf: 'center', width: '100%' }} />
         ) : (
           <>
             <View style={styles.textContainer}>
-              <Text style={[styles.text, { fontFamily: fonts.bold }]}>
+              <Text style={[styles.text, { fontFamily: fonts.bold, color: colors.onAccent }]}>
                 {t('home.global_shuffle') || 'REPRODUCCIÓN ALEATORIA'}
               </Text>
             </View>
-            <Ionicons name="shuffle" size={24} color="#FFFFFF" />
+            <Ionicons name="shuffle" size={24} color={colors.onAccent} />
           </>
         )}
       </LinearGradient>

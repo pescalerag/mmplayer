@@ -112,7 +112,7 @@ export default function AdvancedTagSearchSheet() {
           <Switch
             value={matchAll}
             onValueChange={setMatchAll}
-            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+            trackColor={{ false: '#282828', true: colors.accent }}
             thumbColor={matchAll ? '#FFFFFF' : '#888888'}
             ios_backgroundColor="#282828"
           />
@@ -131,7 +131,7 @@ export default function AdvancedTagSearchSheet() {
           <Switch
             value={noPlaylists}
             onValueChange={setNoPlaylists}
-            trackColor={{ false: '#282828', true: '#8B5CF6' }}
+            trackColor={{ false: '#282828', true: colors.accent }}
             thumbColor={noPlaylists ? '#FFFFFF' : '#888888'}
             ios_backgroundColor="#282828"
           />
@@ -190,7 +190,7 @@ export default function AdvancedTagSearchSheet() {
           <Text style={styles.cancelButtonText}>{t('common.cancel') || "Cancelar"}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.searchButton} onPress={handleSearchSubmit}>
-          <Ionicons name="search" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Ionicons name="search" size={18} color={colors.onAccent} style={{ marginRight: 6 }} />
           <Text style={styles.searchButtonText}>{t('actions.search') || "Buscar"}</Text>
         </TouchableOpacity>
       </View>
@@ -384,13 +384,13 @@ const getStyles = (colors: any, fonts: any, layout: any, radii: any) => StyleShe
     flex: 2,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.accent,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
   searchButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAccent,
     fontSize: 15,
     fontFamily: fonts.regular,
     fontWeight: '700',

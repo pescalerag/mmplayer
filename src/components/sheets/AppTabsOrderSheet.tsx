@@ -8,6 +8,7 @@ import { useSheetProps } from '@/hooks/useSheetProps';
 import { AppTabType, useSettingsStore } from '../../store/useSettingsStore';
 import { saveSettingsAndRestart } from '../../utils/restartHelper';
 import { DraggableTabItem } from '@/components/common/DraggableTabItem';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const ALL_TABS: { id: AppTabType, labelKey: string, icon: any }[] = [
   { id: 'Inicio', labelKey: 'navigation.home', icon: 'home' },
@@ -19,6 +20,7 @@ const ALL_TABS: { id: AppTabType, labelKey: string, icon: any }[] = [
 
 export default function AppTabsOrderSheet() {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
   const { close: closeSheet } = useSheetProps('app-tabs-order');
   const { appTabsOrder, initialAppRoute } = useSettingsStore();
 
@@ -76,12 +78,12 @@ export default function AppTabsOrderSheet() {
             const isSelected = selectedInitial === tab.id;
             return (
               <TouchableOpacity
-                key={`initial-${tab.id}`}
-                style={[styles.chip, isSelected && styles.chipSelected]}
+                key={tab.id}
+                style={[styles.chip, isSelected && [styles.chipSelected, { backgroundColor: colors.accent }]]}
                 onPress={() => setSelectedInitial(tab.id)}
               >
-                <Ionicons name={tab.icon} size={16} color={isSelected ? "#FFF" : "#888"} style={{ marginRight: 6 }} />
-                <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                <Ionicons name={tab.icon} size={16} color={isSelected ? colors.onAccent : "#888"} style={{ marginRight: 6 }} />
+                <Text style={[styles.chipText, isSelected && [styles.chipTextSelected, { color: colors.onAccent }]]}>
                   {t(tab.labelKey) || tab.id}
                 </Text>
               </TouchableOpacity>
@@ -108,16 +110,16 @@ export default function AppTabsOrderSheet() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.confirmButton, isRestarting && { opacity: 0.7 }]}
+          style={[styles.confirmButton, { backgroundColor: colors.accent }, isRestarting && { opacity: 0.7 }]}
           onPress={handleConfirmAndRestart}
           disabled={isRestarting}
         >
           {isRestarting ? (
-            <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
+            <ActivityIndicator size="small" color={colors.onAccent} style={{ marginRight: 8 }} />
           ) : (
-            <Ionicons name="refresh" size={20} color="#FFF" style={{ marginRight: 8 }} />
+            <Ionicons name="refresh" size={20} color={colors.onAccent} style={{ marginRight: 8 }} />
           )}
-          <Text style={styles.confirmButtonText}>
+          <Text style={[styles.confirmButtonText, { color: colors.onAccent }]}>
             {isRestarting
               ? (t('settings.restarting') || 'Reiniciando...')
               : (t('settings.confirm_restart') || 'Confirmar y Reiniciar')}

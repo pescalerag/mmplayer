@@ -468,15 +468,6 @@ export default function BenefitsView() {
                         </View>
                     </View>
 
-                    {activeCustomAccent && (
-                        <TouchableOpacity
-                            style={styles.resetAccentBtn}
-                            onPress={() => handleAccentSelect('#8B5CF6')}
-                        >
-                            <Ionicons name="refresh-outline" size={14} color="#FBBF24" style={{ marginRight: 4 }} />
-                            <Text style={styles.resetAccentText}>{t('support.accent_reset_default')}</Text>
-                        </TouchableOpacity>
-                    )}
                 </View>
 
                 {/* 4 Presets + Custom Color Button */}
@@ -552,6 +543,21 @@ export default function BenefitsView() {
                         </Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Reset to Default Button */}
+                {activeCustomAccent && (
+                    <TouchableOpacity
+                        style={styles.resetAccentBtn}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                            setCustomColorMode(false);
+                            handleAccentSelect('#8B5CF6');
+                        }}
+                    >
+                        <Ionicons name="refresh-outline" size={15} color="#FBBF24" style={{ marginRight: 6 }} />
+                        <Text style={styles.resetAccentText}>{t('support.accent_reset_default')}</Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* Expanded ColorPicker Mode */}
                 {customColorMode && (
@@ -1059,16 +1065,19 @@ const styles = StyleSheet.create({
     resetAccentBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 158, 11, 0.15)',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
+        justifyContent: 'center',
+        alignSelf: 'center',
+        backgroundColor: 'rgba(245, 158, 11, 0.12)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
         borderWidth: 1,
         borderColor: 'rgba(245, 158, 11, 0.3)',
+        marginTop: 14,
     },
     resetAccentText: {
         color: '#FBBF24',
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '700',
     },
     accentPresetsGrid: {

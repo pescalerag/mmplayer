@@ -224,7 +224,7 @@ export default function TagManagerModal() {
           openTagForm(null, reloadData);
         }}
       >
-        <Ionicons name="add-circle-outline" size={20} color={colors.text} />
+        <Ionicons name="add-circle-outline" size={20} color={colors.onAccent} />
         <Text style={styles.createTagButtonGlobalText}>{t('tags.create')}</Text>
       </TouchableOpacity>
     </View>
@@ -326,7 +326,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     gap: 8,
   },
   createTagButtonGlobalText: {
-    color: colors.text,
+    color: colors.onAccent,
     fontFamily: fonts.regular,
     fontWeight: '800',
     fontSize: 14,

@@ -171,7 +171,7 @@ const getStyles = (colors: any, fonts: any, fontWeights: any, radii: any) =>
       opacity: 0.4,
     },
     saveButtonText: {
-      color: '#FFFFFF',
+      color: colors?.onAccent || '#FFFFFF',
       fontSize: 15,
       fontFamily: fonts?.regular || 'Montserrat',
       fontWeight: '800',

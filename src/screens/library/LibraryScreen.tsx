@@ -89,6 +89,7 @@ const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track 
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
     const playbackContext = usePlayerStore(state => state.playbackContext);
@@ -136,9 +137,9 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
                     <Ionicons name="shuffle" size={20} color="#FFFFFF" />
                     <Text style={styles.shuffleBtnText}>{t('actions.shuffle')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.playBtn, { flex: 1 }]} onPress={handlePlayPress}>
-                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color="#FFFFFF" style={isCurrentContextPlaying ? {} : { marginLeft: 4 }} />
-                    <Text style={styles.playBtnText}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
+                <TouchableOpacity style={[styles.playBtn, { flex: 1, backgroundColor: colors.accent }]} onPress={handlePlayPress}>
+                    <Ionicons name={isCurrentContextPlaying ? "pause" : "play"} size={22} color={colors.onAccent} style={isCurrentContextPlaying ? {} : { marginLeft: 4 }} />
+                    <Text style={[styles.playBtnText, { color: colors.onAccent }]}>{isCurrentContextPlaying ? t('actions.pause') : t('actions.play')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -313,6 +314,7 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
     const setArtistFilter = useLibraryStore(state => state.setArtistFilter);
 
@@ -357,7 +359,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            artistFilter === 'album' && styles.artistSelectorBtnActive,
+                            artistFilter === 'album' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setArtistFilter('album')}
@@ -365,7 +367,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            artistFilter === 'album' && styles.artistSelectorTextActive
+                            artistFilter === 'album' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.album_artists')}
                         </Text>
@@ -373,7 +375,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            artistFilter === 'all' && styles.artistSelectorBtnActive,
+                            artistFilter === 'all' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setArtistFilter('all')}
@@ -381,7 +383,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            artistFilter === 'all' && styles.artistSelectorTextActive
+                            artistFilter === 'all' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.all_artists')}
                         </Text>
@@ -596,6 +598,39 @@ const RatingSmartListCard = withObservables(
     );
 });
 
+const getGenreQuery = (genre: string) => {
+    return database.collections.get<Track>('tracks').query(
+        Q.where('genre', genre),
+        Q.sortBy('title', Q.asc)
+    );
+};
+
+const GenreSmartListCard = withObservables(
+    ['genre'],
+    ({ genre }: { genre: string }) => ({
+        tracks: getGenreQuery(genre).observe().pipe(catchError(() => of([]))),
+    })
+)(function GenreSmartListCardWrapper({
+    smartList,
+    tracks,
+    colIndex,
+    onPress,
+}: {
+    smartList: SmartList;
+    tracks: Track[];
+    colIndex: number;
+    onPress: () => void;
+}) {
+    return (
+        <SmartListCardBase
+            smartList={smartList}
+            tracks={tracks}
+            colIndex={colIndex}
+            onPress={onPress}
+        />
+    );
+});
+
 const HistorySmartListCard = withObservables(
     ['smartListId'],
     ({ smartListId }: { smartListId: string }) => ({
@@ -634,6 +669,7 @@ const HistorySmartListCard = withObservables(
 
 const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const navigation = useNavigation<LibraryNavigationProp>();
     const playlistFilter = useLibraryStore(state => state.playlistFilter);
     const setPlaylistFilter = useLibraryStore(state => state.setPlaylistFilter);
@@ -645,6 +681,46 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     const handleNavFavorites = React.useCallback(() => {
         navigation.navigate('FavoritesDetail');
     }, [navigation]);
+
+    const [genreLists, setGenreLists] = React.useState<SmartList[]>([]);
+
+    React.useEffect(() => {
+        if (playlistFilter !== 'smart') return;
+        const sub = database.collections.get<Track>('tracks')
+            .query(
+                Q.where('genre', Q.notEq(null)),
+                Q.where('genre', Q.notEq(''))
+            )
+            .observe()
+            .pipe(catchError(() => of([])))
+            .subscribe((tracks) => {
+                const genreSet = new Set<string>();
+                for (const t of tracks) {
+                    const g = t.genre?.trim();
+                    if (g) {
+                        genreSet.add(g);
+                    }
+                }
+                const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+                const lists: SmartList[] = sortedGenres.map(genre => ({
+                    id: `genre_${encodeURIComponent(genre)}`,
+                    name: genre,
+                    description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
+                    placeholderIcon: 'disc-outline',
+                    group: 'genre' as const,
+                    genre,
+                    getTracks: async () => {
+                        return database.collections.get<Track>('tracks').query(
+                            Q.where('genre', genre),
+                            Q.sortBy('title', Q.asc)
+                        ).fetch();
+                    }
+                }));
+                setGenreLists(lists);
+            });
+
+        return () => sub.unsubscribe();
+    }, [playlistFilter, t]);
 
     const sortedPlaylists = React.useMemo(() => {
         if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
@@ -699,6 +775,21 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     });
                 });
             }
+            if (genreLists.length > 0) {
+                smartItems.push({
+                    id: 'header_genre',
+                    isHeader: true,
+                    title: t('library.smart_genre_title') || "Playlists por género"
+                });
+                genreLists.forEach((list, idx) => {
+                    smartItems.push({
+                        id: `smart_${list.id}`,
+                        smartList: list,
+                        colIndex: idx,
+                        isSmart: true
+                    });
+                });
+            }
             return smartItems;
         }
         return [
@@ -706,7 +797,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
             ...sortedPlaylists
         ];
-    }, [playlistFilter, sortedPlaylists, t]);
+    }, [playlistFilter, sortedPlaylists, genreLists, t]);
 
     return (
         <FlashList
@@ -748,12 +839,24 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                 if ('isSmart' in item && item.isSmart) {
                     const list: SmartList = item.smartList;
                     const isRating = list.id.startsWith('rating_');
+                    const isGenre = list.id.startsWith('genre_');
                     const handlePress = () => navigation.navigate('SmartListDetail', { smartListId: list.id });
 
                     if (isRating) {
                         return (
                             <RatingSmartListCard
                                 smartListId={list.id}
+                                smartList={list}
+                                colIndex={item.colIndex}
+                                onPress={handlePress}
+                            />
+                        );
+                    }
+
+                    if (isGenre) {
+                        return (
+                            <GenreSmartListCard
+                                genre={list.genre || decodeURIComponent(list.id.replace('genre_', ''))}
                                 smartList={list}
                                 colIndex={item.colIndex}
                                 onPress={handlePress}
@@ -831,7 +934,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            playlistFilter === 'user' && styles.artistSelectorBtnActive,
+                            playlistFilter === 'user' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setPlaylistFilter('user')}
@@ -839,7 +942,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            playlistFilter === 'user' && styles.artistSelectorTextActive
+                            playlistFilter === 'user' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.user_playlists')}
                         </Text>
@@ -847,7 +950,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
-                            playlistFilter === 'smart' && styles.artistSelectorBtnActive,
+                            playlistFilter === 'smart' && [styles.artistSelectorBtnActive, { backgroundColor: colors.accent }],
                             { flex: 1 }
                         ]}
                         onPress={() => setPlaylistFilter('smart')}
@@ -855,7 +958,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                     >
                         <Text style={[
                             styles.artistSelectorText,
-                            playlistFilter === 'smart' && styles.artistSelectorTextActive
+                            playlistFilter === 'smart' && [styles.artistSelectorTextActive, { color: colors.onAccent }]
                         ]}>
                             {t('library.smart_playlists')}
                         </Text>
@@ -1225,7 +1328,7 @@ export default function LibraryScreen() {
                             style={[styles.tabButton, index === i && { backgroundColor: colors.accent }]}
                             onPress={() => setIndex(i)}
                         >
-                            <Text style={[styles.tabText, index === i && styles.activeTabText]}>{route.title}</Text>
+                            <Text style={[styles.tabText, index === i && [styles.activeTabText, { color: colors.onAccent }]]}>{route.title}</Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
@@ -1412,7 +1515,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
     },
     folderBackBtnText: {
-        color: '#8B5CF6',
+        color: Colors.accent,
         fontSize: 13,
         fontFamily: 'Montserrat',
         fontWeight: '700',

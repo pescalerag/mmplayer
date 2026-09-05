@@ -385,7 +385,7 @@ export default function ActivityMainScreen() {
                 style={[
                   styles.periodTabText,
                   { fontFamily: fonts.bold },
-                  isActive ? { color: '#FFFFFF' } : { color: colors.textSecondary },
+                  isActive ? { color: colors.onAccent } : { color: colors.textSecondary },
                 ]}
               >
                 {t(`activity.periods.${p}`)}
@@ -935,7 +935,7 @@ export default function ActivityMainScreen() {
                     onPress={applyCustomRange}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.acceptBtnText, { fontFamily: fonts.bold, color: '#FFFFFF' }]}>
+                    <Text style={[styles.acceptBtnText, { fontFamily: fonts.bold, color: colors.onAccent }]}>
                       {t('common.accept')}
                     </Text>
                   </TouchableOpacity>

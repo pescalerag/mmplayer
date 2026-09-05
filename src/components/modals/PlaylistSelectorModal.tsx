@@ -244,7 +244,7 @@ export default function PlaylistSelectorModal() {
             style={styles.createButton}
             onPress={() => setIsCreating(true)}
           >
-            <Ionicons name="add" size={20} color={colors.text} />
+            <Ionicons name="add" size={20} color={colors.onAccent} />
             <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>
           </TouchableOpacity>
 
@@ -325,7 +325,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     gap: 8,
   },
   createButtonText: {
-    color: colors.text,
+    color: colors.onAccent,
     fontFamily: fonts.regular,
     fontWeight: '800',
     fontSize: 14,
@@ -434,7 +434,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     backgroundColor: colors.accent,
   },
   btnConfirmText: {
-    color: colors.text,
+    color: colors.onAccent,
     fontFamily: fonts.regular,
     fontWeight: '800',
     fontSize: 14,

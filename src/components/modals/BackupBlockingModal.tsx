@@ -78,7 +78,7 @@ export default function BackupBlockingModal() {
                                     onPress={close}
                                     activeOpacity={0.8}
                                 >
-                                    <Text style={[styles.buttonText, { fontFamily: fonts.bold }]}>
+                                    <Text style={[styles.buttonText, { fontFamily: fonts.bold }, mode !== 'error' && { color: colors.onAccent }]}>
                                         {mode === 'error' ? 'Cerrar' : 'Aceptar'}
                                     </Text>
                                 </TouchableOpacity>

@@ -68,12 +68,12 @@ const DetailHeaderLayout = ({
                 renderCover()
             ) : isFavorites ? (
                 <LinearGradient
-                    colors={['#7C3AED', '#4C1D95']}
+                    colors={[colors.accent, colors.accentDark || '#4C1D95']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[styles.headerImage, styles.headerPlaceholder]}
                 >
-                    <Ionicons name="heart" size={100} color={colors.text} />
+                    <Ionicons name="heart" size={100} color={colors.onAccent} />
                 </LinearGradient>
             ) : imageUrl ? (
                 <Image

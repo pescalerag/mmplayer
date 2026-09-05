@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSettingsStore, StatsCardTheme } from '../../store/useSettingsStore';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -397,6 +398,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
 ShareCard.displayName = 'ShareCard';
 
 export default function ActivityShareScreen() {
+  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -553,15 +555,15 @@ export default function ActivityShareScreen() {
       <TouchableOpacity
         onPress={handleCaptureAndShare}
         disabled={isCapturing}
-        style={[styles.shareBtn, { width: Math.min(SCREEN_WIDTH - 40, cardWidth) }]}
+        style={[styles.shareBtn, { width: Math.min(SCREEN_WIDTH - 40, cardWidth), backgroundColor: colors.accent }]}
         activeOpacity={0.8}
       >
         {isCapturing ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <ActivityIndicator size="small" color={colors.onAccent} />
         ) : (
           <>
-            <Ionicons name="share-social" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.shareBtnText}>
+            <Ionicons name="share-social" size={18} color={colors.onAccent} style={{ marginRight: 8 }} />
+            <Text style={[styles.shareBtnText, { color: colors.onAccent }]}>
               {t('activity.share_btn', { defaultValue: 'Compartir' })}
             </Text>
           </>

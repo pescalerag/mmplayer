@@ -372,8 +372,14 @@ const PlayerScreenUI = ({
     const showCanvas = useSettingsStore(state => state.showCanvas);
     const showPlayerLyrics = useSettingsStore(state => state.showPlayerLyrics);
 
+    const isServerRunning = useCastStore(state => state.isServerRunning);
+    const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
+    const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
+    const isCasting = isLocalCastActive || isChromecastConnected;
+    const openCastSheet = openLocalCast;
+
     const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track);
-    const hasLyrics = showPlayerLyrics && isSynced && parsedLyrics.length > 0;
+    const hasLyrics = !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
     const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
         ? parsedLyrics[activeIndex].text
         : '';
@@ -751,12 +757,6 @@ const PlayerScreenUI = ({
             ]
         };
     });
-
-    const isServerRunning = useCastStore(state => state.isServerRunning);
-    const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
-    const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
-    const isCasting = isLocalCastActive || isChromecastConnected;
-    const openCastSheet = openLocalCast;
 
     const handleLikePress = async () => {
         heartScale.value = withSequence(
@@ -1251,6 +1251,7 @@ const PlayerScreenUI = ({
                 {hasLyrics && (
                     <TouchableOpacity
                         activeOpacity={0.8}
+                        disabled={isLocalCastActive}
                         onPress={() => navigation.navigate('Lyrics')}
                     >
                         <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
@@ -1490,12 +1491,13 @@ const PlayerScreenUI = ({
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Lyrics')}
                                 style={styles.footerButton}
+                                disabled={isLocalCastActive}
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <Ionicons
                                     name="mic-outline"
                                     size={24}
-                                    color={colors.textSecondary}
+                                    color={isLocalCastActive ? colors.disabled : colors.textSecondary}
                                 />
                             </TouchableOpacity>
                             <TouchableOpacity

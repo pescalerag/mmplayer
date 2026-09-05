@@ -126,6 +126,7 @@ const ArtistHeader = memo(function ArtistHeader({
     setShowAllTracks,
     onMore,
 }: any) {
+    const { colors } = useAppTheme();
     const handleBack = () => {
         navigation.goBack();
     };
@@ -143,13 +144,12 @@ const ArtistHeader = memo(function ArtistHeader({
         if (!tracks || tracks.length === 0) return;
         HistoryService.updateUIRecents({
             id: artist.id,
-            type: "artist",
-            context: "manual",
+            type: 'artist',
+            context: 'manual',
             title: artist.name,
-            subtitle: t('library.artist_singular'),
-            imageUrl: artist.imageUrl,
+            subtitle: t('actions.artist'),
+            imageUrl: artist.imageUrl || null,
         });
-
         if (isCurrentContext) {
             if (isPlaying) {
                 await TrackPlayer.pause();
@@ -162,21 +162,22 @@ const ArtistHeader = memo(function ArtistHeader({
     };
 
     const handleShufflePress = () => {
-        if (!tracks || tracks.length === 0) return;
-        HistoryService.updateUIRecents({
-            id: artist.id,
-            type: "artist",
-            context: "manual",
-            title: artist.name,
-            subtitle: t('library.artist_singular'),
-            imageUrl: artist.imageUrl,
-        });
-        usePlayerStore.getState().startShuffled(tracks, contextId);
+        if (tracks && tracks.length > 0) {
+            HistoryService.updateUIRecents({
+                id: artist.id,
+                type: 'artist',
+                context: 'manual',
+                title: artist.name,
+                subtitle: t('actions.artist'),
+                imageUrl: artist.imageUrl || null,
+            });
+            usePlayerStore.getState().startShuffled(tracks, contextId);
+        }
     };
 
     const handleAlbumPress = useCallback((album: Album) => {
-        const state = navigation.getState();
-        const previousRoute = state.routes[state.routes.length - 2];
+        const routes = navigation.getState()?.routes;
+        const previousRoute = routes && routes.length > 1 ? routes[routes.length - 2] : null;
         const params = previousRoute?.params as { albumId?: string } | undefined;
 
         if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
@@ -214,11 +215,11 @@ const ArtistHeader = memo(function ArtistHeader({
                                     <Ionicons name="shuffle" size={22} color="#FFFFFF" />
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={styles.playFab} onPress={handlePlayPress}>
+                                <TouchableOpacity style={[styles.playFab, { backgroundColor: colors.accent }]} onPress={handlePlayPress}>
                                     <Ionicons
                                         name={isCurrentContextPlaying ? "pause" : "play"}
                                         size={28}
-                                        color="#FFFFFF"
+                                        color={colors.onAccent}
                                         style={isCurrentContextPlaying ? {} : { marginLeft: 4 }}
                                     />
                                 </TouchableOpacity>
@@ -237,7 +238,7 @@ const ArtistHeader = memo(function ArtistHeader({
                     />
                     {isLoadingContent ? (
                         <View style={{ height: 160, justifyContent: 'center' }}>
-                            <ActivityIndicator color="#8B5CF6" />
+                            <ActivityIndicator color={colors.accent} />
                         </View>
                     ) : (
                         <ScrollView
@@ -295,6 +296,7 @@ interface Props {
 }
 
 function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingContent }: Readonly<Props>) {
+    const { colors } = useAppTheme();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
@@ -450,7 +452,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
     ), [artist, artist.imageUrl, albums, tracks, isLoadingContent, showAllAlbums, showAllTracks, handlePickPhoto, navigation, showHeaderImage, handleOpenArtistMenu]);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <FlashList
                 data={visibleTracks}
                 keyExtractor={(item) => item.id}
@@ -458,7 +460,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
                 ListHeaderComponent={listHeader}
                 ListEmptyComponent={
                     isLoadingContent ? (
-                        <ActivityIndicator color="#8B5CF6" size="large" style={{ marginTop: 40 }} />
+                        <ActivityIndicator color={colors.accent} size="large" style={{ marginTop: 40 }} />
                     ) : (
                         <Text style={styles.emptyText}>{t('actions.no_songs_scanned')}</Text>
                     )

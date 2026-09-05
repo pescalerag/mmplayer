@@ -438,8 +438,8 @@ export default function LyricsShareScreen() {
         </Text>
 
         {step === 'select' ? (
-          <View style={[styles.counterBadge, { backgroundColor: colors.accentLight || '#8B5CF6' }]}>
-            <Text style={styles.counterBadgeText}>{selectedIndices.length}/5</Text>
+          <View style={[styles.counterBadge, { backgroundColor: colors.accentLight }]}>
+            <Text style={[styles.counterBadgeText, { color: colors.onAccentLight }]}>{selectedIndices.length}/5</Text>
           </View>
         ) : (
           <View style={{ width: 40 }} />
@@ -493,7 +493,7 @@ export default function LyricsShareScreen() {
                     styles.lineItem,
                     isSelected && [
                       styles.lineItemSelected,
-                      { borderColor: colors.accentLight || '#8B5CF6' },
+                      { borderColor: colors.accentLight },
                     ],
                     isLimitReached && styles.lineItemDimmed,
                   ]}
@@ -502,12 +502,12 @@ export default function LyricsShareScreen() {
                     style={[
                       styles.checkboxCircle,
                       isSelected && {
-                        backgroundColor: colors.accentLight || '#8B5CF6',
-                        borderColor: colors.accentLight || '#8B5CF6',
+                        backgroundColor: colors.accentLight,
+                        borderColor: colors.accentLight,
                       },
                     ]}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                    {isSelected && <Ionicons name="checkmark" size={14} color={colors.onAccentLight} />}
                   </View>
                   <Text
                     style={[
@@ -531,7 +531,7 @@ export default function LyricsShareScreen() {
                 styles.continueBtn,
                 {
                   backgroundColor:
-                    selectedIndices.length > 0 ? colors.accentLight || '#8B5CF6' : 'rgba(255,255,255,0.15)',
+                    selectedIndices.length > 0 ? colors.accent : 'rgba(255,255,255,0.15)',
                 },
               ]}
               activeOpacity={0.8}
@@ -539,13 +539,13 @@ export default function LyricsShareScreen() {
               <Ionicons
                 name="sparkles"
                 size={18}
-                color={selectedIndices.length > 0 ? '#FFFFFF' : 'rgba(255,255,255,0.4)'}
+                color={selectedIndices.length > 0 ? colors.onAccent : 'rgba(255,255,255,0.4)'}
                 style={{ marginRight: 8 }}
               />
               <Text
                 style={[
                   styles.continueBtnText,
-                  { color: selectedIndices.length > 0 ? '#FFFFFF' : 'rgba(255,255,255,0.4)' },
+                  { color: selectedIndices.length > 0 ? colors.onAccent : 'rgba(255,255,255,0.4)' },
                 ]}
               >
                 {t('lyrics.create_card', { defaultValue: 'Ver tarjeta' })}
@@ -578,15 +578,15 @@ export default function LyricsShareScreen() {
             <TouchableOpacity
               onPress={handleCaptureAndShareImage}
               disabled={isCapturing}
-              style={[styles.primaryShareBtn, { backgroundColor: colors.accentLight || '#8B5CF6' }]}
+              style={[styles.primaryShareBtn, { backgroundColor: colors.accent }]}
               activeOpacity={0.8}
             >
               {isCapturing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.onAccent} />
               ) : (
                 <>
-                  <Ionicons name="image-outline" size={19} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.primaryShareBtnText}>
+                  <Ionicons name="image-outline" size={19} color={colors.onAccent} style={{ marginRight: 8 }} />
+                  <Text style={[styles.primaryShareBtnText, { color: colors.onAccent }]}>
                     {t('player.share_as_image', { defaultValue: 'Compartir imagen' })}
                   </Text>
                 </>

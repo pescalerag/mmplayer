@@ -279,6 +279,12 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
     }, []);
 
+    useEffect(() => {
+        if (isLocalCastActive && navigation.canGoBack()) {
+            navigation.goBack();
+        }
+    }, [isLocalCastActive, navigation]);
+
     const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track);
 
     const isInitialScrollRef = useRef(true);

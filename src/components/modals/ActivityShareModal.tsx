@@ -17,6 +17,7 @@ import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSettingsStore, StatsCardTheme } from '../../store/useSettingsStore';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -416,6 +417,7 @@ export default function ActivityShareModal({
   topArtists,
   topSongs,
 }: ActivityShareModalProps) {
+  const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
@@ -567,15 +569,15 @@ export default function ActivityShareModal({
           <TouchableOpacity
             onPress={handleCaptureAndShare}
             disabled={isCapturing}
-            style={[modalStyles.shareBtn, { width: Math.min(SCREEN_WIDTH - 40, cardWidth) }]}
+            style={[modalStyles.shareBtn, { width: Math.min(SCREEN_WIDTH - 40, cardWidth), backgroundColor: colors.accent }]}
             activeOpacity={0.8}
           >
             {isCapturing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.onAccent} />
             ) : (
               <>
-                <Ionicons name="share-social" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={modalStyles.shareBtnText}>
+                <Ionicons name="share-social" size={18} color={colors.onAccent} style={{ marginRight: 8 }} />
+                <Text style={[modalStyles.shareBtnText, { color: colors.onAccent }]}>
                   {t('activity.share_btn', { defaultValue: 'Compartir' })}
                 </Text>
               </>

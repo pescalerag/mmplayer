@@ -69,8 +69,8 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                                     openForCreate();
                                 }}
                             >
-                                <Ionicons name="add" size={22} color="#FFF" />
-                                <Text style={styles.createTagButtonText}>{t('tags.create')}</Text>
+                                <Ionicons name="add" size={22} color={colors.onAccent} />
+                                <Text style={[styles.createTagButtonText, { color: colors.onAccent }]}>{t('tags.create')}</Text>
                             </TouchableOpacity>
                         }
                         ListEmptyComponent={

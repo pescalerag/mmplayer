@@ -115,7 +115,7 @@ function TagDetailErrorFallback() {
                 onPress={() => navigation.goBack()}
                 style={{ backgroundColor: colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, marginTop: 16 }}
             >
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
+                <Text style={{ color: colors.onAccent, fontWeight: 'bold' }}>{t('actions.back') || 'Volver'}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -130,6 +130,7 @@ function TagDetailScreen({
     albums: Album[];
     tracks: Track[];
 }) {
+    const { colors } = useAppTheme();
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
     const { t } = useTranslation();
@@ -138,7 +139,7 @@ function TagDetailScreen({
         return <TagDetailErrorFallback />;
     }
 
-    const tagColor = tag.color || '#8B5CF6';
+    const tagColor = tag.color || colors.accent;
 
     const handleBack = useCallback(() => {
         navigation.goBack();
@@ -237,11 +238,11 @@ function TagDetailScreen({
                                 <Ionicons name="shuffle" size={22} color="#FFFFFF" />
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.playFab} onPress={handleFabPress}>
+                            <TouchableOpacity style={[styles.playFab, { backgroundColor: colors.accent }]} onPress={handleFabPress}>
                                 <Ionicons
                                     name={isCurrentTagPlaying ? "pause" : "play"}
                                     size={28}
-                                    color="#FFFFFF"
+                                    color={colors.onAccent}
                                     style={!isCurrentTagPlaying ? { marginLeft: 4 } : {}}
                                 />
                             </TouchableOpacity>
@@ -280,10 +281,10 @@ function TagDetailScreen({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying]);
+    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent]);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <FlashList
                 data={tracks}
                 keyExtractor={(item) => item.id}

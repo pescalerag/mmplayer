@@ -201,6 +201,7 @@ const extractFileMetadata = (file: any) => {
     const rawArtist = sanitizeDbString(file.artist);
     const rawAlbum = sanitizeDbString(file.album);
     const rawAlbumArtist = sanitizeDbString(file.albumArtist);
+    const rawGenre = sanitizeDbString(file.genre);
 
     const title = (!rawTitle || rawTitle === 'Unknown Title')
         ? file.filename.replace(/\.[^/.]+$/, '')
@@ -214,6 +215,9 @@ const extractFileMetadata = (file: any) => {
     const albumArtist = (rawAlbumArtist && rawAlbumArtist !== 'Unknown Artist' && rawAlbumArtist.length > 0)
         ? rawAlbumArtist
         : null;
+    const genre = (rawGenre && rawGenre.trim().length > 0 && rawGenre.trim().toLowerCase() !== 'unknown genre')
+        ? rawGenre.trim()
+        : null;
 
     return {
         title,
@@ -225,6 +229,7 @@ const extractFileMetadata = (file: any) => {
         year: file.year || null,
         albumArtist,
         lastModified: file.lastModified || 0,
+        genre,
     };
 };
 
@@ -406,6 +411,7 @@ const prepareTrackRecords = (
         t.album.set(album);
         t.artist.set(primaryArtist);
         t.lastModified = meta.lastModified;
+        t.genre = meta.genre || null;
     });
     ops.push(track);
 
@@ -637,7 +643,8 @@ export const ScannerService = {
                 const existing = trackMap.get(file.uri);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
-                    if (file.lastModified > dbLastModified) {
+                    const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
+                    if (file.lastModified > dbLastModified || needsGenreBackfill) {
                         archivos_modificados.push({ track: existing, file });
                     }
                 }
@@ -796,6 +803,7 @@ export const ScannerService = {
                                     t.discNumber = file.discNumber || 1;
                                     t.album.set(album);
                                     t.artist.set(primaryArtist);
+                                    t.genre = meta.genre || null;
                                 });
                                 batchOps.push(updateOp);
 

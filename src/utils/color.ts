@@ -59,3 +59,22 @@ export const lightenColor = (hexColor: string, percent: number = 0.22): string =
 
     return `#${newR}${newG}${newB}`;
 };
+
+/**
+ * Oscurece un color HEX en un porcentaje dado (0 a 1)
+ */
+export const darkenColor = (hexColor: string, percent: number = 0.35): string => {
+    let hex = hexColor.replace('#', '');
+    if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('');
+    }
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+
+    const newR = Math.max(0, Math.floor(r * (1 - percent))).toString(16).padStart(2, '0');
+    const newG = Math.max(0, Math.floor(g * (1 - percent))).toString(16).padStart(2, '0');
+    const newB = Math.max(0, Math.floor(b * (1 - percent))).toString(16).padStart(2, '0');
+
+    return `#${newR}${newG}${newB}`;
+};

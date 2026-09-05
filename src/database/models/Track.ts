@@ -25,6 +25,7 @@ export default class Track extends Model {
     @field('lyrics_fetch_failed') lyricsFetchFailed: boolean;
     @text('bg_video') bgVideo: string | null;
     @field('rating') rating: number | null;
+    @field('genre') genre: string | null;
 
     @relation('albums', 'album_id') album: any;
     @relation('artists', 'artist_id') artist: any;

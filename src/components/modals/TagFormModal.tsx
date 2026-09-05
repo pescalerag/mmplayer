@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Animated,
@@ -27,11 +27,11 @@ import { TagService } from "../../services/tagService";
 import { useTagFormStore } from "../../store/useTagFormStore";
 import { useToastStore } from "../../store/useToastStore";
 import { getDynamicTagTextColor } from "../../utils/color";
+import { useAppTheme } from "../../hooks/useAppTheme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const COLOR_PALETTE = [
-  "#8B5CF6", // Violeta (Default)
+const BASE_PALETTE = [
   "#3B82F6", // Azul
   "#10B981", // Verde
   "#F59E0B", // Ámbar
@@ -41,12 +41,15 @@ const COLOR_PALETTE = [
 ];
 
 export default function TagFormModal() {
+  const { colors } = useAppTheme();
   const { isVisible, tag, closeForm, onSaveCallback } = useTagFormStore();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
+  const colorPalette = useMemo(() => [colors.accent, ...BASE_PALETTE], [colors.accent]);
+
   const [tagName, setTagName] = useState("");
-  const [selectedColor, setSelectedColor] = useState(COLOR_PALETTE[0]);
+  const [selectedColor, setSelectedColor] = useState(colors.accent);
   const [customColorMode, setCustomColorMode] = useState(false);
   const [customHexCode, setCustomHexCode] = useState("");
 
@@ -93,7 +96,7 @@ export default function TagFormModal() {
   useEffect(() => {
     if (isVisible) {
       setTagName(tag ? tag.name : "");
-      const isPaletteColor = tag ? COLOR_PALETTE.includes(tag.color) : true;
+      const isPaletteColor = tag ? colorPalette.includes(tag.color) : true;
       if (tag) {
         setSelectedColor(tag.color);
         if (isPaletteColor) {
@@ -104,7 +107,7 @@ export default function TagFormModal() {
           setCustomHexCode(tag.color);
         }
       } else {
-        setSelectedColor(COLOR_PALETTE[0]);
+        setSelectedColor(colors.accent);
         setCustomColorMode(false);
         setCustomHexCode("");
       }
@@ -252,7 +255,7 @@ export default function TagFormModal() {
           </GestureDetector>
 
           <View style={styles.header}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
+            <Text style={[styles.headerTitle, { color: colors.accent }]} numberOfLines={1}>
               {t('tags.manager')}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
@@ -277,7 +280,7 @@ export default function TagFormModal() {
             {t('tags.color')}
           </Text>
           <View style={styles.colorRow}>
-            {COLOR_PALETTE.slice(0, 5).map((color) => {
+            {colorPalette.slice(0, 5).map((color) => {
               const isSelected = !customColorMode && selectedColor === color;
               return (
                 <TouchableOpacity
@@ -348,7 +351,7 @@ export default function TagFormModal() {
               <TouchableOpacity
                 style={[
                   styles.confirmColorButton,
-                  { backgroundColor: customHexCode || "#8B5CF6" },
+                  { backgroundColor: customHexCode || colors.accent },
                 ]}
                 onPress={() => {
                   if (customHexCode) setSelectedColor(customHexCode);
@@ -358,13 +361,13 @@ export default function TagFormModal() {
                 <Ionicons
                   name="checkmark-circle"
                   size={18}
-                  color={getDynamicTagTextColor(customHexCode || "#8B5CF6")}
+                  color={getDynamicTagTextColor(customHexCode || colors.accent)}
                 />
                 <Text
                   style={[
                     styles.confirmColorText,
                     {
-                      color: getDynamicTagTextColor(customHexCode || "#8B5CF6"),
+                      color: getDynamicTagTextColor(customHexCode || colors.accent),
                     },
                   ]}
                 >
@@ -442,7 +445,7 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
   },
   headerTitle: {
-    color: "#8B5CF6",
+    color: "#FFFFFF",
     fontSize: 14,
     fontFamily: "Montserrat",
     fontWeight: "800",

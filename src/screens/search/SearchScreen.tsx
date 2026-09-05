@@ -236,11 +236,13 @@ const SearchPlaylistCard = withObservables(
 SearchPlaylistCard.displayName = "SearchPlaylistCard";
 
 const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPress: () => void; isCompact?: boolean }) => {
-  const textColor = getDynamicTagTextColor(tag.color || '#8B5CF6');
+  const { colors } = useAppTheme();
+  const tagBg = tag.color || colors.accent;
+  const textColor = getDynamicTagTextColor(tagBg);
   if (isCompact) {
     return (
       <TouchableOpacity
-        style={[styles.tagCard, { backgroundColor: tag.color || '#8B5CF6' }]}
+        style={[styles.tagCard, { backgroundColor: tagBg }]}
         onPress={onPress}
         onLongPress={() => {
           Keyboard.dismiss();
@@ -255,7 +257,7 @@ const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPre
 
   return (
     <TouchableOpacity
-      style={[styles.tagCardNormal, { backgroundColor: tag.color || '#8B5CF6' }]}
+      style={[styles.tagCardNormal, { backgroundColor: tagBg }]}
       onPress={onPress}
       onLongPress={() => {
         Keyboard.dismiss();
@@ -598,7 +600,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           </View>
           <View style={styles.advancedFilterActions}>
             <TouchableOpacity onPress={openAdvancedSearchSheet} style={[styles.advancedFilterEditBtn, { backgroundColor: colors.accent }]}>
-              <Text style={styles.advancedFilterEditBtnText}>
+              <Text style={[styles.advancedFilterEditBtnText, { color: colors.onAccent }]}>
                 {t('actions.edit') || "Editar"}
               </Text>
             </TouchableOpacity>
@@ -659,7 +661,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               <Switch
                 value={isCompactTags}
                 onValueChange={setIsCompactTags}
-                trackColor={{ false: '#282828', true: '#8B5CF6' }}
+                trackColor={{ false: '#282828', true: colors.accent }}
                 thumbColor={isCompactTags ? '#FFFFFF' : '#888888'}
                 ios_backgroundColor="#282828"
                 style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
@@ -681,7 +683,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                     navigation.navigate("TagDetail", {
                       tagId: tag.id,
                       tagName: tag.name,
-                      tagColor: tag.color || '#8B5CF6'
+                      tagColor: tag.color || colors.accent
                     });
                   }}
                 />
@@ -816,7 +818,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                             navigation.navigate("TagDetail", {
                               tagId: tag.id,
                               tagName: tag.name,
-                              tagColor: tag.color || '#8B5CF6'
+                              tagColor: tag.color || colors.accent
                             });
                           }}
                         />
@@ -953,7 +955,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                   <Text
                     style={[
                       styles.filterText,
-                      isActive && styles.filterTextActive,
+                      isActive && [styles.filterTextActive, { color: colors.onAccent }],
                     ]}
                   >
                     {getFilterLabel(tab.id)}

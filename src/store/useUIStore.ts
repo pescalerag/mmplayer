@@ -25,7 +25,8 @@ export type SheetType =
   | 'player-menu'
   | 'batch-menu'
   | 'advanced-tag-search'
-  | 'edit-alias';
+  | 'edit-alias'
+  | 'clear-queue';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -59,6 +60,9 @@ export const openSortModal = (options: any = {}) =>
 
 export const openQueueSheet = () =>
   useUIStore.getState().openSheet('queue');
+
+export const openClearQueueSheet = () =>
+  useUIStore.getState().openSheet('clear-queue');
 
 export const openTagManager = (targetType: 'track' | 'album', targetId: string, targetTitle: string) =>
   useUIStore.getState().openSheet('tag-manager', { targetType, targetId, targetTitle });

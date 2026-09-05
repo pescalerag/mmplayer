@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScaleDecorator } from 'react-native-draggable-flatlist';
+import { useAppTheme } from '../../hooks/useAppTheme';
 
 interface DraggableTabItemProps {
   icon: string;
@@ -11,16 +12,18 @@ interface DraggableTabItemProps {
 }
 
 export function DraggableTabItem({ icon, label, drag, isActive }: DraggableTabItemProps) {
+  const { colors } = useAppTheme();
+
   return (
     <ScaleDecorator>
       <View
         style={[
           styles.itemContainer,
-          { backgroundColor: isActive ? 'rgba(139, 92, 246, 0.15)' : 'transparent' }
+          { backgroundColor: isActive ? (colors.accentAlpha15 || 'rgba(139, 92, 246, 0.15)') : 'transparent' }
         ]}
       >
         <View style={styles.itemLeft}>
-          <Ionicons name={icon as any} size={24} color="#8B5CF6" style={styles.itemIcon} />
+          <Ionicons name={icon as any} size={24} color={colors.accent} style={styles.itemIcon} />
           <Text style={styles.itemText}>{label}</Text>
         </View>
         <TouchableOpacity

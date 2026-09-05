@@ -86,7 +86,19 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
     const { t } = useTranslation();
 
     const lists = SmartListService.getSmartLists();
-    const listDef = lists.find(l => l.id === smartListId);
+    let listDef = lists.find(l => l.id === smartListId);
+    if (!listDef && smartListId.startsWith('genre_')) {
+        const genreName = decodeURIComponent(smartListId.replace('genre_', ''));
+        listDef = {
+            id: smartListId,
+            name: genreName,
+            description: t('library.smart_genre_desc', { genre: genreName }) || `Canciones del género ${genreName}`,
+            placeholderIcon: 'disc-outline' as any,
+            group: 'genre' as any,
+            genre: genreName,
+            getTracks: async () => tracks,
+        };
+    }
 
     // Player States
     const playbackState = usePlaybackState();
@@ -156,7 +168,7 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
             <DetailHeaderLayout
                 title={listDef?.name || 'Lista inteligente'}
                 isFavorites={false}
-                placeholderIcon={listDef?.placeholderIcon || 'musical-notes'}
+                placeholderIcon={(listDef?.placeholderIcon || 'musical-notes') as any}
                 subtitle={listDef?.description || 'Lista inteligente'}
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
@@ -187,7 +199,7 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                                 <Ionicons
                                     name={isCurrentContextPlaying ? "pause" : "play"}
                                     size={28}
-                                    color={colors.text}
+                                    color={colors.onAccent}
                                     style={isCurrentContextPlaying ? {} : { marginLeft: 4 }}
                                 />
                             </TouchableOpacity>
@@ -274,6 +286,20 @@ const ObservableRatingDetail = withObservables(['smartListId'], ({ smartListId }
     tracks: getRatingQuery(smartListId).observe(),
 }))(SmartListDetailContent);
 
+const getGenreQuery = (genre: string) => {
+    return database.collections.get<Track>('tracks').query(
+        Q.where('genre', genre),
+        Q.sortBy('title', Q.asc)
+    );
+};
+
+const ObservableGenreDetail = withObservables(['smartListId'], ({ smartListId }: { smartListId: string }) => {
+    const genre = decodeURIComponent(smartListId.replace('genre_', ''));
+    return {
+        tracks: getGenreQuery(genre).observe(),
+    };
+})(SmartListDetailContent);
+
 // ─── HISTORY STATE-BASED COMPONENT ───
 function HistorySmartListDetail({ smartListId }: { smartListId: string }) {
     const [tracks, setTracks] = useState<Track[]>([]);
@@ -317,6 +343,10 @@ export default function SmartListDetailScreen() {
 
     if (smartListId.startsWith('rating_')) {
         return <ObservableRatingDetail smartListId={smartListId} />;
+    }
+
+    if (smartListId.startsWith('genre_')) {
+        return <ObservableGenreDetail smartListId={smartListId} />;
     }
 
     return <HistorySmartListDetail smartListId={smartListId} />;

@@ -5,7 +5,7 @@
 
 import { Platform } from 'react-native';
 import { DefaultTheme as NavigationDefaultTheme, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
-import { hexToRgba, lightenColor } from '../utils/color';
+import { hexToRgba, lightenColor, darkenColor, getDynamicTagTextColor } from '../utils/color';
 
 const tintColorDark = '#fff';
 
@@ -14,6 +14,9 @@ export const DEFAULT_ACCENT_COLOR = '#8B5CF6';
 export function getAppColors(customAccent?: string | null) {
   const accent = customAccent || DEFAULT_ACCENT_COLOR;
   const accentLight = lightenColor(accent, 0.22);
+  const accentDark = darkenColor(accent, 0.35);
+  const onAccent = getDynamicTagTextColor(accent);
+  const onAccentLight = getDynamicTagTextColor(accentLight);
 
   return {
     text: '#ECEDEE',
@@ -28,6 +31,9 @@ export function getAppColors(customAccent?: string | null) {
     tabIconSelected: tintColorDark,
     accent: accent,
     accentLight: accentLight,
+    accentDark: accentDark,
+    onAccent: onAccent,
+    onAccentLight: onAccentLight,
     accentAlpha5: hexToRgba(accent, 0.05),
     accentAlpha8: hexToRgba(accent, 0.08),
     accentAlpha10: hexToRgba(accent, 0.1),
