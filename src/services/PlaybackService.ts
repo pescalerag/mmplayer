@@ -119,7 +119,7 @@ export const PlaybackService = async function () {
       console.log('Error in RemotePrevious', e);
     }
   });
-  TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.reset());
+  TrackPlayer.addEventListener(Event.RemoteStop, () => usePlayerStore.getState().clearPlayer());
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
   
   TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {

@@ -64,6 +64,7 @@ interface PlayerState {
   addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
   addMultipleToQueueEnd: (tracks: Track[]) => Promise<void>;
   updateQueueStatus: (currentIndex?: number) => Promise<void>;
+  cancelQueueLoading: () => Promise<void>;
   clearPlayer: () => Promise<void>;
   setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
   toggleShuffle: () => Promise<void>;
@@ -145,6 +146,21 @@ async function flushCurrentTrackToHistory() {
 }
 
 let currentLoadId = 0;
+let activeBatchPromise: Promise<any> | null = null;
+
+async function addTracksSafely(tpTracks: TPTrack[], insertIndex?: number) {
+  const promise = insertIndex !== undefined
+    ? TrackPlayer.add(tpTracks, insertIndex)
+    : TrackPlayer.add(tpTracks);
+  activeBatchPromise = promise;
+  try {
+    await promise;
+  } finally {
+    if (activeBatchPromise === promise) {
+      activeBatchPromise = null;
+    }
+  }
+}
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   activeTrack: null,
@@ -171,7 +187,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   queueVersion: 0,
   windowVersion: 0,
 
+  cancelQueueLoading: async () => {
+    ++currentLoadId;
+    set({ isQueueLoading: false });
+    if (activeBatchPromise) {
+      try {
+        await activeBatchPromise;
+      } catch {}
+    }
+  },
+
   loadQueue: async (tracks, index, context = "unknown") => {
+    await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
     try {
       set({ isQueueLoading: true });
@@ -187,7 +214,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
-      await TrackPlayer.add(initialTpTracks);
+      await addTracksSafely(initialTpTracks);
+
+      if (currentLoadId !== loadId) return;
+
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
@@ -215,7 +245,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               const chunk = previousTracks.slice(i, i + CHUNK_SIZE);
               const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
               if (currentLoadId !== loadId) break;
-              await TrackPlayer.add(tpChunk, insertIndex);
+              await addTracksSafely(tpChunk, insertIndex);
+              if (currentLoadId !== loadId) break;
               insertIndex += chunk.length;
               await get().updateQueueStatus();
               await new Promise(resolve => setTimeout(resolve, 100));
@@ -227,7 +258,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               const chunk = remainingNextTracks.slice(i, i + CHUNK_SIZE);
               const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
               if (currentLoadId !== loadId) break;
-              await TrackPlayer.add(tpChunk);
+              await addTracksSafely(tpChunk);
+              if (currentLoadId !== loadId) break;
               await get().updateQueueStatus();
               await new Promise(resolve => setTimeout(resolve, 100));
             }
@@ -248,13 +280,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
     } catch (error) {
       console.error("Error loading queue:", error);
-      set({ isQueueLoading: false });
+      if (currentLoadId === loadId) {
+        set({ isQueueLoading: false });
+      }
     }
   },
 
   startShuffled: async (tracks, context = "unknown") => {
+    await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
     try {
+      set({ isQueueLoading: true });
       const CHUNK_SIZE = 15;
 
       const indices = Array.from({ length: tracks.length }, (_, i) => i);
@@ -273,7 +309,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
-      await TrackPlayer.add(initialTpTracks);
+      await addTracksSafely(initialTpTracks);
+
+      if (currentLoadId !== loadId) return;
+
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
@@ -312,22 +351,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
               const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
               if (currentLoadId !== loadId) break;
-              await TrackPlayer.add(tpChunk);
+              await addTracksSafely(tpChunk);
+              if (currentLoadId !== loadId) break;
 
               await get().updateQueueStatus();
               await new Promise(resolve => setTimeout(resolve, 100));
             }
+            if (currentLoadId === loadId) {
+              await get().savePlaybackState();
+            }
           } catch (bgError) {
             console.error("Background shuffle loading error:", bgError);
+          } finally {
+            if (currentLoadId === loadId) {
+              set({ isQueueLoading: false });
+            }
           }
         })();
+      } else {
+        set({ isQueueLoading: false });
       }
     } catch (error) {
       console.error("Error starting shuffled queue:", error);
+      if (currentLoadId === loadId) {
+        set({ isQueueLoading: false });
+      }
     }
   },
 
   playSingleTrack: async (track, context = "unknown") => {
+    await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
     try {
       const tpTrack = await mapToTPTrack(track);
@@ -337,17 +390,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.reset();
       useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
-      await TrackPlayer.add([tpTrack]);
+      await addTracksSafely([tpTrack]);
+      if (currentLoadId !== loadId) return;
       await get().applySpeedAndPitch();
       if (useCastStore.getState().isServerRunning) {
         LocalCastService.setPlayIntent(true);
       }
       await TrackPlayer.play();
-      set({ activeTrack: track, playbackContext: context, userQueueSize: 0 });
+      set({ activeTrack: track, playbackContext: context, userQueueSize: 0, isQueueLoading: false });
       await get().updateQueueStatus();
       await get().savePlaybackState();
     } catch (error) {
       console.error("Error playing single track:", error);
+      if (currentLoadId === loadId) {
+        set({ isQueueLoading: false });
+      }
     }
   },
 
@@ -485,17 +542,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearPlayer: async () => {
     try {
+      await get().cancelQueueLoading();
       await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
       storage.remove(PERSISTENCE_KEY);
+      storage.remove("@player_position");
+      storage.remove("@player_accumulated");
       set({
         activeTrack: null,
+        prevTrack: null,
+        nextTrack: null,
         playbackContext: null,
         hasNext: false,
         hasPrevious: false,
         isShuffleEnabled: false,
         shuffleOriginalQueue: [],
         userQueueSize: 0,
+        isQueueLoading: false,
       });
 
       // Cerrar el PlayerScreen si está abierto
@@ -685,6 +748,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearContextQueue: async () => {
     try {
+      await get().cancelQueueLoading();
       const queue = await TrackPlayer.getQueue();
       const activeIndex = await TrackPlayer.getActiveTrackIndex();
 

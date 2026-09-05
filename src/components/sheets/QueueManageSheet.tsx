@@ -14,6 +14,7 @@ export default function QueueManageSheet() {
     const clearPlayer = usePlayerStore(state => state.clearPlayer);
     const clearUserQueue = usePlayerStore(state => state.clearUserQueue);
     const clearContextQueue = usePlayerStore(state => state.clearContextQueue);
+    const isQueueLoading = usePlayerStore(state => state.isQueueLoading);
 
     const [hasManualUpcoming, setHasManualUpcoming] = useState(false);
     const [hasContextUpcoming, setHasContextUpcoming] = useState(false);
@@ -64,7 +65,7 @@ export default function QueueManageSheet() {
                 />
             )}
 
-            {hasContextUpcoming && (
+            {(hasContextUpcoming || isQueueLoading) && (
                 <MenuOption
                     icon="albums-outline"
                     text={t('queue.clear_context') || 'Borrar contexto'}
