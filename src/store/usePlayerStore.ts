@@ -1,6 +1,7 @@
 import { createMMKV } from "react-native-mmkv";
 import TrackPlayer, { RepeatMode, Track as TPTrack } from "react-native-track-player";
 import { useCastStore } from "./useCastStore";
+import { useSettingsStore } from "./useSettingsStore";
 import { LocalCastService } from "../services/LocalCastService";
 import { create } from "zustand";
 import { database } from "../database";
@@ -367,8 +368,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
       if (currentIndex !== undefined && currentIndex !== null) {
-        // Insertar justo después de la canción actual (primer slot de la user queue)
-        await TrackPlayer.add([tpTrack], currentIndex + 1);
+        const queue = await TrackPlayer.getQueue();
+        if (currentIndex + 1 < queue.length) {
+          await TrackPlayer.add([tpTrack], currentIndex + 1);
+        } else {
+          await TrackPlayer.add([tpTrack]);
+        }
       } else {
         await TrackPlayer.add([tpTrack]);
       }
@@ -385,7 +390,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       const tpTrack = await mapToTPTrack(track);
       (tpTrack as any).isManual = true;
-      await TrackPlayer.add([tpTrack]);
+
+      const { queueAddBehavior } = useSettingsStore.getState();
+      const currentIndex = await TrackPlayer.getActiveTrackIndex();
+
+      if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
+        const { userQueueSize } = get();
+        const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
+        const queue = await TrackPlayer.getQueue();
+
+        if (insertIndex < queue.length) {
+          await TrackPlayer.add([tpTrack], insertIndex);
+        } else {
+          await TrackPlayer.add([tpTrack]);
+        }
+        set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
+      } else if (queueAddBehavior === 'user_queue') {
+        // Nada reproduciéndose actualmente, pero en modo cola de usuario
+        await TrackPlayer.add([tpTrack]);
+        set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
+      } else {
+        // Comportamiento legado: al final de la cola de contexto / de toda la lista
+        await TrackPlayer.add([tpTrack]);
+      }
+
       await get().updateQueueStatus();
       await get().savePlaybackState();
     } catch (error) {
@@ -401,8 +429,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
       if (currentIndex !== undefined && currentIndex !== null) {
-        // Insertar justo después de la canción actual
-        await TrackPlayer.add(tpTracks, currentIndex + 1);
+        const queue = await TrackPlayer.getQueue();
+        if (currentIndex + 1 < queue.length) {
+          await TrackPlayer.add(tpTracks, currentIndex + 1);
+        } else {
+          await TrackPlayer.add(tpTracks);
+        }
       } else {
         await TrackPlayer.add(tpTracks);
       }
@@ -420,7 +452,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (tracks.length === 0) return;
       const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
       tpTracks.forEach((t) => ((t as any).isManual = true));
-      await TrackPlayer.add(tpTracks);
+
+      const { queueAddBehavior } = useSettingsStore.getState();
+      const currentIndex = await TrackPlayer.getActiveTrackIndex();
+
+      if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
+        const { userQueueSize } = get();
+        const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
+        const queue = await TrackPlayer.getQueue();
+
+        if (insertIndex < queue.length) {
+          await TrackPlayer.add(tpTracks, insertIndex);
+        } else {
+          await TrackPlayer.add(tpTracks);
+        }
+        set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
+      } else if (queueAddBehavior === 'user_queue') {
+        // Nada reproduciéndose actualmente, pero en modo cola de usuario
+        await TrackPlayer.add(tpTracks);
+        set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
+      } else {
+        // Comportamiento legado: al final de la cola de contexto / de toda la lista
+        await TrackPlayer.add(tpTracks);
+      }
+
       await get().updateQueueStatus();
       await get().savePlaybackState();
     } catch (error) {

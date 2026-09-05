@@ -46,6 +46,8 @@ interface SettingsState {
     swipeRightAction: SwipeAction;
     setSwipeRightAction: (action: SwipeAction) => void;
     isNormalizationEnabled: boolean;
+    queueAddBehavior: QueueAddBehavior;
+    setQueueAddBehavior: (behavior: QueueAddBehavior) => void;
     preampLevel: number; // Ej: de 0 a +6 dB
     fallbackGainDB: number; // Ej: 0, -3, -5 o -10 dB
     setNormalizationEnabled: (enabled: boolean) => void;
@@ -98,6 +100,7 @@ interface SettingsState {
     setHomeProfilePosition: (position: 'left' | 'right') => void;
 }
 
+export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
@@ -109,6 +112,8 @@ export const useSettingsStore = create<SettingsState>()(
             showTagColors: true,
             setShowTagColors: (value) => set({ showTagColors: value }),
             isNormalizationEnabled: true,
+            queueAddBehavior: 'user_queue',
+            setQueueAddBehavior: (behavior) => set({ queueAddBehavior: behavior }),
             preampLevel: 0,
             fallbackGainDB: -5,
             setNormalizationEnabled: (enabled) => set({ isNormalizationEnabled: enabled }),
