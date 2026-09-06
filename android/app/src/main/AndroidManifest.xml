@@ -1,0 +1,163 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="com.android.vending.BILLING"/>
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <category android:name="android.intent.category.BROWSABLE"/>
+      <data android:scheme="https"/>
+    </intent>
+  </queries>
+  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false" android:usesCleartextTraffic="true" android:requestLegacyExternalStorage="true" android:extractNativeLibs="true">
+    <meta-data android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME" android:value="com.reactnative.googlecast.GoogleCastOptionsProvider"/>
+    <meta-data android:name="com.reactnative.googlecast.RECEIVER_APPLICATION_ID" android:value="5622F67E"/>
+    <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitydark" android:enabled="false" android:exported="true" android:icon="@mipmap/dark" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/dark_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitysupporter" android:enabled="false" android:exported="true" android:icon="@mipmap/supporter" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/supporter_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivityretro" android:enabled="false" android:exported="true" android:icon="@mipmap/retro" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/retro_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitydarkblue" android:enabled="false" android:exported="true" android:icon="@mipmap/darkblue" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/darkblue_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitydevelpink" android:enabled="false" android:exported="true" android:icon="@mipmap/develpink" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/develpink_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitylabgreen" android:enabled="false" android:exported="true" android:icon="@mipmap/labgreen" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/labgreen_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivityorange" android:enabled="false" android:exported="true" android:icon="@mipmap/orange" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/orange_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitypink" android:enabled="false" android:exported="true" android:icon="@mipmap/pink" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/pink_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivityred" android:enabled="false" android:exported="true" android:icon="@mipmap/red" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/red_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitywhite" android:enabled="false" android:exported="true" android:icon="@mipmap/white" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/white_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
+  </application>
+</manifest>
