@@ -964,6 +964,13 @@
     "icon_dark": "Modo Oscuro",
     "icon_supporter": "Icono Supporter",
     "icon_retro": "Retro 80s",
+    "icon_dark_blue": "Azul Oscuro",
+    "icon_devel_pink": "Devel Pink",
+    "icon_lab_green": "Verde Laboratorio",
+    "icon_orange": "Naranja",
+    "icon_pink": "Rosa",
+    "icon_red": "Rojo",
+    "icon_white": "Blanco",
     "stats_cards_title": "Estadísticas Premium",
     "stats_cards_subtitle": "Desbloquea fondos y texturas exclusivas (Cristal, Holográfico, Oro) para compartir tus tarjetas de Actividad Musical.",
     "stats_theme_default": "Clásico",
@@ -1180,7 +1187,8 @@
     "battery_opt_title": "Optimización de batería activa",
     "battery_opt_desc": "Para evitar que la transmisión se corte al apagar la pantalla o en segundo plano, configura la app como \"Sin restricciones\".",
     "battery_opt_button": "Desactivar optimización",
-    "battery_opt_ok": "Segundo plano protegido (Sin restricciones)"
+    "battery_opt_ok": "Segundo plano protegido (Sin restricciones)",
+    "remote_mode_banner": "LocalCast activo · Modo control remoto"
   },
   "localcast_client": {
     "app_title": "MMPlayer LocalCast",
@@ -1328,6 +1336,7 @@
     "accept": "Aceptar",
     "cancel": "Cancelar",
     "success": "Éxito",
-    "error": "Error"
+    "error": "Error",
+    "step_indicator": "PASO {{current}} DE {{total}}"
   }
 }

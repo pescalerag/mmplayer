@@ -98,6 +98,41 @@
             "image": "./src/assets/images/retro-icon.png",
             "android": "./src/assets/images/retro-icon.png",
             "ios": "./src/assets/images/retro-icon.png"
+          },
+          "darkblue": {
+            "image": "./src/assets/images/android-icon-darkblue.png",
+            "android": "./src/assets/images/android-icon-darkblue.png",
+            "ios": "./src/assets/images/android-icon-darkblue.png"
+          },
+          "develpink": {
+            "image": "./src/assets/images/android-icon-devel-pink.png",
+            "android": "./src/assets/images/android-icon-devel-pink.png",
+            "ios": "./src/assets/images/android-icon-devel-pink.png"
+          },
+          "labgreen": {
+            "image": "./src/assets/images/android-icon-labgreen.png",
+            "android": "./src/assets/images/android-icon-labgreen.png",
+            "ios": "./src/assets/images/android-icon-labgreen.png"
+          },
+          "orange": {
+            "image": "./src/assets/images/android-icon-orange.png",
+            "android": "./src/assets/images/android-icon-orange.png",
+            "ios": "./src/assets/images/android-icon-orange.png"
+          },
+          "pink": {
+            "image": "./src/assets/images/android-icon-pink.png",
+            "android": "./src/assets/images/android-icon-pink.png",
+            "ios": "./src/assets/images/android-icon-pink.png"
+          },
+          "red": {
+            "image": "./src/assets/images/android-icon-red.png",
+            "android": "./src/assets/images/android-icon-red.png",
+            "ios": "./src/assets/images/android-icon-red.png"
+          },
+          "white": {
+            "image": "./src/assets/images/android-icon-white.png",
+            "android": "./src/assets/images/android-icon-white.png",
+            "ios": "./src/assets/images/android-icon-white.png"
           }
         }
       ]

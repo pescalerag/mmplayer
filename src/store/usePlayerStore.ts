@@ -6,6 +6,7 @@ import { LocalCastService } from "../services/LocalCastService";
 import { create } from "zustand";
 import { database } from "../database";
 import Artist from "../database/models/Artist";
+import Album from "../database/models/Album";
 import Track from "../database/models/Track";
 import { navigationRef } from '../navigation/navigationRef';
 
@@ -92,6 +93,7 @@ interface PlayerState {
   queueVersion: number;
   windowVersion: number;
   updateTrackMetadata: (trackId: string) => Promise<void>;
+  refreshRecentsFromDatabase: () => Promise<void>;
 }
 
 export type RecentItem = {
@@ -382,6 +384,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playSingleTrack: async (track, context = "unknown") => {
     await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
+    set({ isQueueLoading: true });
     try {
       const tpTrack = await mapToTPTrack(track);
       if (currentLoadId !== loadId) return;
@@ -1198,8 +1201,138 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }));
         await get().savePlaybackState();
       }
+
+      // Update recentMedia for this track and its album
+      const currentRecentMedia = get().recentMedia;
+      let recentsModified = false;
+      const updatedRecentMedia = currentRecentMedia.map((item) => {
+        if (item.type === 'track' && item.id === trackId) {
+          recentsModified = true;
+          return {
+            ...item,
+            title,
+            subtitle: artist,
+            imageUrl: artwork || null,
+          };
+        }
+        if (item.type === 'album' && album && item.id === album.id) {
+          recentsModified = true;
+          return {
+            ...item,
+            title: albumTitle,
+            imageUrl: artwork || null,
+          };
+        }
+        return item;
+      });
+      if (recentsModified) {
+        set({ recentMedia: updatedRecentMedia });
+        await get().saveRecentsState();
+      }
     } catch (e) {
       console.error("Error updating track metadata in player store:", e);
+    }
+  },
+
+  refreshRecentsFromDatabase: async () => {
+    try {
+      const state = get();
+      if (!state.recentMedia || state.recentMedia.length === 0) return;
+
+      const tracksCollection = database.collections.get<Track>("tracks");
+      const albumsCollection = database.collections.get<Album>("albums");
+      const artistsCollection = database.collections.get<Artist>("artists");
+
+      let modified = false;
+      const updatedMedia: RecentItem[] = [];
+
+      for (const item of state.recentMedia) {
+        if (item.type === "track") {
+          try {
+            const track = await tracksCollection.find(item.id);
+            if (track) {
+              const album = await track.album.fetch().catch(() => null);
+              const collaborators = (await track.queryCollaborators.fetch().catch(() => [])) as Artist[];
+              const artistNames =
+                collaborators.length > 0
+                  ? collaborators.map((a) => a.name).join(", ")
+                  : "Artista desconocido";
+              const imageUrl = album?.coverUrl || null;
+
+              if (item.title !== track.title || item.subtitle !== artistNames || item.imageUrl !== imageUrl) {
+                modified = true;
+                updatedMedia.push({
+                  ...item,
+                  title: track.title,
+                  subtitle: artistNames,
+                  imageUrl,
+                });
+              } else {
+                updatedMedia.push(item);
+              }
+            } else {
+              modified = true;
+            }
+          } catch {
+            updatedMedia.push(item);
+          }
+        } else if (item.type === "album") {
+          try {
+            const album = await albumsCollection.find(item.id);
+            if (album) {
+              const artist = await album.artist.fetch().catch(() => null);
+              const artistName = artist?.name || "Varios Artistas";
+              const imageUrl = album.coverUrl || null;
+
+              if (item.title !== album.title || item.subtitle !== artistName || item.imageUrl !== imageUrl) {
+                modified = true;
+                updatedMedia.push({
+                  ...item,
+                  title: album.title,
+                  subtitle: artistName,
+                  imageUrl,
+                });
+              } else {
+                updatedMedia.push(item);
+              }
+            } else {
+              modified = true;
+            }
+          } catch {
+            updatedMedia.push(item);
+          }
+        } else if (item.type === "artist") {
+          try {
+            const artist = await artistsCollection.find(item.id);
+            if (artist) {
+              const imageUrl = artist.imageUrl || null;
+              if (item.title !== artist.name || item.imageUrl !== imageUrl) {
+                modified = true;
+                updatedMedia.push({
+                  ...item,
+                  title: artist.name,
+                  imageUrl,
+                });
+              } else {
+                updatedMedia.push(item);
+              }
+            } else {
+              modified = true;
+            }
+          } catch {
+            updatedMedia.push(item);
+          }
+        } else {
+          updatedMedia.push(item);
+        }
+      }
+
+      if (modified) {
+        set({ recentMedia: updatedMedia });
+        await get().saveRecentsState();
+      }
+    } catch (error) {
+      console.error("Error refreshing recents from database:", error);
     }
   }
 }));

@@ -561,7 +561,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                     <View style={styles.castingRemoteBanner}>
                         <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
                         <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
-                            {'LocalCast activo · Modo control remoto'}
+                            {t('cast.remote_mode_banner', 'LocalCast activo · Modo control remoto')}
                         </Text>
                     </View>
                 ) : (

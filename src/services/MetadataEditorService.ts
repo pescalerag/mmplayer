@@ -135,16 +135,18 @@ export const MetadataEditorService = {
             await scanMultipleFiles(filePaths);
         }
         
-        // After finishing all writes, run scanner service silently to update local WatermelonDB database
-        await ScannerService.syncLibrary(undefined, true);
+        // After finishing all writes, run scanner service to update local WatermelonDB database
+        const editedFileUrls = new Set(tracks.map(t => t.fileUrl));
+        await ScannerService.syncLibrary(undefined, false, editedFileUrls);
 
-        // Update playback queue for edited tracks
+        // Update playback queue and recents for edited tracks
         try {
             const { usePlayerStore } = require('../store/usePlayerStore');
             const playerStore = usePlayerStore.getState();
             for (const track of tracks) {
                 await playerStore.updateTrackMetadata(track.id);
             }
+            await playerStore.refreshRecentsFromDatabase();
         } catch (playerErr) {
             console.error("Error updating player store metadata after save:", playerErr);
         }

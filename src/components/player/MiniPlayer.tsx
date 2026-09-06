@@ -189,17 +189,40 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const [imageError, setImageError] = React.useState(false);
 
+    const isQueueLoading = usePlayerStore(state => state.isQueueLoading);
     const playbackState = usePlaybackState();
-    const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
-    const isPaused = !isPlaying;
+
+    // El estado de carga, preparación o buffer no debe considerarse como pausa
+    const isPlaybackLoading =
+        playbackState.state === State.Loading ||
+        playbackState.state === State.Buffering ||
+        playbackState.state === State.Ready ||
+        playbackState.state === State.None;
+
+    // Solo se considera en pausa si el estado es explícitamente Paused (o Stopped/Ended)
+    // y no estamos en proceso de carga o arranque de pista
+    const isPaused = !isQueueLoading && !isPlaybackLoading && (
+        playbackState.state === State.Paused ||
+        playbackState.state === State.Stopped ||
+        playbackState.state === State.Ended
+    );
 
     const closeButtonProgress = useSharedValue(isPaused ? 1 : 0);
+
+    // Cuando cambia la canción, colapsamos el botón de inmediato para evitar cualquier parpadeo
+    const prevTrackIdRef = React.useRef(track.id);
+    React.useEffect(() => {
+        if (prevTrackIdRef.current !== track.id) {
+            prevTrackIdRef.current = track.id;
+            closeButtonProgress.value = 0;
+        }
+    }, [track.id, closeButtonProgress]);
 
     React.useEffect(() => {
         closeButtonProgress.value = withTiming(isPaused ? 1 : 0, {
             duration: 250,
         });
-    }, [isPaused]);
+    }, [isPaused, closeButtonProgress]);
 
     const animatedCloseButtonStyle = useAnimatedStyle(() => ({
         width: closeButtonProgress.value * 30,

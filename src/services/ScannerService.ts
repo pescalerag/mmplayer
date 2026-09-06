@@ -340,10 +340,14 @@ const resolveAlbum = async (
             }
         }
 
-        const isDefaultCover = finalCoverUrl === RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        const nullCoverUri = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        const isDefaultCover = finalCoverUrl === nullCoverUri;
         let newCover = null;
-        if (finalCoverUrl && album.coverUrl !== finalCoverUrl && !isDefaultCover) {
-            newCover = finalCoverUrl;
+        if (finalCoverUrl && album.coverUrl !== finalCoverUrl) {
+            const isDowngradeToDefault = isDefaultCover && (album.coverUrl && album.coverUrl !== nullCoverUri);
+            if (!isDowngradeToDefault) {
+                newCover = finalCoverUrl;
+            }
         }
 
         if (nextArtist || newCover) {
@@ -582,9 +586,14 @@ const showToastNotification = (created: number, deleted: number, reconciled: num
 };
 
 export const ScannerService = {
-    syncLibrary: async (onProgress?: (current: number, total: number, phase: string) => void, isSilent: boolean = false) => {
+    syncLibrary: async (
+        onProgress?: (current: number, total: number, phase: string) => void,
+        isSilent: boolean = false,
+        forcedFileUrls?: Set<string> | string[]
+    ) => {
         if (useSyncStore.getState().isScanning) return;
         try {
+            coverExistsCache.clear();
             useSyncStore.getState().setIsScanning(true, isSilent);
 
             onProgress?.(0, 0, 'Solicitando permisos...');
@@ -638,13 +647,26 @@ export const ScannerService = {
             const trackMap = new Map<string, Track>();
             allTracks.forEach(t => trackMap.set(t.fileUrl, t));
 
+            const forcedUrlsSet = forcedFileUrls
+                ? (forcedFileUrls instanceof Set ? forcedFileUrls : new Set(forcedFileUrls))
+                : undefined;
+
             const archivos_modificados: { track: Track; file: any }[] = [];
             for (const file of activeAudioFiles) {
                 const existing = trackMap.get(file.uri);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
                     const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
-                    if (file.lastModified > dbLastModified || needsGenreBackfill) {
+                    const isForced = forcedUrlsSet && (
+                        forcedUrlsSet.has(file.uri) ||
+                        forcedUrlsSet.has(existing.fileUrl) ||
+                        forcedUrlsSet.has(file.uri.replace(/#/g, '%23')) ||
+                        forcedUrlsSet.has(existing.fileUrl.replace(/%23/g, '#'))
+                    );
+                    if (file.lastModified > dbLastModified || needsGenreBackfill || isForced) {
+                        if (isForced) {
+                            file.lastModified = Date.now();
+                        }
                         archivos_modificados.push({ track: existing, file });
                     }
                 }
@@ -885,6 +907,14 @@ export const ScannerService = {
 
             if (deletedTrackIds.length > 0 || deletedAlbumIds.length > 0 || deletedArtistIds.length > 0) {
                 await usePlayerStore.getState().handleDeletedEntities(deletedTrackIds, deletedAlbumIds, deletedArtistIds);
+            }
+
+            // Sincronizar recientes tras cambios en la base de datos
+            await usePlayerStore.getState().refreshRecentsFromDatabase().catch(() => {});
+
+            // Actualizar pistas modificadas en el reproductor si están en cola o activas
+            for (const item of archivos_modificados) {
+                await usePlayerStore.getState().updateTrackMetadata(item.track.id).catch(() => {});
             }
 
             await normalizePinnedValues().catch(() => { });

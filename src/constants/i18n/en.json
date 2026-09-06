@@ -964,6 +964,13 @@
     "icon_dark": "Dark Mode",
     "icon_supporter": "Supporter Icon",
     "icon_retro": "Retro 80s",
+    "icon_dark_blue": "Dark Blue",
+    "icon_devel_pink": "Devel Pink",
+    "icon_lab_green": "Lab Green",
+    "icon_orange": "Orange",
+    "icon_pink": "Pink",
+    "icon_red": "Red",
+    "icon_white": "White",
     "stats_cards_title": "Premium Stats Cards",
     "stats_cards_subtitle": "Unlock exclusive card themes and textures (Glass, Holographic, Gold) when sharing your Music Activity.",
     "stats_theme_default": "Classic",
@@ -1180,7 +1187,8 @@
     "battery_opt_title": "Battery optimization enabled",
     "battery_opt_desc": "To prevent playback drops when screen turns off or in background, set MMPlayer to \"Unrestricted\" in battery settings.",
     "battery_opt_button": "Configure battery",
-    "battery_opt_ok": "Background streaming protected (Unrestricted)"
+    "battery_opt_ok": "Background streaming protected (Unrestricted)",
+    "remote_mode_banner": "LocalCast active · Remote control mode"
   },
   "localcast_client": {
     "app_title": "MMPlayer LocalCast",
@@ -1328,6 +1336,7 @@
     "accept": "Accept",
     "cancel": "Cancel",
     "success": "Success",
-    "error": "Error"
+    "error": "Error",
+    "step_indicator": "STEP {{current}} OF {{total}}"
   }
 }
