@@ -18,6 +18,7 @@ import { catchError } from 'rxjs/operators';
 import LibraryCard from '@/components/cards/LibraryCard';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import TrackRow from '@/components/player/TrackRow';
+import ContextualSpotlightTutorial from '@/components/modals/ContextualSpotlightTutorial';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -312,7 +313,7 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
     artist: artist.observe(),
 }))(ArtistCard);
 
-const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
+const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
@@ -355,7 +356,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption }:
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={
-                <View style={styles.artistSelectorContainer}>
+                <View ref={selectorRef} collapsable={false} style={styles.artistSelectorContainer}>
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
@@ -667,7 +668,7 @@ const HistorySmartListCard = withObservables(
     );
 });
 
-const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
+const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const navigation = useNavigation<LibraryNavigationProp>();
@@ -930,7 +931,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             numColumns={3}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={
-                <View style={styles.artistSelectorContainer}>
+                <View ref={selectorRef} collapsable={false} style={styles.artistSelectorContainer}>
                     <TouchableOpacity
                         style={[
                             styles.artistSelectorBtn,
@@ -1171,6 +1172,32 @@ export default function LibraryScreen() {
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const libraryTabsOrder = useSettingsStore(state => state.libraryTabsOrder);
+    const hasSeenLibraryTutorial = useSettingsStore(state => state.hasSeenLibraryTutorial);
+    const setHasSeenLibraryTutorial = useSettingsStore(state => state.setHasSeenLibraryTutorial);
+    const isFocused = useIsFocused();
+
+    const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+    const rootRef = useRef<View>(null);
+    const headerToolsRef = useRef<View>(null);
+    const tabRefs = useRef<{ [key: string]: any }>({});
+    const tabsScrollViewRef = useRef<ScrollView>(null);
+    const tabLayouts = useRef<{ [key: string]: { x: number; y: number; width: number; height: number } }>({});
+    const playlistSelectorRef = useRef<View>(null);
+    const artistSelectorRef = useRef<View>(null);
+
+    // Abrir automáticamente el tutorial la primera vez que el usuario entre a la Biblioteca
+    useEffect(() => {
+        if (isFocused && !hasSeenLibraryTutorial) {
+            setIsTutorialVisible(true);
+        }
+    }, [isFocused, hasSeenLibraryTutorial]);
+
+    const handleCloseTutorial = () => {
+        setIsTutorialVisible(false);
+        if (!hasSeenLibraryTutorial) {
+            setHasSeenLibraryTutorial(true);
+        }
+    };
 
     // Convertir el order del store a rutas
     const [index, setIndex] = useState(0);
@@ -1237,10 +1264,10 @@ export default function LibraryScreen() {
     const renderScene = ({ route }: { route: { key: string } }) => {
         switch (route.key) {
             case 'albums': return <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
-            case 'artists': return <EnhancedArtistList artistFilter={artistFilter} sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'artists': return <EnhancedArtistList artistFilter={artistFilter} sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} selectorRef={artistSelectorRef} />;
             case 'folders': return <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'tracks': return <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
-            case 'playlists': return <EnhancedPlaylistsList playlistFilter={playlistFilter} sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'playlists': return <EnhancedPlaylistsList playlistFilter={playlistFilter} sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} selectorRef={playlistSelectorRef} />;
             default: return null;
         }
     };
@@ -1248,7 +1275,11 @@ export default function LibraryScreen() {
     const { colors } = useAppTheme();
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+            ref={rootRef}
+            collapsable={false}
+            style={[styles.container, { backgroundColor: colors.background }]}
+        >
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
@@ -1297,19 +1328,45 @@ export default function LibraryScreen() {
             >
                 <View style={styles.header}>
                     <Text style={styles.title}>{t('library.title')}</Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View
+                        ref={headerToolsRef}
+                        collapsable={false}
+                        style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
+                    >
+                        <TouchableOpacity
+                            onPress={() => setIsTutorialVisible(true)}
+                            style={styles.filterButton}
+                            accessibilityLabel={t('library_tutorial.help_btn')}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Ionicons
+                                name="help-circle-outline"
+                                size={22}
+                                color={colors.text}
+                            />
+                        </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => ScannerService.syncLibrary()}
                             style={styles.filterButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <Ionicons name="refresh" size={22} color={colors.accent} />
+                            <Ionicons
+                                name="refresh"
+                                size={22}
+                                color={colors.text}
+                            />
                         </TouchableOpacity>
                         {activeTab !== 'folders' && (
                             <TouchableOpacity
                                 onPress={() => openSortModal({ activeTab, activeSort: getActiveSortOption() })}
                                 style={styles.filterButton}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
-                                <Ionicons name="filter" size={22} color={colors.accent} />
+                                <Ionicons
+                                    name="filter"
+                                    size={22}
+                                    color={colors.text}
+                                />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -1317,22 +1374,58 @@ export default function LibraryScreen() {
 
 
                 <ScrollView
+                    ref={tabsScrollViewRef}
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.tabsContainer}
+                    scrollEnabled={!isTutorialVisible}
+                    contentContainerStyle={[
+                        styles.tabsContainer,
+                        isTutorialVisible && { paddingRight: width },
+                    ]}
                     keyboardShouldPersistTaps="handled"
                 >
                     {routes.map((route, i) => (
-                        <TouchableOpacity
+                        <View
                             key={route.key}
-                            style={[styles.tabButton, index === i && { backgroundColor: colors.accent }]}
-                            onPress={() => setIndex(i)}
+                            ref={(el) => { tabRefs.current[route.key] = el; }}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                tabLayouts.current[route.key] = e.nativeEvent.layout;
+                            }}
                         >
-                            <Text style={[styles.tabText, index === i && [styles.activeTabText, { color: colors.onAccent }]]}>{route.title}</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.tabButton,
+                                    index === i && { backgroundColor: colors.accent },
+                                ]}
+                                onPress={() => setIndex(i)}
+                            >
+                                <Text style={[styles.tabText, index === i && [styles.activeTabText, { color: colors.onAccent }]]}>
+                                    {route.title}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     ))}
                 </ScrollView>
             </View>
+
+            {/* 4. TUTORIAL CONTEXTUAL SPOTLIGHT */}
+            <ContextualSpotlightTutorial
+                visible={isTutorialVisible}
+                onClose={handleCloseTutorial}
+                routes={routes}
+                currentTabIndex={index}
+                onSelectTab={(newIndex) => setIndex(newIndex)}
+                bottomOffset={bottomOffset}
+                rootRef={rootRef}
+                headerToolsRef={headerToolsRef}
+                tabRefs={tabRefs}
+                tabsScrollViewRef={tabsScrollViewRef}
+                tabLayouts={tabLayouts}
+                headerHeight={headerHeight}
+                playlistSelectorRef={playlistSelectorRef}
+                artistSelectorRef={artistSelectorRef}
+            />
         </View>
     );
 }
@@ -1349,12 +1442,12 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     filterButton: {
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 22,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 20,
     },
     title: {
         fontSize: 28,

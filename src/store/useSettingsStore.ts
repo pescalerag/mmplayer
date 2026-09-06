@@ -39,6 +39,16 @@ interface SettingsState {
     setForceWelcomeModal: (value: boolean) => void;
     hasSeenWelcomeModal: boolean;
     setHasSeenWelcomeModal: (value: boolean) => void;
+    hasSeenLibraryTutorial: boolean;
+    setHasSeenLibraryTutorial: (value: boolean) => void;
+    hasSeenTagsTutorial: boolean;
+    setHasSeenTagsTutorial: (value: boolean) => void;
+    hasSeenPlayerTutorial: boolean;
+    setHasSeenPlayerTutorial: (value: boolean) => void;
+    hasSeenSearchTutorial: boolean;
+    setHasSeenSearchTutorial: (value: boolean) => void;
+    hasSeenActivityTutorial: boolean;
+    setHasSeenActivityTutorial: (value: boolean) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
     hideSyncToastOnResume: boolean;
@@ -221,6 +231,16 @@ export const useSettingsStore = create<SettingsState>()(
             setForceWelcomeModal: (value) => set({ forceWelcomeModal: value }),
             hasSeenWelcomeModal: false,
             setHasSeenWelcomeModal: (value) => set({ hasSeenWelcomeModal: value }),
+            hasSeenLibraryTutorial: false,
+            setHasSeenLibraryTutorial: (value) => set({ hasSeenLibraryTutorial: value }),
+            hasSeenTagsTutorial: false,
+            setHasSeenTagsTutorial: (value) => set({ hasSeenTagsTutorial: value }),
+            hasSeenPlayerTutorial: false,
+            setHasSeenPlayerTutorial: (value) => set({ hasSeenPlayerTutorial: value }),
+            hasSeenSearchTutorial: false,
+            setHasSeenSearchTutorial: (value) => set({ hasSeenSearchTutorial: value }),
+            hasSeenActivityTutorial: false,
+            setHasSeenActivityTutorial: (value) => set({ hasSeenActivityTutorial: value }),
             language: null,
             setLanguage: (lang) => {
                 set({ language: lang });
