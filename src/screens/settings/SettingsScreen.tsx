@@ -361,7 +361,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.1.0'}</Text>
+                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.2.0'}</Text>
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>
