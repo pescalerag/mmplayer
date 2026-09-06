@@ -16,7 +16,7 @@ export const StatsWidget: React.FC = () => {
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.75}
       onPress={() => navigation.navigate('WeeklyActivity')}
       style={{ marginHorizontal: spacing.lg || 20, marginVertical: 12 }}
     >
@@ -24,13 +24,23 @@ export const StatsWidget: React.FC = () => {
         colors={[colors.accentAlpha15, colors.cardBackground]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.container, { borderRadius: radii.md || 8 }]}
+        style={[styles.container, { borderRadius: radii.md || 12, borderColor: colors.accentAlpha20 || 'rgba(139, 92, 246, 0.2)' }]}
       >
         <View style={styles.header}>
-          <Ionicons name="stats-chart" size={20} color={colors.accentLight} />
-          <Text style={[styles.title, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-            {t('home.weekly_stats_title')}
-          </Text>
+          <View style={styles.headerLeft}>
+            <View style={[styles.headerIconContainer, { backgroundColor: colors.accentAlpha15 }]}>
+              <Ionicons name="stats-chart" size={15} color={colors.accentLight} />
+            </View>
+            <Text style={[styles.title, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+              {t('home.weekly_stats_title')}
+            </Text>
+          </View>
+          <View style={[styles.actionBadge, { backgroundColor: colors.accentAlpha15, borderColor: colors.accentAlpha30 }]}>
+            <Text style={[styles.actionBadgeText, { fontFamily: fonts.bold, color: colors.accentLight }]}>
+              {t('home.view_full_activity')}
+            </Text>
+            <Ionicons name="chevron-forward" size={13} color={colors.accentLight} />
+          </View>
         </View>
 
         <View style={styles.body}>
@@ -106,13 +116,37 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  headerIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 11,
-    fontWeight: '700',
     letterSpacing: 1.2,
+  },
+  actionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionBadgeText: {
+    fontSize: 11,
+    letterSpacing: 0.2,
   },
   body: {
     flexDirection: 'column',

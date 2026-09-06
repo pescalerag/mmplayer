@@ -119,7 +119,7 @@ export const PlaybackService = async function () {
       console.log('Error in RemotePrevious', e);
     }
   });
-  TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.reset());
+  TrackPlayer.addEventListener(Event.RemoteStop, () => usePlayerStore.getState().clearPlayer());
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
   
   TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {
@@ -293,6 +293,13 @@ export const PlaybackService = async function () {
           const newIndex = await TrackPlayer.getActiveTrackIndex();
           if (newIndex !== undefined && newIndex !== null) {
             await updateQueueStatus(newIndex);
+          }
+          if (event.lastIndex !== undefined && event.index !== undefined && event.index > event.lastIndex) {
+            const { userQueueSize } = usePlayerStore.getState();
+            if (userQueueSize > 0) {
+              const steps = event.index - event.lastIndex;
+              usePlayerStore.setState({ userQueueSize: Math.max(0, userQueueSize - steps) });
+            }
           }
           // Bump versions so PlayerScreenUI re-runs syncAdjacentTracks immediately
           // This is critical for the swipe slots (prev/next artwork) to update

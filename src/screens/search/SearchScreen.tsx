@@ -26,6 +26,7 @@ import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
 import TopMatchCard from '@/components/cards/TopMatchCard';
 import TrackRow from '@/components/player/TrackRow';
+import SearchSpotlightTutorial from '@/components/modals/SearchSpotlightTutorial';
 import { database } from "../../database";
 import Album from "../../database/models/Album";
 import Artist from "../../database/models/Artist";
@@ -297,7 +298,30 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   }, []);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const { isCompactTags, setIsCompactTags } = useSettingsStore();
+  const { isCompactTags, setIsCompactTags, hasSeenSearchTutorial, setHasSeenSearchTutorial } = useSettingsStore();
+
+  // Spotlight Tutorial Refs & State
+  const rootRef = useRef<View>(null);
+  const searchBarRef = useRef<View>(null);
+  const advancedSearchButtonRef = useRef<View>(null);
+  const firstTagRef = useRef<View>(null);
+  const searchBarLayout = useRef<any>(null);
+  const advancedSearchButtonLayout = useRef<any>(null);
+  const firstTagLayout = useRef<any>(null);
+  const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasSeenSearchTutorial && isReady) {
+        setIsTutorialVisible(true);
+      }
+    }, [hasSeenSearchTutorial, isReady])
+  );
+
+  const handleCloseTutorial = useCallback(() => {
+    setIsTutorialVisible(false);
+    setHasSeenSearchTutorial(true);
+  }, [setHasSeenSearchTutorial]);
 
   // Advanced Tag Search States
   const [isAdvancedSearching, setIsAdvancedSearching] = useState(false);
@@ -638,15 +662,23 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
       {/* Botón de búsqueda avanzada de etiquetas */}
       {!isCurrentlySearching && (
-        <TouchableOpacity
-          style={styles.advancedSearchButton}
-          onPress={openAdvancedSearchSheet}
+        <View
+          ref={advancedSearchButtonRef}
+          collapsable={false}
+          onLayout={(e) => {
+            advancedSearchButtonLayout.current = e.nativeEvent.layout;
+          }}
         >
-          <Ionicons name="options-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.advancedSearchButtonText}>
-            {t('search.advanced_tag_search_btn') || "Búsqueda avanzada de etiquetas"}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.advancedSearchButton}
+            onPress={openAdvancedSearchSheet}
+          >
+            <Ionicons name="options-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.advancedSearchButtonText}>
+              {t('search.advanced_tag_search_btn') || "Búsqueda avanzada de etiquetas"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
@@ -674,19 +706,27 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             </Text>
           ) : (
             <View style={isCompactTags ? styles.tagsContainer : styles.tagsContainerNormal}>
-              {tags.map((tag) => (
-                <SearchTagCard
+              {tags.map((tag, index) => (
+                <View
                   key={tag.id}
-                  tag={tag}
-                  isCompact={isCompactTags}
-                  onPress={() => {
-                    navigation.navigate("TagDetail", {
-                      tagId: tag.id,
-                      tagName: tag.name,
-                      tagColor: tag.color || colors.accent
-                    });
-                  }}
-                />
+                  ref={index === 0 ? firstTagRef : undefined}
+                  collapsable={false}
+                  onLayout={index === 0 ? (e) => {
+                    firstTagLayout.current = e.nativeEvent.layout;
+                  } : undefined}
+                >
+                  <SearchTagCard
+                    tag={tag}
+                    isCompact={isCompactTags}
+                    onPress={() => {
+                      navigation.navigate("TagDetail", {
+                        tagId: tag.id,
+                        tagName: tag.name,
+                        tagColor: tag.color || colors.accent
+                      });
+                    }}
+                  />
+                </View>
               ))}
             </View>
           )}
@@ -856,7 +896,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View ref={rootRef} collapsable={false} style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
       <LinearGradient
         colors={[
@@ -896,9 +936,31 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           zIndex: 10,
         }]}
       >
-        <Text style={styles.title}>{t('search.title')}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{t('search.title')}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Keyboard.dismiss();
+              flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+              setIsTutorialVisible(true);
+            }}
+            style={styles.helpButton}
+            accessibilityLabel={t('search_tutorial.help_btn')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.searchBarContainer}>
-          <View style={styles.searchBar}>
+          <View
+            ref={searchBarRef}
+            collapsable={false}
+            onLayout={(e) => {
+              searchBarLayout.current = e.nativeEvent.layout;
+            }}
+            style={styles.searchBar}
+          >
             <Ionicons
               name="search"
               size={20}
@@ -1061,6 +1123,20 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
       )}
+
+      {/* Tutorial Contextual Spotlight de Búsqueda */}
+      <SearchSpotlightTutorial
+        visible={isTutorialVisible}
+        onClose={handleCloseTutorial}
+        tags={tags}
+        rootRef={rootRef}
+        searchBarRef={searchBarRef}
+        advancedSearchButtonRef={advancedSearchButtonRef}
+        firstTagRef={firstTagRef}
+        searchBarLayout={searchBarLayout}
+        advancedSearchButtonLayout={advancedSearchButtonLayout}
+        firstTagLayout={firstTagLayout}
+      />
     </View>
   );
 }
@@ -1108,12 +1184,22 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 10,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
   title: {
     fontSize: 32,
     fontFamily: "Montserrat",
     fontWeight: "900",
     color: "#FFFFFF",
-    marginBottom: 15,
+  },
+  helpButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   resultsTitle: {
     fontSize: 24,

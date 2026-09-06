@@ -42,7 +42,7 @@ const BASE_PALETTE = [
 
 export default function TagFormModal() {
   const { colors } = useAppTheme();
-  const { isVisible, tag, closeForm, onSaveCallback } = useTagFormStore();
+  const { isVisible, tag, closeForm, onSaveCallback, setColorRowRef } = useTagFormStore();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
@@ -52,6 +52,11 @@ export default function TagFormModal() {
   const [selectedColor, setSelectedColor] = useState(colors.accent);
   const [customColorMode, setCustomColorMode] = useState(false);
   const [customHexCode, setCustomHexCode] = useState("");
+
+  const colorRowRef = useRef<View>(null);
+  useEffect(() => {
+    setColorRowRef(colorRowRef);
+  }, [setColorRowRef]);
 
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -279,7 +284,7 @@ export default function TagFormModal() {
           <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
             {t('tags.color')}
           </Text>
-          <View style={styles.colorRow}>
+          <View ref={colorRowRef} collapsable={false} style={styles.colorRow}>
             {colorPalette.slice(0, 5).map((color) => {
               const isSelected = !customColorMode && selectedColor === color;
               return (

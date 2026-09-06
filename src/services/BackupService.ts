@@ -23,66 +23,45 @@ const COLLECTIONS_TO_BACKUP = [
 ];
 
 // ─────────────────────────────────────────────────────────────
-// Helpers de encoding: writeAsStringAsync con EncodingType.UTF8
-// en Android no codifica correctamente multi-byte (caracteres
-// acentuados, CJK, emoji…). La solución es codificar el JSON
-// como Base64 puro (ASCII seguro) antes de escribirlo, y luego
-// decodificarlo simétricamente al leer.
+// Helpers de I/O: Lectura y escritura directa en UTF-8 seguro.
+// Evita el uso de expresiones regulares globales sobre strings gigantes
+// (que causaban "Out of memory for regexp results" en Hermes).
 // ─────────────────────────────────────────────────────────────
-
-/** Convierte una cadena JS (UTF-16) a una cadena Base64 que preserve UTF-8. */
-function utf8StringToBase64(str: string): string {
-    // encodeURIComponent convierte a %XX escapes (UTF-8 bytes)
-    // luego los reconstruimos como chars de 8 bits para pasarlos a btoa()
-    const utf8Bytes = encodeURIComponent(str).replace(
-        /%([0-9A-F]{2})/gi,
-        (_match, hex) => String.fromCharCode(parseInt(hex, 16))
-    );
-    return btoa(utf8Bytes);
-}
-
-/** Decodifica un string Base64 (generado por utf8StringToBase64) de vuelta a UTF-8. */
-function base64ToUtf8String(base64: string): string {
-    const binary = atob(base64);
-    const pct = binary
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('');
-    return decodeURIComponent(pct);
-}
 
 /** 
  * Lee el contenido de un archivo de backup y devuelve el string JSON.
- * Detecta automáticamente si el archivo es Base64 (nuevo formato) o plain-JSON (legado).
+ * Detecta automáticamente si el archivo es texto plano UTF-8 o texto Base64.
  */
 async function readBackupFile(uri: string): Promise<string> {
-    // Leemos los bytes como Base64 (el encoding más seguro en Android)
-    const rawBase64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-    });
-
-    // Intentar decodificar como Base64→UTF-8 (nuevo formato)
-    let decoded: string;
-    try {
-        decoded = base64ToUtf8String(rawBase64);
-        // Si el resultado empieza con '{' es JSON válido → nuevo formato
-        const trimmed = decoded.trimStart();
-        if (trimmed.startsWith('{')) {
-            return trimmed;
-        }
-    } catch {
-        // La decodificación base64 falló; caemos al legado
-    }
-
-    // Legado: el archivo ya era plain-UTF-8 (o Windows guardó con BOM)
-    // Lo leemos directamente como UTF-8
     let plain = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.UTF8,
     });
     if (plain.charCodeAt(0) === 0xFEFF) {
-        plain = plain.slice(1); // eliminar BOM
+        plain = plain.slice(1); // eliminar BOM si existe
     }
-    return plain.trim();
+    const trimmed = plain.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        return trimmed;
+    }
+
+    // Fallback por si el archivo viniera en texto Base64
+    try {
+        if (typeof TextDecoder !== 'undefined') {
+            const binary = atob(trimmed);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            const decoded = new TextDecoder('utf-8').decode(bytes);
+            if (decoded.trimStart().startsWith('{') || decoded.trimStart().startsWith('[')) {
+                return decoded.trim();
+            }
+        }
+    } catch {
+        // La decodificación base64 falló; devolvemos plain
+    }
+
+    return trimmed;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -103,14 +82,11 @@ export const BackupService = {
             }
 
             store.startExport(i18n.t('backup.writing_file'));
-            const jsonString = JSON.stringify(backupData, null, 2);
+            const jsonString = JSON.stringify(backupData);
 
-            // ✅ Usamos Base64 para garantizar que todos los caracteres
-            //    (acentos, CJK, emoji…) se preserven en Android.
-            const base64Content = utf8StringToBase64(jsonString);
             const fileUri = FileSystem.cacheDirectory + 'backup_music_app.json';
-            await FileSystem.writeAsStringAsync(fileUri, base64Content, {
-                encoding: FileSystem.EncodingType.Base64,
+            await FileSystem.writeAsStringAsync(fileUri, jsonString, {
+                encoding: FileSystem.EncodingType.UTF8,
             });
 
             // Verificar si el compartir está disponible en la plataforma
@@ -210,8 +186,14 @@ export const BackupService = {
                 }
 
                 if (batchOperations.length > 0) {
-                    store.startImport(i18n.t('backup.saving_records', { count: batchOperations.length }));
-                    await database.batch(batchOperations);
+                    const BATCH_SIZE = 1000;
+                    for (let i = 0; i < batchOperations.length; i += BATCH_SIZE) {
+                        const chunk = batchOperations.slice(i, i + BATCH_SIZE);
+                        store.startImport(i18n.t('backup.saving_records', {
+                            count: `${Math.min(i + BATCH_SIZE, batchOperations.length)} / ${batchOperations.length}`
+                        }));
+                        await database.batch(chunk);
+                    }
                 }
             });
 

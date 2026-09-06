@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import TrackPlayer from 'react-native-track-player';
+import * as Haptics from 'expo-haptics';
 import { useToastStore } from './useToastStore';
 import { useCastStore } from './useCastStore';
 import i18n from '../constants/i18n';
@@ -11,6 +12,7 @@ interface ABRepeatState {
     setPointB: (time: number) => void;
     clearAB: () => void;
     handleButtonPress: (currentPosition: number) => void;
+    handleLongPress: () => void;
     checkLoop: (currentPosition: number) => Promise<number | null>; // Returns seek position if seeked
 }
 
@@ -24,17 +26,29 @@ export const useABRepeatStore = create<ABRepeatState>((set, get) => ({
         const { pointA, pointB } = get();
         if (pointA === null) {
             set({ pointA: currentPosition });
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             useToastStore.getState().showToast(i18n.t('toasts.ab_point_a_set'), "flag-outline");
         } else if (pointB === null) {
             if (currentPosition > pointA) {
                 set({ pointB: currentPosition });
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 useToastStore.getState().showToast(i18n.t('toasts.ab_point_b_set'), "repeat");
             } else {
                 set({ pointA: currentPosition });
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 useToastStore.getState().showToast(i18n.t('toasts.ab_point_a_updated'), "flag-outline");
             }
         } else {
             set({ pointA: null, pointB: null });
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            useToastStore.getState().showToast(i18n.t('toasts.ab_deactivated'), "close-outline");
+        }
+    },
+    handleLongPress: () => {
+        const { pointA, pointB } = get();
+        if (pointA !== null || pointB !== null) {
+            set({ pointA: null, pointB: null });
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             useToastStore.getState().showToast(i18n.t('toasts.ab_deactivated'), "close-outline");
         }
     },

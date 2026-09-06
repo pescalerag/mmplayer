@@ -34,6 +34,8 @@ export default function SettingsAudioScreen() {
         setEqualizerBands,
         bassBoostStrength,
         setBassBoostStrength,
+        queueAddBehavior,
+        setQueueAddBehavior,
     } = useSettingsStore();
 
     const [bandFreqs, setBandFreqs] = useState<number[]>([]);
@@ -55,7 +57,7 @@ export default function SettingsAudioScreen() {
     }, [isEqualizerEnabled]);
 
     return (
-        <ScreenHeaderLayout title={t('settings.audio_section') || 'Audio'}>
+        <ScreenHeaderLayout title={t('settings.audio_section') || 'Audio y reproducción'}>
             {({ headerHeight, bottomPadding }) => (
                 <ScrollView
                     style={{ flex: 1 }}
@@ -268,6 +270,60 @@ export default function SettingsAudioScreen() {
                         </TouchableOpacity>
                     </View>
 
+                    {/* COLA DE REPRODUCCIÓN */}
+                    <Text style={styles.sectionHeaderTitle}>{t('settings.queue_section') || 'Cola de reproducción'}</Text>
+                    <View style={styles.sectionCard}>
+                        <View style={{ marginBottom: 12 }}>
+                            <Text style={styles.settingLabel}>{t('settings.queue_add_mode') || 'Al añadir al final de la cola'}</Text>
+                            <Text style={styles.settingDescription}>
+                                {t('settings.queue_add_mode_desc') || "Define la posición donde se insertan las canciones al pulsar 'Añadir al final de la cola'"}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.optionRow}
+                            onPress={() => setQueueAddBehavior('user_queue')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                                <Text style={[styles.settingLabel, queueAddBehavior === 'user_queue' && { color: colors.accent }]}>
+                                    {t('settings.queue_add_mode_user') || 'Al final de las que van a continuación (Recomendado)'}
+                                </Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.queue_add_mode_user_desc') || 'Sonarán después de las canciones añadidas por ti y antes de volver al álbum o lista actual.'}
+                                </Text>
+                            </View>
+                            <Ionicons
+                                name={queueAddBehavior === 'user_queue' ? 'radio-button-on' : 'radio-button-off'}
+                                size={22}
+                                color={queueAddBehavior === 'user_queue' ? colors.accent : '#666'}
+                            />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.optionRow}
+                            onPress={() => setQueueAddBehavior('context_queue')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                                <Text style={[styles.settingLabel, queueAddBehavior === 'context_queue' && { color: colors.accent }]}>
+                                    {t('settings.queue_add_mode_context') || 'Al final de toda la cola'}
+                                </Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.queue_add_mode_context_desc') || 'Se colocan al final de la cola de contexto. Sonarán tras terminar todo el álbum o lista.'}
+                                </Text>
+                            </View>
+                            <Ionicons
+                                name={queueAddBehavior === 'context_queue' ? 'radio-button-on' : 'radio-button-off'}
+                                size={22}
+                                color={queueAddBehavior === 'context_queue' ? colors.accent : '#666'}
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.sectionHeaderTitle}>{t('settings.equalizer') || 'Ecualizador'}</Text>
                     <View style={styles.sectionCard}>
                         <View style={styles.settingRow}>
                             <View style={{ flex: 1, paddingRight: 15 }}>
@@ -534,5 +590,21 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat',
         fontWeight: '700',
         color: '#8B5CF6',
+    },
+    sectionHeaderTitle: {
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#888',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 8,
+        marginLeft: 4,
+    },
+    optionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
     },
 });

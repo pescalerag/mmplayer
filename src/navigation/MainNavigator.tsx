@@ -3,11 +3,12 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { AppState, AppStateStatus, Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AppState, AppStateStatus, Animated, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlobalSyncIndicator from '@/components/common/GlobalSyncIndicator';
 import { ScannerService } from "../services/ScannerService";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { usePlayerStore } from "../store/usePlayerStore";
 import { Colors } from "../theme/theme";
 import { useAppTheme } from '../hooks/useAppTheme';
 
@@ -220,6 +221,7 @@ function MainTabs() {
   const insets = useSafeAreaInsets();
   const { appTabsOrder, initialAppRoute } = useSettingsStore();
   const { colors } = useAppTheme();
+  const activeTrack = usePlayerStore(state => state.activeTrack);
 
   const screenOptions = React.useMemo(
     () => ({
@@ -291,14 +293,26 @@ function MainTabs() {
         pointerEvents="box-none"
         style={{
           position: "absolute",
-          bottom: 60 + insets.bottom + 12,
-          left: 12,
-          right: 12,
+          bottom: 60 + insets.bottom,
+          left: 0,
+          right: 0,
           zIndex: 100,
         }}
       >
-        <CastingBanner />
-        <MiniPlayer />
+        <View style={{ paddingHorizontal: 12 }} pointerEvents="box-none">
+          <CastingBanner />
+          <MiniPlayer />
+        </View>
+        {Boolean(activeTrack) && (
+          <Pressable
+            android_disableSound={true}
+            onStartShouldSetResponder={() => true}
+            style={{ height: 12, width: "100%" }}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+            }}
+          />
+        )}
       </View>
 
       <MultiSelectActionBar />

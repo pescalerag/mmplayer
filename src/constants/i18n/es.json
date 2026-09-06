@@ -13,6 +13,8 @@
     "empty_playlists": "Aún no has escuchado ninguna playlist.",
     "special_playlist": "Lista de reproducción especial",
     "weekly_stats_title": "ACTIVIDAD SEMANAL",
+    "view_full_activity": "Ver actividad",
+    "weekly_stats_tap_hint": "Toca para ver períodos, ránkings y compartir",
     "weekly_stats_hours": "Horas escuchadas",
     "weekly_stats_artist": "Artista top",
     "weekly_stats_album": "Álbum top",
@@ -112,6 +114,254 @@
     "smart_rating_title": "Listas según puntuación",
     "smart_genre_title": "Playlists por género",
     "smart_genre_desc": "Canciones del género {{genre}}"
+  },
+  "library_tutorial": {
+    "badge": "GUÍA DE LA BIBLIOTECA",
+    "help_btn": "Ver tutorial de la biblioteca",
+    "skip": "Saltar",
+    "next": "Siguiente",
+    "prev": "Anterior",
+    "finish": "¡A disfrutar!",
+    "tab_overview": "Herramientas",
+    "tab_albums": "Álbumes",
+    "tab_playlists": "Playlists",
+    "tab_artists": "Artistas",
+    "tab_folders": "Carpetas",
+    "tab_tracks": "Canciones",
+    "viewing_tab": "Viendo",
+    "steps": {
+      "overview": {
+        "title": "Centro de Control",
+        "subtitle": "Gestiona y actualiza tu música al instante.",
+        "p1_title": "Sincronización Rápida",
+        "p1_desc": "Pulsa el botón de refresco para escanear y añadir al instante la nueva música de tu móvil.",
+        "p2_title": "Ordenación a tu Gusto",
+        "p2_desc": "Ordena alfabéticamente (A-Z), por año, duración o pistas añadidas recientemente.",
+        "tip": "💡 Puedes personalizar el orden de las pestañas en Configuración > Personalizar pestañas."
+      },
+      "albums": {
+        "title": "Álbumes y Discos",
+        "subtitle": "Tu música organizada por obras completas con carátulas en alta definición.",
+        "p1_title": "Fijar Álbumes Arriba (Pin)",
+        "p1_desc": "Mantén pulsado cualquier álbum para fijarlo arriba del todo y tenerlo siempre a mano.",
+        "p2_title": "Diseño de CD Personalizado",
+        "p2_desc": "Elige una imagen para la galleta del CD que girará en el reproductor al escuchar el disco.",
+        "tip": "💡 Entra a un álbum para ver sus pistas organizadas por discos (CD 1, CD 2...) y sus etiquetas."
+      },
+      "playlists": {
+        "title": "Tus Playlists y Smart Playlists",
+        "subtitle": "Crea tus listas o descubre selecciones automáticas según tus hábitos.",
+        "p1_title": "Alternar Normales y Smart",
+        "p1_desc": "Usa este selector para cambiar entre tus playlists creadas a mano y las Smart Playlists inteligentes.",
+        "p2_title": "Smart Playlists Automáticas",
+        "p2_desc": "Listas inteligentes en tiempo real: según tus reproducciones, estrellas y géneros musicales.",
+        "tip": "💡 Las Smart Playlists se crean solas según tus estrellas (⭐), más escuchadas y géneros musicales."
+      },
+      "artists": {
+        "title": "Todos los Artistas y Colaboradores",
+        "subtitle": "Tus artistas favoritos con fotos personalizadas y discografía completa.",
+        "p1_title": "Intérpretes de Álbum vs Todos",
+        "p1_desc": "Usa este selector para alternar entre 'Intérpretes de Álbum' (principales) y 'Todos' (incluyendo artistas colaboradores y duetos).",
+        "p2_title": "Foto de Artista Personalizada",
+        "p2_desc": "Entra al detalle de cualquier artista para subir su foto personalizada directamente desde tu galería.",
+        "tip": "💡 Mantén el catálogo limpio viendo solo artistas principales o explora colaboraciones cuando quieras."
+      },
+      "folders": {
+        "title": "Explorador de Carpetas",
+        "subtitle": "Navega directamente por los archivos reales de tu almacenamiento o tarjeta SD.",
+        "p1_title": "Excluir Audios de WhatsApp",
+        "p1_desc": "Mantén pulsada cualquier carpeta para excluirla: ideal para ocultar notas de voz, audios y tonos.",
+        "p2_title": "Navegación Limpia en Árbol",
+        "p2_desc": "Explora carpetas y subcarpetas con un botón de volver atrás directo e intuitivo.",
+        "tip": "💡 Puedes volver a incluir carpetas excluidas cuando quieras desde Configuración."
+      },
+      "tracks": {
+        "title": "Canciones y Superpoderes",
+        "subtitle": "El catálogo completo con herramientas avanzadas para melómanos.",
+        "p1_title": "Aleatorio Instantáneo",
+        "p1_desc": "Toca el botón 'Aleatorio' en la cabecera para mezclar toda tu biblioteca en un solo toque.",
+        "p2_title": "Puntuación de 0 a 5 Estrellas",
+        "p2_desc": "Valora canciones con estrellas desde su menú y edita sus etiquetas y metadatos ID3 al vuelo.",
+        "tip": "💡 Pulsa el botón '?' junto a la sincronización para volver a ver esta guía en cualquier momento."
+      }
+    }
+  },
+  "tags_tutorial": {
+    "badge": "GUÍA DE ETIQUETAS",
+    "help_btn": "Ver tutorial de etiquetas",
+    "sample_tag_name": "Favoritos",
+    "skip": "Saltar",
+    "next": "Siguiente",
+    "prev": "Anterior",
+    "finish": "¡A organizar!",
+    "steps": {
+      "intro": {
+        "title": "¿Para qué sirven las etiquetas?",
+        "subtitle": "Organiza tu biblioteca musical con total libertad.",
+        "desc": "Las etiquetas te permiten clasificar tu música según estados de ánimo (Gym, Relax, Fiesta), épocas o conceptos propios, superando los límites de los géneros clásicos.",
+        "tip": "💡 Puedes filtrar por etiquetas en la Búsqueda Avanzada y crear Smart Playlists automáticas basadas en ellas."
+      },
+      "create": {
+        "title": "Crea tus Propias Etiquetas",
+        "subtitle": "Dar de alta una etiqueta te tomará apenas unos segundos.",
+        "desc": "Pulsa este botón para abrir el formulario de creación. Asigna un nombre claro y descriptivo (hasta 25 caracteres) para identificarla rápidamente.",
+        "tip": "💡 Al avanzar, abriremos el formulario para ver cómo personalizar los colores."
+      },
+      "color": {
+        "title": "Nombre y Paleta de Colores",
+        "subtitle": "Elige un tono visual para distinguir tus etiquetas al vuelo.",
+        "desc": "Puedes seleccionar rápidamente un color de la paleta básica o pulsar el icono de paleta para abrir el selector cromático avanzado y elegir cualquier código HEX.",
+        "tip": "💡 Cada etiqueta destacará con su color propio en las tarjetas, reproductor y listas."
+      },
+      "assign": {
+        "title": "¿Cómo asignar etiquetas?",
+        "subtitle": "Asocia etiquetas a canciones y álbumes en un par de toques.",
+        "desc": "Desde cualquier canción o álbum en la app, abre su menú de opciones (los 3 puntos ⋮) y selecciona 'Etiquetas'. También puedes etiquetar decenas de canciones a la vez con la selección por lotes.",
+        "tip": "💡 En los álbumes, puedes elegir si asignar la etiqueta al disco o propagarla a todas sus canciones."
+      },
+      "manage": {
+        "title": "Explora y Administra",
+        "subtitle": "Accede a la música de una etiqueta o edítala cuando quieras.",
+        "desc": "Toca cualquier etiqueta para ver todas sus canciones y álbumes asociados y escucharlos. Mantén pulsada una etiqueta o toca sus 3 puntos ⋮ para cambiar su nombre, editar su color o eliminarla.",
+        "tip": "💡 Puedes volver a ver este tutorial en cualquier momento pulsando el botón '?' de la cabecera."
+      }
+    }
+  },
+  "player_tutorial": {
+    "badge": "GUÍA DEL REPRODUCTOR",
+    "help_btn": "Ver tutorial del reproductor",
+    "skip": "Saltar",
+    "next": "Siguiente",
+    "prev": "Anterior",
+    "finish": "¡A disfrutar!",
+    "steps": {
+      "options": {
+        "title": "Opciones de la Canción",
+        "desc": "Pulsa el menú de tres puntos para acceder a funciones avanzadas: establecer vídeos de fondo Canvas, ver detalles del álbum y artista, o editar metadatos.",
+        "tip": "💡 Los vídeos Canvas se reproducen en bucle continuo y animan todo el fondo del reproductor."
+      },
+      "cover": {
+        "title": "Carátula y Modos Visuales",
+        "desc": "Mantén pulsada la carátula para abrir el menú de visualización y alternar entre carátula clásica, CD giratorio, vinilo o el ecualizador reactivo en tiempo real. Toca una vez para activar el modo inmersivo.",
+        "tip": "💡 Desliza hacia la izquierda o derecha sobre la carátula para pasar a la siguiente canción o volver a la anterior."
+      },
+      "tags": {
+        "title": "Etiquetas en Tiempo Real",
+        "desc": "Añade y gestiona etiquetas directamente mientras disfrutas de la música. Clasifica por 'Gym', 'Relax', 'Fiesta' o tus propios estados de ánimo con un solo toque.",
+        "tip": "💡 Puedes filtrar por tus etiquetas en la Búsqueda Avanzada y crear Smart Playlists automatizadas."
+      },
+      "actions": {
+        "title": "Favoritos y Listas",
+        "desc": "Toca el corazón para añadir la canción a tus Favoritos al instante. Pulsa el botón '+' para guardarla en cualquiera de tus listas de reproducción existentes o crear una nueva.",
+        "tip": "💡 Tus canciones favoritas se sincronizan en la pestaña de Playlists para escucharlas cuando quieras."
+      },
+      "controls": {
+        "title": "Controles de Reproducción",
+        "desc": "Navega fácilmente por tu música: activa el modo aleatorio inteligente, retrocede o avanza de pista, y conmuta entre repetir la lista completa o mantener la misma canción en bucle ('1').",
+        "tip": "💡 Si la canción lleva más de 3 segundos sonando, el botón anterior reinicia la pista actual en vez de saltar."
+      },
+      "sleep": {
+        "title": "Temporizador de Apagado",
+        "desc": "Programa el apagado automático de la música tras 15, 30, 45, 60 minutos o al terminar la canción actual. Ideal para dormir sin que la batería se agote.",
+        "tip": "💡 El icono se iluminará con tu color de acento mientras haya un temporizador activo."
+      },
+      "speed": {
+        "title": "Velocidad y Tono (Pitch)",
+        "desc": "Acelera o ralentiza la reproducción desde 0.5x hasta 2.0x sin perder calidad y ajusta el tono semitono a semitono. Perfecto para podcasts, estudio musical o transcribir solos.",
+        "tip": "💡 Puedes restablecer los valores originales a 1.0x en cualquier momento desde el menú emergente."
+      },
+      "lyrics": {
+        "title": "Letras Sincronizadas (Karaoke)",
+        "desc": "Abre la pantalla completa de letras con seguimiento en tiempo real, modo karaoke dinámico y navegación táctil verso a verso para cantar tus temas preferidos.",
+        "tip": "💡 Si una canción no tiene letra sincronizada, puedes buscarla o editarla manualmente."
+      },
+      "cast": {
+        "title": "Transmisión a Otros Dispositivos",
+        "desc": "Envía la música a altavoces y Smart TVs mediante Google Cast / Chromecast, o transmite en tiempo real a cualquier PC, móvil o navegador en tu red local con LocalCast.",
+        "tip": "💡 Con LocalCast obtendrás un enlace web y código QR para escuchar la música en cualquier navegador sin instalar nada."
+      },
+      "ab_repeat": {
+        "title": "Bucle Musical A-B",
+        "desc": "Pulsa una vez para marcar el punto A (inicio) y vuelve a pulsar para marcar el punto B (fin). El reproductor repetirá ese fragmento en bucle continuo. Mantén pulsado para cancelar.",
+        "tip": "💡 La barra de progreso muestra marcadores visuales que indican con precisión el tramo en bucle."
+      },
+      "share": {
+        "title": "Compartir Archivo de Audio",
+        "desc": "Envía el archivo de audio original directamente a tus contactos por WhatsApp, Telegram o guárdalo en la nube mediante el menú nativo de compartir del sistema.",
+        "tip": "💡 Comparte música con amigos en segundos sin necesidad de salir del reproductor."
+      },
+      "queue": {
+        "title": "Cola de Reproducción",
+        "desc": "Abre la lista interactiva de pistas en espera. Reordena canciones arrastrándolas, elimina las que no quieras escuchar o guarda la cola actual como una nueva playlist.",
+        "tip": "💡 Puedes deslizar el reproductor hacia abajo en cualquier momento para volver a tu biblioteca mientras la música sigue sonando."
+      }
+    }
+  },
+  "search_tutorial": {
+    "badge": "GUÍA DE BÚSQUEDA",
+    "help_btn": "Ver tutorial de búsqueda",
+    "skip": "Saltar",
+    "next": "Siguiente",
+    "prev": "Anterior",
+    "finish": "¡A buscar!",
+    "steps": {
+      "search_bar": {
+        "title": "Búsqueda Unificada",
+        "desc": "Encuentra al instante cualquier canción, artista, álbum, lista o etiqueta mientras escribes. La búsqueda filtra en tiempo real y destaca el mejor resultado de inmediato.",
+        "tip": "💡 También puedes buscar por fragmentos de letras de canciones si están sincronizadas en tu música."
+      },
+      "advanced_tags": {
+        "title": "Búsqueda Avanzada de Etiquetas",
+        "desc": "Combina tus etiquetas con precisión quirúrgica: exige que coincidan todas o al menos una, excluye las que no quieras y filtra canciones que aún no estén en playlists.",
+        "tip": "💡 Es la herramienta ideal para redescubrir pistas guardadas que todavía no has clasificado en listas."
+      },
+      "explore_tags": {
+        "title": "Exploración por Etiquetas",
+        "desc": "Navega directamente por tus géneros, estados de ánimo o conceptos creados. Toca cualquier etiqueta para escuchar todas sus canciones o mantén pulsado para gestionarla.",
+        "tip": "💡 Puedes alternar entre vista compacta y normal con el interruptor superior según prefieras mayor densidad visual."
+      }
+    }
+  },
+  "activity_tutorial": {
+    "badge": "GUÍA DE ACTIVIDAD",
+    "help_btn": "Ver tutorial de actividad",
+    "skip": "Saltar",
+    "next": "Siguiente",
+    "prev": "Anterior",
+    "finish": "¡A explorar!",
+    "sample_data_badge": "Datos de demostración para el tutorial",
+    "steps": {
+      "period_selector": {
+        "title": "Períodos y Fechas",
+        "desc": "Consulta tus estadísticas en cualquier ventana temporal: hoy, esta semana, este mes, este año o desde que empezaste a usar MMPlayer. Todo el análisis se recalcula en el acto.",
+        "tip": "💡 Toca el icono del calendario a la derecha para seleccionar un rango de fechas personalizado con día, mes y año exactos."
+      },
+      "metric_toggle": {
+        "title": "Conmutador de Métricas",
+        "desc": "Alterna entre Tiempo (horas totales acumuladas) y Reproducciones (veces escuchadas). Todo el desglose de la pantalla se adapta inmediatamente al criterio que elijas.",
+        "tip": "💡 Usa Reproducciones para ver qué temas escuchas en bucle y Tiempo para ver a qué artistas dedicas más horas."
+      },
+      "hero_summary": {
+        "title": "Resumen Global",
+        "desc": "Visualiza el cómputo total de horas o reproducciones del período activo de un solo vistazo. Se sincroniza en tiempo real según escuchas tu música.",
+        "tip": "💡 Todas las estadísticas se procesan 100% de manera local en tu dispositivo para garantizar total privacidad."
+      },
+      "highlights_and_tabs": {
+        "title": "Podio y Desglose Detallado",
+        "desc": "En Destacados descubres tu artista, álbum y canción número 1. Toca en el artista o álbum para ver su detalle, o pulsa la canción para reproducirla. Usa las pestañas para ver los rankings completos.",
+        "tip": "💡 En las pestañas de Canciones, Álbumes y Artistas verás tu lista clasificada con su posición y conteo exacto."
+      },
+      "smart_lists": {
+        "title": "Playlists Inteligentes",
+        "desc": "MMPlayer genera automáticamente listas dinámicas con tus 50 canciones más escuchadas de la semana, del mes o globales. Puedes reproducirlas al instante con un solo toque.",
+        "tip": "💡 Estas listas se actualizan solas conforme escuchas música, sin necesidad de organizarlas manualmente."
+      },
+      "share_stats": {
+        "title": "Compartir Estadísticas",
+        "desc": "Genera tarjetas visuales estilo Wrapped con tus métricas y tus artistas favoritos del período para compartirlas directamente en Instagram, WhatsApp u otras redes.",
+        "tip": "💡 Puedes personalizar el diseño de la tarjeta antes de exportar o compartir la imagen."
+      }
+    }
   },
   "search": {
     "placeholder": "Buscar artistas, álbumes o canciones",
@@ -239,8 +489,8 @@
     "show_lyrics_desc": "Muestra la frase de la letra actual (si está disponible) sobre las etiquetas en el reproductor y en modo inmersivo.",
     "silent_sync": "Escaneo silencioso al volver",
     "silent_sync_desc": "Oculta el aviso de 'Sincronizando Biblioteca...' cuando vuelves a la aplicación, pero sigue escaneando en segundo plano.",
-    "audio_section": "Audio y Normalización",
-    "audio_section_desc": "Nivelación de volumen, preamp y análisis de ganancia ReplayGain",
+    "audio_section": "Audio y reproducción",
+    "audio_section_desc": "Nivelación de volumen, ecualizador y cola de reproducción",
     "swipe_actions": "Gestos de deslizamiento",
     "swipe_actions_desc": "Configura las acciones rápidas al deslizar canciones",
     "swipe_left": "Deslizar a la izquierda",
@@ -312,7 +562,7 @@
     "drag_to_reorder_tabs": "Orden de la barra (Mantén presionado para mover)",
     "confirm_restart": "Confirmar y Reiniciar",
     "restarting": "Reiniciando...",
-    "audio_section": "Audio",
+    "audio_section": "Audio y reproducción",
     "normalization": "Normalización de volumen",
     "normalization_desc": "Evita cambios bruscos de volumen entre canciones (ReplayGain)",
     "preamp": "Pre-amplificación",
@@ -339,7 +589,14 @@
     "eq_reset": "Restablecer",
     "eq_hz": "Hz",
     "eq_khz": "kHz",
-    "scan_replaygain_error": "No se pudo completar el análisis."
+    "scan_replaygain_error": "No se pudo completar el análisis.",
+    "queue_section": "Cola de reproducción",
+    "queue_add_mode": "Al añadir al final de la cola",
+    "queue_add_mode_desc": "Define la posición donde se insertan las canciones al pulsar 'Añadir al final de la cola'",
+    "queue_add_mode_user": "Al final de las que van a continuación (Recomendado)",
+    "queue_add_mode_user_desc": "Sonarán después de las canciones añadidas por ti y antes de volver al álbum o lista actual.",
+    "queue_add_mode_context": "Al final de toda la cola",
+    "queue_add_mode_context_desc": "Se colocan al final de la cola de contexto. Sonarán tras terminar todo el álbum o lista."
   },
   "queue": {
     "title": "Cola",

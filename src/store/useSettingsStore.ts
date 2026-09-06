@@ -37,6 +37,18 @@ interface SettingsState {
     setUserAvatarUri: (uri: string | null) => void;
     forceWelcomeModal: boolean;
     setForceWelcomeModal: (value: boolean) => void;
+    hasSeenWelcomeModal: boolean;
+    setHasSeenWelcomeModal: (value: boolean) => void;
+    hasSeenLibraryTutorial: boolean;
+    setHasSeenLibraryTutorial: (value: boolean) => void;
+    hasSeenTagsTutorial: boolean;
+    setHasSeenTagsTutorial: (value: boolean) => void;
+    hasSeenPlayerTutorial: boolean;
+    setHasSeenPlayerTutorial: (value: boolean) => void;
+    hasSeenSearchTutorial: boolean;
+    setHasSeenSearchTutorial: (value: boolean) => void;
+    hasSeenActivityTutorial: boolean;
+    setHasSeenActivityTutorial: (value: boolean) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
     hideSyncToastOnResume: boolean;
@@ -46,6 +58,8 @@ interface SettingsState {
     swipeRightAction: SwipeAction;
     setSwipeRightAction: (action: SwipeAction) => void;
     isNormalizationEnabled: boolean;
+    queueAddBehavior: QueueAddBehavior;
+    setQueueAddBehavior: (behavior: QueueAddBehavior) => void;
     preampLevel: number; // Ej: de 0 a +6 dB
     fallbackGainDB: number; // Ej: 0, -3, -5 o -10 dB
     setNormalizationEnabled: (enabled: boolean) => void;
@@ -98,6 +112,7 @@ interface SettingsState {
     setHomeProfilePosition: (position: 'left' | 'right') => void;
 }
 
+export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
@@ -109,6 +124,8 @@ export const useSettingsStore = create<SettingsState>()(
             showTagColors: true,
             setShowTagColors: (value) => set({ showTagColors: value }),
             isNormalizationEnabled: true,
+            queueAddBehavior: 'user_queue',
+            setQueueAddBehavior: (behavior) => set({ queueAddBehavior: behavior }),
             preampLevel: 0,
             fallbackGainDB: -5,
             setNormalizationEnabled: (enabled) => set({ isNormalizationEnabled: enabled }),
@@ -212,6 +229,18 @@ export const useSettingsStore = create<SettingsState>()(
             setUserAvatarUri: (uri) => set({ userAvatarUri: uri }),
             forceWelcomeModal: false,
             setForceWelcomeModal: (value) => set({ forceWelcomeModal: value }),
+            hasSeenWelcomeModal: false,
+            setHasSeenWelcomeModal: (value) => set({ hasSeenWelcomeModal: value }),
+            hasSeenLibraryTutorial: false,
+            setHasSeenLibraryTutorial: (value) => set({ hasSeenLibraryTutorial: value }),
+            hasSeenTagsTutorial: false,
+            setHasSeenTagsTutorial: (value) => set({ hasSeenTagsTutorial: value }),
+            hasSeenPlayerTutorial: false,
+            setHasSeenPlayerTutorial: (value) => set({ hasSeenPlayerTutorial: value }),
+            hasSeenSearchTutorial: false,
+            setHasSeenSearchTutorial: (value) => set({ hasSeenSearchTutorial: value }),
+            hasSeenActivityTutorial: false,
+            setHasSeenActivityTutorial: (value) => set({ hasSeenActivityTutorial: value }),
             language: null,
             setLanguage: (lang) => {
                 set({ language: lang });

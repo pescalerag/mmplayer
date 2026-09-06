@@ -1,4 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import ActivitySpotlightTutorial from '../../components/modals/ActivitySpotlightTutorial';
 import {
   View,
   Text,
@@ -118,6 +120,26 @@ export default function ActivityMainScreen() {
   const [metric, setMetric] = useState<Metric>('duration');
   const [activeOption, setActiveOption] = useState<'highlights' | 'songs' | 'albums' | 'artists'>('highlights');
 
+  const { hasSeenActivityTutorial, setHasSeenActivityTutorial } = useSettingsStore();
+  const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+
+  // Spotlight Tutorial Refs & Layouts
+  const rootRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const periodTabsRef = useRef<View>(null);
+  const metricToggleRef = useRef<View>(null);
+  const heroCardRef = useRef<View>(null);
+  const highlightsCardRef = useRef<View>(null);
+  const smartListsRef = useRef<View>(null);
+  const shareButtonRef = useRef<View>(null);
+
+  const periodTabsLayout = useRef<any>(null);
+  const metricToggleLayout = useRef<any>(null);
+  const heroCardLayout = useRef<any>(null);
+  const highlightsCardLayout = useRef<any>(null);
+  const smartListsLayout = useRef<any>(null);
+  const shareButtonLayout = useRef<any>(null);
+
   // Share Stats Modal State
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
@@ -151,6 +173,23 @@ export default function ActivityMainScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [smartLists, setSmartLists] = useState<{ id: string; name: string; placeholderIcon: string; trackCount: number }[]>([]);
 
+  // Auto-launch tutorial on first visit
+  useEffect(() => {
+    if (!hasSeenActivityTutorial && !isLoading) {
+      const timer = setTimeout(() => {
+        setIsTutorialVisible(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenActivityTutorial, isLoading]);
+
+  // Ensure 'highlights' tab is active during tutorial so all targets exist
+  useEffect(() => {
+    if (isTutorialVisible) {
+      setActiveOption('highlights');
+    }
+  }, [isTutorialVisible]);
+
   const loadStatsSmartLists = useCallback(async () => {
     try {
       const lists = SmartListService.getSmartLists();
@@ -173,6 +212,12 @@ export default function ActivityMainScreen() {
 
   const visibleSmartLists = React.useMemo(() => {
     const nonKeys = smartLists.filter(l => l.trackCount > 0);
+    if (nonKeys.length === 0 && isTutorialVisible) {
+      return [
+        { id: 'top_50_week', name: 'Top 50 Semanal', placeholderIcon: 'trending-up', trackCount: 50 },
+        { id: 'top_50', name: 'Top 50 Global', placeholderIcon: 'star', trackCount: 50 },
+      ];
+    }
     if (period === 'week') {
       return nonKeys.filter(l => l.id === 'top_50_week' || l.id === 'top_50');
     }
@@ -180,7 +225,7 @@ export default function ActivityMainScreen() {
       return nonKeys.filter(l => l.id === 'top_50_month' || l.id === 'top_50');
     }
     return nonKeys.filter(l => l.id === 'top_50');
-  }, [smartLists, period]);
+  }, [smartLists, period, isTutorialVisible]);
 
   const fetchStats = useCallback(async () => {
     setIsLoading(true);
@@ -213,7 +258,31 @@ export default function ActivityMainScreen() {
     }, [fetchStats, loadStatsSmartLists])
   );
 
+  const hasRealActivity = detailedStats.totalHours > 0 || detailedStats.totalPlays > 0;
+
   const stats = React.useMemo(() => {
+    if (!hasRealActivity && isTutorialVisible) {
+      return {
+        totalHours: 14.5,
+        totalPlays: 128,
+        topSong: 'Midnight City',
+        topSongId: '',
+        topSongImg: null,
+        topSongArtist: 'M83',
+        topSongDuration: 245,
+        topSongPlays: 42,
+        topAlbum: "Hurry Up, We're Dreaming",
+        topAlbumId: '',
+        topAlbumImg: null,
+        topAlbumDuration: 3600,
+        topAlbumPlays: 65,
+        topArtist: 'M83',
+        topArtistId: '',
+        topArtistImg: null,
+        topArtistDuration: 7200,
+        topArtistPlays: 110,
+      };
+    }
     const topSong = detailedStats.topSongs[0];
     const topAlbum = detailedStats.topAlbums[0];
     const topArtist = detailedStats.topArtists[0];
@@ -237,7 +306,7 @@ export default function ActivityMainScreen() {
       topArtistDuration: topArtist?.duration || 0,
       topArtistPlays: topArtist?.plays || 0,
     };
-  }, [detailedStats]);
+  }, [detailedStats, hasRealActivity, isTutorialVisible]);
 
   const formattedPeriodText = React.useMemo(() => {
     if (period === 'custom' && customFrom && customTo) {
@@ -297,7 +366,7 @@ export default function ActivityMainScreen() {
     setIsCustomDatePickerVisible(false);
   };
 
-  const hasActivity = stats.totalHours > 0 || stats.totalPlays > 0;
+  const hasActivity = hasRealActivity || isTutorialVisible;
 
   const artistStatLabel = metric === 'duration'
     ? t('activity.listening_time', { time: formatDuration(stats.topArtistDuration, t) })
@@ -328,7 +397,7 @@ export default function ActivityMainScreen() {
     : t('activity.global_highlights');
 
   return (
-    <View style={styles.root}>
+    <View ref={rootRef} style={styles.root}>
       {/* BACKGROUND GRADIENT */}
       <LinearGradient
         colors={[colors.accentAlpha15, colors.cardBackground]}
@@ -349,26 +418,46 @@ export default function ActivityMainScreen() {
         <Text style={[styles.headerTitle, { fontFamily: fonts.bold, color: colors.text }]}>
           {t('activity.title')}
         </Text>
-        <TouchableOpacity
-          onPress={() =>
-            navigation.navigate('ShareStats', {
-              formattedPeriodText,
-              metric,
-              totalHours: detailedStats.totalHours,
-              totalPlays: detailedStats.totalPlays,
-              topArtists: detailedStats.topArtists,
-              topSongs: detailedStats.topSongs,
-            })
-          }
-          style={[styles.backButton, { backgroundColor: colors.accentAlpha15 || 'rgba(139,92,246,0.15)' }]}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="share-social-outline" size={20} color={colors.accentLight || '#A78BFA'} />
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            onPress={() => setIsTutorialVisible(true)}
+            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+            activeOpacity={0.7}
+            accessibilityLabel={t('activity_tutorial.help_btn')}
+          >
+            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            ref={shareButtonRef}
+            onLayout={(e) => {
+              if (e?.nativeEvent?.layout) shareButtonLayout.current = e.nativeEvent.layout;
+            }}
+            onPress={() =>
+              navigation.navigate('ShareStats', {
+                formattedPeriodText,
+                metric,
+                totalHours: detailedStats.totalHours,
+                totalPlays: detailedStats.totalPlays,
+                topArtists: detailedStats.topArtists,
+                topSongs: detailedStats.topSongs,
+              })
+            }
+            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-social-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* PERIOD TABS */}
-      <View style={styles.periodTabsRow}>
+      <View
+        ref={periodTabsRef}
+        onLayout={(e) => {
+          if (e?.nativeEvent?.layout) periodTabsLayout.current = e.nativeEvent.layout;
+        }}
+        style={styles.periodTabsRow}
+      >
         {PERIODS.map((p) => {
           const isActive = p === period;
           return (
@@ -396,7 +485,13 @@ export default function ActivityMainScreen() {
       </View>
 
       {/* DATE RANGE + METRIC TOGGLE */}
-      <View style={styles.controlsRow}>
+      <View
+        ref={metricToggleRef}
+        onLayout={(e) => {
+          if (e?.nativeEvent?.layout) metricToggleLayout.current = e.nativeEvent.layout;
+        }}
+        style={styles.controlsRow}
+      >
         <View style={styles.dateRangeSelector}>
           <Text style={[styles.dateRangeText, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
             {formattedPeriodText}
@@ -468,6 +563,7 @@ export default function ActivityMainScreen() {
         </View>
       ) : (
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -476,6 +572,10 @@ export default function ActivityMainScreen() {
             <>
               {/* TOTAL HERO CARD */}
               <View
+                ref={heroCardRef}
+                onLayout={(e) => {
+                  if (e?.nativeEvent?.layout) heroCardLayout.current = e.nativeEvent.layout;
+                }}
                 style={[
                   styles.heroCard,
                   { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: radii.lg || 12 },
@@ -509,7 +609,13 @@ export default function ActivityMainScreen() {
               </View>
 
               {/* TABS OPTION SELECTOR (Highlights | Top Songs | Top Albums | Top Artists) */}
-              <View style={styles.optionTabsRow}>
+              <View
+                ref={highlightsCardRef}
+                onLayout={(e) => {
+                  if (e?.nativeEvent?.layout) highlightsCardLayout.current = e.nativeEvent.layout;
+                }}
+                style={styles.optionTabsRow}
+              >
                 {['highlights', 'songs', 'albums', 'artists'].map((opt) => {
                   const isActive = opt === activeOption;
                   return (
@@ -648,7 +754,13 @@ export default function ActivityMainScreen() {
 
                   {/* Playlists para ti */}
                   {visibleSmartLists.length > 0 && (
-                    <View style={styles.smartListsSection}>
+                    <View
+                      ref={smartListsRef}
+                      onLayout={(e) => {
+                        if (e?.nativeEvent?.layout) smartListsLayout.current = e.nativeEvent.layout;
+                      }}
+                      style={styles.smartListsSection}
+                    >
                       <Text style={[styles.sectionHeading, { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 24, marginBottom: 12 }]}>
                         Playlists para ti
                       </Text>
@@ -945,6 +1057,28 @@ export default function ActivityMainScreen() {
           </Pressable>
         </Modal>
       )}
+
+      <ActivitySpotlightTutorial
+        visible={isTutorialVisible}
+        onClose={() => {
+          setIsTutorialVisible(false);
+          setHasSeenActivityTutorial(true);
+        }}
+        rootRef={rootRef}
+        scrollViewRef={scrollViewRef}
+        periodTabsRef={periodTabsRef}
+        metricToggleRef={metricToggleRef}
+        heroCardRef={heroCardRef}
+        highlightsCardRef={highlightsCardRef}
+        smartListsRef={smartListsRef}
+        shareButtonRef={shareButtonRef}
+        periodTabsLayout={periodTabsLayout}
+        metricToggleLayout={metricToggleLayout}
+        heroCardLayout={heroCardLayout}
+        highlightsCardLayout={highlightsCardLayout}
+        smartListsLayout={smartListsLayout}
+        shareButtonLayout={shareButtonLayout}
+      />
     </View>
   );
 }
@@ -966,6 +1100,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -13,6 +13,8 @@
     "empty_playlists": "You haven't listened to any playlists yet.",
     "special_playlist": "Special Playlist",
     "weekly_stats_title": "WEEKLY ACTIVITY",
+    "view_full_activity": "View activity",
+    "weekly_stats_tap_hint": "Tap to view periods, rankings and share",
     "weekly_stats_hours": "Hours listened",
     "weekly_stats_artist": "Top artist",
     "weekly_stats_album": "Top album",
@@ -112,6 +114,254 @@
     "smart_rating_title": "Rating-based Playlists",
     "smart_genre_title": "Genre Playlists",
     "smart_genre_desc": "{{genre}} songs"
+  },
+  "library_tutorial": {
+    "badge": "LIBRARY GUIDE",
+    "help_btn": "View library tutorial",
+    "skip": "Skip",
+    "next": "Next",
+    "prev": "Back",
+    "finish": "Let's Listen!",
+    "tab_overview": "Tools",
+    "tab_albums": "Albums",
+    "tab_playlists": "Playlists",
+    "tab_artists": "Artists",
+    "tab_folders": "Folders",
+    "tab_tracks": "Tracks",
+    "viewing_tab": "Viewing",
+    "steps": {
+      "overview": {
+        "title": "Control Center",
+        "subtitle": "Manage and update your music instantly.",
+        "p1_title": "Fast Sync",
+        "p1_desc": "Tap the refresh button to scan and immediately add new music on your device.",
+        "p2_title": "Smart Sorting",
+        "p2_desc": "Sort alphabetically (A-Z), by year, duration, or recently added tracks.",
+        "tip": "💡 You can customize the tab order in Settings > Customize Tabs."
+      },
+      "albums": {
+        "title": "Albums & Discs",
+        "subtitle": "Your music organized by complete works with high-definition artwork.",
+        "p1_title": "Pin to Top (Pin)",
+        "p1_desc": "Hold any album to pin it at the top for instant access.",
+        "p2_title": "Custom CD Art",
+        "p2_desc": "Pick an image for the spinning CD label when listening to the album.",
+        "tip": "💡 Open an album to see its tracks organized by disc (Disc 1, Disc 2...) and tags."
+      },
+      "playlists": {
+        "title": "Your Playlists & Smart Playlists",
+        "subtitle": "Create your own playlists or discover auto-generated mixes.",
+        "p1_title": "Toggle Manual & Smart",
+        "p1_desc": "Use this selector to switch between your manually created playlists and automated Smart Playlists.",
+        "p2_title": "Dynamic Smart Playlists",
+        "p2_desc": "Real-time smart lists: based on listens, star ratings, and music genres.",
+        "tip": "💡 Smart playlists automatically group tracks by stars (⭐), top listens, and genres."
+      },
+      "artists": {
+        "title": "All Artists & Collaborators",
+        "subtitle": "Your favorite musicians with custom photos and full discographies.",
+        "p1_title": "Album Artists vs All",
+        "p1_desc": "Use this selector to switch between 'Album Artists' (lead artists) and 'All' (including collaborators and featured artists).",
+        "p2_title": "Custom Artist Photo",
+        "p2_desc": "Open an artist's page to upload a custom photo directly from your gallery.",
+        "tip": "💡 Keep your library neat by viewing lead album artists, or toggle to see everyone."
+      },
+      "folders": {
+        "title": "Folder Explorer",
+        "subtitle": "Browse directly through your storage or SD card's physical directories.",
+        "p1_title": "Exclude WhatsApp Audios",
+        "p1_desc": "Hold any folder to exclude it: perfect for hiding voice notes, audios, and ringtones.",
+        "p2_title": "Clean Directory Navigation",
+        "p2_desc": "Explore folders and subfolders with a direct and intuitive back button.",
+        "tip": "💡 You can restore excluded folders anytime in Settings > Storage."
+      },
+      "tracks": {
+        "title": "Songs & Superpowers",
+        "subtitle": "Your complete catalogue with advanced audiophile tools.",
+        "p1_title": "Instant Shuffle",
+        "p1_desc": "Tap the 'Shuffle' button in the header to mix your entire library in one tap.",
+        "p2_title": "0 to 5 Star Rating",
+        "p2_desc": "Rate songs with stars from their menu and edit ID3 tags on the go.",
+        "tip": "💡 Tap the '?' button next to refresh to review this guide anytime."
+      }
+    }
+  },
+  "tags_tutorial": {
+    "badge": "TAGS GUIDE",
+    "help_btn": "View tags tutorial",
+    "sample_tag_name": "Favorites",
+    "skip": "Skip",
+    "next": "Next",
+    "prev": "Previous",
+    "finish": "Get Organized!",
+    "steps": {
+      "intro": {
+        "title": "What Are Tags For?",
+        "subtitle": "Organize your music library with absolute freedom.",
+        "desc": "Tags let you categorize your music by mood (Gym, Relax, Party), era, or custom concepts, going far beyond traditional genre boundaries.",
+        "tip": "💡 You can filter by tags in Advanced Search and create automatic Smart Playlists based on them."
+      },
+      "create": {
+        "title": "Create Your Own Tags",
+        "subtitle": "Adding a new tag takes just a few seconds.",
+        "desc": "Tap this button to open the creation form. Give it a clear and distinctive name (up to 25 characters) to easily spot it.",
+        "tip": "💡 Advancing to the next step will open the form to explore color customization."
+      },
+      "color": {
+        "title": "Name & Color Palette",
+        "subtitle": "Choose a distinctive tint to identify your tags at a glance.",
+        "desc": "Pick quickly from preset curated colors or tap the palette icon to open the full color picker and choose any custom HEX code.",
+        "tip": "💡 Each tag shines with its own color on cards, the player, and list views."
+      },
+      "assign": {
+        "title": "How to Assign Tags?",
+        "subtitle": "Tag songs and albums in just a couple of taps.",
+        "desc": "From any song or album in the app, open its options menu (the 3 dots ⋮) and select 'Tags'. You can also tag dozens of tracks simultaneously using multi-select batch actions.",
+        "tip": "💡 When tagging albums, choose whether to tag just the record or automatically cascade it to all songs."
+      },
+      "manage": {
+        "title": "Explore & Manage",
+        "subtitle": "Browse tagged music or edit tags whenever you want.",
+        "desc": "Tap any tag to view and play all associated songs and albums. Long-press a tag or tap its 3 dots ⋮ to edit its name, update its color, or delete it.",
+        "tip": "💡 You can replay this tutorial anytime by tapping the '?' button in the header."
+      }
+    }
+  },
+  "player_tutorial": {
+    "badge": "NOW PLAYING GUIDE",
+    "help_btn": "View player tutorial",
+    "skip": "Skip",
+    "next": "Next",
+    "prev": "Previous",
+    "finish": "Start Listening!",
+    "steps": {
+      "options": {
+        "title": "Track Options",
+        "desc": "Tap the three-dots menu to access advanced features: set Canvas background videos, view album and artist details, or edit metadata.",
+        "tip": "💡 Canvas videos play in a seamless loop, animating the entire player background."
+      },
+      "cover": {
+        "title": "Artwork & Visualizer",
+        "desc": "Press and hold the cover to open visualizer options: switch between classic cover, spinning CD, vinyl, or the real-time audio visualizer. Tap once to toggle immersive mode.",
+        "tip": "💡 Swipe left or right on the artwork to skip to the next or previous song."
+      },
+      "tags": {
+        "title": "Live Tagging",
+        "desc": "Add and manage tags directly while listening. Categorize by 'Gym', 'Relax', 'Party', or your own custom moods with a single tap.",
+        "tip": "💡 Filter by your tags in Advanced Search and generate automated Smart Playlists."
+      },
+      "actions": {
+        "title": "Favorites & Playlists",
+        "desc": "Tap the heart to instantly add the track to your Favorites. Press the '+' button to save it into any existing playlist or create a new one.",
+        "tip": "💡 Your favorite tracks are synchronized in the Playlists tab for quick listening."
+      },
+      "controls": {
+        "title": "Playback Controls",
+        "desc": "Effortlessly control your music: toggle smart shuffle, jump backward or forward, and switch between repeating the full queue or looping the current song ('1').",
+        "tip": "💡 If the track has been playing for more than 3 seconds, previous restarts the song instead of skipping."
+      },
+      "sleep": {
+        "title": "Sleep Timer",
+        "desc": "Set an automatic sleep timer for 15, 30, 45, 60 minutes or at the end of the current track. Perfect for falling asleep without draining your battery.",
+        "tip": "💡 The icon glows with your accent color whenever a timer is active."
+      },
+      "speed": {
+        "title": "Speed & Pitch",
+        "desc": "Speed up or slow down playback from 0.5x to 2.0x without losing quality and fine-tune musical pitch semitone by semitone. Great for studying music or transcribing.",
+        "tip": "💡 You can reset back to 1.0x at any time from the pop-up sheet."
+      },
+      "lyrics": {
+        "title": "Synced Lyrics (Karaoke)",
+        "desc": "Open full-screen synchronized lyrics with real-time tracking, dynamic karaoke mode, and line-by-line touch seeking to sing along to your favorites.",
+        "tip": "💡 If a track lacks synced lyrics, you can search or edit them manually."
+      },
+      "cast": {
+        "title": "Cast & LocalCast",
+        "desc": "Stream audio to speakers and Smart TVs via Google Cast / Chromecast, or broadcast in real-time to any browser on your local network using LocalCast.",
+        "tip": "💡 LocalCast gives you a web link and QR code to listen on any device without installing apps."
+      },
+      "ab_repeat": {
+        "title": "A-B Loop Repeat",
+        "desc": "Tap once to set point A (start) and tap again for point B (end). The player will loop that snippet continuously. Long-press to clear the loop.",
+        "tip": "💡 The progress slider displays visual markers showing the exact looping segment."
+      },
+      "share": {
+        "title": "Share Audio File",
+        "desc": "Send the original audio file directly to contacts via messaging apps or save it to cloud storage using the native system share sheet.",
+        "tip": "💡 Share tracks with friends in seconds without leaving the player."
+      },
+      "queue": {
+        "title": "Playback Queue",
+        "desc": "Open the interactive queue of upcoming tracks. Drag to reorder songs, remove unwanted tracks, or save the current queue as a brand-new playlist.",
+        "tip": "💡 Swipe down on the player anytime to return to your library while music keeps playing."
+      }
+    }
+  },
+  "search_tutorial": {
+    "badge": "SEARCH GUIDE",
+    "help_btn": "View search tutorial",
+    "skip": "Skip",
+    "next": "Next",
+    "prev": "Previous",
+    "finish": "Start searching!",
+    "steps": {
+      "search_bar": {
+        "title": "Unified Search",
+        "desc": "Instantly find any song, artist, album, playlist, or tag as you type. Search filters in real time and highlights the top match immediately.",
+        "tip": "💡 You can also search by synced song lyrics if available in your library."
+      },
+      "advanced_tags": {
+        "title": "Advanced Tag Search",
+        "desc": "Combine tags with surgical precision: require all or any to match, exclude unwanted tags, and filter out songs already added to playlists.",
+        "tip": "💡 It is the perfect tool to rediscover saved gems you haven't organized into playlists yet."
+      },
+      "explore_tags": {
+        "title": "Explore by Tags",
+        "desc": "Browse directly through genres, moods, or custom concepts. Tap any tag to listen to all associated tracks or long-press to edit it.",
+        "tip": "💡 Toggle between compact and normal view with the top switch depending on your preferred visual density."
+      }
+    }
+  },
+  "activity_tutorial": {
+    "badge": "ACTIVITY GUIDE",
+    "help_btn": "View activity tutorial",
+    "skip": "Skip",
+    "next": "Next",
+    "prev": "Previous",
+    "finish": "Start exploring!",
+    "sample_data_badge": "Demo data for tutorial",
+    "steps": {
+      "period_selector": {
+        "title": "Periods & Date Ranges",
+        "desc": "Review your listening stats across any timeframe: today, this week, this month, this year, or all-time. All analytics update instantly.",
+        "tip": "💡 Tap the calendar icon to select a custom date range with exact start and end dates."
+      },
+      "metric_toggle": {
+        "title": "Metric Switcher",
+        "desc": "Toggle between Time (total listening hours) and Plays (listen count). The entire breakdown on screen adapts immediately to your chosen criteria.",
+        "tip": "💡 Use Plays to see tracks on repeat and Time to see which artists you dedicate the most listening hours to."
+      },
+      "hero_summary": {
+        "title": "Overall Summary",
+        "desc": "See your total hours or play count for the selected period at a single glance. It updates in real time as you listen to music.",
+        "tip": "💡 All statistics are processed 100% locally on your device for complete privacy."
+      },
+      "highlights_and_tabs": {
+        "title": "Podium & Detailed Breakdown",
+        "desc": "In Highlights you will see your #1 artist, album, and track. Tap on the artist or album to open details, or tap the track to play it. Use tabs to view full rankings.",
+        "tip": "💡 The Songs, Albums, and Artists tabs give you the full ranked leaderboard with exact counts."
+      },
+      "smart_lists": {
+        "title": "Smart Playlists",
+        "desc": "MMPlayer automatically generates dynamic playlists of your Top 50 songs of the week, month, or all-time. Play them with just one tap.",
+        "tip": "💡 These playlists update automatically as you listen, requiring zero manual management."
+      },
+      "share_stats": {
+        "title": "Share Statistics",
+        "desc": "Generate custom Wrapped-style visual cards featuring your top stats and artists, ready to share on Instagram, WhatsApp, and more.",
+        "tip": "💡 You can customize the visual card theme before exporting or sharing."
+      }
+    }
   },
   "search": {
     "placeholder": "Search artists, albums, or songs",
@@ -239,8 +489,8 @@
     "show_lyrics_desc": "Displays the current lyric sentence (if available) above the tags in the player screen and in immersive mode.",
     "silent_sync": "Silent sync on resume",
     "silent_sync_desc": "Hides the 'Syncing Library...' toast when you return to the app, but keeps scanning in the background.",
-    "audio_section": "Audio & Normalization",
-    "audio_section_desc": "Configure volume normalization, preamp levels, and gain scans",
+    "audio_section": "Audio & Playback",
+    "audio_section_desc": "Volume normalization, equalizer, and playback queue",
     "swipe_actions": "Swipe Gestures",
     "swipe_actions_desc": "Configure quick swipe actions in track lists",
     "swipe_left": "Swipe Left",
@@ -312,7 +562,7 @@
     "drag_to_reorder_tabs": "Bar order (Hold to move)",
     "confirm_restart": "Confirm and Restart",
     "restarting": "Restarting...",
-    "audio_section": "Audio",
+    "audio_section": "Audio & Playback",
     "normalization": "Volume Normalization",
     "normalization_desc": "Avoid sudden changes in volume between tracks (ReplayGain)",
     "preamp": "Pre-amplification",
@@ -339,7 +589,14 @@
     "eq_reset": "Reset",
     "eq_hz": "Hz",
     "eq_khz": "kHz",
-    "scan_replaygain_error": "Could not complete analysis."
+    "scan_replaygain_error": "Could not complete analysis.",
+    "queue_section": "Playback Queue",
+    "queue_add_mode": "When adding to queue",
+    "queue_add_mode_desc": "Choose where tracks are placed when selecting 'Add to queue'",
+    "queue_add_mode_user": "End of user queue (Recommended)",
+    "queue_add_mode_user_desc": "Plays after other manually added songs, before returning to the current album or playlist.",
+    "queue_add_mode_context": "At the end of entire queue",
+    "queue_add_mode_context_desc": "Placed at the very end of the current context, after the entire album or playlist finishes."
   },
   "queue": {
     "title": "Queue",

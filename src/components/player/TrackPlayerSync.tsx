@@ -56,11 +56,13 @@ const handleCastOrLocalPlay = async (track: any) => {
 };
 
 const updateUserQueueSlot = (index?: number, lastIndex?: number) => {
-    // Si avanzamos hacia adelante, consumimos un slot de la user queue
+    // Si avanzamos hacia adelante, consumimos los slots correspondientes de la user queue
     if (index !== undefined && lastIndex !== undefined && index > lastIndex) {
-        const { userQueueSize, decrementUserQueue } = usePlayerStore.getState();
+        const { userQueueSize } = usePlayerStore.getState();
         if (userQueueSize > 0) {
-            decrementUserQueue();
+            const steps = index - lastIndex;
+            const newSize = Math.max(0, userQueueSize - steps);
+            usePlayerStore.setState({ userQueueSize: newSize });
         }
     }
 };

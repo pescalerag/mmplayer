@@ -1,4 +1,5 @@
 import BlurredBackground from '@/components/layouts/BlurredBackground';
+import PlayerSpotlightTutorial from '@/components/modals/PlayerSpotlightTutorial';
 import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -54,6 +55,7 @@ import { catchError } from 'rxjs/operators';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
+import ABRepeatIcon from '@/components/player/ABRepeatIcon';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
 import { getDynamicTagTextColor } from '../../utils/color';
@@ -247,6 +249,50 @@ const PlayerScreenUI = ({
     const queueVersion = usePlayerStore(state => state.queueVersion);
     const windowVersion = usePlayerStore(state => state.windowVersion);
 
+    const hasSeenPlayerTutorial = useSettingsStore(state => state.hasSeenPlayerTutorial);
+    const setHasSeenPlayerTutorial = useSettingsStore(state => state.setHasSeenPlayerTutorial);
+    const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+
+    useEffect(() => {
+        if (isFocused && !hasSeenPlayerTutorial) {
+            setIsTutorialVisible(true);
+        }
+    }, [isFocused, hasSeenPlayerTutorial]);
+
+    const handleCloseTutorial = () => {
+        setIsTutorialVisible(false);
+        if (!hasSeenPlayerTutorial) {
+            setHasSeenPlayerTutorial(true);
+        }
+    };
+
+    const rootRef = React.useRef<View>(null);
+    const moreButtonRef = React.useRef<View>(null);
+    const artworkRef = React.useRef<View>(null);
+    const tagsRef = React.useRef<View>(null);
+    const actionsRef = React.useRef<View>(null);
+    const controlsRef = React.useRef<View>(null);
+    const sleepTimerRef = React.useRef<View>(null);
+    const speedRef = React.useRef<View>(null);
+    const lyricsRef = React.useRef<View>(null);
+    const castRef = React.useRef<View>(null);
+    const abRepeatRef = React.useRef<View>(null);
+    const shareRef = React.useRef<View>(null);
+    const queueRef = React.useRef<View>(null);
+
+    const moreButtonLayout = React.useRef<any>(null);
+    const artworkLayout = React.useRef<any>(null);
+    const tagsLayout = React.useRef<any>(null);
+    const actionsLayout = React.useRef<any>(null);
+    const controlsLayout = React.useRef<any>(null);
+    const sleepTimerLayout = React.useRef<any>(null);
+    const speedLayout = React.useRef<any>(null);
+    const lyricsLayout = React.useRef<any>(null);
+    const castLayout = React.useRef<any>(null);
+    const abRepeatLayout = React.useRef<any>(null);
+    const shareLayout = React.useRef<any>(null);
+    const queueLayout = React.useRef<any>(null);
+
     // Estado para las canciones previa y siguiente
     const [prevTrackModel, setPrevTrackModel] = useState<Track | null>(null);
     const [nextTrackModel, setNextTrackModel] = useState<Track | null>(null);
@@ -389,6 +435,7 @@ const PlayerScreenUI = ({
     const pointA = useABRepeatStore(state => state.pointA);
     const pointB = useABRepeatStore(state => state.pointB);
     const handleABButtonPress = useABRepeatStore(state => state.handleButtonPress);
+    const handleABLongPress = useABRepeatStore(state => state.handleLongPress);
 
     const artworkSource = React.useMemo(() =>
         album?.coverUrl ? { uri: album.coverUrl } : null
@@ -881,11 +928,15 @@ const PlayerScreenUI = ({
 
     return (
         <GestureDetector gesture={dismissPanGesture}>
-            <Animated.View style={[
-                styles.container,
-                playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor },
-                screenDismissAnimatedStyle
-            ]}>
+            <Animated.View
+                ref={rootRef}
+                collapsable={false}
+                style={[
+                    styles.container,
+                    playerBackgroundStyle === 'gradient' && coverColor && { backgroundColor: finalBgColor },
+                    screenDismissAnimatedStyle
+                ]}
+            >
             {/* 3-Slot Sliding Background Stage Container */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
                 <Animated.View style={[
@@ -993,21 +1044,47 @@ const PlayerScreenUI = ({
                         />
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.moreButton}
-                        onPress={handleMorePress}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TouchableOpacity
+                            onPress={() => setIsTutorialVisible(true)}
+                            style={styles.moreButton}
+                            accessibilityLabel={t('player_tutorial.help_btn')}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+                        </TouchableOpacity>
+
+                        <View
+                            ref={moreButtonRef}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                moreButtonLayout.current = e.nativeEvent.layout;
+                            }}
+                        >
+                            <TouchableOpacity
+                                style={styles.moreButton}
+                                onPress={handleMorePress}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
 
                 {/* Artwork / Visualizer / CD / Vinyl Container */}
-                <View style={[
-                    styles.artworkContainer,
-                    isAltDisplay && { paddingHorizontal: 0 },
-                    isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
-                ]}>
+                <View
+                    ref={artworkRef}
+                    collapsable={false}
+                    onLayout={(e) => {
+                        artworkLayout.current = e.nativeEvent.layout;
+                    }}
+                    style={[
+                        styles.artworkContainer,
+                        isAltDisplay && { paddingHorizontal: 0 },
+                        isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
+                    ]}
+                >
                     <GestureDetector gesture={composedGesture}>
                         <Animated.View style={[
                             swipeAnimatedStyle,
@@ -1266,7 +1343,14 @@ const PlayerScreenUI = ({
                 <Animated.View style={[styles.infoContainer, infoContainerAnimatedStyle]}>
                     <View style={styles.infoTextContainer}>
                         {/* Tags row */}
-                        <View style={styles.tagsRow}>
+                        <View
+                            ref={tagsRef}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                tagsLayout.current = e.nativeEvent.layout;
+                            }}
+                            style={styles.tagsRow}
+                        >
                             {tags && tags.length > 0 ? (
                                 <ScrollView
                                     horizontal
@@ -1328,7 +1412,14 @@ const PlayerScreenUI = ({
                     </View>
 
                     {/* Actions Column (Heart + Plus) */}
-                    <View style={styles.infoActionsContainer}>
+                    <View
+                        ref={actionsRef}
+                        collapsable={false}
+                        onLayout={(e) => {
+                            actionsLayout.current = e.nativeEvent.layout;
+                        }}
+                        style={styles.infoActionsContainer}
+                    >
                         <Animated.View style={heartAnimatedStyle}>
                             <TouchableOpacity
                                 onPress={handleLikePress}
@@ -1399,7 +1490,14 @@ const PlayerScreenUI = ({
                     )}
 
                     {/* Controls */}
-                    <View style={styles.controlsContainer}>
+                    <View
+                        ref={controlsRef}
+                        collapsable={false}
+                        onLayout={(e) => {
+                            controlsLayout.current = e.nativeEvent.layout;
+                        }}
+                        style={styles.controlsContainer}
+                    >
                         {/* Shuffle */}
                         <TouchableOpacity
                             onPress={toggleShuffle}
@@ -1464,99 +1562,185 @@ const PlayerScreenUI = ({
                     <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
                         {/* Left group */}
                         <View style={styles.footerLeftGroup}>
-                            <TouchableOpacity
-                                onPress={openSleepTimer}
-                                style={styles.footerButton}
-                                disabled={isServerRunning}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            <View
+                                ref={sleepTimerRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    sleepTimerLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons
-                                    name="timer-outline"
-                                    size={24}
-                                    color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={openSpeedPitch}
-                                style={styles.footerButton}
-                                disabled={isServerRunning}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <TouchableOpacity
+                                    onPress={openSleepTimer}
+                                    style={styles.footerButton}
+                                    disabled={isServerRunning}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons
+                                        name="timer-outline"
+                                        size={24}
+                                        color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View
+                                ref={speedRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    speedLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons
-                                    name="speedometer-outline"
-                                    size={24}
-                                    color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('Lyrics')}
-                                style={styles.footerButton}
-                                disabled={isLocalCastActive}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <TouchableOpacity
+                                    onPress={openSpeedPitch}
+                                    style={styles.footerButton}
+                                    disabled={isServerRunning}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons
+                                        name="speedometer-outline"
+                                        size={24}
+                                        color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View
+                                ref={lyricsRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    lyricsLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons
-                                    name="mic-outline"
-                                    size={24}
-                                    color={isLocalCastActive ? colors.disabled : colors.textSecondary}
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={openCastSheet}
-                                style={styles.footerButton}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate('Lyrics')}
+                                    style={styles.footerButton}
+                                    disabled={isLocalCastActive}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons
+                                        name="mic-outline"
+                                        size={24}
+                                        color={isLocalCastActive ? colors.disabled : colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View
+                                ref={castRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    castLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons
-                                    name={isChromecastConnected ? "tv" : isLocalCastActive ? "desktop" : "desktop-outline"}
-                                    size={24}
-                                    color={isCasting ? (isChromecastConnected ? "#60A5FA" : colors.accentLight) : colors.textSecondary}
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => handleABButtonPress(position)}
-                                style={styles.footerButton}
-                                disabled={isCasting}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <TouchableOpacity
+                                    onPress={openCastSheet}
+                                    style={styles.footerButton}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons
+                                        name={isChromecastConnected ? "tv" : isLocalCastActive ? "desktop" : "desktop-outline"}
+                                        size={24}
+                                        color={isCasting ? (isChromecastConnected ? "#60A5FA" : colors.accentLight) : colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View
+                                ref={abRepeatRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    abRepeatLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons
-                                    name={pointA !== null ? "infinite" : "infinite-outline"}
-                                    size={24}
-                                    color={
-                                        isCasting
-                                            ? colors.disabled
-                                            : pointB !== null
-                                                ? colors.accentLight
-                                                : pointA !== null
-                                                    ? "rgba(167, 139, 250, 0.5)"
-                                                    : colors.textSecondary
-                                    }
-                                />
-                            </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleABButtonPress(position)}
+                                    onLongPress={handleABLongPress}
+                                    delayLongPress={350}
+                                    style={styles.footerButton}
+                                    disabled={isCasting}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <ABRepeatIcon
+                                        pointA={pointA}
+                                        pointB={pointB}
+                                        disabled={isCasting}
+                                    />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {/* Right group */}
                         <View style={styles.footerRightGroup}>
-                            <TouchableOpacity
-                                onPress={handleShare}
-                                style={styles.footerButton}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            <View
+                                ref={shareRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    shareLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons
-                                    name="share-social-outline"
-                                    size={24}
-                                    color={colors.textSecondary}
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={openQueue}
-                                style={styles.footerButton}
-                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <TouchableOpacity
+                                    onPress={handleShare}
+                                    style={styles.footerButton}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons
+                                        name="share-social-outline"
+                                        size={24}
+                                        color={colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View
+                                ref={queueRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    queueLayout.current = e.nativeEvent.layout;
+                                }}
                             >
-                                <Ionicons name="list" size={24} color={colors.textSecondary} />
-                            </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={openQueue}
+                                    style={styles.footerButton}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons name="list" size={24} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </Animated.View>
             </View>
+
+            {/* Tutorial Contextual Spotlight de PlayerScreen */}
+            <PlayerSpotlightTutorial
+                visible={isTutorialVisible}
+                onClose={handleCloseTutorial}
+                rootRef={rootRef}
+                moreButtonRef={moreButtonRef}
+                artworkRef={artworkRef}
+                tagsRef={tagsRef}
+                actionsRef={actionsRef}
+                controlsRef={controlsRef}
+                sleepTimerRef={sleepTimerRef}
+                speedRef={speedRef}
+                lyricsRef={lyricsRef}
+                castRef={castRef}
+                abRepeatRef={abRepeatRef}
+                shareRef={shareRef}
+                queueRef={queueRef}
+                moreButtonLayout={moreButtonLayout}
+                artworkLayout={artworkLayout}
+                tagsLayout={tagsLayout}
+                actionsLayout={actionsLayout}
+                controlsLayout={controlsLayout}
+                sleepTimerLayout={sleepTimerLayout}
+                speedLayout={speedLayout}
+                lyricsLayout={lyricsLayout}
+                castLayout={castLayout}
+                abRepeatLayout={abRepeatLayout}
+                shareLayout={shareLayout}
+                queueLayout={queueLayout}
+            />
         </Animated.View>
     </GestureDetector>
 );

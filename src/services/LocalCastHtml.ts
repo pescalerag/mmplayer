@@ -918,9 +918,64 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             statusEl.onclick = clickHandler;
         }
 
+        // Global Unhandled Rejection Filter (catches benign Chrome extension / Media Router port closures)
+        window.addEventListener('unhandledrejection', (event) => {
+            const reason = event.reason;
+            const msg = reason && (reason.message || String(reason));
+            if (typeof msg === 'string' && (
+                msg.includes('message channel closed before a response was received') ||
+                msg.includes('A listener indicated an asynchronous response') ||
+                msg.includes('AbortError') ||
+                msg.includes('play() failed')
+            )) {
+                event.preventDefault();
+            }
+        });
+
+        function updateMediaSession(title, artist, coverUrl) {
+            if ('mediaSession' in navigator) {
+                try {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: title || i18n.appTitle,
+                        artist: artist || i18n.brandName,
+                        album: i18n.brandName,
+                        artwork: coverUrl ? [{ src: coverUrl, sizes: '512x512', type: 'image/jpeg' }] : []
+                    });
+                } catch (e) {}
+            }
+        }
+
+        if ('mediaSession' in navigator) {
+            try {
+                navigator.mediaSession.setActionHandler('play', () => {
+                    audioPlayer.play().then(() => {
+                        updatePlayPauseUI(true);
+                        fetch('/api/play', { method: 'POST' }).catch(() => {});
+                    }).catch(handleAutoplayBlock);
+                });
+                navigator.mediaSession.setActionHandler('pause', () => {
+                    audioPlayer.pause();
+                    updatePlayPauseUI(false);
+                    fetch('/api/pause', { method: 'POST' }).catch(() => {});
+                });
+                navigator.mediaSession.setActionHandler('previoustrack', () => {
+                    fetch('/api/previous', { method: 'POST' }).catch(() => {}).finally(triggerImmediateUpdate);
+                });
+                navigator.mediaSession.setActionHandler('nexttrack', () => {
+                    fetch('/api/next', { method: 'POST' }).catch(() => {}).finally(triggerImmediateUpdate);
+                });
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.seekTime !== undefined && audioPlayer.duration) {
+                        audioPlayer.currentTime = details.seekTime;
+                        fetch('/api/seek?position=' + details.seekTime.toFixed(2), { method: 'POST' }).catch(() => {});
+                    }
+                });
+            } catch (e) {}
+        }
+
         function resetToIdle(statusMessage) {
             audioPlayer.pause();
-            audioPlayer.removeAttribute('src');
+            audioPlayer.src = '';
             currentSongTitle       = "";
             currentLoadedMediaFile = null;
             currentLyricsLRC       = null;
@@ -1074,10 +1129,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             if (isPolling) return;
             isPolling = true;
 
-            let nextPollInterval = 2500;
+            let nextPollInterval = 2000;
             try {
                 const controller = new AbortController();
-                const timeoutId  = setTimeout(() => controller.abort(), 4000); 
+                const timeoutId  = setTimeout(() => controller.abort(), 8000); 
 
                 let response;
                 try {
@@ -1103,14 +1158,20 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     currentSessionId = state.sessionId;
                 }
 
-                // ── Idle / stopped ────────────────────────────────────────────
-                if (!state.title || state.isStopped) {
+                // ── Explicit Stop from Mobile ──────────────────────────────────
+                if (state.isStopped) {
                     resetToIdle(i18n.noSong);
                     nextPollInterval = 2000;
                     return;
                 }
 
-                // ── Remote Commands from Mobile (SEEK, PLAY, PAUSE) ───────────
+                // If no title yet (e.g. queue transition or loading), do NOT wipe player; wait for next poll
+                if (!state.title) {
+                    scheduleNextPoll(1000);
+                    return;
+                }
+
+                // ── Remote Commands from Mobile (SEEK, PLAY, PAUSE, STOP) ─────
                 if (state.command && state.command.id > lastHandledCmdId) {
                     lastHandledCmdId = state.command.id;
                     if (state.command.type === 'SEEK' && typeof state.command.position === 'number') {
@@ -1129,8 +1190,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                         }
                     } else if (state.command.type === 'STOP') {
                         audioPlayer.pause();
-                        audioPlayer.removeAttribute('src');
-                        audioPlayer.load();
+                        audioPlayer.src = '';
                         resetToIdle(i18n.noSong);
                     }
                 }
@@ -1149,6 +1209,9 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     updateCover(resolvedCover);
                 }
 
+                // Update Browser Native Media Session
+                updateMediaSession(state.title, state.artist, resolvedCover ? '/static/' + resolvedCover : null);
+
                 // ── Lyrics ────────────────────────────────────────────────────
                 if (currentLyricsLRC !== state.lyricsLRC) {
                     currentLyricsLRC = state.lyricsLRC;
@@ -1162,7 +1225,6 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     isAutoplayBlocked = false;
                     const mediaUrl = '/static/' + state.mediaFileName + '?t=' + Date.now();
                     audioPlayer.pause();
-                    audioPlayer.removeAttribute('src');
                     audioPlayer.src = mediaUrl;
                     audioPlayer.load();
 
@@ -1208,11 +1270,11 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             } catch (error) {
                 console.warn('[LocalCast] Poll error:', error && error.message);
                 consecutiveErrors++;
-                if (consecutiveErrors >= 2 && !audioPlayer.paused) {
-                    audioPlayer.pause();
-                    setStatusError('Desconectado');
+                // Do NOT pause audio player on Wi-Fi jitter! Audio continues playing smoothly from buffer.
+                if (consecutiveErrors >= 6) {
+                    setStatusError('Reconectando...');
                 }
-                nextPollInterval = 1500;
+                nextPollInterval = 2000;
             } finally {
                 isPolling = false; 
                 scheduleNextPoll(nextPollInterval);
@@ -1238,19 +1300,25 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             fetch('/api/next', { method: 'POST' })
                 .catch(() => {})
                 .finally(() => {
-                    currentSongTitle = '';
-                    currentLoadedMediaFile = null;
-                    triggerImmediateUpdate();
+                    // Schedule next poll smoothly so the new track is loaded without tearing down
+                    scheduleNextPoll(500);
                 });
         };
 
         audioPlayer.onerror = () => {
             const err = audioPlayer.error;
-            console.error("[AudioErrorEvent] Audio player error:", err ? err.code : 'unknown');
-            currentSongTitle = '';
-            currentLoadedMediaFile = null;
+            console.warn("[AudioErrorEvent] Audio player error:", err ? err.code : 'unknown');
             setStatusError(i18n.retryingAudio);
-            scheduleNextPoll(1500);
+            setTimeout(() => {
+                if (currentLoadedMediaFile) {
+                    audioPlayer.src = '/static/' + currentLoadedMediaFile + '?retry=' + Date.now();
+                    audioPlayer.load();
+                    if (!audioPlayer.paused || !isAutoplayBlocked) {
+                        audioPlayer.play().catch(handleAutoplayBlock);
+                    }
+                }
+            }, 1000);
+            scheduleNextPoll(2000);
         };
 
         // Initial launch
