@@ -6,12 +6,11 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import Tag from '../../database/models/Tag';
 import TrackTag from '../../database/models/TrackTag';
 import { TagService } from '../../services/tagService';

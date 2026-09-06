@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import ActivitySpotlightTutorial from '../../components/modals/ActivitySpotlightTutorial';
+import ActivityCustomDateModal from '../../components/modals/ActivityCustomDateModal';
 import {
   View,
   Text,
@@ -8,9 +9,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
-  Pressable,
-  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +16,6 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { StatusBar } from 'expo-status-bar';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { HistoryService } from '../../services/HistoryService';
@@ -145,14 +142,6 @@ export default function ActivityMainScreen() {
 
   // Custom date picker states
   const [isCustomDatePickerVisible, setIsCustomDatePickerVisible] = useState(false);
-  const [fromDay, setFromDay] = useState(new Date().getDate().toString());
-  const [fromMonth, setFromMonth] = useState((new Date().getMonth() + 1).toString());
-  const [fromYear, setFromYear] = useState(new Date().getFullYear().toString());
-
-  const [toDay, setToDay] = useState(new Date().getDate().toString());
-  const [toMonth, setToMonth] = useState((new Date().getMonth() + 1).toString());
-  const [toYear, setToYear] = useState(new Date().getFullYear().toString());
-
   const [customFrom, setCustomFrom] = useState<Date | null>(null);
   const [customTo, setCustomTo] = useState<Date>(new Date());
 
@@ -344,24 +333,9 @@ export default function ActivityMainScreen() {
     }
   };
 
-  const applyCustomRange = () => {
-    const fd = parseInt(fromDay);
-    const fm = parseInt(fromMonth) - 1;
-    const fy = parseInt(fromYear);
-
-    const td = parseInt(toDay);
-    const tm = parseInt(toMonth) - 1;
-    const ty = parseInt(toYear);
-
-    const fDate = new Date(fy, fm, fd, 0, 0, 0, 0);
-    const tDate = new Date(ty, tm, td, 23, 59, 59, 999);
-
-    if (isNaN(fDate.getTime()) || isNaN(tDate.getTime())) {
-      return;
-    }
-
-    setCustomFrom(fDate);
-    setCustomTo(tDate);
+  const applyCustomRange = (startDate: Date, endDate: Date) => {
+    setCustomFrom(startDate);
+    setCustomTo(endDate);
     setPeriod('custom');
     setIsCustomDatePickerVisible(false);
   };
@@ -926,137 +900,13 @@ export default function ActivityMainScreen() {
         </ScrollView>
       )}
 
-      {isCustomDatePickerVisible && (
-        <Modal
-          visible={isCustomDatePickerVisible}
-          transparent={true}
-          animationType="fade"
-          statusBarTranslucent={true}
-          onRequestClose={() => setIsCustomDatePickerVisible(false)}
-        >
-          <StatusBar style="light" />
-          <Pressable
-            style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}
-            onPress={() => setIsCustomDatePickerVisible(false)}
-          >
-            <Pressable onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 340 }}>
-              <View style={[styles.modalCard, { backgroundColor: colors.cardBackground, borderRadius: radii.lg || 12 }]}>
-                <Text style={[styles.modalTitle, { fontFamily: fonts.bold, color: colors.text }]}>
-                  {t('activity.custom_date_title')}
-                </Text>
-
-                {/* START DATE */}
-                <Text style={[styles.modalInputLabel, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
-                  {t('activity.custom_date_from')}
-                </Text>
-                <View style={styles.dateInputsRow}>
-                  <View style={styles.inputCol}>
-                    <Text style={styles.miniLabel}>{t('activity.day')}</Text>
-                    <TextInput
-                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      value={fromDay}
-                      onChangeText={setFromDay}
-                      placeholder="DD"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                  <View style={styles.inputCol}>
-                    <Text style={styles.miniLabel}>{t('activity.month')}</Text>
-                    <TextInput
-                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      value={fromMonth}
-                      onChangeText={setFromMonth}
-                      placeholder="MM"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                  <View style={styles.inputCol}>
-                    <Text style={styles.miniLabel}>{t('activity.year')}</Text>
-                    <TextInput
-                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
-                      keyboardType="numeric"
-                      maxLength={4}
-                      value={fromYear}
-                      onChangeText={setFromYear}
-                      placeholder="AAAA"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                </View>
-
-                {/* END DATE */}
-                <Text style={[styles.modalInputLabel, { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 16 }]}>
-                  {t('activity.custom_date_to')}
-                </Text>
-                <View style={styles.dateInputsRow}>
-                  <View style={styles.inputCol}>
-                    <Text style={styles.miniLabel}>{t('activity.day')}</Text>
-                    <TextInput
-                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      value={toDay}
-                      onChangeText={setToDay}
-                      placeholder="DD"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                  <View style={styles.inputCol}>
-                    <Text style={styles.miniLabel}>{t('activity.month')}</Text>
-                    <TextInput
-                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      value={toMonth}
-                      onChangeText={setToMonth}
-                      placeholder="MM"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                  <View style={styles.inputCol}>
-                    <Text style={styles.miniLabel}>{t('activity.year')}</Text>
-                    <TextInput
-                      style={[styles.dateInput, { borderColor: 'rgba(255,255,255,0.1)', color: colors.text, fontFamily: fonts.regular }]}
-                      keyboardType="numeric"
-                      maxLength={4}
-                      value={toYear}
-                      onChangeText={setToYear}
-                      placeholder="AAAA"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                </View>
-
-                {/* ACTIONS */}
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.cancelBtn]}
-                    onPress={() => setIsCustomDatePickerVisible(false)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.cancelBtnText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
-                      {t('common.cancel')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.acceptBtn, { backgroundColor: colors.accent }]}
-                    onPress={applyCustomRange}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.acceptBtnText, { fontFamily: fonts.bold, color: colors.onAccent }]}>
-                      {t('common.accept')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
+      <ActivityCustomDateModal
+        visible={isCustomDatePickerVisible}
+        initialStartDate={customFrom}
+        initialEndDate={customTo}
+        onClose={() => setIsCustomDatePickerVisible(false)}
+        onApply={applyCustomRange}
+      />
 
       <ActivitySpotlightTutorial
         visible={isTutorialVisible}
@@ -1277,89 +1127,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  // ---- CUSTOM DATE PICKER MODAL ----
-  customModalOverlayWrapper: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 340,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalInputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  dateInputsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
-  },
-  inputCol: {
-    flex: 1,
-  },
-  miniLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.4)',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  dateInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
-    textAlign: 'center',
-    fontSize: 14,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 24,
-  },
-  actionBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelBtn: {
-    backgroundColor: 'transparent',
-  },
-  cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  acceptBtn: {
-    minWidth: 90,
-  },
-  acceptBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
+
   // ---- LOADING ----
   loadingContainer: {
     flex: 1,

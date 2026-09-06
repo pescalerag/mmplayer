@@ -439,6 +439,25 @@ export const HistoryService = {
     };
   },
 
+  /**
+   * Obtiene la fecha de la primera entrada (más antigua) registrada en el historial.
+   */
+  async getFirstHistoryDate(): Promise<Date | null> {
+    try {
+      const records = await database.collections
+        .get<PlaybackHistory>('playback_history')
+        .query(Q.sortBy('played_at', Q.asc), Q.take(1))
+        .fetch();
+      if (records.length > 0 && records[0].playedAt) {
+        return new Date(records[0].playedAt);
+      }
+      return null;
+    } catch (e) {
+      console.error('[HistoryService] Error fetching first history date:', e);
+      return null;
+    }
+  },
+
   async getDetailedStatsForPeriod(
     period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom',
     metric: 'duration' | 'plays',
@@ -449,8 +468,31 @@ export const HistoryService = {
     let to: Date = new Date();
 
     if (period === 'custom') {
-      from = customFrom || null;
-      to = customTo || new Date();
+      from = customFrom ? new Date(customFrom) : null;
+      to = customTo ? new Date(customTo) : new Date();
+
+      // Límite máximo: fin del día actual (hoy)
+      const maxTo = new Date();
+      maxTo.setHours(23, 59, 59, 999);
+      if (to.getTime() > maxTo.getTime()) {
+        to = maxTo;
+      }
+
+      // Acotamiento inferior: si 'from' es anterior a la primera entrada registrada, acotamos a la fecha de inicio de esa primera entrada
+      if (from) {
+        const firstDate = await this.getFirstHistoryDate();
+        if (firstDate) {
+          const firstDayStart = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate(), 0, 0, 0, 0);
+          if (from.getTime() < firstDayStart.getTime()) {
+            from = firstDayStart;
+          }
+        }
+      }
+
+      // Garantizar que from <= to
+      if (from && from.getTime() > to.getTime()) {
+        from = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 0, 0, 0, 0);
+      }
     } else {
       const range = this.getPeriodRange(period as any);
       from = range.from;
@@ -466,7 +508,9 @@ export const HistoryService = {
           )
       : database.collections
           .get<PlaybackHistory>('playback_history')
-          .query();
+          .query(
+            Q.where('played_at', Q.lte(to.getTime()))
+          );
 
     const historyRecords = await query.fetch();
 

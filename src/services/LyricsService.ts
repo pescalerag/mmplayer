@@ -36,26 +36,33 @@ export const parseLRC = (lrcText: string): { time: number; text: string }[] => {
     return parsedLines.sort((a, b) => a.time - b.time);
 };
 
-let isCurrentlyFetching = false;
+const activeFetchingTrackIds = new Set<string>();
 
 export const LyricsService = {
     isFetching: (): boolean => {
-        return isCurrentlyFetching;
+        return activeFetchingTrackIds.size > 0;
     },
 
     fetchLyrics: async (track: Track, force = false): Promise<string | null> => {
-        if (isCurrentlyFetching) {
-            console.log("[LyricsService] Fetch ignored: search already in progress");
-            return null;
-        }
-
         // 1. Check if cached in DB
         if (!force && track.lyricsLRC) {
             return track.lyricsLRC;
         }
 
-        isCurrentlyFetching = true;
+        if (activeFetchingTrackIds.has(track.id)) {
+            console.log(`[LyricsService] Fetch ignored: search already in progress for track: ${track.title}`);
+            return null;
+        }
+
+        activeFetchingTrackIds.add(track.id);
         usePlayerStore.getState().setIsFetchingLyrics(true);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            try {
+                controller.abort();
+            } catch {}
+        }, 10000);
 
         // 2. Fetch from LRCLIB API
         try {
@@ -82,7 +89,8 @@ export const LyricsService = {
             const response = await fetch(url, {
                 headers: {
                     'User-Agent': 'MMPlayer V2.1.0 (https://github.com/pescalerag/mmplayer)'
-                }
+                },
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -103,12 +111,17 @@ export const LyricsService = {
             }
 
             return lyrics;
-        } catch (error) {
-            console.error("[LyricsService] Error fetching lyrics:", error);
+        } catch (error: any) {
+            if (error?.name === 'AbortError') {
+                console.warn(`[LyricsService] Fetch timed out for track: ${track.title}`);
+            } else {
+                console.error("[LyricsService] Error fetching lyrics:", error);
+            }
             return null;
         } finally {
-            isCurrentlyFetching = false;
-            usePlayerStore.getState().setIsFetchingLyrics(false);
+            clearTimeout(timeoutId);
+            activeFetchingTrackIds.delete(track.id);
+            usePlayerStore.getState().setIsFetchingLyrics(activeFetchingTrackIds.size > 0);
         }
     },
 
