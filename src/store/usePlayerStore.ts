@@ -9,10 +9,13 @@ import Artist from "../database/models/Artist";
 import Album from "../database/models/Album";
 import Track from "../database/models/Track";
 import { navigationRef } from '../navigation/navigationRef';
+import { useToastStore } from "./useToastStore";
+import i18n from "../constants/i18n";
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
+let isHandlingQueueEnded = false;
 
 async function mapToTPTrack(track: Track): Promise<TPTrack> {
   const album = await track.album.fetch().catch(() => null);
@@ -58,6 +61,7 @@ interface PlayerState {
     context?: string,
   ) => Promise<void>;
   startShuffled: (tracks: Track[], context?: string) => Promise<void>;
+  playRandomQueueOnEnd: () => Promise<void>;
   playSingleTrack: (track: Track, context?: string) => Promise<void>;
   setActiveTrackById: (trackId: string) => Promise<void>;
   addToQueueNext: (track: Track) => Promise<void>;
@@ -378,6 +382,41 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId === loadId) {
         set({ isQueueLoading: false });
       }
+    }
+  },
+
+  playRandomQueueOnEnd: async () => {
+    const { shuffleOnQueueEnd } = useSettingsStore.getState();
+    if (!shuffleOnQueueEnd) return;
+
+    if (isHandlingQueueEnded) return;
+    const { isQueueLoading } = get();
+    if (isQueueLoading) return;
+
+    try {
+      const repeatMode = await TrackPlayer.getRepeatMode();
+      if (repeatMode !== RepeatMode.Off) return;
+
+      isHandlingQueueEnded = true;
+
+      const allTracks = await database.collections.get<Track>('tracks').query().fetch();
+      const excluded = useSettingsStore.getState().excludedSongs || [];
+      const availableTracks = allTracks.filter(t => !excluded.includes(t.fileUrl));
+
+      if (availableTracks.length === 0) return;
+
+      console.log('[usePlayerStore] Queue ended with shuffleOnQueueEnd active. Triggering random playback.');
+      useToastStore.getState().showToast(
+        i18n.t('queue.random_autoplay_started', 'Cola finalizada: iniciando reproducción aleatoria'),
+        'shuffle'
+      );
+      await get().startShuffled(availableTracks, 'random_queue_end');
+    } catch (e) {
+      console.error('[usePlayerStore] Error in playRandomQueueOnEnd:', e);
+    } finally {
+      setTimeout(() => {
+        isHandlingQueueEnded = false;
+      }, 2000);
     }
   },
 

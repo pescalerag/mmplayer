@@ -110,7 +110,7 @@ export default function SettingsStorageScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.accent} />
               <Text style={styles.loadingText}>
-                {t('common.loading', 'Calculando espacio de almacenamiento...')}
+                {t('settings.calculating_storage', 'Calculando espacio de almacenamiento...')}
               </Text>
             </View>
           ) : data ? (

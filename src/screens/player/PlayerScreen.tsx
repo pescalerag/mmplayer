@@ -253,16 +253,17 @@ const PlayerScreenUI = ({
     const hasSeenPlayerTutorial = useSettingsStore(state => state.hasSeenPlayerTutorial);
     const setHasSeenPlayerTutorial = useSettingsStore(state => state.setHasSeenPlayerTutorial);
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+    const [isImmersive, setIsImmersive] = useState(false);
 
     const activeSheet = useUIStore(state => state.activeSheet);
     const isTagFormVisible = useTagFormStore(state => state.isVisible);
     const isSheetOrModalOpen = activeSheet !== null || isTagFormVisible || isTutorialVisible;
 
     useEffect(() => {
-        if (isFocused && !hasSeenPlayerTutorial) {
+        if (isFocused && !hasSeenPlayerTutorial && !isImmersive) {
             setIsTutorialVisible(true);
         }
-    }, [isFocused, hasSeenPlayerTutorial]);
+    }, [isFocused, hasSeenPlayerTutorial, isImmersive]);
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -542,7 +543,6 @@ const PlayerScreenUI = ({
         transform: [{ rotateZ: `${spinDeg.value}deg` }],
     }));
 
-    const [isImmersive, setIsImmersive] = useState(false);
     const toggleImmersiveMode = () => {
         if (showCanvas && !!track.bgVideo) {
             setIsImmersive(prev => !prev);
@@ -553,7 +553,10 @@ const PlayerScreenUI = ({
         if (!showCanvas || !track.bgVideo) {
             setIsImmersive(false);
         }
-    }, [track.bgVideo, showCanvas]);
+        if (isImmersive) {
+            setIsTutorialVisible(false);
+        }
+    }, [track.bgVideo, showCanvas, isImmersive]);
 
     const longPressHintOpacity = useSharedValue(0);
     useEffect(() => {
@@ -1086,14 +1089,16 @@ const PlayerScreenUI = ({
                     </TouchableOpacity>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                            onPress={() => setIsTutorialVisible(true)}
-                            style={styles.moreButton}
-                            accessibilityLabel={t('player_tutorial.help_btn')}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
-                        </TouchableOpacity>
+                        {!isImmersive && (
+                            <TouchableOpacity
+                                onPress={() => setIsTutorialVisible(true)}
+                                style={styles.moreButton}
+                                accessibilityLabel={t('player_tutorial.help_btn')}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                        )}
 
                         <View
                             ref={moreButtonRef}

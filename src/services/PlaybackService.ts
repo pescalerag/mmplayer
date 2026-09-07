@@ -10,6 +10,7 @@ import { useCastStore } from "../store/useCastStore";
 import { updateWidget } from "../../modules/native-audio-scanner";
 import { useABRepeatStore } from "../store/useABRepeatStore";
 import { usePlayerStore } from "../store/usePlayerStore";
+import i18n from "../constants/i18n";
 
 const SKIP_PREVIOUS_THRESHOLD = 3;
 
@@ -76,7 +77,7 @@ export async function syncWidgetState() {
     const isPlaying = playbackState.state === State.Playing;
 
     const title = activeTrack?.title ?? "MMPlayer";
-    const artist = activeTrack?.artist ?? "No se está reproduciendo";
+    const artist = activeTrack?.artist ?? i18n.t('common.not_playing');
     const artwork = activeTrack?.artwork ?? null;
 
     await updateWidget(title, artist, artwork, isPlaying);
@@ -121,6 +122,13 @@ export const PlaybackService = async function () {
   });
   TrackPlayer.addEventListener(Event.RemoteStop, () => usePlayerStore.getState().clearPlayer());
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
+  TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
+    try {
+      await usePlayerStore.getState().playRandomQueueOnEnd();
+    } catch (e) {
+      console.error('[PlaybackService] Error on PlaybackQueueEnded:', e);
+    }
+  });
   
   TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {
     if (event.state === State.Playing) {

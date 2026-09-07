@@ -428,6 +428,7 @@
     "library_status": "Library Status",
     "storage_title": "Storage",
     "storage_desc": "Manage device and MMPlayer storage space",
+    "calculating_storage": "Calculating storage space...",
     "device_storage": "Device Storage",
     "audio_files": "Audio Files",
     "other_files": "Other Files",
@@ -614,7 +615,9 @@
     "save_all_to_playlist": "Add entire queue (includes previous)",
     "save_upcoming_to_playlist": "Add upcoming queue (without previous)",
     "save_manual_to_playlist": "Add manual queue only",
-    "clear_all_upcoming": "Clear all upcoming tracks"
+    "clear_all_upcoming": "Clear all upcoming tracks",
+    "shuffle_on_end": "Shuffle playback when queue ends",
+    "random_autoplay_started": "Queue ended: starting random playback"
   },
   "playlist": {
     "new": "New playlist",
@@ -763,7 +766,13 @@
     "ab_point_a_updated": "Point A updated",
     "ab_deactivated": "A-B Loop disabled",
     "playlist_no_songs": "The Playlist has no songs",
-    "artist_no_songs": "The artist has no songs"
+    "artist_no_songs": "The artist has no songs",
+    "chromecast_connected": "Connected to {{deviceName}}",
+    "chromecast_disconnected": "Chromecast disconnected",
+    "chromecast_sync_error": "Error syncing with Chromecast: {{error}}",
+    "chromecast_connection_failed": "Failed to connect to Chromecast: {{error}}",
+    "chromecast_prepare_error": "Could not prepare audio file for casting.",
+    "chromecast_load_error": "Error loading on Chromecast: {{error}}"
   },
   "changelog": {
     "history_title": "Version History",
@@ -1188,7 +1197,9 @@
     "battery_opt_desc": "To prevent playback drops when screen turns off or in background, set MMPlayer to \"Unrestricted\" in battery settings.",
     "battery_opt_button": "Configure battery",
     "battery_opt_ok": "Background streaming protected (Unrestricted)",
-    "remote_mode_banner": "LocalCast active · Remote control mode"
+    "remote_mode_banner": "LocalCast active · Remote control mode",
+    "local_server_error": "Local server error",
+    "chromecast_connect_error": "Error connecting to Chromecast"
   },
   "localcast_client": {
     "app_title": "MMPlayer LocalCast",
@@ -1332,11 +1343,51 @@
     "reconciling": "Reconciling local library...",
     "reconciling_phase": "Reconciling: {{phase}}"
   },
+  "scanner": {
+    "verifying_files": "Verifying existing files...",
+    "deleting_removed_tracks": "Removing {{count}} deleted tracks...",
+    "adding_to_library": "Adding to your library...",
+    "requesting_permissions": "Requesting permissions...",
+    "searching_files": "Searching for files on device...",
+    "analyzing_changes": "Analyzing changes...",
+    "deleting_orphans": "Deleting orphaned tracks...",
+    "importing_new": "Importing new tracks...",
+    "reconciling_moved": "Reconciling moved tracks...",
+    "updating_metadata": "Updating modified metadata...",
+    "cleaning_database": "Cleaning database...",
+    "stopping_player": "Stopping player...",
+    "clearing_memory": "Clearing memory cache...",
+    "clearing_config": "Clearing persistent configuration...",
+    "resetting_database": "Resetting local database...",
+    "analyzing_local_files": "Analyzing local files...",
+    "repairing_lost_artists": "Repairing missing artists...",
+    "library_repaired_success": "Library repaired successfully!",
+    "repairing_corrupt_data": "Starting corrupted data repair...",
+    "repairing_artists": "Repairing artists...",
+    "repairing_albums": "Repairing albums...",
+    "repairing_tracks": "Repairing tracks...",
+    "repairing_tracks_progress": "Repairing tracks ({{current}}/{{total}})...",
+    "saving_repairs": "Saving {{count}} repairs to database...",
+    "repair_completed": "Repair completed!",
+    "checking_albums": "Checking affected albums...",
+    "checking_artists": "Checking affected artists...",
+    "searching_files_to_delete": "Searching for files to delete...",
+    "deleting_songs_count": "Deleting {{count}} tracks...",
+    "cleaning_library": "Cleaning library...",
+    "finding_song_to_delete": "Finding track to delete...",
+    "deleting_song": "Deleting track...",
+    "finding_songs_to_delete": "Finding tracks to delete...",
+    "permission_denied": "Media read permission denied.",
+    "scan_error": "Error scanning",
+    "delete_scan_error": "Error deleting/scanning"
+  },
   "common": {
     "accept": "Accept",
     "cancel": "Cancel",
     "success": "Success",
     "error": "Error",
-    "step_indicator": "STEP {{current}} OF {{total}}"
+    "delete": "Delete",
+    "step_indicator": "STEP {{current}} OF {{total}}",
+    "not_playing": "Not playing"
   }
 }
