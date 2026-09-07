@@ -192,31 +192,25 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     const isQueueLoading = usePlayerStore(state => state.isQueueLoading);
     const playbackState = usePlaybackState();
 
-    // El estado de carga, preparación o buffer no debe considerarse como pausa
     const isPlaybackLoading =
         playbackState.state === State.Loading ||
-        playbackState.state === State.Buffering ||
-        playbackState.state === State.Ready ||
-        playbackState.state === State.None;
+        playbackState.state === State.Buffering;
 
-    // Solo se considera en pausa si el estado es explícitamente Paused (o Stopped/Ended)
-    // y no estamos en proceso de carga o arranque de pista
-    const isPaused = !isQueueLoading && !isPlaybackLoading && (
-        playbackState.state === State.Paused ||
-        playbackState.state === State.Stopped ||
-        playbackState.state === State.Ended
-    );
+    // Se considera en pausa cuando no se está reproduciendo activamente (Playing o Buffering)
+    // y no hay una carga de cola en curso.
+    const isPaused = !isQueueLoading && !isPlaybackLoading && playbackState.state !== State.Playing;
 
     const closeButtonProgress = useSharedValue(isPaused ? 1 : 0);
 
-    // Cuando cambia la canción, colapsamos el botón de inmediato para evitar cualquier parpadeo
+    // Cuando cambia la pista, si no está en pausa reseteamos el botón para evitar parpadeos;
+    // si está en pausa (ej. al montar o restaurar), se sincroniza con el estado actual
     const prevTrackIdRef = React.useRef(track.id);
     React.useEffect(() => {
         if (prevTrackIdRef.current !== track.id) {
             prevTrackIdRef.current = track.id;
-            closeButtonProgress.value = 0;
+            closeButtonProgress.value = isPaused ? 1 : 0;
         }
-    }, [track.id, closeButtonProgress]);
+    }, [track.id, isPaused, closeButtonProgress]);
 
     React.useEffect(() => {
         closeButtonProgress.value = withTiming(isPaused ? 1 : 0, {
