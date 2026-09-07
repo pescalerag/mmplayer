@@ -15,6 +15,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetType, useUIStore } from '../../store/useUIStore';
+import { useTagFormStore } from '@/store/useTagFormStore';
 
 // Components
 import PlaylistSelectorModal from '@/components/modals/PlaylistSelectorModal';
@@ -51,6 +52,7 @@ export default function GlobalBottomSheet() {
 
   const activeSheet = useUIStore((state) => state.activeSheet);
   const closeSheet = useUIStore((state) => state.closeSheet);
+  const isTagFormOpen = useTagFormStore((state) => state.isVisible);
 
   const [renderedSheet, setRenderedSheet] = useState<SheetType | null>(null);
 
@@ -69,6 +71,7 @@ export default function GlobalBottomSheet() {
   }, [closeSheet]);
 
   const handlePanGesture = Gesture.Pan()
+    .enabled(!isTagFormOpen)
     .activeOffsetY(5)
     .onUpdate((event) => {
       if (event.translationY > 0) {
@@ -124,14 +127,14 @@ export default function GlobalBottomSheet() {
 
   // Handle hardware back press on Android
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || isTagFormOpen) return;
     const onBackPress = () => {
       closeSheet();
       return true;
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [isVisible, closeSheet]);
+  }, [isVisible, isTagFormOpen, closeSheet]);
 
   // Handle Keyboard height changes for input forms
   useEffect(() => {
@@ -230,7 +233,14 @@ export default function GlobalBottomSheet() {
       pointerEvents={isVisible ? 'auto' : 'none'}
     >
       {/* Background Overlay */}
-      <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); closeSheet(); }}>
+      <TouchableWithoutFeedback
+        onPress={() => {
+          if (isTagFormOpen) return;
+          Keyboard.dismiss();
+          closeSheet();
+        }}
+        disabled={isTagFormOpen}
+      >
         <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
       </TouchableWithoutFeedback>
 

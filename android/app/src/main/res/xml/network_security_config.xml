@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Tráfico HTTP permitido para desarrollo, loopback y localhost -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Permitir cleartext a nivel base para soportar streaming LAN (LocalCast/Chromecast en cualquier IP Wi-Fi DHCP),
+         manteniendo anclaje estricto de certificados del sistema -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -710,12 +710,36 @@ class NativeAudioScannerModule : Module() {
 
       val cleanPaths = filePaths.map { path ->
         if (path.startsWith("file://")) path.substring(7) else path
-      }.toTypedArray()
+      }.filter { File(it).exists() }.toTypedArray()
+
+      if (cleanPaths.isEmpty()) {
+        promise.resolve(true)
+        return@AsyncFunction
+      }
+
+      val remaining = java.util.concurrent.atomic.AtomicInteger(cleanPaths.size)
+      var isResolved = false
+
+      val handler = android.os.Handler(android.os.Looper.getMainLooper())
+      val timeoutRunnable = Runnable {
+        if (!isResolved) {
+          isResolved = true
+          promise.resolve(true)
+        }
+      }
+      // Timeout de seguridad de 10 segundos
+      handler.postDelayed(timeoutRunnable, 10000)
 
       try {
-        MediaScannerConnection.scanFile(context, cleanPaths, null) { _, _ -> }
-        promise.resolve(true)
+        MediaScannerConnection.scanFile(context, cleanPaths, null) { path, uri ->
+          if (remaining.decrementAndGet() <= 0 && !isResolved) {
+            isResolved = true
+            handler.removeCallbacks(timeoutRunnable)
+            promise.resolve(true)
+          }
+        }
       } catch (e: Exception) {
+        handler.removeCallbacks(timeoutRunnable)
         promise.reject("ERR_SCAN_FAILED", "Failed to scan files: ${e.message}", e)
       }
     }

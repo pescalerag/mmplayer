@@ -47,7 +47,7 @@ const sanitizeDbString = (str: string | undefined | null) => {
 
 // 1. Helper function to find and delete tracks with missing files
 const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: string) => void) => {
-    onProgress?.('Verificando archivos existentes...');
+    onProgress?.(i18n.t('scanner.verifying_files'));
     const allTracksRaw = await tracksCollection.query().unsafeFetchRaw();
     const trackIdsToDelete: string[] = [];
 
@@ -75,7 +75,7 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
     }
 
     if (trackIdsToDelete.length > 0) {
-        onProgress?.(`Eliminando ${trackIdsToDelete.length} canciones borradas...`);
+        onProgress?.(i18n.t('scanner.deleting_removed_tracks', { count: trackIdsToDelete.length }));
         const BATCH_DELETE_SIZE = 100;
         for (let i = 0; i < trackIdsToDelete.length; i += BATCH_DELETE_SIZE) {
             const batchIds = trackIdsToDelete.slice(i, i + BATCH_DELETE_SIZE);
@@ -340,10 +340,14 @@ const resolveAlbum = async (
             }
         }
 
-        const isDefaultCover = finalCoverUrl === RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        const nullCoverUri = RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+        const isDefaultCover = finalCoverUrl === nullCoverUri;
         let newCover = null;
-        if (finalCoverUrl && album.coverUrl !== finalCoverUrl && !isDefaultCover) {
-            newCover = finalCoverUrl;
+        if (finalCoverUrl && album.coverUrl !== finalCoverUrl) {
+            const isDowngradeToDefault = isDefaultCover && (album.coverUrl && album.coverUrl !== nullCoverUri);
+            if (!isDowngradeToDefault) {
+                newCover = finalCoverUrl;
+            }
         }
 
         if (nextArtist || newCover) {
@@ -480,7 +484,7 @@ const performCreateTracks = async (
         const file = audioFiles[i];
 
         if (i % 100 === 0) {
-            onProgress?.(i, audioFiles.length, 'Añadiendo a tu biblioteca...');
+            onProgress?.(i, audioFiles.length, i18n.t('scanner.adding_to_library'));
         }
 
         const meta = extractFileMetadata(file);
@@ -582,18 +586,23 @@ const showToastNotification = (created: number, deleted: number, reconciled: num
 };
 
 export const ScannerService = {
-    syncLibrary: async (onProgress?: (current: number, total: number, phase: string) => void, isSilent: boolean = false) => {
+    syncLibrary: async (
+        onProgress?: (current: number, total: number, phase: string) => void,
+        isSilent: boolean = false,
+        forcedFileUrls?: Set<string> | string[]
+    ) => {
         if (useSyncStore.getState().isScanning) return;
         try {
+            coverExistsCache.clear();
             useSyncStore.getState().setIsScanning(true, isSilent);
 
-            onProgress?.(0, 0, 'Solicitando permisos...');
+            onProgress?.(0, 0, i18n.t('scanner.requesting_permissions'));
             const { status } = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
             if (status !== 'granted') {
-                throw new Error('Permiso de lectura de medios denegado.');
+                throw new Error(i18n.t('scanner.permission_denied'));
             }
 
-            onProgress?.(0, 0, 'Buscando archivos en el dispositivo...');
+            onProgress?.(0, 0, i18n.t('scanner.searching_files'));
             const audioFiles = await getAudioFiles(false);
             if (!audioFiles || audioFiles.length === 0) {
                 if (!isSilent) {
@@ -607,7 +616,7 @@ export const ScannerService = {
             const artistsCollection = database.collections.get<Artist>('artists');
 
             // --- Fase 1: Diffing Rápido (Solo Strings) ---
-            onProgress?.(0, 0, 'Analizando cambios...');
+            onProgress?.(0, 0, i18n.t('scanner.analyzing_changes'));
             const allTracks = await tracksCollection.query().fetch();
             
             const excludedFolders = useSettingsStore.getState().excludedFolders;
@@ -638,13 +647,26 @@ export const ScannerService = {
             const trackMap = new Map<string, Track>();
             allTracks.forEach(t => trackMap.set(t.fileUrl, t));
 
+            const forcedUrlsSet = forcedFileUrls
+                ? (forcedFileUrls instanceof Set ? forcedFileUrls : new Set(forcedFileUrls))
+                : undefined;
+
             const archivos_modificados: { track: Track; file: any }[] = [];
             for (const file of activeAudioFiles) {
                 const existing = trackMap.get(file.uri);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
                     const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
-                    if (file.lastModified > dbLastModified || needsGenreBackfill) {
+                    const isForced = forcedUrlsSet && (
+                        forcedUrlsSet.has(file.uri) ||
+                        forcedUrlsSet.has(existing.fileUrl) ||
+                        forcedUrlsSet.has(file.uri.replace(/#/g, '%23')) ||
+                        forcedUrlsSet.has(existing.fileUrl.replace(/%23/g, '#'))
+                    );
+                    if (file.lastModified > dbLastModified || needsGenreBackfill || isForced) {
+                        if (isForced) {
+                            file.lastModified = Date.now();
+                        }
                         archivos_modificados.push({ track: existing, file });
                     }
                 }
@@ -665,7 +687,7 @@ export const ScannerService = {
 
             if (!needsReconciliation && !hasModifiedFiles) {
                 if (canciones_huerfanas.length > 0) {
-                    onProgress?.(0, 0, 'Eliminando canciones huérfanas...');
+                    onProgress?.(0, 0, i18n.t('scanner.deleting_orphans'));
                     const idsToDelete = canciones_huerfanas.map(t => t.id);
                     deletedTrackIds.push(...idsToDelete);
                     tracksDeleted = canciones_huerfanas.length;
@@ -674,16 +696,16 @@ export const ScannerService = {
                 }
 
                 if (archivos_nuevos.length > 0) {
-                    onProgress?.(0, 0, 'Importando canciones nuevas...');
+                    onProgress?.(0, 0, i18n.t('scanner.importing_new'));
                     const result = await performCreateTracks(archivos_nuevos, onProgress);
                     tracksCreated = result.added;
                 }
             } else {
                 // --- Fase 3 & 4: Huella Ligera & Reconciliación ---
                 if (needsReconciliation) {
-                    onProgress?.(0, 0, 'Reconciliando canciones movidas...');
+                    onProgress?.(0, 0, i18n.t('scanner.reconciling_moved'));
                 } else {
-                    onProgress?.(0, 0, 'Actualizando metadatos modificados...');
+                    onProgress?.(0, 0, i18n.t('scanner.updating_metadata'));
                 }
                 
                 const allArtists = await artistsCollection.query().fetch();
@@ -856,7 +878,7 @@ export const ScannerService = {
                 }
 
                 if (canciones_nuevas_restantes.length > 0) {
-                    onProgress?.(0, canciones_nuevas_restantes.length, 'Importando canciones nuevas...');
+                    onProgress?.(0, canciones_nuevas_restantes.length, i18n.t('scanner.importing_new'));
                     const result = await performCreateTracks(canciones_nuevas_restantes, onProgress);
                     tracksCreated = result.added;
                 }
@@ -864,7 +886,7 @@ export const ScannerService = {
 
             // --- Fase de Limpieza Final ---
             if (deletedTrackIds.length > 0 || tracksReconciled > 0 || tracksUpdated > 0) {
-                onProgress?.(audioFiles.length, audioFiles.length, 'Limpiando base de datos...');
+                onProgress?.(audioFiles.length, audioFiles.length, i18n.t('scanner.cleaning_database'));
                 const deletedAlbums = await removeEmptyEntities(
                     albumsCollection,
                     tracksCollection,
@@ -887,6 +909,14 @@ export const ScannerService = {
                 await usePlayerStore.getState().handleDeletedEntities(deletedTrackIds, deletedAlbumIds, deletedArtistIds);
             }
 
+            // Sincronizar recientes tras cambios en la base de datos
+            await usePlayerStore.getState().refreshRecentsFromDatabase().catch(() => {});
+
+            // Actualizar pistas modificadas en el reproductor si están en cola o activas
+            for (const item of archivos_modificados) {
+                await usePlayerStore.getState().updateTrackMetadata(item.track.id).catch(() => {});
+            }
+
             await normalizePinnedValues().catch(() => { });
 
             if (tracksCreated > 0) {
@@ -897,7 +927,7 @@ export const ScannerService = {
             MediaAssetService.migrateLegacyCacheAssets();
             MediaAssetService.runGarbageCollector();
 
-            onProgress?.(audioFiles.length, audioFiles.length, '¡Librería actualizada!');
+            onProgress?.(audioFiles.length, audioFiles.length, i18n.t('toasts.library_updated'));
 
             showToastNotification(tracksCreated, tracksDeleted, tracksReconciled, tracksUpdated, isSilent);
 
@@ -905,7 +935,7 @@ export const ScannerService = {
             console.error("Error en syncLibrary:", error);
             if (!isSilent) {
                 import('react-native').then(({ Alert }) => {
-                    Alert.alert('Error al escanear', error?.message || String(error));
+                    Alert.alert(i18n.t('scanner.scan_error'), error?.message || String(error));
                 });
             }
         } finally {
@@ -917,10 +947,10 @@ export const ScannerService = {
         try {
             useSyncStore.getState().setIsScanning(true);
 
-            onProgress?.(0, 0, 'Deteniendo reproductor...');
+            onProgress?.(0, 0, i18n.t('scanner.stopping_player'));
             await usePlayerStore.getState().clearPlayer();
 
-            onProgress?.(0, 0, 'Borrando datos en memoria...');
+            onProgress?.(0, 0, i18n.t('scanner.clearing_memory'));
             const mmkv = createMMKV();
             mmkv.remove('@player_persistence');
             mmkv.remove('@player_recents');
@@ -929,7 +959,7 @@ export const ScannerService = {
                 recentPlaylists: [],
             });
 
-            onProgress?.(0, 0, 'Borrando configuración persistida...');
+            onProgress?.(0, 0, i18n.t('scanner.clearing_config'));
             await AsyncStorage.removeItem('mmplayer-settings');
             useSettingsStore.setState({
                 excludedFolders: [],
@@ -938,7 +968,7 @@ export const ScannerService = {
                 hasSeenWelcomeModal: false,
             });
 
-            onProgress?.(0, 0, 'Reiniciando base de datos local...');
+            onProgress?.(0, 0, i18n.t('scanner.resetting_database'));
             await database.write(async () => {
                 await database.unsafeResetDatabase();
             });
@@ -947,7 +977,7 @@ export const ScannerService = {
         } catch (error: any) {
             console.error('Error en fullDataWipe:', error);
             import('react-native').then(({ Alert }) => {
-                Alert.alert('Error al borrar/escanear', error?.message || String(error));
+                Alert.alert(i18n.t('scanner.delete_scan_error'), error?.message || String(error));
             });
         } finally {
             useSyncStore.getState().setIsScanning(false);
@@ -958,7 +988,7 @@ export const ScannerService = {
         if (useSyncStore.getState().isScanning) return;
         try {
             useSyncStore.getState().setIsScanning(true);
-            onProgress?.(0, 0, 'Analizando archivos locales...');
+            onProgress?.(0, 0, i18n.t('scanner.analyzing_local_files'));
             const audioFiles = await getAudioFiles();
 
             const tracksCollection = database.collections.get<Track>('tracks');
@@ -983,7 +1013,7 @@ export const ScannerService = {
 
                     if (!track) continue;
 
-                    if (i % 50 === 0) onProgress?.(i, audioFiles.length, 'Reparando artistas perdidos...');
+                    if (i % 50 === 0) onProgress?.(i, audioFiles.length, i18n.t('scanner.repairing_lost_artists'));
 
                     const meta = extractFileMetadata(file);
                     const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
@@ -1012,7 +1042,7 @@ export const ScannerService = {
                 }
             });
 
-            onProgress?.(audioFiles.length, audioFiles.length, '¡Biblioteca reparada con éxito!');
+            onProgress?.(audioFiles.length, audioFiles.length, i18n.t('scanner.library_repaired_success'));
         } catch (error) {
             console.error("Error reparando colaboradores:", error);
         } finally {
@@ -1022,7 +1052,7 @@ export const ScannerService = {
 
     repairCorruptedData: async (onProgress?: (phase: string) => void) => {
         try {
-            onProgress?.('Iniciando reparación de datos corruptos...');
+            onProgress?.(i18n.t('scanner.repairing_corrupt_data'));
             const tracksCollection = database.collections.get<Track>('tracks');
             const albumsCollection = database.collections.get<Album>('albums');
             const artistsCollection = database.collections.get<Artist>('artists');
@@ -1037,7 +1067,7 @@ export const ScannerService = {
             const BATCH_SIZE = 400;
 
             // Limpiar Artistas
-            onProgress?.('Reparando artistas...');
+            onProgress?.(i18n.t('scanner.repairing_artists'));
             for (const artist of artists) {
                 const cleanName = sanitizeDbString(artist.name) || 'Artista Desconocido';
                 const normName = normalizeText(cleanName);
@@ -1053,7 +1083,7 @@ export const ScannerService = {
             }
 
             // Limpiar Álbumes
-            onProgress?.('Reparando álbumes...');
+            onProgress?.(i18n.t('scanner.repairing_albums'));
             for (const album of albums) {
                 const cleanTitle = sanitizeDbString(album.title) || 'Álbum Desconocido';
                 const normTitle = normalizeText(cleanTitle);
@@ -1069,12 +1099,12 @@ export const ScannerService = {
             }
 
             // Limpiar Tracks
-            onProgress?.('Reparando canciones...');
+            onProgress?.(i18n.t('scanner.repairing_tracks'));
             let index = 0;
             for (const track of tracks) {
                 index++;
                 if (index % 100 === 0) {
-                    onProgress?.(`Reparando canciones (${index}/${tracks.length})...`);
+                    onProgress?.(i18n.t('scanner.repairing_tracks_progress', { current: index, total: tracks.length }));
                 }
                 const cleanTitle = sanitizeDbString(track.title) || 'Unknown Title';
                 const normTitle = normalizeText(cleanTitle);
@@ -1099,7 +1129,7 @@ export const ScannerService = {
 
             // Ejecutar en Lotes
             if (batchOps.length > 0) {
-                onProgress?.(`Guardando ${batchOps.length} reparaciones en base de datos...`);
+                onProgress?.(i18n.t('scanner.saving_repairs', { count: batchOps.length }));
                 for (let i = 0; i < batchOps.length; i += BATCH_SIZE) {
                     const chunk = batchOps.slice(i, i + BATCH_SIZE);
                     await database.write(async () => {
@@ -1108,7 +1138,7 @@ export const ScannerService = {
                 }
             }
 
-            onProgress?.('¡Reparación completada!');
+            onProgress?.(i18n.t('scanner.repair_completed'));
         } catch (error) {
             console.error('Error reparando datos corruptos:', error);
         }
@@ -1144,7 +1174,7 @@ export const ScannerService = {
             // Phase 2: Clean empty albums
             if (options?.targetAlbumIds !== undefined) {
                 if (options.targetAlbumIds.length > 0) {
-                    onProgress?.('Comprobando álbumes afectados...');
+                    onProgress?.(i18n.t('scanner.checking_albums'));
                     const albumsToDelete: Album[] = [];
                     for (const albumId of options.targetAlbumIds) {
                         const count = await tracksCollection.query(Q.where('album_id', albumId)).fetchCount();
@@ -1178,7 +1208,7 @@ export const ScannerService = {
             // Phase 3: Clean empty artists
             if (options?.targetArtistIds !== undefined) {
                 if (options.targetArtistIds.length > 0) {
-                    onProgress?.('Comprobando artistas afectados...');
+                    onProgress?.(i18n.t('scanner.checking_artists'));
                     const artistsToDelete: Artist[] = [];
                     const collaboratorsCollection = database.collections.get('track_collaborators');
                     for (const artistId of options.targetArtistIds) {
@@ -1228,7 +1258,7 @@ export const ScannerService = {
         if (useSyncStore.getState().isScanning) return;
         try {
             useSyncStore.getState().setIsScanning(true);
-            onProgress?.('Buscando archivos a eliminar...');
+            onProgress?.(i18n.t('scanner.searching_files_to_delete'));
             const tracksCollection = database.collections.get<Track>('tracks');
 
             // Buscamos todas las canciones cuya URL empiece por la ruta de la carpeta y filtramos por la carpeta exacta
@@ -1244,7 +1274,7 @@ export const ScannerService = {
             });
 
             if (tracksToDelete.length > 0) {
-                onProgress?.(`Eliminando ${tracksToDelete.length} canciones...`);
+                onProgress?.(i18n.t('scanner.deleting_songs_count', { count: tracksToDelete.length }));
                 const trackIdsToDelete = tracksToDelete.map(t => t.id);
 
                 const affectedAlbumIds = new Set<string>();
@@ -1294,7 +1324,7 @@ export const ScannerService = {
                 await usePlayerStore.getState().handleDeletedEntities(trackIdsToDelete, [], []);
 
                 // Limpiamos los álbumes y artistas que se hayan quedado huérfanos
-                onProgress?.('Limpiando la biblioteca...');
+                onProgress?.(i18n.t('scanner.cleaning_library'));
                 await ScannerService.cleanDeletedFiles({
                     targetAlbumIds: Array.from(affectedAlbumIds),
                     targetArtistIds: Array.from(affectedArtistIds),
@@ -1312,7 +1342,7 @@ export const ScannerService = {
         if (useSyncStore.getState().isScanning) return;
         try {
             useSyncStore.getState().setIsScanning(true);
-            onProgress?.('Buscando canción a eliminar...');
+            onProgress?.(i18n.t('scanner.finding_song_to_delete'));
             const tracksCollection = database.collections.get<Track>('tracks');
 
             const tracksToDelete = await tracksCollection.query(
@@ -1320,7 +1350,7 @@ export const ScannerService = {
             ).fetch();
 
             if (tracksToDelete.length > 0) {
-                onProgress?.('Eliminando canción...');
+                onProgress?.(i18n.t('scanner.deleting_song'));
                 const trackIdsToDelete = tracksToDelete.map(t => t.id);
 
                 for (const t of tracksToDelete) {
@@ -1368,7 +1398,7 @@ export const ScannerService = {
                 await usePlayerStore.getState().handleDeletedEntities(trackIdsToDelete, [], []);
 
                 // Limpiamos los álbumes y artistas que se hayan quedado huérfanos
-                onProgress?.('Limpiando la biblioteca...');
+                onProgress?.(i18n.t('scanner.cleaning_library'));
                 await ScannerService.cleanDeletedFiles({
                     targetAlbumIds: Array.from(affectedAlbumIds),
                     targetArtistIds: Array.from(affectedArtistIds),
@@ -1386,7 +1416,7 @@ export const ScannerService = {
         if (useSyncStore.getState().isScanning) return;
         try {
             useSyncStore.getState().setIsScanning(true);
-            onProgress?.('Buscando canciones a eliminar...');
+            onProgress?.(i18n.t('scanner.finding_songs_to_delete'));
             const tracksCollection = database.collections.get<Track>('tracks');
 
             const tracksToDelete = await tracksCollection.query(
@@ -1394,7 +1424,7 @@ export const ScannerService = {
             ).fetch();
 
             if (tracksToDelete.length > 0) {
-                onProgress?.('Eliminando canciones...');
+                onProgress?.(i18n.t('scanner.deleting_songs_count', { count: tracksToDelete.length }));
                 const trackIdsToDelete = tracksToDelete.map(t => t.id);
 
                 const affectedAlbumIds = new Set<string>();
@@ -1438,7 +1468,7 @@ export const ScannerService = {
                 await usePlayerStore.getState().handleDeletedEntities(trackIdsToDelete, [], []);
 
                 // Limpiamos los álbumes y artistas que se hayan quedado huérfanos
-                onProgress?.('Limpiando la biblioteca...');
+                onProgress?.(i18n.t('scanner.cleaning_library'));
                 await ScannerService.cleanDeletedFiles({
                     targetAlbumIds: Array.from(affectedAlbumIds),
                     targetArtistIds: Array.from(affectedArtistIds),

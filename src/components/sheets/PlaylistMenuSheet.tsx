@@ -3,15 +3,38 @@ import { useTranslation } from 'react-i18next';
 import { database } from '../../database';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { useToastStore } from '../../store/useToastStore';
+import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { Q } from '@nozbe/watermelondb';
 import { navigationRef, getActiveTabName } from '../../navigation/navigationRef';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import { openPlaylistSelector } from '@/store/useUIStore';
 import { BaseMenuSheet, MenuOption } from '@/components/sheets/BaseMenuSheet';
+import Track from '../../database/models/Track';
+import PlaylistTrack from '../../database/models/PlaylistTrack';
 
 export default function PlaylistMenuSheet() {
   const { t } = useTranslation();
   const { props: { playlist: selectedPlaylist, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ playlist: any; callbacks?: any }>('playlist-menu');
+
+  const getPlaylistTracks = async (): Promise<Track[]> => {
+    if (!selectedPlaylist) return [];
+    if (selectedPlaylist.id === 'favorites') {
+      return await database.collections.get<Track>('tracks')
+        .query(Q.where('is_favorite', true))
+        .fetch();
+    } else {
+      const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks')
+        .query(
+          Q.where('playlist_id', selectedPlaylist.id),
+          Q.sortBy('position', Q.asc)
+        )
+        .fetch();
+      const tracksList = await Promise.all(
+        playlistTracks.map(pt => pt.track.fetch().catch(() => null))
+      );
+      return tracksList.filter((t): t is Track => t !== null);
+    }
+  };
 
   const handleViewPlaylist = () => {
     if (!selectedPlaylist) return;
@@ -96,26 +119,38 @@ export default function PlaylistMenuSheet() {
         text={t('actions.add_to_playlist') || 'Añadir a playlist'}
         onPress={async () => {
           try {
-            const playlistTracks = await database.collections.get('playlist_tracks')
-              .query(Q.where('playlist_id', selectedPlaylist.id))
-              .fetch();
-            
-            const trackIds = playlistTracks.map((pt: any) => pt.track.id);
-
-            if (trackIds.length === 0) {
+            const tracks = await getPlaylistTracks();
+            if (tracks.length === 0) {
               useToastStore.getState().showToast(t('toasts.playlist_no_songs'), 'close-circle', '#EF4444');
               closeMenu();
               return;
             }
 
-            const validTracks = await database.collections.get<any>('tracks')
-              .query(Q.where('id', Q.oneOf(trackIds)))
-              .fetch();
-
             closeMenu();
-            openPlaylistSelector(validTracks);
+            openPlaylistSelector(tracks);
           } catch (e) {
             console.error('Error fetching playlist tracks', e);
+          }
+        }}
+      />
+
+      {/* OPTION: Select songs */}
+      <MenuOption
+        icon="checkmark-circle-outline"
+        text={t('actions.select_all')}
+        onPress={async () => {
+          try {
+            const tracks = await getPlaylistTracks();
+            if (tracks.length === 0) {
+              useToastStore.getState().showToast(t('toasts.playlist_no_songs'), 'close-circle', '#EF4444');
+              closeMenu();
+              return;
+            }
+
+            closeMenu();
+            useMultiSelectStore.getState().selectMultipleTracks(tracks);
+          } catch (e) {
+            console.error('Error selecting playlist tracks', e);
           }
         }}
       />

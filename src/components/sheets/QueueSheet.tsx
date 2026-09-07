@@ -11,6 +11,7 @@ import {
     Dimensions,
     Platform,
     StyleSheet,
+    Switch,
     Text,
     TouchableOpacity,
     TouchableWithoutFeedback,
@@ -32,6 +33,7 @@ import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
 import { Colors } from '../../theme/theme';
 
@@ -54,6 +56,8 @@ export default function QueueSheet() {
     const clearUserQueue = usePlayerStore(state => state.clearUserQueue);
     const clearContextQueue = usePlayerStore(state => state.clearContextQueue);
     const queueVersion = usePlayerStore(state => state.queueVersion);
+    const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
+    const setShuffleOnQueueEnd = useSettingsStore(state => state.setShuffleOnQueueEnd);
 
     const playbackState = usePlaybackState();
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
@@ -509,6 +513,26 @@ export default function QueueSheet() {
                 {activeTab === 'queue' ? (
                     <GestureHandlerRootView style={{ flex: 1 }}>
                         {listHeader}
+                        <View style={styles.separator} />
+                        <View style={styles.shuffleOnEndRow}>
+                            <View style={styles.shuffleOnEndLeft}>
+                                <Ionicons
+                                    name="shuffle"
+                                    size={20}
+                                    color={shuffleOnQueueEnd ? (colors.accentLight || colors.accent) : colors.textSecondary}
+                                />
+                                <Text style={[styles.shuffleOnEndText, { color: colors.text }]}>
+                                    {t('queue.shuffle_on_end', 'Reproducción aleatoria al finalizar la cola')}
+                                </Text>
+                            </View>
+                            <Switch
+                                value={shuffleOnQueueEnd}
+                                onValueChange={setShuffleOnQueueEnd}
+                                trackColor={{ false: '#282828', true: colors.accent }}
+                                thumbColor={shuffleOnQueueEnd ? '#FFFFFF' : '#888888'}
+                                ios_backgroundColor="#282828"
+                            />
+                        </View>
                         <View style={styles.separator} />
                         <DraggableFlatList
                             data={upcomingTracks}
@@ -975,6 +999,25 @@ const styles = StyleSheet.create({
         marginHorizontal: 20,
         marginTop: 12,
         marginBottom: 8,
+    },
+    shuffleOnEndRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 6,
+    },
+    shuffleOnEndLeft: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginRight: 12,
+    },
+    shuffleOnEndText: {
+        fontSize: 13,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
     },
     trackRow: {
         height: ITEM_ROW_HEIGHT,

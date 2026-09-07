@@ -1,6 +1,7 @@
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayerSpotlightTutorial from '@/components/modals/PlayerSpotlightTutorial';
-import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu } from '@/store/useUIStore';
+import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu, useUIStore } from '@/store/useUIStore';
+import { useTagFormStore } from '@/store/useTagFormStore';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -252,12 +253,17 @@ const PlayerScreenUI = ({
     const hasSeenPlayerTutorial = useSettingsStore(state => state.hasSeenPlayerTutorial);
     const setHasSeenPlayerTutorial = useSettingsStore(state => state.setHasSeenPlayerTutorial);
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+    const [isImmersive, setIsImmersive] = useState(false);
+
+    const activeSheet = useUIStore(state => state.activeSheet);
+    const isTagFormVisible = useTagFormStore(state => state.isVisible);
+    const isSheetOrModalOpen = activeSheet !== null || isTagFormVisible || isTutorialVisible;
 
     useEffect(() => {
-        if (isFocused && !hasSeenPlayerTutorial) {
+        if (isFocused && !hasSeenPlayerTutorial && !isImmersive) {
             setIsTutorialVisible(true);
         }
-    }, [isFocused, hasSeenPlayerTutorial]);
+    }, [isFocused, hasSeenPlayerTutorial, isImmersive]);
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -537,7 +543,6 @@ const PlayerScreenUI = ({
         transform: [{ rotateZ: `${spinDeg.value}deg` }],
     }));
 
-    const [isImmersive, setIsImmersive] = useState(false);
     const toggleImmersiveMode = () => {
         if (showCanvas && !!track.bgVideo) {
             setIsImmersive(prev => !prev);
@@ -548,7 +553,10 @@ const PlayerScreenUI = ({
         if (!showCanvas || !track.bgVideo) {
             setIsImmersive(false);
         }
-    }, [track.bgVideo, showCanvas]);
+        if (isImmersive) {
+            setIsTutorialVisible(false);
+        }
+    }, [track.bgVideo, showCanvas, isImmersive]);
 
     const longPressHintOpacity = useSharedValue(0);
     useEffect(() => {
@@ -575,8 +583,8 @@ const PlayerScreenUI = ({
         });
     }, [hasLyrics, isImmersive, lyricsShift]);
 
-    const lyricsHeight = useSharedValue(0);
-    const lyricsOpacity = useSharedValue(0);
+    const lyricsHeight = useSharedValue(hasLyrics ? 46 : 0);
+    const lyricsOpacity = useSharedValue(hasLyrics ? 1 : 0);
     useEffect(() => {
         lyricsHeight.value = withSpring(hasLyrics ? 46 : 0, { damping: 15 });
         lyricsOpacity.value = withTiming(hasLyrics ? 1 : 0, { duration: 300 });
@@ -588,34 +596,60 @@ const PlayerScreenUI = ({
     }));
 
     const [displayedPhrase, setDisplayedPhrase] = useState(currentPhrase);
-    const lyricTextOpacity = useSharedValue(hasLyrics && currentPhrase !== '' ? 1 : 0);
+    const lyricTextOpacity = useSharedValue(hasLyrics && currentPhrase.trim() !== '' ? 1 : 0);
+    const prevTrackIdRef = React.useRef(track.id);
 
     useEffect(() => {
-        setDisplayedPhrase(currentPhrase);
-        lyricTextOpacity.value = hasLyrics && currentPhrase !== '' ? 1 : 0;
-    }, [track.id, showPlayerLyrics, hasLyrics, currentPhrase, lyricTextOpacity]);
+        // Caso 1: Cambio de canción
+        if (prevTrackIdRef.current !== track.id) {
+            prevTrackIdRef.current = track.id;
+            cancelAnimation(lyricTextOpacity);
+            setDisplayedPhrase(currentPhrase);
+            lyricTextOpacity.value = (hasLyrics && currentPhrase.trim() !== '') ? 1 : 0;
+            return;
+        }
 
-    useEffect(() => {
-        if (currentPhrase !== displayedPhrase) {
-            if (lyricTextOpacity.value === 0) {
-                setDisplayedPhrase(currentPhrase);
-                return;
+        // Caso 2: No hay letras o la visualización está desactivada
+        if (!hasLyrics || !showPlayerLyrics) {
+            cancelAnimation(lyricTextOpacity);
+            lyricTextOpacity.value = 0;
+            setDisplayedPhrase('');
+            return;
+        }
+
+        // Caso 3: La frase no ha cambiado
+        if (currentPhrase === displayedPhrase) {
+            // Guardián de seguridad: si la frase no está vacía pero la opacidad se quedó en 0
+            if (displayedPhrase.trim() !== '' && lyricTextOpacity.value < 0.9) {
+                lyricTextOpacity.value = withTiming(1, { duration: 150 });
             }
+            return;
+        }
+
+        // Caso 4: Transición hacia silencio o instrumental (frase vacía)
+        if (currentPhrase.trim() === '') {
             lyricTextOpacity.value = withTiming(0, { duration: 150 }, (finished) => {
                 if (finished) {
-                    runOnJS(setDisplayedPhrase)(currentPhrase);
+                    runOnJS(setDisplayedPhrase)('');
                 }
             });
+            return;
         }
-    }, [currentPhrase, displayedPhrase, lyricTextOpacity]);
 
-    useEffect(() => {
-        if (displayedPhrase !== '') {
+        // Caso 5: Transición desde silencio a una nueva frase
+        if (displayedPhrase.trim() === '') {
+            setDisplayedPhrase(currentPhrase);
             lyricTextOpacity.value = withTiming(1, { duration: 200 });
-        } else {
-            lyricTextOpacity.value = withTiming(0, { duration: 150 });
+            return;
         }
-    }, [displayedPhrase, lyricTextOpacity]);
+
+        // Caso 6: Transición normal de frase A a frase B (entre línea y línea) -> Sin animación de fade
+        cancelAnimation(lyricTextOpacity);
+        setDisplayedPhrase(currentPhrase);
+        lyricTextOpacity.value = 1;
+    }, [track.id, showPlayerLyrics, hasLyrics, currentPhrase, displayedPhrase, isFocused, lyricTextOpacity]);
+
+    const activeLyricText = currentPhrase.trim() !== '' ? currentPhrase : displayedPhrase;
 
     const textAnimatedStyle = useAnimatedStyle(() => ({
         opacity: lyricTextOpacity.value,
@@ -691,6 +725,7 @@ const PlayerScreenUI = ({
     }, [hasPrevious]);
 
     const panGesture = Gesture.Pan()
+        .enabled(!isSheetOrModalOpen)
         .activeOffsetX([-10, 10])
         .failOffsetY([-35, 35])
         .onUpdate((event) => {
@@ -739,6 +774,7 @@ const PlayerScreenUI = ({
         });
 
     const longPressGesture = Gesture.LongPress()
+        .enabled(!isSheetOrModalOpen)
         .minDuration(450)
         .onStart(() => {
             runOnJS(triggerHaptic)();
@@ -746,6 +782,7 @@ const PlayerScreenUI = ({
         });
 
     const tapGesture = Gesture.Tap()
+        .enabled(!isSheetOrModalOpen)
         .numberOfTaps(1)
         .onStart(() => {
             runOnJS(toggleImmersiveMode)();
@@ -765,11 +802,18 @@ const PlayerScreenUI = ({
         }
     }, [isFocused, track.id, dismissTranslateY]);
 
+    useEffect(() => {
+        if (isSheetOrModalOpen) {
+            dismissTranslateY.value = 0;
+        }
+    }, [isSheetOrModalOpen, dismissTranslateY]);
+
     const performGoBack = React.useCallback(() => {
         navigation.goBack();
     }, [navigation]);
 
     const dismissPanGesture = Gesture.Pan()
+        .enabled(!isSheetOrModalOpen)
         .activeOffsetY(15)
         .failOffsetX([-25, 25])
         .onUpdate((event) => {
@@ -1045,14 +1089,16 @@ const PlayerScreenUI = ({
                     </TouchableOpacity>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                            onPress={() => setIsTutorialVisible(true)}
-                            style={styles.moreButton}
-                            accessibilityLabel={t('player_tutorial.help_btn')}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
-                        </TouchableOpacity>
+                        {!isImmersive && (
+                            <TouchableOpacity
+                                onPress={() => setIsTutorialVisible(true)}
+                                style={styles.moreButton}
+                                accessibilityLabel={t('player_tutorial.help_btn')}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                        )}
 
                         <View
                             ref={moreButtonRef}
@@ -1333,7 +1379,7 @@ const PlayerScreenUI = ({
                     >
                         <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
                             <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
-                                {displayedPhrase}
+                                {activeLyricText}
                             </Animated.Text>
                         </Animated.View>
                     </TouchableOpacity>
@@ -1454,7 +1500,7 @@ const PlayerScreenUI = ({
                         <View style={styles.castingRemoteBanner}>
                             <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
                             <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
-                                {'LocalCast activo · Modo control remoto'}
+                                {t('cast.remote_mode_banner', 'LocalCast activo · Modo control remoto')}
                             </Text>
                         </View>
                     ) : (

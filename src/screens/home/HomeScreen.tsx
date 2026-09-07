@@ -293,6 +293,7 @@ export default function HomeScreen() {
         React.useCallback(() => {
             fetchHomeData();
             useStatsStore.getState().fetchStats();
+            usePlayerStore.getState().refreshRecentsFromDatabase();
         }, [])
     );
 

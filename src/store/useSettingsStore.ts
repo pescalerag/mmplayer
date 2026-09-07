@@ -110,6 +110,8 @@ interface SettingsState {
     setShowPlayerLyrics: (value: boolean) => void;
     homeProfilePosition: 'left' | 'right';
     setHomeProfilePosition: (position: 'left' | 'right') => void;
+    shuffleOnQueueEnd: boolean;
+    setShuffleOnQueueEnd: (value: boolean) => void;
 }
 
 export type QueueAddBehavior = 'user_queue' | 'context_queue';
@@ -248,6 +250,8 @@ export const useSettingsStore = create<SettingsState>()(
             },
             homeProfilePosition: 'left',
             setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
+            shuffleOnQueueEnd: false,
+            setShuffleOnQueueEnd: (value) => set({ shuffleOnQueueEnd: value }),
         }),
         {
             name: 'mmplayer-settings',

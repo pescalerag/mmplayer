@@ -115,7 +115,7 @@ export const TrackPlayerSync = () => {
                 usePlayerStore.getState().updateQueueStatus();
                 break;
             case Event.PlaybackQueueEnded:
-                // Se puede remover o dejar vacío
+                await usePlayerStore.getState().playRandomQueueOnEnd();
                 break;
         }
     });

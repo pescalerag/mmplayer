@@ -10,6 +10,7 @@ import { useCastStore } from '../store/useCastStore';
 import { useToastStore } from '../store/useToastStore';
 import { database } from '../database';
 import Track from '../database/models/Track';
+import i18n from '../constants/i18n';
 
 const CAST_NAMESPACE = 'urn:x-cast:com.pescalerag.mmplayer';
 
@@ -53,7 +54,7 @@ export const ChromecastService = {
 
                 useCastStore.getState().setChromecastConnected(true, deviceName, session);
                 useToastStore.getState().showToast(
-                    `Conectado a ${deviceName}`,
+                    i18n.t('toasts.chromecast_connected', { deviceName }),
                     'tv-outline',
                     '#60A5FA'
                 );
@@ -151,8 +152,9 @@ export const ChromecastService = {
                     }
                 } catch (err: any) {
                     console.error('[ChromecastService] Error on session started:', err);
+                    const errorDetail = err?.message || i18n.t('cast.local_server_error');
                     useToastStore.getState().showToast(
-                        `Error al sincronizar con Chromecast: ${err?.message || 'Error del servidor local'}`,
+                        i18n.t('toasts.chromecast_sync_error', { error: errorDetail }),
                         'alert-circle-outline',
                         '#EF4444'
                     );
@@ -182,9 +184,9 @@ export const ChromecastService = {
                     try { activeCastChannel.offMessage(); activeCastChannel.remove(); } catch (e) {}
                     activeCastChannel = null;
                 }
-                const errorDetails = error || 'Error al iniciar conexión';
+                const errorDetails = error || i18n.t('cast.chromecast_connect_error');
                 useToastStore.getState().showToast(
-                    `Fallo al conectar con Chromecast: ${errorDetails}`,
+                    i18n.t('toasts.chromecast_connection_failed', { error: errorDetails }),
                     'alert-circle-outline',
                     '#EF4444'
                 );
@@ -309,7 +311,7 @@ export const ChromecastService = {
 
             const cacheInfo = await LocalCastService.prepareTrack(track);
             if (!cacheInfo || !cacheInfo.filePath) {
-                const errMsg = 'No se pudo preparar el archivo de audio para transmitir.';
+                const errMsg = i18n.t('toasts.chromecast_prepare_error');
                 console.error('[ChromecastService]', errMsg);
                 useToastStore.getState().showToast(errMsg, 'alert-circle-outline', '#EF4444');
                 return;
@@ -408,9 +410,9 @@ export const ChromecastService = {
             }
         } catch (error: any) {
             console.error('[ChromecastService] Error loading track on Chromecast:', error);
-            const msg = error?.message || 'Error desconocido';
+            const msg = error?.message || i18n.t('common.error');
             useToastStore.getState().showToast(
-                `Error al cargar en Chromecast: ${msg}`,
+                i18n.t('toasts.chromecast_load_error', { error: msg }),
                 'alert-circle-outline',
                 '#EF4444'
             );

@@ -29,7 +29,14 @@ const ICONS = [
     { id: 'DEFAULT', nameKey: 'support.icon_original', image: require('../../assets/images/icon.png') },
     { id: 'dark', nameKey: 'support.icon_dark', image: require('../../assets/images/dark-icon.png') },
     { id: 'supporter', nameKey: 'support.icon_supporter', image: require('../../assets/images/supporter-icon.png') },
-    { id: 'retro', nameKey: 'support.icon_retro', image: require('../../assets/images/retro-icon.png') }
+    { id: 'retro', nameKey: 'support.icon_retro', image: require('../../assets/images/retro-icon.png') },
+    { id: 'darkblue', nameKey: 'support.icon_dark_blue', image: require('../../assets/images/android-icon-darkblue.png') },
+    { id: 'develpink', nameKey: 'support.icon_devel_pink', image: require('../../assets/images/android-icon-devel-pink.png') },
+    { id: 'labgreen', nameKey: 'support.icon_lab_green', image: require('../../assets/images/android-icon-labgreen.png') },
+    { id: 'orange', nameKey: 'support.icon_orange', image: require('../../assets/images/android-icon-orange.png') },
+    { id: 'pink', nameKey: 'support.icon_pink', image: require('../../assets/images/android-icon-pink.png') },
+    { id: 'red', nameKey: 'support.icon_red', image: require('../../assets/images/android-icon-red.png') },
+    { id: 'white', nameKey: 'support.icon_white', image: require('../../assets/images/android-icon-white.png') }
 ];
 
 interface StatsThemeOption {

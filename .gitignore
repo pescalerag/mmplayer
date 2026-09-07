@@ -22,6 +22,7 @@ expo-env.d.ts
 *.mobileprovision
 android/
 ios/
+!android/app/src/main/res/xml/network_security_config.xml
 !modules/**/android/
 modules/**/android/build/
 modules/**/android/.gradle/

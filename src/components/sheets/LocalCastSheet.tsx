@@ -124,7 +124,7 @@ export default function LocalCastSheet() {
     } catch (err: any) {
       setIsLoading(false);
       useToastStore.getState().showToast(
-        err?.message || 'Error al conectar con Chromecast',
+        err?.message || t('cast.chromecast_connect_error'),
         'alert-circle-outline'
       );
     }
@@ -136,7 +136,7 @@ export default function LocalCastSheet() {
       await disconnectChromecast();
       setIsLoading(false);
       useToastStore.getState().showToast(
-        'Chromecast desconectado',
+        t('toasts.chromecast_disconnected'),
         'tv-outline'
       );
     } catch (err) {

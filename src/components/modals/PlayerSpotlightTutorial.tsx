@@ -535,7 +535,7 @@ export default function PlayerSpotlightTutorial({
                     <View style={[styles.stepPill, { backgroundColor: colors.accentAlpha20 }]}>
                         <Ionicons name={currentStep.icon} size={15} color={colors.accent} style={{ marginRight: 6 }} />
                         <Text style={[styles.stepPillText, { color: colors.accent }]}>
-                            {`PASO ${currentStepIndex + 1} DE ${PLAYER_SPOTLIGHT_STEPS.length}`}
+                            {t('common.step_indicator', { current: currentStepIndex + 1, total: PLAYER_SPOTLIGHT_STEPS.length, defaultValue: `PASO ${currentStepIndex + 1} DE ${PLAYER_SPOTLIGHT_STEPS.length}` })}
                         </Text>
                     </View>
                     <TouchableOpacity
