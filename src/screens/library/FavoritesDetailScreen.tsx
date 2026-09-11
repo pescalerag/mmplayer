@@ -20,6 +20,7 @@ import { usePlaybackState } from '../../hooks/usePlaybackState';
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import SectionHeader from '@/components/common/SectionHeader';
 import TrackRow from '@/components/player/TrackRow';
+import { openPlaylistMenu } from '@/store/useUIStore';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -147,6 +148,7 @@ function FavoritesDetailContent({ tracks }: Readonly<FavoritesDetailProps>) {
                 subtitle={t('actions.special')}
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
+                onMore={() => openPlaylistMenu({ id: 'favorites', name: t('home.your_favourites') })}
                 renderExtra={() => (
                     tracks.length > 0 && (
                         <>
