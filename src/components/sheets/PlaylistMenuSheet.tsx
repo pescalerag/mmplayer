@@ -26,7 +26,7 @@ export default function PlaylistMenuSheet() {
       const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks')
         .query(
           Q.where('playlist_id', selectedPlaylist.id),
-          Q.sortBy('position', Q.asc)
+          Q.sortBy('order', Q.asc)
         )
         .fetch();
       const tracksList = await Promise.all(

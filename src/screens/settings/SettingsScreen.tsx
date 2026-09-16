@@ -357,11 +357,33 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    {/* Sugerencias o reportar un bug */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => Linking.openURL('https://docs.google.com/forms/d/e/1FAIpQLSf-r0sFET00F_sYOCK2oVBOIKv3ZGQpPDgwOoB6OXCwZg1xsQ/viewform?usp=publish-editor')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.accent} />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.feedback', 'Sugerencias o reportar un bug')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.feedback_desc', 'Envíanos tus sugerencias o infórmanos de un problema')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="open-outline" size={18} color={colors.accent} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.2.1'}</Text>
+                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.2.2'}</Text>
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>

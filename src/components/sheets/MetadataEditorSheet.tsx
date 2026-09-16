@@ -446,16 +446,11 @@ export default function MetadataEditorSheet() {
   return (
     <>
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>
-            {isBatchMode 
-              ? t('metadata_editor.title_batch') 
-              : t('metadata_editor.title_single')}
-          </Text>
-          <View style={styles.betaBadge}>
-            <Text style={styles.betaBadgeText}>BETA</Text>
-          </View>
-        </View>
+        <Text style={styles.title}>
+          {isBatchMode 
+            ? t('metadata_editor.title_batch') 
+            : t('metadata_editor.title_single')}
+        </Text>
         {!isBatchMode && tracks[0] && (
           <Text style={styles.subtitle} numberOfLines={1}>
             {tracks[0].title}
@@ -788,11 +783,6 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     borderBottomWidth: 1,
     borderBottomColor: '#1A1A1A',
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   title: {
     fontSize: 20,
     fontFamily: fonts.bold,
@@ -804,22 +794,6 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     fontFamily: fonts.regular,
     color: colors.textSecondary,
     marginTop: 4,
-  },
-  betaBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'center',
-  },
-  betaBadgeText: {
-    color: '#F59E0B',
-    fontSize: 9,
-    fontWeight: '900',
-    fontFamily: fonts.regular,
-    letterSpacing: 0.5,
   },
   loadingContainer: {
     padding: 48,
