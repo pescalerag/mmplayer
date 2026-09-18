@@ -24,13 +24,13 @@ export function setIsFadingOut(val: boolean) {
   }
 
   if (val) {
-    // Safety fallback: a fade-out can NEVER legitimately last more than 750ms.
+    // Safety fallback: a fade-out can NEVER legitimately last more than 1500ms.
     // If anything fails to call setIsFadingOut(false), automatically reset it.
     fadeOutTimeout = setTimeout(() => {
       if (isFadingOut) {
         setIsFadingOut(false);
       }
-    }, 750);
+    }, 1500);
   }
 }
 
@@ -59,14 +59,12 @@ export function usePlaybackState() {
   }, []);
 
   const isNativePaused = 
-    playbackState.state === State.Paused || 
-    playbackState.state === State.Stopped || 
-    playbackState.state === State.None || 
-    playbackState.state === State.Ended;
+    playbackState.state !== State.Playing && 
+    playbackState.state !== State.Buffering;
 
   // If native playback is paused, fading must be reset to false immediately
   useEffect(() => {
-    if (fading && isNativePaused) {
+    if ((fading || isFadingOut) && isNativePaused) {
       setIsFadingOut(false);
     }
   }, [fading, isNativePaused]);

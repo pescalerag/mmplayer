@@ -263,7 +263,11 @@ function TrackRow({
                 >
                   {track.title}
                 </Text>
-                {isCurrentTrack && <PlayingIndicator isPaused={!isActuallyPlaying} />}
+                {isCurrentTrack && (
+                  <View style={styles.indicatorContainer}>
+                    <PlayingIndicator isPaused={!isActuallyPlaying} />
+                  </View>
+                )}
               </View>
               {artistName ? (
                 <Text style={styles.artist} numberOfLines={1}>
@@ -360,12 +364,14 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
   },
   info: {
     flex: 1,
+    marginRight: spacing.sm || 8,
   },
   title: {
     color: colors.text,
     fontSize: 16,
     fontFamily: fonts.regular,
     fontWeight: fontWeights.bold,
+    flexShrink: 1,
   },
   artist: {
     color: colors.textSecondary,
@@ -398,6 +404,10 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm || 8,
+    maxWidth: "100%",
+  },
+  indicatorContainer: {
+    flexShrink: 0,
   },
   titleActive: {
     color: colors.accentLight, // Violet-400

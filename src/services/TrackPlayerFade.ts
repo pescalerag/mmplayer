@@ -94,10 +94,8 @@ TrackPlayer.getPlaybackState = async () => {
   }
 
   const isNativePaused = 
-    originalState.state === State.Paused || 
-    originalState.state === State.Stopped || 
-    originalState.state === State.None || 
-    originalState.state === State.Ended;
+    originalState.state !== State.Playing && 
+    originalState.state !== State.Buffering;
 
   if (getIsFadingOut() && isNativePaused) {
     setIsFadingOut(false);
@@ -300,7 +298,6 @@ TrackPlayer.pause = async (bypassFade = false) => {
 
   // If already fading out, user tapped pause again: pause immediately without waiting
   if (getIsFadingOut()) {
-    setIsFadingOut(false);
     currentVolume = 0;
     await originalSetVolume(0);
     await originalPause();
@@ -358,7 +355,9 @@ TrackPlayer.pause = async (bypassFade = false) => {
       currentVolume = 0;
       await originalSetVolume(0);
       await originalPause();
-      setIsFadingOut(false);
+      if (opId !== currentOperationId) {
+        return;
+      }
       fadeTimer = null;
     }
   };

@@ -99,6 +99,7 @@ const styles = StyleSheet.create({
         height: 12,
         gap: 3,
         paddingBottom: 1,
+        flexShrink: 0,
     },
     bar: {
         width: 3,
