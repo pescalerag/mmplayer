@@ -32,6 +32,8 @@ interface TrackRowProps {
   readonly onPress?: (trackId: string) => void;
   readonly preventAutoHistory?: boolean;
   readonly isLyricMatch?: boolean;
+  readonly trackInstanceId?: string;
+  readonly isCurrentTrack?: boolean;
 }
 
 function TrackRow({
@@ -44,12 +46,15 @@ function TrackRow({
   onPress,
   preventAutoHistory,
   isLyricMatch,
+  trackInstanceId,
+  isCurrentTrack: isCurrentTrackProp,
 }: Readonly<TrackRowProps>) {
   const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
   const openMenu = openTrackMenu;
 
   const activeTrack = usePlayerStore((state) => state.activeTrack);
+  const activeTrackInstanceId = usePlayerStore((state) => state.activeTrackInstanceId);
   const playbackContext = usePlayerStore((state) => state.playbackContext);
 
   const playbackStateRN = usePlaybackState();
@@ -61,8 +66,11 @@ function TrackRow({
   const isSelectionMode = useMultiSelectStore(state => state.isSelectionMode);
   const isSelected = useMultiSelectStore(state => state.selectedTracks.some(t => t.id === track.id));
 
-  const isCurrentTrack = activeTrack?.id === track.id &&
-    (playbackContext === contextId || contextId === 'queue');
+  const isCurrentTrack = isCurrentTrackProp !== undefined
+    ? isCurrentTrackProp
+    : (activeTrackInstanceId && trackInstanceId
+        ? activeTrackInstanceId === trackInstanceId && (playbackContext === contextId || contextId === 'queue')
+        : activeTrack?.id === track.id && (playbackContext === contextId || contextId === 'queue'));
 
   const [imageError, setImageError] = React.useState(false);
 

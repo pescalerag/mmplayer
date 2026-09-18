@@ -77,7 +77,7 @@ const handleActiveTrackChangedEvent = async (event: any) => {
     await handleCastOrLocalPlay(track);
 
     if (track?.id) {
-        await usePlayerStore.getState().setActiveTrackById(track.id);
+        await usePlayerStore.getState().setActiveTrackById(track.id, (track as any)?.instanceId);
     }
 
     if (index !== undefined) {

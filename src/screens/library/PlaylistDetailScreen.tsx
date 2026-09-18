@@ -60,6 +60,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
   }),
 )(function PlaylistTrackRowWithMetadata({
   track,
+  playlistTrackId,
   album,
   artists,
   playlistId,
@@ -67,11 +68,12 @@ const PlaylistTrackRowWithMetadata = withObservables(
   onPress,
 }: {
   track: Track;
+  playlistTrackId: string;
   album: Album | null;
   artists: Artist[];
   playlistId: string;
   index: number;
-  onPress: (trackId: string) => void;
+  onPress: (trackId: string, trackIndex?: number, playlistTrackId?: string) => void;
 }) {
   const { t } = useTranslation();
   const artistNames =
@@ -81,12 +83,13 @@ const PlaylistTrackRowWithMetadata = withObservables(
   return (
     <TrackRow
       track={track}
+      trackInstanceId={playlistTrackId}
       contextId={`playlist-${playlistId}`}
       index={index}
       coverUrl={album?.coverUrl}
       artistName={artistNames}
       playlistId={playlistId}
-      onPress={onPress}
+      onPress={(trackId) => onPress(trackId, index - 1, playlistTrackId)}
       preventAutoHistory={true}
     />
   );
@@ -110,12 +113,13 @@ const PlaylistTrackRow = withObservables(
   track: Track | null;
   playlistId: string;
   index: number;
-  onPress: (trackId: string) => void;
+  onPress: (trackId: string, trackIndex?: number, playlistTrackId?: string) => void;
 }) {
   if (!track) return null;
   return (
     <PlaylistTrackRowWithMetadata
       track={track}
+      playlistTrackId={playlistTrack.id}
       playlistId={playlistId}
       index={index}
       onPress={onPress}
@@ -236,7 +240,7 @@ function PlaylistDetailContent({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
-  const [rawTracks, setTracks] = useState<Track[]>([]);
+  const [resolvedItems, setResolvedItems] = useState<{ track: Track; playlistTrackId: string }[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [localPlaylistTracks, setLocalPlaylistTracks] = useState<PlaylistTrack[]>(playlistTracks);
@@ -267,21 +271,17 @@ function PlaylistDetailContent({
     }
   }, [canReorder, isReorderMode]);
 
-  const tracks = React.useMemo(() => {
-    const excluded = excludedSongs || [];
-    return rawTracks.filter((t) => !excluded.includes(t.fileUrl));
-  }, [rawTracks, excludedSongs]);
-
   // Resolve Track records from PlaylistTrack relation
   useEffect(() => {
     let isMounted = true;
     const loadTracks = async () => {
       setLoadingTracks(true);
       try {
-        const resolvedTracks = await Promise.all(
+        const resolved = await Promise.all(
           localPlaylistTracks.map(async (pt) => {
             try {
-              return await pt.track.fetch();
+              const track = await pt.track.fetch();
+              return track ? { track, playlistTrackId: pt.id } : null;
             } catch (e) {
               console.warn("Error cargando pista huerfana en playlist", e);
               return null;
@@ -289,12 +289,12 @@ function PlaylistDetailContent({
           }),
         );
 
-        const validTracks = resolvedTracks.filter(
-          (t): t is Track => t !== null,
+        const validItems = resolved.filter(
+          (item): item is { track: Track; playlistTrackId: string } => item !== null,
         );
 
         if (isMounted) {
-          setTracks(validTracks);
+          setResolvedItems(validItems);
           setLoadingTracks(false);
         }
       } catch (err) {
@@ -307,6 +307,21 @@ function PlaylistDetailContent({
       isMounted = false;
     };
   }, [localPlaylistTracks]);
+
+  const { tracks, instanceIds } = React.useMemo(() => {
+    const excluded = excludedSongs || [];
+    const validTracks: Track[] = [];
+    const validInstanceIds: string[] = [];
+
+    resolvedItems.forEach((item) => {
+      if (!excluded.includes(item.track.fileUrl)) {
+        validTracks.push(item.track);
+        validInstanceIds.push(item.playlistTrackId);
+      }
+    });
+
+    return { tracks: validTracks, instanceIds: validInstanceIds };
+  }, [resolvedItems, excludedSongs]);
 
   // Player States
   const playbackState = usePlaybackState();
@@ -364,7 +379,7 @@ function PlaylistDetailContent({
   }, [playlist]);
 
   const handleTrackPress = useCallback(
-    (trackId: string) => {
+    (trackId: string, trackIndex?: number, playlistTrackId?: string) => {
       HistoryService.updateUIRecents({
         id: playlist.id,
         type: "playlist",
@@ -374,14 +389,24 @@ function PlaylistDetailContent({
         imageUrl: playlist.coverCustomUrl || null,
       });
 
-      const trackIndex = tracks.findIndex((t) => t.id === trackId);
-      if (trackIndex !== -1) {
+      let targetIndex = -1;
+      if (playlistTrackId) {
+        targetIndex = instanceIds.findIndex((id) => id === playlistTrackId);
+      }
+      if (targetIndex === -1 && trackIndex !== undefined && trackIndex >= 0 && trackIndex < tracks.length) {
+        targetIndex = trackIndex;
+      }
+      if (targetIndex === -1) {
+        targetIndex = tracks.findIndex((t) => t.id === trackId);
+      }
+
+      if (targetIndex !== -1) {
         usePlayerStore
           .getState()
-          .loadQueue(tracks, trackIndex, playlistContextId);
+          .loadQueue(tracks, targetIndex, playlistContextId, instanceIds);
       }
     },
-    [tracks, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, t],
+    [tracks, instanceIds, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, t],
   );
 
   const handleFabPress = async () => {
@@ -400,7 +425,7 @@ function PlaylistDetailContent({
         await TrackPlayer.play();
       }
     } else if (tracks.length > 0) {
-      usePlayerStore.getState().loadQueue(tracks, 0, playlistContextId);
+      usePlayerStore.getState().loadQueue(tracks, 0, playlistContextId, instanceIds);
     }
   };
 
@@ -414,7 +439,7 @@ function PlaylistDetailContent({
         subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
         imageUrl: playlist.coverCustomUrl || null,
       });
-      usePlayerStore.getState().startShuffled(tracks, playlistContextId);
+      usePlayerStore.getState().startShuffled(tracks, playlistContextId, instanceIds);
     }
   };
 

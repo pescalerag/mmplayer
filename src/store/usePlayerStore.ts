@@ -35,7 +35,7 @@ function scheduleDebouncedSavePlaybackState() {
   }, 800);
 }
 
-async function mapToTPTrack(track: Track): Promise<TPTrack> {
+async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack> {
   const album = await track.album.fetch().catch(() => null);
   const artists = (await track.queryCollaborators.fetch().catch(() => [])) as Artist[];
   const artistNames =
@@ -43,19 +43,23 @@ async function mapToTPTrack(track: Track): Promise<TPTrack> {
       ? artists.map((a) => a.name).join(", ")
       : "Artista desconocido";
 
+  const uniqueSuffix = instanceId || `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
   return {
-    id: `${track.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: `${track.id}-${uniqueSuffix}`,
     url: track.fileUrl,
     title: track.title,
     artist: artistNames,
     album: album?.title || "Álbum desconocido",
     artwork: album?.coverUrl || undefined,
     duration: track.duration,
+    instanceId: instanceId || uniqueSuffix,
   };
 }
 
 interface PlayerState {
   activeTrack: Track | null;
+  activeTrackInstanceId: string | null;
   prevTrack: Track | null;
   nextTrack: Track | null;
   playbackContext: string | null;
@@ -77,11 +81,12 @@ interface PlayerState {
     tracks: Track[],
     index: number,
     context?: string,
+    instanceIds?: string[],
   ) => Promise<void>;
-  startShuffled: (tracks: Track[], context?: string) => Promise<void>;
+  startShuffled: (tracks: Track[], context?: string, instanceIds?: string[]) => Promise<void>;
   playRandomQueueOnEnd: () => Promise<void>;
   playSingleTrack: (track: Track, context?: string) => Promise<void>;
-  setActiveTrackById: (trackId: string) => Promise<void>;
+  setActiveTrackById: (trackId: string, instanceId?: string) => Promise<void>;
   addToQueueNext: (track: Track) => Promise<void>;
   addToQueueEnd: (track: Track) => Promise<void>;
   addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
@@ -188,6 +193,7 @@ async function addTracksSafely(tpTracks: TPTrack[], insertIndex?: number) {
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   activeTrack: null,
+  activeTrackInstanceId: null,
   prevTrack: null,
   nextTrack: null,
   playbackContext: null,
@@ -221,7 +227,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  loadQueue: async (tracks, index, context = "unknown") => {
+  loadQueue: async (tracks, index, context = "unknown", instanceIds?: string[]) => {
     await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
     try {
@@ -229,7 +235,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const CHUNK_SIZE = 15;
 
       const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
-      const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
+      const initialInstances = instanceIds ? instanceIds.slice(index, index + CHUNK_SIZE) : undefined;
+      const initialTpTracks = await Promise.all(
+        initialChunk.map((t, i) => mapToTPTrack(t, initialInstances?.[i]))
+      );
 
       if (currentLoadId !== loadId) return;
 
@@ -252,6 +261,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       set({
         activeTrack: tracks[index],
+        activeTrackInstanceId: instanceIds ? instanceIds[index] : (initialTpTracks[0]?.instanceId || initialTpTracks[0]?.id),
         playbackContext: context,
         isShuffleEnabled: false,
         shuffleOriginalQueue: [],
@@ -259,7 +269,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       const previousTracks = tracks.slice(0, index);
+      const previousInstances = instanceIds ? instanceIds.slice(0, index) : undefined;
       const remainingNextTracks = tracks.slice(index + CHUNK_SIZE);
+      const remainingNextInstances = instanceIds ? instanceIds.slice(index + CHUNK_SIZE) : undefined;
 
       if (previousTracks.length > 0 || remainingNextTracks.length > 0) {
         (async () => {
@@ -269,7 +281,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             for (let i = 0; i < previousTracks.length; i += CHUNK_SIZE) {
               if (currentLoadId !== loadId) break;
               const chunk = previousTracks.slice(i, i + CHUNK_SIZE);
-              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              const instChunk = previousInstances ? previousInstances.slice(i, i + CHUNK_SIZE) : undefined;
+              const tpChunk = await Promise.all(chunk.map((t, cIdx) => mapToTPTrack(t, instChunk?.[cIdx])));
               if (currentLoadId !== loadId) break;
               await addTracksSafely(tpChunk, insertIndex);
               if (currentLoadId !== loadId) break;
@@ -282,7 +295,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             for (let i = 0; i < remainingNextTracks.length; i += CHUNK_SIZE) {
               if (currentLoadId !== loadId) break;
               const chunk = remainingNextTracks.slice(i, i + CHUNK_SIZE);
-              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              const instChunk = remainingNextInstances ? remainingNextInstances.slice(i, i + CHUNK_SIZE) : undefined;
+              const tpChunk = await Promise.all(chunk.map((t, cIdx) => mapToTPTrack(t, instChunk?.[cIdx])));
               if (currentLoadId !== loadId) break;
               await addTracksSafely(tpChunk);
               if (currentLoadId !== loadId) break;
@@ -312,7 +326,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  startShuffled: async (tracks, context = "unknown") => {
+  startShuffled: async (tracks, context = "unknown", instanceIds?: string[]) => {
     await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
     try {
@@ -322,11 +336,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const indices = Array.from({ length: tracks.length }, (_, i) => i);
       const shuffledIndices = indices.sort(() => Math.random() - 0.5);
       const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
+      const shuffledInstances = instanceIds ? shuffledIndices.map((i) => instanceIds[i]) : undefined;
 
       const initialChunk = shuffledTracks.slice(0, CHUNK_SIZE);
-      const remainingTracks = shuffledTracks.slice(CHUNK_SIZE);
-
-      const initialTpTracks = await Promise.all(initialChunk.map(mapToTPTrack));
+      const initialInstances = shuffledInstances ? shuffledInstances.slice(0, CHUNK_SIZE) : undefined;
+      const initialTpTracks = await Promise.all(
+        initialChunk.map((t, i) => mapToTPTrack(t, initialInstances?.[i]))
+      );
 
       if (currentLoadId !== loadId) return;
 
@@ -348,7 +364,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await TrackPlayer.play();
 
       set({
-        activeTrack: initialChunk[0],
+        activeTrack: shuffledTracks[0],
+        activeTrackInstanceId: shuffledInstances ? shuffledInstances[0] : (initialTpTracks[0]?.instanceId || initialTpTracks[0]?.id),
         playbackContext: context,
         isShuffleEnabled: true,
         shuffleOriginalQueue: [],
@@ -360,7 +377,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Carga diferida de la cola original (en orden original) para permitir desactivar shuffle correctamente
       (async () => {
         try {
-          const originalTpTracks = await Promise.all(tracks.map(mapToTPTrack));
+          const originalTpTracks = await Promise.all(
+            tracks.map((t, idx) => mapToTPTrack(t, instanceIds?.[idx]))
+          );
           if (currentLoadId === loadId) {
             set({ shuffleOriginalQueue: originalTpTracks });
             await get().savePlaybackState();
@@ -371,13 +390,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       })();
 
       // Carga diferida en segundo plano de las pistas mezcladas en el reproductor nativo
+      const remainingTracks = shuffledTracks.slice(CHUNK_SIZE);
+      const remainingInstances = shuffledInstances ? shuffledInstances.slice(CHUNK_SIZE) : undefined;
       if (remainingTracks.length > 0) {
         (async () => {
           try {
             for (let i = 0; i < remainingTracks.length; i += CHUNK_SIZE) {
               if (currentLoadId !== loadId) break;
               const chunk = remainingTracks.slice(i, i + CHUNK_SIZE);
-              const tpChunk = await Promise.all(chunk.map(mapToTPTrack));
+              const instChunk = remainingInstances ? remainingInstances.slice(i, i + CHUNK_SIZE) : undefined;
+              const tpChunk = await Promise.all(chunk.map((t, cIdx) => mapToTPTrack(t, instChunk?.[cIdx])));
               if (currentLoadId !== loadId) break;
               await addTracksSafely(tpChunk);
               if (currentLoadId !== loadId) break;
@@ -463,7 +485,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         LocalCastService.setPlayIntent(true);
       }
       await TrackPlayer.play();
-      set({ activeTrack: track, playbackContext: context, userQueueSize: 0, isQueueLoading: false });
+      set({ activeTrack: track, activeTrackInstanceId: null, playbackContext: context, userQueueSize: 0, isQueueLoading: false });
       await get().updateQueueStatus();
       await get().savePlaybackState();
     } catch (error) {
@@ -474,11 +496,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  setActiveTrackById: async (trackId) => {
+  setActiveTrackById: async (trackId, instanceId) => {
     try {
       const cleanId = trackId.split('-')[0];
+      const instId = instanceId || (trackId.includes('-') ? trackId.substring(cleanId.length + 1) : null);
       const track = await database.get<Track>("tracks").find(cleanId);
-      set({ activeTrack: track });
+      set({ activeTrack: track, activeTrackInstanceId: instId });
     } catch (error) {
       console.error("Error setting active track by ID:", error);
     }
@@ -547,7 +570,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   addMultipleToQueueNext: async (tracks) => {
     try {
       if (tracks.length === 0) return;
-      const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+      const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
       tpTracks.forEach((t) => ((t as any).isManual = true));
       const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
@@ -573,7 +596,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   addMultipleToQueueEnd: async (tracks) => {
     try {
       if (tracks.length === 0) return;
-      const tpTracks = await Promise.all(tracks.map(mapToTPTrack));
+      const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
       tpTracks.forEach((t) => ((t as any).isManual = true));
 
       const { queueAddBehavior } = useSettingsStore.getState();
@@ -618,6 +641,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       storage.remove("@player_accumulated");
       set({
         activeTrack: null,
+        activeTrackInstanceId: null,
         prevTrack: null,
         nextTrack: null,
         playbackContext: null,
@@ -1006,9 +1030,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // 2. Rehidratar el modelo WatermelonDB por ID
       const activeTPTrack = queue[safeIndex];
       let trackModel: Track | null = null;
+      let activeTrackInstanceId: string | null = null;
       if (activeTPTrack?.id) {
         try {
           const cleanId = activeTPTrack.id.split('-')[0];
+          activeTrackInstanceId = (activeTPTrack as any).instanceId || (activeTPTrack.id.includes('-') ? activeTPTrack.id.substring(cleanId.length + 1) : null);
           trackModel = await database
             .get<Track>("tracks")
             .find(cleanId);
@@ -1029,6 +1055,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // 3. Rehidratar Zustand
       set({
         activeTrack: trackModel,
+        activeTrackInstanceId,
         playbackContext: playbackContext ?? null,
         isShuffleEnabled: isShuffleEnabled ?? false,
         shuffleOriginalQueue: shuffleOriginalQueue ?? [],
