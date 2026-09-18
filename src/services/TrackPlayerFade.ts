@@ -3,9 +3,7 @@ import BackgroundTimer from 'react-native-background-timer';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { 
   setIsFadingOut, 
-  getIsFadingOut, 
-  setShouldStopFadingOut, 
-  getShouldStopFadingOut 
+  getIsFadingOut 
 } from '../hooks/usePlaybackState';
 
 // Extend TypeScript typings for play/pause bypass options
@@ -14,9 +12,9 @@ declare module 'react-native-track-player' {
   export function pause(bypassFade?: boolean): Promise<void>;
 }
 
-const FADE_DURATION = 500; // ms
-const STEP_INTERVAL = 20; // ms
-const TOTAL_STEPS = FADE_DURATION / STEP_INTERVAL; // 25 steps
+const FADE_DURATION = 400; // ms
+const TOTAL_STEPS = 16;
+const STEP_INTERVAL = Math.round(FADE_DURATION / TOTAL_STEPS); // 25 ms
 
 // Keep references to original TrackPlayer functions
 const originalPlay = TrackPlayer.play.bind(TrackPlayer);
@@ -27,14 +25,18 @@ const originalGetPlaybackState = TrackPlayer.getPlaybackState.bind(TrackPlayer);
 const originalSeekTo = TrackPlayer.seekTo.bind(TrackPlayer);
 const originalGetProgress = TrackPlayer.getProgress.bind(TrackPlayer);
 
-let fadeIntervalId: any = null;
+let fadeTimer: any = null;
 let targetVolume = 1.0;
 let currentVolume = 1.0;
+let currentOperationId = 0;
 
-function clearFadeInterval() {
-  if (fadeIntervalId !== null) {
-    BackgroundTimer.clearInterval(fadeIntervalId);
-    fadeIntervalId = null;
+function clearFadeTimer() {
+  if (fadeTimer !== null) {
+    try {
+      BackgroundTimer.clearTimeout(fadeTimer);
+      BackgroundTimer.clearInterval(fadeTimer);
+    } catch (e) {}
+    fadeTimer = null;
   }
 }
 
@@ -97,7 +99,7 @@ TrackPlayer.getPlaybackState = async () => {
     originalState.state === State.None || 
     originalState.state === State.Ended;
 
-  if (getIsFadingOut() && getShouldStopFadingOut() && isNativePaused) {
+  if (getIsFadingOut() && isNativePaused) {
     setIsFadingOut(false);
   }
 
@@ -114,7 +116,7 @@ TrackPlayer.setVolume = async (volume: number) => {
   const isCasting = castState.isServerRunning && (castState.isLocalCastActive || castState.isChromecastConnected);
 
   if (isCasting) {
-    clearFadeInterval();
+    clearFadeTimer();
     setIsFadingOut(false);
     currentVolume = 0;
     return originalSetVolume(0);
@@ -126,9 +128,9 @@ TrackPlayer.setVolume = async (volume: number) => {
     targetVolume = 0;
   }
 
-  // Si hay un fade en progreso (in o out), dejamos que el intervalo de fade continúe
+  // Si hay un fade en progreso (in o out), dejamos que el timer de fade continúe
   // actualizando el volumen hasta targetVolume de forma progresiva.
-  if (fadeIntervalId !== null || getIsFadingOut()) {
+  if (fadeTimer !== null || getIsFadingOut()) {
     return;
   }
 
@@ -143,7 +145,7 @@ TrackPlayer.getVolume = async () => {
 
 // Override reset
 TrackPlayer.reset = async () => {
-  clearFadeInterval();
+  clearFadeTimer();
   setIsFadingOut(false);
   currentVolume = targetVolume;
   return originalReset();
@@ -151,7 +153,8 @@ TrackPlayer.reset = async () => {
 
 // Override play
 TrackPlayer.play = async (bypassFade = false) => {
-  clearFadeInterval();
+  const opId = ++currentOperationId;
+  clearFadeTimer();
   setIsFadingOut(false);
 
   const { useCastStore } = require('../store/useCastStore');
@@ -205,6 +208,8 @@ TrackPlayer.play = async (bypassFade = false) => {
     console.warn("[TrackPlayerFade] Error checking playback state in play:", e);
   }
 
+  if (opId !== currentOperationId) return;
+
   const shouldFadeIn = !isPlaying || currentVolume < (targetVolume - 0.05);
 
   if (!isPlaying) {
@@ -214,31 +219,39 @@ TrackPlayer.play = async (bypassFade = false) => {
 
   await originalPlay();
 
+  if (opId !== currentOperationId) return;
+
   if (shouldFadeIn) {
     const startVol = currentVolume;
-    if (targetVolume <= 0 || Math.abs(targetVolume - startVol) < 0.01) {
+    const volDiff = targetVolume - startVol;
+    if (targetVolume <= 0 || volDiff <= 0.01) {
       currentVolume = targetVolume;
       await originalSetVolume(targetVolume);
       return;
     }
 
-    const stepVal = (targetVolume - startVol) / TOTAL_STEPS;
+    const stepVal = volDiff / TOTAL_STEPS;
     let step = 0;
 
-    fadeIntervalId = BackgroundTimer.setInterval(async () => {
-      step++;
-      currentVolume += stepVal;
-      
-      const nextVol = Math.min(Math.max(currentVolume, 0), targetVolume);
-      currentVolume = nextVol;
-      await originalSetVolume(nextVol);
+    const runFadeInStep = async () => {
+      if (opId !== currentOperationId) return;
 
-      if (step >= TOTAL_STEPS || nextVol >= targetVolume) {
-        clearFadeInterval();
+      step++;
+      currentVolume = Math.min(Math.max(startVol + (stepVal * step), 0), targetVolume);
+      await originalSetVolume(currentVolume);
+
+      if (opId !== currentOperationId) return;
+
+      if (step < TOTAL_STEPS && currentVolume < targetVolume) {
+        fadeTimer = BackgroundTimer.setTimeout(runFadeInStep, STEP_INTERVAL);
+      } else {
         currentVolume = targetVolume;
         await originalSetVolume(targetVolume);
+        fadeTimer = null;
       }
-    }, STEP_INTERVAL);
+    };
+
+    fadeTimer = BackgroundTimer.setTimeout(runFadeInStep, STEP_INTERVAL);
   } else {
     currentVolume = targetVolume;
     await originalSetVolume(targetVolume);
@@ -247,6 +260,9 @@ TrackPlayer.play = async (bypassFade = false) => {
 
 // Override pause
 TrackPlayer.pause = async (bypassFade = false) => {
+  const opId = ++currentOperationId;
+  clearFadeTimer();
+
   const { useCastStore } = require('../store/useCastStore');
   const castState = useCastStore.getState();
 
@@ -258,8 +274,8 @@ TrackPlayer.pause = async (bypassFade = false) => {
   } catch (e) {}
 
   // When LocalCast (or Chromecast) is active the phone volume is already 0.
-  // Doing a fade-out via BackgroundTimer.setInterval is pointless and,
-  // critically, Android freezes those intervals when the screen is off —
+  // Doing a fade-out via BackgroundTimer is pointless and,
+  // critically, Android freezes timers when the screen is off —
   // leaving the native player stuck in Playing state and never pausing.
   const isCasting = castState.isServerRunning && (castState.isLocalCastActive || castState.isChromecastConnected);
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
@@ -268,11 +284,10 @@ TrackPlayer.pause = async (bypassFade = false) => {
   }
 
   if (bypassFade) {
-    clearFadeInterval();
-    currentVolume = 0;
-    await originalPause();
-    await originalSetVolume(0);
     setIsFadingOut(false);
+    currentVolume = 0;
+    await originalSetVolume(0);
+    await originalPause();
     try {
       if (castState.isLocalCastActive) {
         castState.setCastPlaying(false);
@@ -283,10 +298,13 @@ TrackPlayer.pause = async (bypassFade = false) => {
     return;
   }
 
+  // If already fading out, user tapped pause again: pause immediately without waiting
   if (getIsFadingOut()) {
-    // Toggled back to play during fade out
     setIsFadingOut(false);
-    return TrackPlayer.play();
+    currentVolume = 0;
+    await originalSetVolume(0);
+    await originalPause();
+    return;
   }
 
   let isPlaying = false;
@@ -297,48 +315,53 @@ TrackPlayer.pause = async (bypassFade = false) => {
     console.warn("[TrackPlayerFade] Error checking playback state in pause:", e);
   }
 
+  if (opId !== currentOperationId) return;
+
   if (!isPlaying) {
+    setIsFadingOut(false);
     currentVolume = 0;
-    await originalPause();
     await originalSetVolume(0);
+    await originalPause();
     return;
   }
 
   const startVol = currentVolume;
-  if (startVol <= 0.01) {
+  if (startVol <= 0.05) {
+    setIsFadingOut(false);
     currentVolume = 0;
-    await originalPause();
     await originalSetVolume(0);
+    await originalPause();
     return;
   }
 
-  clearFadeInterval();
   setIsFadingOut(true);
 
   const stepVal = startVol / TOTAL_STEPS;
   let step = 0;
 
-  fadeIntervalId = BackgroundTimer.setInterval(async () => {
-    step++;
-    currentVolume -= stepVal;
-    
-    const nextVol = Math.max(currentVolume, 0);
-    currentVolume = nextVol;
-    await originalSetVolume(nextVol);
+  const runFadeOutStep = async () => {
+    if (opId !== currentOperationId) {
+      return;
+    }
 
-    if (step >= TOTAL_STEPS || nextVol <= 0) {
-      clearFadeInterval();
-      await originalPause();
+    step++;
+    currentVolume = Math.max(startVol - (stepVal * step), 0);
+    await originalSetVolume(currentVolume);
+
+    if (opId !== currentOperationId) {
+      return;
+    }
+
+    if (step < TOTAL_STEPS && currentVolume > 0) {
+      fadeTimer = BackgroundTimer.setTimeout(runFadeOutStep, STEP_INTERVAL);
+    } else {
       currentVolume = 0;
       await originalSetVolume(0);
-      setShouldStopFadingOut(true);
-
-      // Backup safety timer
-      BackgroundTimer.setTimeout(() => {
-        if (getIsFadingOut()) {
-          setIsFadingOut(false);
-        }
-      }, 1500);
+      await originalPause();
+      setIsFadingOut(false);
+      fadeTimer = null;
     }
-  }, STEP_INTERVAL);
+  };
+
+  fadeTimer = BackgroundTimer.setTimeout(runFadeOutStep, STEP_INTERVAL);
 };

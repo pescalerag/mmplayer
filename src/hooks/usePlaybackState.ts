@@ -3,15 +3,17 @@ import { useState, useEffect } from 'react';
 import { useCastStore } from '../store/useCastStore';
 
 let isFadingOut = false;
-let shouldStopFadingOut = false;
+let fadeOutTimeout: any = null;
 const listeners = new Set<(fading: boolean) => void>();
 
 export function setIsFadingOut(val: boolean) {
+  if (fadeOutTimeout) {
+    clearTimeout(fadeOutTimeout);
+    fadeOutTimeout = null;
+  }
+
   if (isFadingOut !== val) {
     isFadingOut = val;
-    if (!val) {
-      shouldStopFadingOut = false;
-    }
     listeners.forEach(listener => {
       try {
         listener(val);
@@ -20,19 +22,24 @@ export function setIsFadingOut(val: boolean) {
       }
     });
   }
+
+  if (val) {
+    // Safety fallback: a fade-out can NEVER legitimately last more than 750ms.
+    // If anything fails to call setIsFadingOut(false), automatically reset it.
+    fadeOutTimeout = setTimeout(() => {
+      if (isFadingOut) {
+        setIsFadingOut(false);
+      }
+    }, 750);
+  }
 }
 
 export function getIsFadingOut() {
   return isFadingOut;
 }
 
-export function setShouldStopFadingOut(val: boolean) {
-  shouldStopFadingOut = val;
-}
-
-export function getShouldStopFadingOut() {
-  return shouldStopFadingOut;
-}
+export function setShouldStopFadingOut(_val: boolean) {}
+export function getShouldStopFadingOut() { return false; }
 
 export function usePlaybackState() {
   const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
@@ -49,7 +56,7 @@ export function usePlaybackState() {
     return () => {
       listeners.delete(listener);
     };
-  }, [fading]);
+  }, []);
 
   const isNativePaused = 
     playbackState.state === State.Paused || 
@@ -57,10 +64,9 @@ export function usePlaybackState() {
     playbackState.state === State.None || 
     playbackState.state === State.Ended;
 
-  // Run the state update after the rendering phase in a useEffect hook
-  // to avoid "Cannot update a component while rendering a different component" warnings.
+  // If native playback is paused, fading must be reset to false immediately
   useEffect(() => {
-    if (fading && shouldStopFadingOut && isNativePaused) {
+    if (fading && isNativePaused) {
       setIsFadingOut(false);
     }
   }, [fading, isNativePaused]);

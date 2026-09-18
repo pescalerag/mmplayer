@@ -12,7 +12,7 @@ import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from '
 import { Image } from 'expo-image';
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MediaAssetService } from "../../services/MediaAssetService";
 import {
@@ -153,10 +153,10 @@ const ReorderTrackRowWithMetadata = withObservables(
   const coverUrl = album?.coverUrl;
 
   return (
-    <View style={[styles.reorderRow, isActive && styles.reorderRowActive, { backgroundColor: colors.background }]}>
+    <View style={[styles.reorderRow, { backgroundColor: isActive ? (colors.accentAlpha10 || Colors.accentAlpha10) : colors.background }, isActive && styles.reorderRowActive]}>
       <GHTouchableOpacity
         onLongPress={drag}
-        delayLongPress={100}
+        delayLongPress={60}
         style={styles.dragHandle}
         hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
         activeOpacity={0.6}
@@ -242,8 +242,12 @@ function PlaylistDetailContent({
   const [localPlaylistTracks, setLocalPlaylistTracks] = useState<PlaylistTrack[]>(playlistTracks);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
 
+  const isReordering = useRef(false);
+
   useEffect(() => {
-    setLocalPlaylistTracks(playlistTracks);
+    if (!isReordering.current) {
+      setLocalPlaylistTracks(playlistTracks);
+    }
   }, [playlistTracks]);
 
   // Desactivar el modo ordenar automáticamente al salir o desenfocar la pantalla
@@ -453,6 +457,10 @@ function PlaylistDetailContent({
         await PlaylistService.reorderPlaylistTracks(data);
       } catch (error) {
         console.error("Error al reordenar playlist:", error);
+      } finally {
+        setTimeout(() => {
+          isReordering.current = false;
+        }, 300);
       }
     },
     [],
@@ -598,21 +606,32 @@ function PlaylistDetailContent({
 
   if (isReorderMode) {
     return (
-      <GestureHandlerRootView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, overflow: 'hidden' }]}>
         <DraggableFlatList
           data={localPlaylistTracks}
           keyExtractor={(item) => item.id}
           renderItem={renderReorderItem}
+          onDragBegin={() => {
+            isReordering.current = true;
+          }}
+          onRelease={() => {
+            setTimeout(() => {
+              isReordering.current = false;
+            }, 400);
+          }}
           onDragEnd={handleDragEnd}
-          activationDistance={10}
-          autoscrollThreshold={50}
-          autoscrollSpeed={100}
+          activationDistance={0}
+          autoscrollThreshold={75}
+          autoscrollSpeed={160}
+          dragItemOverflow={false}
+          containerStyle={{ flex: 1, overflow: 'hidden' }}
+          style={{ flex: 1, overflow: 'hidden' }}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={listEmptyComponent}
           contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
         />
-      </GestureHandlerRootView>
+      </View>
     );
   }
 
