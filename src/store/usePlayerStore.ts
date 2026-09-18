@@ -17,6 +17,24 @@ const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
 let isHandlingQueueEnded = false;
 
+let isApplyingSpeedAndPitch = false;
+let hasPendingSpeedPitchUpdate = false;
+let lastAppliedSpeed: number | null = null;
+let lastAppliedPitch: number | null = null;
+let saveStateDebounceTimeout: any = null;
+
+function scheduleDebouncedSavePlaybackState() {
+  if (saveStateDebounceTimeout) {
+    clearTimeout(saveStateDebounceTimeout);
+  }
+  saveStateDebounceTimeout = setTimeout(() => {
+    saveStateDebounceTimeout = null;
+    usePlayerStore.getState().savePlaybackState().catch((e) => {
+      console.error("[usePlayerStore] Error en savePlaybackState diferido:", e);
+    });
+  }, 800);
+}
+
 async function mapToTPTrack(track: Track): Promise<TPTrack> {
   const album = await track.album.fetch().catch(() => null);
   const artists = (await track.queryCollaborators.fetch().catch(() => [])) as Artist[];
@@ -218,6 +236,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      lastAppliedSpeed = null;
+      lastAppliedPitch = null;
       useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await addTracksSafely(initialTpTracks);
@@ -313,6 +333,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      lastAppliedSpeed = null;
+      lastAppliedPitch = null;
       useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await addTracksSafely(initialTpTracks);
@@ -430,6 +452,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await flushCurrentTrackToHistory();
       await TrackPlayer.stop().catch(() => {});
       await TrackPlayer.reset();
+      lastAppliedSpeed = null;
+      lastAppliedPitch = null;
       useCastStore.setState({ castPosition: 0 });
       await new Promise((resolve) => setTimeout(resolve, 80));
       await addTracksSafely([tpTrack]);
@@ -587,6 +611,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await get().cancelQueueLoading();
       await flushCurrentTrackToHistory();
       await TrackPlayer.reset();
+      lastAppliedSpeed = null;
+      lastAppliedPitch = null;
       storage.remove(PERSISTENCE_KEY);
       storage.remove("@player_position");
       storage.remove("@player_accumulated");
@@ -705,13 +731,48 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   applySpeedAndPitch: async () => {
+    if (isApplyingSpeedAndPitch) {
+      hasPendingSpeedPitchUpdate = true;
+      return;
+    }
+    isApplyingSpeedAndPitch = true;
     try {
-      const speed = get().playbackSpeed ?? 1.0;
-      const targetPitch = get().isVinylModeEnabled ? speed : (get().playbackPitch ?? 1.0);
-      await TrackPlayer.setRate(speed);
-      await (TrackPlayer as any).setPitch(targetPitch);
+      do {
+        hasPendingSpeedPitchUpdate = false;
+        const state = get();
+        const speed = Number.isFinite(state.playbackSpeed) && state.playbackSpeed > 0
+          ? state.playbackSpeed
+          : 1.0;
+        const rawPitch = state.isVinylModeEnabled ? speed : (state.playbackPitch ?? 1.0);
+        const pitch = Number.isFinite(rawPitch) && rawPitch > 0
+          ? rawPitch
+          : 1.0;
+
+        const speedChanged = speed !== lastAppliedSpeed;
+        const pitchChanged = pitch !== lastAppliedPitch;
+
+        if (!speedChanged && !pitchChanged) {
+          continue;
+        }
+
+        // Aplicar solo lo que haya cambiado
+        if (speedChanged && !pitchChanged) {
+          lastAppliedSpeed = speed;
+          await TrackPlayer.setRate(speed);
+        } else if (pitchChanged && !speedChanged) {
+          lastAppliedPitch = pitch;
+          await (TrackPlayer as any).setPitch(pitch);
+        } else {
+          lastAppliedSpeed = speed;
+          lastAppliedPitch = pitch;
+          await TrackPlayer.setRate(speed);
+          await (TrackPlayer as any).setPitch(pitch);
+        }
+      } while (hasPendingSpeedPitchUpdate);
     } catch (e) {
       console.error("Error applying speed and pitch:", e);
+    } finally {
+      isApplyingSpeedAndPitch = false;
     }
   },
 
@@ -722,7 +783,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({ playbackPitch: speed });
       }
       await get().applySpeedAndPitch();
-      await get().savePlaybackState();
+      scheduleDebouncedSavePlaybackState();
     } catch (e) {
       console.error("Error setting playback speed:", e);
     }
@@ -732,7 +793,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try {
       set({ playbackPitch: pitch });
       await get().applySpeedAndPitch();
-      await get().savePlaybackState();
+      scheduleDebouncedSavePlaybackState();
     } catch (e) {
       console.error("Error setting playback pitch:", e);
     }
@@ -745,7 +806,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({ playbackPitch: get().playbackSpeed });
       }
       await get().applySpeedAndPitch();
-      await get().savePlaybackState();
+      scheduleDebouncedSavePlaybackState();
     } catch (e) {
       console.error("Error setting vinyl mode:", e);
     }
@@ -908,6 +969,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       // 1. Rehidratar el motor nativo de TrackPlayer
       await TrackPlayer.reset();
+      lastAppliedSpeed = null;
+      lastAppliedPitch = null;
       await TrackPlayer.add(queue);
       await get().applySpeedAndPitch();
 

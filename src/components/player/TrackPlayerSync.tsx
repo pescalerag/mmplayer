@@ -109,6 +109,11 @@ export const TrackPlayerSync = () => {
                 break;
             case Event.PlaybackError:
                 console.error('❌ [TrackPlayerSync] Error Crítico TrackPlayer:', event.message);
+                try {
+                    await (TrackPlayer as any).retry();
+                } catch (retryErr) {
+                    console.error('❌ [TrackPlayerSync] Falló retry tras error de TrackPlayer:', retryErr);
+                }
                 break;
             case Event.RemoteNext:
             case Event.RemotePrevious:
