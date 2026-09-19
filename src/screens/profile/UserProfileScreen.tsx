@@ -434,7 +434,7 @@ function UserProfileScreenBase({
                             </View>
                             <TouchableOpacity
                                 style={styles.viewFullStatsButton}
-                                onPress={() => navigation.navigate('WeeklyActivity')}
+                                onPress={() => navigation.navigate('WeeklyActivity', { fromProfile: true })}
                                 activeOpacity={0.7}
                             >
                                 <Text style={styles.viewFullStatsText}>

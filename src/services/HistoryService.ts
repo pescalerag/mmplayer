@@ -467,7 +467,7 @@ export const HistoryService = {
     let from: Date | null = null;
     let to: Date = new Date();
 
-    if (period === 'custom') {
+    if (period === 'custom' || (customFrom !== undefined && period !== 'all')) {
       from = customFrom ? new Date(customFrom) : null;
       to = customTo ? new Date(customTo) : new Date();
 

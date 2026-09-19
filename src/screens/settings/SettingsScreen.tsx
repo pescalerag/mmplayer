@@ -31,7 +31,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const { colors } = useAppTheme();
 
     return (
-        <ScreenHeaderLayout title={t('settings.title')} showBackButton={false} titleStyle={styles.headerTitle}>
+        <ScreenHeaderLayout title={t('settings.title')} showBackButton={true}>
             {({ headerHeight, bottomPadding }) => (
                 <ScrollView
                     style={{ flex: 1 }}

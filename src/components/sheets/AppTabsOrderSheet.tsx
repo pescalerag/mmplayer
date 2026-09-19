@@ -15,7 +15,7 @@ const ALL_TABS: { id: AppTabType, labelKey: string, icon: any }[] = [
   { id: 'Biblioteca', labelKey: 'navigation.library', icon: 'library' },
   { id: 'Buscar', labelKey: 'navigation.search', icon: 'search' },
   { id: 'Etiquetas', labelKey: 'navigation.tags', icon: 'pricetags' },
-  { id: 'Configuración', labelKey: 'navigation.settings', icon: 'settings' },
+  { id: 'Actividad', labelKey: 'navigation.activity', icon: 'stats-chart' },
 ];
 
 export default function AppTabsOrderSheet() {

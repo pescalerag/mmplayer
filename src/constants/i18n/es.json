@@ -76,6 +76,7 @@
     "library": "Biblioteca",
     "search": "Buscar",
     "tags": "Etiquetas",
+    "activity": "Actividad",
     "settings": "Configuración"
   },
   "library": {
@@ -1093,6 +1094,14 @@
   },
   "activity": {
     "title": "ACTIVIDAD",
+    "history_title": "Historial de reproducción",
+    "history_empty": "El historial de reproducción está vacío",
+    "history_empty_desc": "Las canciones que escuches aparecerán aquí",
+    "history_clear": "Borrar historial",
+    "history_clear_confirm": "¿Estás seguro de que quieres borrar todo el historial de reproducción?",
+    "history_listened_prefix": "Escuchado:",
+    "history_today": "Hoy",
+    "history_yesterday": "Ayer",
     "plays": "reproducciones",
     "play_singular": "reproducción",
     "play_plural": "reproducciones",
@@ -1117,6 +1126,7 @@
     "all_activity": "Toda la actividad",
     "unknown_artist": "Artista desconocido",
     "custom_date_title": "Fecha Personalizada",
+    "custom_date_button": "Fecha personalizada",
     "custom_date_from": "Desde (Fecha de Inicio)",
     "custom_date_to": "Hasta (Fecha de Fin)",
     "custom_date_start": "Inicio",

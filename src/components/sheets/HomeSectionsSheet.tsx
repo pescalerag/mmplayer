@@ -12,7 +12,6 @@ import { HomeSection, useSettingsStore } from '../../store/useSettingsStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 const SECTIONS_METADATA: { id: HomeSection; labelKey: string; fallbackLabel: string; icon: any }[] = [
-  { id: 'stats', labelKey: 'home.weekly_highlights', fallbackLabel: 'Destacados de la semana', icon: 'stats-chart' },
   { id: 'recent_media', labelKey: 'home.recently_played', fallbackLabel: 'Escuchado recientemente', icon: 'time' },
   { id: 'smart_playlists', labelKey: 'home.smart_playlists_title', fallbackLabel: 'Listas inteligentes', icon: 'sparkles' },
   { id: 'recent_playlists', labelKey: 'home.my_playlists', fallbackLabel: 'Mis listas de reproducción', icon: 'list' },

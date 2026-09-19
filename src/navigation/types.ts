@@ -6,10 +6,20 @@ export type HomeStackParamList = {
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     PlaylistDetail: { playlistId: string };
     FavoritesDetail: undefined;
-    WeeklyActivity: undefined;
+    WeeklyActivity: { fromProfile?: boolean } | undefined;
     SmartListDetail: { smartListId: string };
     UserProfile: undefined;
     Support: undefined;
+    Settings: undefined;
+    ActivityHistory: undefined;
+};
+
+export type ActivityStackParamList = {
+    Activity: undefined;
+    ArtistDetail: { artistId: string; fromPlayer?: boolean };
+    AlbumDetail: { albumId: string; fromPlayer?: boolean };
+    SmartListDetail: { smartListId: string };
+    ActivityHistory: undefined;
 };
 
 export type LibraryStackParamList = {
@@ -90,6 +100,7 @@ export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 export type LibraryNavigationProp = NativeStackNavigationProp<LibraryStackParamList>;
 export type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 export type TagsNavigationProp = NativeStackNavigationProp<TagsStackParamList>;
+export type ActivityNavigationProp = NativeStackNavigationProp<ActivityStackParamList>;
 export type ArtistDetailRouteProp = RouteProp<LibraryStackParamList, 'ArtistDetail'>;
 export type AlbumDetailRouteProp = RouteProp<LibraryStackParamList, 'AlbumDetail'>;
 export type TagDetailRouteProp = RouteProp<SearchStackParamList, 'TagDetail'>;

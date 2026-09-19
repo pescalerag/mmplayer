@@ -117,7 +117,7 @@ interface SettingsState {
 export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
-export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
+export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Actividad';
 export type HomeSection = 'stats' | 'recent_media' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore';
 
 export const useSettingsStore = create<SettingsState>()(
@@ -141,14 +141,14 @@ export const useSettingsStore = create<SettingsState>()(
             setSwipeRightAction: (action) => set({ swipeRightAction: action }),
             libraryTabsOrder: ['albums', 'playlists', 'artists', 'folders', 'tracks'],
             setLibraryTabsOrder: (order) => set({ libraryTabsOrder: order }),
-            appTabsOrder: ['Inicio', 'Biblioteca', 'Buscar', 'Etiquetas', 'Configuración'],
+            appTabsOrder: ['Inicio', 'Biblioteca', 'Buscar', 'Etiquetas', 'Actividad'],
             setAppTabsOrder: (order) => set({ appTabsOrder: order }),
             initialAppRoute: 'Inicio',
             setInitialAppRoute: (route) => set({ initialAppRoute: route }),
-            homeSectionsOrder: ['stats', 'recent_media', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
+            homeSectionsOrder: ['recent_media', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
             setHomeSectionsOrder: (order) => set({ homeSectionsOrder: order }),
             homeSectionsVisibility: {
-                stats: true,
+                stats: false,
                 recent_media: true,
                 smart_playlists: true,
                 recent_playlists: true,
@@ -265,6 +265,17 @@ export const useSettingsStore = create<SettingsState>()(
                         state.setLanguage(defaultLang);
                     } else {
                         i18n.changeLanguage(state.language);
+                    }
+                    if (state.appTabsOrder) {
+                        if ((state.appTabsOrder as any[]).includes('Configuración')) {
+                            state.setAppTabsOrder(state.appTabsOrder.map(tab => (tab as any) === 'Configuración' ? 'Actividad' : tab));
+                        }
+                        if ((state.initialAppRoute as any) === 'Configuración') {
+                            state.setInitialAppRoute('Actividad');
+                        }
+                    }
+                    if (state.homeSectionsOrder && state.homeSectionsOrder.includes('stats')) {
+                        state.setHomeSectionsOrder(state.homeSectionsOrder.filter(s => s !== 'stats'));
                     }
                 }
             }
