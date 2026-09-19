@@ -18,7 +18,7 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView, GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
@@ -35,7 +35,7 @@ import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
-import { Colors } from '../../theme/theme';
+import { Colors, Layout } from '../../theme/theme';
 
 const { height, width } = Dimensions.get('window');
 const TAB_WIDTH = (width - 48 - 110) / 2;
@@ -377,9 +377,10 @@ export default function QueueSheet() {
                 currentTrack={currentTrack}
                 dbMeta={dbMeta}
                 isPlayingGlobal={isPlayingGlobal}
+                colors={colors}
             />
         );
-    }, [currentTrack, isPlayingGlobal, dbTracksMap]);
+    }, [currentTrack, isPlayingGlobal, dbTracksMap, colors]);
 
     const renderQueueItem = React.useCallback(({ item, getIndex, drag, isActive }: RenderItemParams<TPTrack>) => {
         const index = getIndex() || 0;
@@ -397,10 +398,11 @@ export default function QueueSheet() {
                     onRemove={handleRemove}
                     drag={drag}
                     isActive={isActive}
+                    colors={colors}
                 />
             </ScaleDecorator>
         );
-    }, [activeIndex, userQueueSize, handleSkipTo, handleRemove, dbTracksMap]);
+    }, [activeIndex, userQueueSize, handleSkipTo, handleRemove, dbTracksMap, colors]);
 
     const renderRecentItem = React.useCallback(({ item, index }: { item: TPTrack; index: number }) => {
         const dbId = item.id.toString().split('-')[0];
@@ -431,7 +433,6 @@ export default function QueueSheet() {
                 styles.sheetContainer,
                 {
                     height: height * 0.82,
-                    paddingBottom: insets.bottom,
                 },
                 sheetAnimatedStyle
             ]}>
@@ -511,70 +512,80 @@ export default function QueueSheet() {
                 </View>
 
                 {activeTab === 'queue' ? (
-                    <GestureHandlerRootView style={{ flex: 1 }}>
-                        {listHeader}
-                        <View style={styles.separator} />
-                        <View style={styles.shuffleOnEndRow}>
-                            <View style={styles.shuffleOnEndLeft}>
-                                <Ionicons
-                                    name="shuffle"
-                                    size={20}
-                                    color={shuffleOnQueueEnd ? (colors.accentLight || colors.accent) : colors.textSecondary}
-                                />
-                                <Text style={[styles.shuffleOnEndText, { color: colors.text }]}>
-                                    {t('queue.shuffle_on_end', 'Reproducción aleatoria al finalizar la cola')}
-                                </Text>
-                            </View>
-                            <Switch
-                                value={shuffleOnQueueEnd}
-                                onValueChange={setShuffleOnQueueEnd}
-                                trackColor={{ false: '#282828', true: colors.accent }}
-                                thumbColor={shuffleOnQueueEnd ? '#FFFFFF' : '#888888'}
-                                ios_backgroundColor="#282828"
+                    <View style={{ flex: 1, overflow: 'hidden' }}>
+                        <View style={{ backgroundColor: colors.background || Colors.background, zIndex: 10, elevation: 10 }}>
+                            {listHeader}
+                            {Boolean(currentTrack) && <View style={[styles.separator, { marginBottom: 0 }]} />}
+                        </View>
+                        <View style={{ flex: 1, overflow: 'hidden', backgroundColor: colors.background || Colors.background }}>
+                            <DraggableFlatList
+                                data={upcomingTracks}
+                                keyExtractor={(item) => item.id}
+                                renderItem={renderQueueItem}
+                                onDragBegin={() => {
+                                    isReordering.current = true;
+                                }}
+                                onRelease={() => {
+                                    setTimeout(() => {
+                                        isReordering.current = false;
+                                    }, 400);
+                                }}
+                                onDragEnd={handleDragEnd}
+                                activationDistance={0}
+                                autoscrollThreshold={75}
+                                autoscrollSpeed={160}
+                                dragItemOverflow={false}
+                                containerStyle={{ flex: 1, overflow: 'hidden' }}
+                                style={{ flex: 1, overflow: 'hidden' }}
+                                ListEmptyComponent={
+                                    <View style={styles.emptyState}>
+                                        <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
+                                        <Text style={styles.emptyText}>{t('queue.empty')}</Text>
+                                    </View>
+                                }
+                                contentContainerStyle={styles.queueListContent}
+                                showsVerticalScrollIndicator={false}
                             />
                         </View>
-                        <View style={styles.separator} />
-                        <DraggableFlatList
-                            data={upcomingTracks}
+                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background || Colors.background, zIndex: 10, elevation: 10 }]}>
+                            <View style={[styles.separator, { marginTop: 6, marginBottom: 6 }]} />
+                            <View style={styles.shuffleOnEndRow}>
+                                <View style={styles.shuffleOnEndLeft}>
+                                    <Ionicons
+                                        name="shuffle"
+                                        size={20}
+                                        color={shuffleOnQueueEnd ? (colors.accentLight || colors.accent) : colors.textSecondary}
+                                    />
+                                    <Text style={[styles.shuffleOnEndText, { color: colors.text }]}>
+                                        {t('queue.shuffle_on_end', 'Reproducción aleatoria al finalizar la cola')}
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={shuffleOnQueueEnd}
+                                    onValueChange={setShuffleOnQueueEnd}
+                                    trackColor={{ false: '#282828', true: colors.accent }}
+                                    thumbColor={shuffleOnQueueEnd ? '#FFFFFF' : '#888888'}
+                                    ios_backgroundColor="#282828"
+                                />
+                            </View>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={{ flex: 1, overflow: 'hidden' }}>
+                        <FlashList
+                            data={recentTracks}
                             keyExtractor={(item) => item.id}
-                            renderItem={renderQueueItem}
-                            onDragEnd={handleDragEnd}
-                            activationDistance={5}
-                            autoscrollThreshold={50}
-                            autoscrollSpeed={100}
-                            getItemLayout={(_data, index) => ({
-                                length: ITEM_ROW_HEIGHT,
-                                offset: ITEM_ROW_HEIGHT * index,
-                                index,
-                            })}
-                            removeClippedSubviews={Platform.OS === 'android'}
-                            initialNumToRender={15}
-                            maxToRenderPerBatch={15}
-                            windowSize={10}
+                            renderItem={renderRecentItem}
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
-                                    <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
-                                    <Text style={styles.emptyText}>{t('queue.empty')}</Text>
+                                    <Ionicons name="time-outline" size={40} color={Colors.disabled} />
+                                    <Text style={styles.emptyText}>{t('queue.history_empty')}</Text>
                                 </View>
                             }
-                            contentContainerStyle={styles.listContent}
+                            contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 10) + 24 }}
                             showsVerticalScrollIndicator={false}
                         />
-                    </GestureHandlerRootView>
-                ) : (
-                    <FlashList
-                        data={recentTracks}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderRecentItem}
-                        ListEmptyComponent={
-                            <View style={styles.emptyState}>
-                                <Ionicons name="time-outline" size={40} color={Colors.disabled} />
-                                <Text style={styles.emptyText}>{t('queue.history_empty')}</Text>
-                            </View>
-                        }
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                    />
+                    </View>
                 )}
             </AnimatedReanimated.View>
 
@@ -734,9 +745,10 @@ interface CurrentTrackHeaderProps {
     currentTrack: TPTrack | null;
     dbMeta?: { title: string; artist: string; artwork: string | null } | null;
     isPlayingGlobal: boolean;
+    colors: ReturnType<typeof useAppTheme>['colors'];
 }
 
-const CurrentTrackHeader = React.memo(({ currentTrack, dbMeta, isPlayingGlobal }: CurrentTrackHeaderProps) => {
+const CurrentTrackHeader = React.memo(({ currentTrack, dbMeta, isPlayingGlobal, colors }: CurrentTrackHeaderProps) => {
     const artworkUrl = dbMeta ? dbMeta.artwork : currentTrack?.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
@@ -748,7 +760,7 @@ const CurrentTrackHeader = React.memo(({ currentTrack, dbMeta, isPlayingGlobal }
     const artist = dbMeta?.artist ?? currentTrack.artist;
 
     return (
-        <View style={styles.currentTrackRow}>
+        <View style={[styles.currentTrackRow, { backgroundColor: colors.accentAlpha15 }]}>
             {imageSource ? (
                 <Image
                     source={imageSource}
@@ -758,17 +770,17 @@ const CurrentTrackHeader = React.memo(({ currentTrack, dbMeta, isPlayingGlobal }
                 />
             ) : (
                 <View style={[styles.thumbnail, styles.placeholder]}>
-                    <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
+                    <Ionicons name="musical-notes" size={20} color={colors.disabled} />
                 </View>
             )}
             <View style={styles.trackInfo}>
                 <View style={styles.titleContainer}>
-                    <Text style={[styles.title, styles.textActive]} numberOfLines={1}>
+                    <Text style={[styles.title, { color: colors.accentLight || colors.accent }]} numberOfLines={1}>
                         {title}
                     </Text>
-                    <PlayingIndicator isPaused={!isPlayingGlobal} />
+                    <PlayingIndicator isPaused={!isPlayingGlobal} color={colors.accentLight || colors.accent} />
                 </View>
-                <Text style={styles.subtitle} numberOfLines={1}>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
                     {artist || 'Desconocido'}
                 </Text>
             </View>
@@ -787,9 +799,10 @@ interface QueueTrackRowProps {
     onRemove: (globalIndex: number, isUserQueued: boolean) => void;
     drag?: () => void;
     isActive?: boolean;
+    colors: ReturnType<typeof useAppTheme>['colors'];
 }
 
-const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueSize, onSkip, onRemove, drag, isActive }: QueueTrackRowProps) => {
+const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueSize, onSkip, onRemove, drag, isActive, colors }: QueueTrackRowProps) => {
     const globalIndex = activeIndex + 1 + index;
     const isUserQueued = index < userQueueSize;
     const isManual = item.isManual === true || isUserQueued;
@@ -802,7 +815,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <View style={[styles.trackRow, isActive && styles.trackRowActive]}>
+        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 }]]}>
             <GHTouchableOpacity
                 onLongPress={drag}
                 delayLongPress={60}
@@ -810,7 +823,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
                 hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
                 activeOpacity={0.6}
             >
-                <Ionicons name="reorder-two" size={24} color={isActive ? Colors.accent : Colors.disabled} />
+                <Ionicons name="reorder-two" size={24} color={isActive ? (colors.accent || Colors.accent) : colors.disabled} />
             </GHTouchableOpacity>
 
             <TouchableOpacity
@@ -828,19 +841,19 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
                     />
                 ) : (
                     <View style={[styles.thumbnail, styles.placeholder]}>
-                        <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
+                        <Ionicons name="musical-notes" size={20} color={colors.disabled} />
                     </View>
                 )}
                 <View style={styles.trackInfo}>
                     <View style={styles.titleRow}>
-                        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
                         {isManual && (
-                            <View style={styles.userQueueBadge}>
-                                <Ionicons name="menu" size={12} color={Colors.accentLight} />
+                            <View style={[styles.userQueueBadge, { backgroundColor: colors.accentLightAlpha12, borderColor: colors.accentLightAlpha30 }]}>
+                                <Ionicons name="menu" size={12} color={colors.accentLight || colors.accent} />
                             </View>
                         )}
                     </View>
-                    <Text style={styles.subtitle} numberOfLines={1}>{artist || 'Desconocido'}</Text>
+                    <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{artist || 'Desconocido'}</Text>
                 </View>
             </TouchableOpacity>
 
@@ -850,7 +863,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 disabled={isActive}
             >
-                <Ionicons name="close-outline" size={24} color={Colors.disabled} />
+                <Ionicons name="close-outline" size={24} color={colors.disabled} />
             </TouchableOpacity>
         </View>
     );
@@ -1075,6 +1088,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        maxWidth: '100%',
     },
     title: {
         color: Colors.text,
@@ -1103,7 +1117,13 @@ const styles = StyleSheet.create({
         padding: 8,
     },
     listContent: {
-        paddingBottom: 120,
+        paddingBottom: Layout.MINI_PLAYER_HEIGHT + Layout.TAB_BAR_HEIGHT + Layout.PLAYER_MARGIN,
+    },
+    queueListContent: {
+        paddingTop: 6,
+    },
+    bottomFooterContainer: {
+        width: '100%',
     },
     emptyState: {
         alignItems: 'center',

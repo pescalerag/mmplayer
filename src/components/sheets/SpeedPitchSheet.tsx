@@ -32,12 +32,14 @@ const sliderValueToSpeed = (val: number): number => {
   return Math.round(rawSpeed / 0.05) * 0.05;
 };
 
-// Pitch helpers: Convert between semitones [-2, 2] and playback pitch factor
+// Pitch helpers: Convert between semitones [-12, 12] and playback pitch factor
 const semitonesToPitch = (semitones: number): number => {
+  if (!Number.isFinite(semitones)) return 1;
   return Math.pow(2, semitones / 12);
 };
 
 const pitchToSemitones = (pitch: number): number => {
+  if (!Number.isFinite(pitch) || pitch <= 0) return 0;
   return Math.round(12 * Math.log2(pitch));
 };
 
@@ -107,7 +109,7 @@ export default function SpeedPitchSheet() {
     setPlaybackPitch(newPitch);
   };
 
-  const currentSemitones = pitchToSemitones(localPitch);
+  const currentSemitones = Math.max(-12, Math.min(12, pitchToSemitones(localPitch)));
   let semitonesText = '';
   if (isVinylModeEnabled) {
     semitonesText = t('audio_effects.pitch_locked') || 'Bloqueado';
@@ -184,7 +186,7 @@ export default function SpeedPitchSheet() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Text style={styles.valueText}>{semitonesText}</Text>
-            {!isVinylModeEnabled && localPitch !== 1 && (
+            {!isVinylModeEnabled && currentSemitones !== 0 && (
               <TouchableOpacity onPress={handleResetPitch} style={styles.resetButton}>
                 <Text style={styles.resetButtonText}>{t('audio_effects.reset') || 'Restablecer'}</Text>
               </TouchableOpacity>
@@ -193,8 +195,8 @@ export default function SpeedPitchSheet() {
         </View>
         <Slider
           style={styles.slider}
-          minimumValue={-2}
-          maximumValue={2}
+          minimumValue={-12}
+          maximumValue={12}
           step={1}
           value={currentSemitones}
           onValueChange={handlePitchSliderChange}

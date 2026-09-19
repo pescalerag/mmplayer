@@ -32,6 +32,8 @@ interface TrackRowProps {
   readonly onPress?: (trackId: string) => void;
   readonly preventAutoHistory?: boolean;
   readonly isLyricMatch?: boolean;
+  readonly trackInstanceId?: string;
+  readonly isCurrentTrack?: boolean;
 }
 
 function TrackRow({
@@ -44,12 +46,15 @@ function TrackRow({
   onPress,
   preventAutoHistory,
   isLyricMatch,
+  trackInstanceId,
+  isCurrentTrack: isCurrentTrackProp,
 }: Readonly<TrackRowProps>) {
   const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
   const openMenu = openTrackMenu;
 
   const activeTrack = usePlayerStore((state) => state.activeTrack);
+  const activeTrackInstanceId = usePlayerStore((state) => state.activeTrackInstanceId);
   const playbackContext = usePlayerStore((state) => state.playbackContext);
 
   const playbackStateRN = usePlaybackState();
@@ -61,8 +66,11 @@ function TrackRow({
   const isSelectionMode = useMultiSelectStore(state => state.isSelectionMode);
   const isSelected = useMultiSelectStore(state => state.selectedTracks.some(t => t.id === track.id));
 
-  const isCurrentTrack = activeTrack?.id === track.id &&
-    (playbackContext === contextId || contextId === 'queue');
+  const isCurrentTrack = isCurrentTrackProp !== undefined
+    ? isCurrentTrackProp
+    : (activeTrackInstanceId && trackInstanceId
+        ? activeTrackInstanceId === trackInstanceId && (playbackContext === contextId || contextId === 'queue')
+        : activeTrack?.id === track.id && (playbackContext === contextId || contextId === 'queue'));
 
   const [imageError, setImageError] = React.useState(false);
 
@@ -263,7 +271,11 @@ function TrackRow({
                 >
                   {track.title}
                 </Text>
-                {isCurrentTrack && <PlayingIndicator isPaused={!isActuallyPlaying} />}
+                {isCurrentTrack && (
+                  <View style={styles.indicatorContainer}>
+                    <PlayingIndicator isPaused={!isActuallyPlaying} />
+                  </View>
+                )}
               </View>
               {artistName ? (
                 <Text style={styles.artist} numberOfLines={1}>
@@ -360,12 +372,14 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
   },
   info: {
     flex: 1,
+    marginRight: spacing.sm || 8,
   },
   title: {
     color: colors.text,
     fontSize: 16,
     fontFamily: fonts.regular,
     fontWeight: fontWeights.bold,
+    flexShrink: 1,
   },
   artist: {
     color: colors.textSecondary,
@@ -398,6 +412,10 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm || 8,
+    maxWidth: "100%",
+  },
+  indicatorContainer: {
+    flexShrink: 0,
   },
   titleActive: {
     color: colors.accentLight, // Violet-400

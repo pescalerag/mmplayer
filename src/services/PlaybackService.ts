@@ -297,7 +297,8 @@ export const PlaybackService = async function () {
       if (event.track?.id) {
         try {
           const { setActiveTrackById, updateQueueStatus } = usePlayerStore.getState();
-          await setActiveTrackById(event.track.id.toString());
+          const instanceId = (event.track as any)?.instanceId;
+          await setActiveTrackById(event.track.id.toString(), instanceId);
           const newIndex = await TrackPlayer.getActiveTrackIndex();
           if (newIndex !== undefined && newIndex !== null) {
             await updateQueueStatus(newIndex);

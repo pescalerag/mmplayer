@@ -126,7 +126,6 @@ index 13a6c60..8d279ca 100644
  
 -        musicService.setRate(rate.toFloat())
 +        currentRate = rate.toFloat()
-+        musicService.setRate(currentRate)
 +        applySpeedAndPitch(currentRate, currentPitch)
 +        callback.resolve(null)
 +    }
@@ -141,6 +140,9 @@ index 13a6c60..8d279ca 100644
  
 +    private fun applySpeedAndPitch(rate: Float, pitch: Float) {
 +        try {
++            val safeRate = if (rate.isFinite() && rate > 0f) rate.coerceIn(0.25f, 4.0f) else 1.0f
++            val safePitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
++
 +            var playerClass: Class<*>? = musicService.javaClass
 +            var playerField: java.lang.reflect.Field? = null
 +            while (playerClass != null) {
@@ -169,7 +171,16 @@ index 13a6c60..8d279ca 100644
 +            exoPlayerField.isAccessible = true
 +            val exoPlayer = exoPlayerField.get(queuedAudioPlayer) as? androidx.media3.common.Player ?: return
 +
-+            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(rate, pitch)
++            val currentParams = exoPlayer.playbackParameters
++            if (currentParams.speed == safeRate && currentParams.pitch == safePitch) {
++                return
++            }
++
++            if (exoPlayer.playerError != null) {
++                exoPlayer.prepare()
++            }
++
++            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(safeRate, safePitch)
 +        } catch (e: Exception) {
 +            timber.log.Timber.e(e, "Failed to apply Pitch Master Hack")
 +        }
@@ -320,7 +331,6 @@ index 13a6c60..8d279ca 100644
  
 -        musicService.setRate(rate.toFloat())
 +        currentRate = rate.toFloat()
-+        musicService.setRate(currentRate)
 +        applySpeedAndPitch(currentRate, currentPitch)
 +        callback.resolve(null)
 +    }
@@ -335,6 +345,9 @@ index 13a6c60..8d279ca 100644
  
 +    private fun applySpeedAndPitch(rate: Float, pitch: Float) {
 +        try {
++            val safeRate = if (rate.isFinite() && rate > 0f) rate.coerceIn(0.25f, 4.0f) else 1.0f
++            val safePitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
++
 +            var playerClass: Class<*>? = musicService.javaClass
 +            var playerField: java.lang.reflect.Field? = null
 +            while (playerClass != null) {
@@ -363,7 +376,16 @@ index 13a6c60..8d279ca 100644
 +            exoPlayerField.isAccessible = true
 +            val exoPlayer = exoPlayerField.get(queuedAudioPlayer) as? androidx.media3.common.Player ?: return
 +
-+            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(rate, pitch)
++            val currentParams = exoPlayer.playbackParameters
++            if (currentParams.speed == safeRate && currentParams.pitch == safePitch) {
++                return
++            }
++
++            if (exoPlayer.playerError != null) {
++                exoPlayer.prepare()
++            }
++
++            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(safeRate, safePitch)
 +        } catch (e: Exception) {
 +            timber.log.Timber.e(e, "Failed to apply Pitch Master Hack")
 +        }

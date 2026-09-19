@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useRef } from 'react';
 import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
 import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
@@ -14,8 +14,11 @@ interface Props {
 export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, iconType = 'normal' }: Readonly<Props>) {
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    const isTogglingRef = useRef(false);
 
     const togglePlayback = async () => {
+        if (isTogglingRef.current) return;
+        isTogglingRef.current = true;
         try {
             if (isPlaying) {
                 await TrackPlayer.pause();
@@ -24,6 +27,10 @@ export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, i
             }
         } catch (e) {
             console.error('❌ [PlayPauseButton] Error alternando estado:', e);
+        } finally {
+            setTimeout(() => {
+                isTogglingRef.current = false;
+            }, 120);
         }
     };
 

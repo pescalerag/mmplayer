@@ -12,7 +12,7 @@ import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from '
 import { Image } from 'expo-image';
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MediaAssetService } from "../../services/MediaAssetService";
 import {
@@ -60,6 +60,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
   }),
 )(function PlaylistTrackRowWithMetadata({
   track,
+  playlistTrackId,
   album,
   artists,
   playlistId,
@@ -67,11 +68,12 @@ const PlaylistTrackRowWithMetadata = withObservables(
   onPress,
 }: {
   track: Track;
+  playlistTrackId: string;
   album: Album | null;
   artists: Artist[];
   playlistId: string;
   index: number;
-  onPress: (trackId: string) => void;
+  onPress: (trackId: string, trackIndex?: number, playlistTrackId?: string) => void;
 }) {
   const { t } = useTranslation();
   const artistNames =
@@ -81,12 +83,13 @@ const PlaylistTrackRowWithMetadata = withObservables(
   return (
     <TrackRow
       track={track}
+      trackInstanceId={playlistTrackId}
       contextId={`playlist-${playlistId}`}
       index={index}
       coverUrl={album?.coverUrl}
       artistName={artistNames}
       playlistId={playlistId}
-      onPress={onPress}
+      onPress={(trackId) => onPress(trackId, index - 1, playlistTrackId)}
       preventAutoHistory={true}
     />
   );
@@ -110,12 +113,13 @@ const PlaylistTrackRow = withObservables(
   track: Track | null;
   playlistId: string;
   index: number;
-  onPress: (trackId: string) => void;
+  onPress: (trackId: string, trackIndex?: number, playlistTrackId?: string) => void;
 }) {
   if (!track) return null;
   return (
     <PlaylistTrackRowWithMetadata
       track={track}
+      playlistTrackId={playlistTrack.id}
       playlistId={playlistId}
       index={index}
       onPress={onPress}
@@ -153,10 +157,10 @@ const ReorderTrackRowWithMetadata = withObservables(
   const coverUrl = album?.coverUrl;
 
   return (
-    <View style={[styles.reorderRow, isActive && styles.reorderRowActive, { backgroundColor: colors.background }]}>
+    <View style={[styles.reorderRow, { backgroundColor: isActive ? (colors.accentAlpha10 || Colors.accentAlpha10) : colors.background }, isActive && styles.reorderRowActive]}>
       <GHTouchableOpacity
         onLongPress={drag}
-        delayLongPress={100}
+        delayLongPress={60}
         style={styles.dragHandle}
         hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
         activeOpacity={0.6}
@@ -236,14 +240,18 @@ function PlaylistDetailContent({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
-  const [rawTracks, setTracks] = useState<Track[]>([]);
+  const [resolvedItems, setResolvedItems] = useState<{ track: Track; playlistTrackId: string }[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [localPlaylistTracks, setLocalPlaylistTracks] = useState<PlaylistTrack[]>(playlistTracks);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
 
+  const isReordering = useRef(false);
+
   useEffect(() => {
-    setLocalPlaylistTracks(playlistTracks);
+    if (!isReordering.current) {
+      setLocalPlaylistTracks(playlistTracks);
+    }
   }, [playlistTracks]);
 
   // Desactivar el modo ordenar automáticamente al salir o desenfocar la pantalla
@@ -263,21 +271,17 @@ function PlaylistDetailContent({
     }
   }, [canReorder, isReorderMode]);
 
-  const tracks = React.useMemo(() => {
-    const excluded = excludedSongs || [];
-    return rawTracks.filter((t) => !excluded.includes(t.fileUrl));
-  }, [rawTracks, excludedSongs]);
-
   // Resolve Track records from PlaylistTrack relation
   useEffect(() => {
     let isMounted = true;
     const loadTracks = async () => {
       setLoadingTracks(true);
       try {
-        const resolvedTracks = await Promise.all(
+        const resolved = await Promise.all(
           localPlaylistTracks.map(async (pt) => {
             try {
-              return await pt.track.fetch();
+              const track = await pt.track.fetch();
+              return track ? { track, playlistTrackId: pt.id } : null;
             } catch (e) {
               console.warn("Error cargando pista huerfana en playlist", e);
               return null;
@@ -285,12 +289,12 @@ function PlaylistDetailContent({
           }),
         );
 
-        const validTracks = resolvedTracks.filter(
-          (t): t is Track => t !== null,
+        const validItems = resolved.filter(
+          (item): item is { track: Track; playlistTrackId: string } => item !== null,
         );
 
         if (isMounted) {
-          setTracks(validTracks);
+          setResolvedItems(validItems);
           setLoadingTracks(false);
         }
       } catch (err) {
@@ -303,6 +307,21 @@ function PlaylistDetailContent({
       isMounted = false;
     };
   }, [localPlaylistTracks]);
+
+  const { tracks, instanceIds } = React.useMemo(() => {
+    const excluded = excludedSongs || [];
+    const validTracks: Track[] = [];
+    const validInstanceIds: string[] = [];
+
+    resolvedItems.forEach((item) => {
+      if (!excluded.includes(item.track.fileUrl)) {
+        validTracks.push(item.track);
+        validInstanceIds.push(item.playlistTrackId);
+      }
+    });
+
+    return { tracks: validTracks, instanceIds: validInstanceIds };
+  }, [resolvedItems, excludedSongs]);
 
   // Player States
   const playbackState = usePlaybackState();
@@ -360,7 +379,7 @@ function PlaylistDetailContent({
   }, [playlist]);
 
   const handleTrackPress = useCallback(
-    (trackId: string) => {
+    (trackId: string, trackIndex?: number, playlistTrackId?: string) => {
       HistoryService.updateUIRecents({
         id: playlist.id,
         type: "playlist",
@@ -370,14 +389,24 @@ function PlaylistDetailContent({
         imageUrl: playlist.coverCustomUrl || null,
       });
 
-      const trackIndex = tracks.findIndex((t) => t.id === trackId);
-      if (trackIndex !== -1) {
+      let targetIndex = -1;
+      if (playlistTrackId) {
+        targetIndex = instanceIds.findIndex((id) => id === playlistTrackId);
+      }
+      if (targetIndex === -1 && trackIndex !== undefined && trackIndex >= 0 && trackIndex < tracks.length) {
+        targetIndex = trackIndex;
+      }
+      if (targetIndex === -1) {
+        targetIndex = tracks.findIndex((t) => t.id === trackId);
+      }
+
+      if (targetIndex !== -1) {
         usePlayerStore
           .getState()
-          .loadQueue(tracks, trackIndex, playlistContextId);
+          .loadQueue(tracks, targetIndex, playlistContextId, instanceIds);
       }
     },
-    [tracks, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, t],
+    [tracks, instanceIds, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, t],
   );
 
   const handleFabPress = async () => {
@@ -396,7 +425,7 @@ function PlaylistDetailContent({
         await TrackPlayer.play();
       }
     } else if (tracks.length > 0) {
-      usePlayerStore.getState().loadQueue(tracks, 0, playlistContextId);
+      usePlayerStore.getState().loadQueue(tracks, 0, playlistContextId, instanceIds);
     }
   };
 
@@ -410,7 +439,7 @@ function PlaylistDetailContent({
         subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
         imageUrl: playlist.coverCustomUrl || null,
       });
-      usePlayerStore.getState().startShuffled(tracks, playlistContextId);
+      usePlayerStore.getState().startShuffled(tracks, playlistContextId, instanceIds);
     }
   };
 
@@ -453,6 +482,10 @@ function PlaylistDetailContent({
         await PlaylistService.reorderPlaylistTracks(data);
       } catch (error) {
         console.error("Error al reordenar playlist:", error);
+      } finally {
+        setTimeout(() => {
+          isReordering.current = false;
+        }, 300);
       }
     },
     [],
@@ -598,21 +631,32 @@ function PlaylistDetailContent({
 
   if (isReorderMode) {
     return (
-      <GestureHandlerRootView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, overflow: 'hidden' }]}>
         <DraggableFlatList
           data={localPlaylistTracks}
           keyExtractor={(item) => item.id}
           renderItem={renderReorderItem}
+          onDragBegin={() => {
+            isReordering.current = true;
+          }}
+          onRelease={() => {
+            setTimeout(() => {
+              isReordering.current = false;
+            }, 400);
+          }}
           onDragEnd={handleDragEnd}
-          activationDistance={10}
-          autoscrollThreshold={50}
-          autoscrollSpeed={100}
+          activationDistance={0}
+          autoscrollThreshold={75}
+          autoscrollSpeed={160}
+          dragItemOverflow={false}
+          containerStyle={{ flex: 1, overflow: 'hidden' }}
+          style={{ flex: 1, overflow: 'hidden' }}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={listEmptyComponent}
           contentContainerStyle={contentContainerStyle}
           showsVerticalScrollIndicator={false}
         />
-      </GestureHandlerRootView>
+      </View>
     );
   }
 
