@@ -12,6 +12,7 @@ export type HomeStackParamList = {
     Support: undefined;
     Settings: undefined;
     ActivityHistory: undefined;
+    FolderDetail: { folderPath: string; folderName?: string };
 };
 
 export type ActivityStackParamList = {
@@ -31,6 +32,7 @@ export type LibraryStackParamList = {
     PlaylistDetail: { playlistId: string };
     SmartListDetail: { smartListId: string };
     Support: undefined;
+    FolderDetail: { folderPath: string; folderName?: string };
 };
 
 export type SearchStackParamList = {
@@ -40,6 +42,7 @@ export type SearchStackParamList = {
     TagDetail: { tagId: string; tagName: string; tagColor: string };
     PlaylistDetail: { playlistId: string };
     SmartListDetail: { smartListId: string };
+    FolderDetail: { folderPath: string; folderName?: string };
 };
 
 export type TagsStackParamList = {
@@ -104,5 +107,7 @@ export type ActivityNavigationProp = NativeStackNavigationProp<ActivityStackPara
 export type ArtistDetailRouteProp = RouteProp<LibraryStackParamList, 'ArtistDetail'>;
 export type AlbumDetailRouteProp = RouteProp<LibraryStackParamList, 'AlbumDetail'>;
 export type TagDetailRouteProp = RouteProp<SearchStackParamList, 'TagDetail'>;
+export type FolderDetailRouteProp = RouteProp<LibraryStackParamList, 'FolderDetail'>;
+export type FolderDetailNavigationProp = NativeStackNavigationProp<LibraryStackParamList, 'FolderDetail'>;
 
 export type MainNavigationProp = NativeStackNavigationProp<RootStackParamList>;

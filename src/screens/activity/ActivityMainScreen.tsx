@@ -540,20 +540,20 @@ export default function ActivityMainScreen() {
         </Text>
         <View style={styles.headerRightActions}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('ActivityHistory')}
-            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
-            activeOpacity={0.7}
-            accessibilityLabel={t('activity.history_title') || 'Historial'}
-          >
-            <Ionicons name="time-outline" size={20} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
             onPress={() => setIsTutorialVisible(true)}
             style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
             activeOpacity={0.7}
             accessibilityLabel={t('activity_tutorial.help_btn')}
           >
             <Ionicons name="help-circle-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ActivityHistory')}
+            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+            activeOpacity={0.7}
+            accessibilityLabel={t('activity.history_title') || 'Historial'}
+          >
+            <Ionicons name="time-outline" size={20} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
             ref={shareButtonRef}

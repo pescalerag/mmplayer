@@ -7,6 +7,7 @@ import SearchScreen from '../screens/search/SearchScreen';
 import TagDetailScreen from '../screens/tags/TagDetailScreen';
 import PlaylistDetailScreen from '../screens/library/PlaylistDetailScreen';
 import SmartListDetailScreen from '../screens/library/SmartListDetailScreen';
+import FolderDetailScreen from '../screens/library/FolderDetailScreen';
 import { SearchStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<SearchStackParamList>();
@@ -44,6 +45,11 @@ export default function SearchNavigator() {
                 name="SmartListDetail"
                 component={SmartListDetailScreen}
                 getId={({ params }) => params.smartListId}
+            />
+            <Stack.Screen
+                name="FolderDetail"
+                component={FolderDetailScreen}
+                getId={({ params }) => params.folderPath}
             />
         </Stack.Navigator>
     );

@@ -8,7 +8,7 @@ import { usePlayerStore } from "../store/usePlayerStore";
 
 export type UIHistoryPayload = {
   id: string;
-  type: "track" | "album" | "playlist" | "artist";
+  type: "track" | "album" | "playlist" | "artist" | "folder";
   context: "manual" | "queue";
   durationPlayed?: number;
   title?: string;
