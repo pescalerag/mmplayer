@@ -102,6 +102,7 @@ export const PlaybackService = async function () {
     }
   });
   TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+    console.log("[PlaybackService] Event.RemoteNext triggered");
     if (usePlayerStore.getState().isSyncingLyrics) {
       console.log("[PlaybackService] Ignored RemoteNext during lyrics sync");
       return;
@@ -109,6 +110,7 @@ export const PlaybackService = async function () {
     await usePlayerStore.getState().skipToNext();
   });
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+    console.log("[PlaybackService] Event.RemotePrevious triggered");
     if (usePlayerStore.getState().isSyncingLyrics) {
       console.log("[PlaybackService] Ignored RemotePrevious during lyrics sync");
       return;
@@ -124,7 +126,16 @@ export const PlaybackService = async function () {
       console.log('Error in RemotePrevious', e);
     }
   });
-  TrackPlayer.addEventListener(Event.RemoteStop, () => usePlayerStore.getState().clearPlayer());
+
+  TrackPlayer.addEventListener(Event.RemoteStop, async () => {
+    try {
+      await TrackPlayer.pause();
+      await usePlayerStore.getState().savePlaybackState();
+      PlaybackTimeTracker.onStateNotPlaying();
+    } catch (e) {
+      console.error("[PlaybackService] Error handling RemoteStop:", e);
+    }
+  });
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
   TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
     try {

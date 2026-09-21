@@ -336,6 +336,8 @@ export default function MainNavigator() {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         const isSilent = useSettingsStore.getState().hideSyncToastOnResume;
         ScannerService.syncLibrary(undefined, isSilent);
+      } else if (nextAppState.match(/inactive|background/)) {
+        usePlayerStore.getState().savePlaybackState().catch(() => {});
       }
       appState.current = nextAppState;
     });

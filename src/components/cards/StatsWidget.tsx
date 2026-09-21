@@ -17,7 +17,13 @@ export const StatsWidget: React.FC = () => {
   return (
     <TouchableOpacity
       activeOpacity={0.75}
-      onPress={() => navigation.navigate('WeeklyActivity')}
+      onPress={() => {
+        try {
+          navigation.navigate('Actividad');
+        } catch {
+          navigation.navigate('WeeklyActivity');
+        }
+      }}
       style={{ marginHorizontal: spacing.lg || 20, marginVertical: 12 }}
     >
       <LinearGradient

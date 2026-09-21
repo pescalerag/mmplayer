@@ -112,13 +112,15 @@ interface SettingsState {
     setHomeProfilePosition: (position: 'left' | 'right') => void;
     shuffleOnQueueEnd: boolean;
     setShuffleOnQueueEnd: (value: boolean) => void;
+    homeSectionsVersion: number;
+    setHomeSectionsVersion: (version: number) => void;
 }
 
 export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Actividad';
-export type HomeSection = 'stats' | 'recent_media' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore';
+export type HomeSection = 'recent_media' | 'stats' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore' | 'shuffle_button';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -145,20 +147,29 @@ export const useSettingsStore = create<SettingsState>()(
             setAppTabsOrder: (order) => set({ appTabsOrder: order }),
             initialAppRoute: 'Inicio',
             setInitialAppRoute: (route) => set({ initialAppRoute: route }),
-            homeSectionsOrder: ['recent_media', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
+            homeSectionsOrder: ['recent_media', 'stats', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore', 'shuffle_button'],
             setHomeSectionsOrder: (order) => set({ homeSectionsOrder: order }),
+            homeSectionsVersion: 2,
+            setHomeSectionsVersion: (version) => set({ homeSectionsVersion: version }),
             homeSectionsVisibility: {
-                stats: false,
                 recent_media: true,
+                stats: true,
                 smart_playlists: true,
                 recent_playlists: true,
                 recently_added: true,
                 most_played: true,
                 explore: true,
+                shuffle_button: true,
             },
             setHomeSectionsVisibility: (visibility) => set({ homeSectionsVisibility: visibility }),
             showGlobalShuffle: true,
-            setShowGlobalShuffle: (value) => set({ showGlobalShuffle: value }),
+            setShowGlobalShuffle: (value) => set((state) => ({
+                showGlobalShuffle: value,
+                homeSectionsVisibility: {
+                    ...state.homeSectionsVisibility,
+                    shuffle_button: value,
+                },
+            })),
             isCompactTags: true,
             setIsCompactTags: (value) => set({ isCompactTags: value }),
             artistImageDownloadMode: 'disabled',
@@ -280,8 +291,43 @@ export const useSettingsStore = create<SettingsState>()(
                             state.setInitialAppRoute('Actividad');
                         }
                     }
-                    if (state.homeSectionsOrder && state.homeSectionsOrder.includes('stats')) {
-                        state.setHomeSectionsOrder(state.homeSectionsOrder.filter(s => s !== 'stats'));
+                    if (state.homeSectionsVersion !== 2) {
+                        let newOrder = state.homeSectionsOrder ? [...state.homeSectionsOrder] : [];
+                        newOrder = newOrder.filter(s => s !== 'stats' && s !== 'shuffle_button');
+                        const recentIdx = newOrder.indexOf('recent_media');
+                        if (recentIdx !== -1) {
+                            newOrder.splice(recentIdx + 1, 0, 'stats');
+                        } else {
+                            newOrder.unshift('stats');
+                        }
+                        newOrder.push('shuffle_button');
+                        state.setHomeSectionsOrder(newOrder);
+
+                        const newVis = { ...state.homeSectionsVisibility };
+                        newVis.stats = true;
+                        newVis.shuffle_button = state.showGlobalShuffle ?? true;
+                        state.setHomeSectionsVisibility(newVis);
+
+                        state.setHomeSectionsVersion(2);
+                    } else if (state.homeSectionsOrder) {
+                        let currentOrder = [...state.homeSectionsOrder];
+                        let changed = false;
+                        if (!currentOrder.includes('stats')) {
+                            const recentIdx = currentOrder.indexOf('recent_media');
+                            if (recentIdx !== -1) {
+                                currentOrder.splice(recentIdx + 1, 0, 'stats');
+                            } else {
+                                currentOrder.unshift('stats');
+                            }
+                            changed = true;
+                        }
+                        if (!currentOrder.includes('shuffle_button')) {
+                            currentOrder.push('shuffle_button');
+                            changed = true;
+                        }
+                        if (changed) {
+                            state.setHomeSectionsOrder(currentOrder);
+                        }
                     }
                 }
             }

@@ -27,6 +27,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { MediaCard } from '@/components/cards/MediaCard';
 import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
 import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
+import { StatsWidget } from '@/components/cards/StatsWidget';
 import MarqueeText from '@/components/common/MarqueeText';
 import { useStatsStore } from '../../store/useStatsStore';
 
@@ -125,17 +126,30 @@ export default function HomeScreen() {
                 }
             }
         }
+        if (!order.includes('stats')) {
+            const recentIdx = order.indexOf('recent_media');
+            if (recentIdx !== -1) {
+                order.splice(recentIdx + 1, 0, 'stats');
+            } else {
+                order.unshift('stats');
+            }
+        }
+        if (!order.includes('shuffle_button')) {
+            order.push('shuffle_button');
+        }
         return order;
     }, [homeSectionsOrderRaw]);
+
+    const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
 
     const homeSectionsVisibility = React.useMemo(() => {
         return {
             ...homeSectionsVisibilityRaw,
-            smart_playlists: homeSectionsVisibilityRaw?.smart_playlists ?? true
+            smart_playlists: homeSectionsVisibilityRaw?.smart_playlists ?? true,
+            stats: homeSectionsVisibilityRaw?.stats ?? true,
+            shuffle_button: homeSectionsVisibilityRaw?.shuffle_button ?? showGlobalShuffle ?? true,
         };
-    }, [homeSectionsVisibilityRaw]);
-
-    const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
+    }, [homeSectionsVisibilityRaw, showGlobalShuffle]);
 
     const activeTrack = usePlayerStore(state => state.activeTrack);
     const playbackStateRN = usePlaybackState();
@@ -499,7 +513,7 @@ export default function HomeScreen() {
 
                     switch (section) {
                         case 'stats':
-                            return null;
+                            return <StatsWidget key="home-stats-widget" />;
 
                         case 'recent_media':
                             return (
@@ -637,13 +651,13 @@ export default function HomeScreen() {
                                 />
                             );
 
+                        case 'shuffle_button':
+                            return <GlobalShuffleButton key="home-shuffle-button" />;
+
                         default:
                             return null;
                     }
                 })}
-
-                {/* Global Shuffle Button at the bottom */}
-                {showGlobalShuffle && <GlobalShuffleButton />}
             </ScrollView>
         </View>
     );

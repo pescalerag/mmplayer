@@ -223,6 +223,7 @@ export default function GlobalBottomSheet() {
   const getContainerMaxHeight = () => {
     if (renderedSheet === 'queue') return SCREEN_HEIGHT * 0.90;
     if (renderedSheet === 'metadata-editor') return SCREEN_HEIGHT * 0.92;
+    if (renderedSheet === 'home-sections') return SCREEN_HEIGHT * 0.88;
     if (renderedSheet === 'playlist-selector') return SCREEN_HEIGHT * 0.85;
     return SCREEN_HEIGHT * 0.80;
   };
