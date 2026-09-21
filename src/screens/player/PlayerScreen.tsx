@@ -837,7 +837,7 @@ const PlayerScreenUI = ({
 
     const performSkipNext = async () => {
         try {
-            await TrackPlayer.skipToNext();
+            await usePlayerStore.getState().skipToNext();
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
@@ -858,7 +858,9 @@ const PlayerScreenUI = ({
             const queue = await TrackPlayer.getQueue();
             const idx = await TrackPlayer.getActiveTrackIndex();
             if (idx === undefined || idx === null) return false;
-            return idx < queue.length - 1;
+            const repeatMode = await TrackPlayer.getRepeatMode();
+            const { shuffleOnQueueEnd } = useSettingsStore.getState();
+            return idx < queue.length - 1 || repeatMode !== RepeatMode.Off || shuffleOnQueueEnd;
         } catch { return hasNext; }
     }, [hasNext]);
 
@@ -1450,7 +1452,7 @@ const PlayerScreenUI = ({
                                     if (!nextTrackModel) {
                                         return (
                                             <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                                <Ionicons name="musical-notes" size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
+                                                <Ionicons name={useSettingsStore.getState().shuffleOnQueueEnd ? "shuffle" : "musical-notes"} size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
                                             </View>
                                         );
                                     }
@@ -1680,7 +1682,7 @@ const PlayerScreenUI = ({
 
                         {/* Forward */}
                         <TouchableOpacity
-                            onPress={() => TrackPlayer.skipToNext().catch(() => { })}
+                            onPress={() => usePlayerStore.getState().skipToNext().catch(() => { })}
                             style={styles.controlButton}
                             disabled={!hasNext}
                         >

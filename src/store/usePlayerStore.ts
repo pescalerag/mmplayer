@@ -85,6 +85,7 @@ interface PlayerState {
   ) => Promise<void>;
   startShuffled: (tracks: Track[], context?: string, instanceIds?: string[]) => Promise<void>;
   playRandomQueueOnEnd: () => Promise<void>;
+  skipToNext: () => Promise<void>;
   playSingleTrack: (track: Track, context?: string) => Promise<void>;
   setActiveTrackById: (trackId: string, instanceId?: string) => Promise<void>;
   addToQueueNext: (track: Track) => Promise<void>;
@@ -157,7 +158,10 @@ async function flushCurrentTrackToHistory() {
 
       const trackingId = activeTPTrack?.id ? activeTPTrack.id.toString() : activeTrack.id.toString();
 
-      const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackingId);
+      let durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackingId);
+      if (activeTrack.duration && durationPlayed > activeTrack.duration) {
+        durationPlayed = activeTrack.duration;
+      }
       const requiredSeconds = activeTrack.duration ? activeTrack.duration * 0.5 : 20;
 
       if (durationPlayed >= requiredSeconds) {
@@ -248,7 +252,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lastAppliedSpeed = null;
       lastAppliedPitch = null;
       useCastStore.setState({ castPosition: 0 });
-      await new Promise((resolve) => setTimeout(resolve, 80));
       await addTracksSafely(initialTpTracks);
 
       if (currentLoadId !== loadId) return;
@@ -347,21 +350,47 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId !== loadId) return;
 
       await flushCurrentTrackToHistory();
-      await TrackPlayer.stop().catch(() => {});
-      await TrackPlayer.reset();
-      lastAppliedSpeed = null;
-      lastAppliedPitch = null;
-      useCastStore.setState({ castPosition: 0 });
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      await addTracksSafely(initialTpTracks);
 
-      if (currentLoadId !== loadId) return;
+      if (context === 'random_queue_end') {
+        const existingQueue = await TrackPlayer.getQueue();
+        const existingLength = existingQueue.length;
 
-      await get().applySpeedAndPitch();
-      if (useCastStore.getState().isServerRunning) {
-        LocalCastService.setPlayIntent(true);
+        // Añadir las nuevas pistas al reproductor sin vaciarlo para mantener el Foreground Service activo en background
+        await addTracksSafely(initialTpTracks);
+
+        if (currentLoadId !== loadId) return;
+
+        if (existingLength > 0) {
+          await TrackPlayer.skip(existingLength);
+        }
+
+        await get().applySpeedAndPitch();
+        if (useCastStore.getState().isServerRunning) {
+          LocalCastService.setPlayIntent(true);
+        }
+        await TrackPlayer.play();
+
+        // Eliminar las pistas anteriores que ya habían terminado
+        if (existingLength > 0) {
+          const oldIndices = Array.from({ length: existingLength }, (_, i) => i);
+          await TrackPlayer.remove(oldIndices).catch(() => {});
+        }
+      } else {
+        await TrackPlayer.stop().catch(() => {});
+        await TrackPlayer.reset();
+        lastAppliedSpeed = null;
+        lastAppliedPitch = null;
+        useCastStore.setState({ castPosition: 0 });
+        await addTracksSafely(initialTpTracks);
+
+        if (currentLoadId !== loadId) return;
+
+        await get().applySpeedAndPitch();
+        if (useCastStore.getState().isServerRunning) {
+          LocalCastService.setPlayIntent(true);
+        }
+        await TrackPlayer.play();
       }
-      await TrackPlayer.play();
 
       set({
         activeTrack: shuffledTracks[0],
@@ -371,7 +400,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         shuffleOriginalQueue: [],
         userQueueSize: 0,
         hasPrevious: false,
-        hasNext: shuffledTracks.length > 1,
+        hasNext: shuffledTracks.length > 1 || useSettingsStore.getState().shuffleOnQueueEnd,
       });
 
       // Carga diferida de la cola original (en orden original) para permitir desactivar shuffle correctamente
@@ -464,6 +493,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  skipToNext: async () => {
+    try {
+      const queue = await TrackPlayer.getQueue();
+      const index = await TrackPlayer.getActiveTrackIndex();
+      const repeatMode = await TrackPlayer.getRepeatMode();
+      const { shuffleOnQueueEnd } = useSettingsStore.getState();
+
+      const isLastTrack = index !== undefined && index !== null && index >= queue.length - 1;
+
+      if (isLastTrack && repeatMode === RepeatMode.Off) {
+        if (shuffleOnQueueEnd) {
+          await get().playRandomQueueOnEnd();
+        }
+        return;
+      }
+
+      await TrackPlayer.skipToNext();
+    } catch (e) {
+      console.error('[usePlayerStore] Error skipping to next:', e);
+    }
+  },
+
   playSingleTrack: async (track, context = "unknown") => {
     await get().cancelQueueLoading();
     const loadId = ++currentLoadId;
@@ -477,7 +528,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lastAppliedSpeed = null;
       lastAppliedPitch = null;
       useCastStore.setState({ castPosition: 0 });
-      await new Promise((resolve) => setTimeout(resolve, 80));
       await addTracksSafely([tpTrack]);
       if (currentLoadId !== loadId) return;
       await get().applySpeedAndPitch();
@@ -1085,10 +1135,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           : await TrackPlayer.getActiveTrackIndex();
 
       const repeatMode = await TrackPlayer.getRepeatMode();
+      const { shuffleOnQueueEnd } = useSettingsStore.getState();
 
       if (index !== undefined && index !== null && queue.length > 0) {
         const hasPrev = index > 0 || repeatMode !== RepeatMode.Off;
-        const hasNxt = index < queue.length - 1 || repeatMode !== RepeatMode.Off;
+        const hasNxt = index < queue.length - 1 || repeatMode !== RepeatMode.Off || shuffleOnQueueEnd;
 
         let prevModel: Track | null = null;
         let nextModel: Track | null = null;

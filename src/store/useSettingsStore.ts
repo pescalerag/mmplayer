@@ -251,7 +251,13 @@ export const useSettingsStore = create<SettingsState>()(
             homeProfilePosition: 'left',
             setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
             shuffleOnQueueEnd: false,
-            setShuffleOnQueueEnd: (value) => set({ shuffleOnQueueEnd: value }),
+            setShuffleOnQueueEnd: (value) => {
+                set({ shuffleOnQueueEnd: value });
+                try {
+                    const { usePlayerStore } = require('./usePlayerStore');
+                    usePlayerStore.getState().updateQueueStatus();
+                } catch { }
+            },
         }),
         {
             name: 'mmplayer-settings',

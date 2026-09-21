@@ -78,6 +78,19 @@ export const HistoryService = {
 
       const cleanId = trackId.split('-')[0];
 
+      // Límite de seguridad: ninguna reproducción individual puede superar la duración de la canción
+      let cappedDuration = durationPlayed;
+      try {
+        const track = await database.get<Track>('tracks').find(cleanId);
+        if (track && track.duration && track.duration > 0) {
+          cappedDuration = Math.min(durationPlayed, track.duration);
+        } else {
+          cappedDuration = Math.min(durationPlayed, 600);
+        }
+      } catch {
+        cappedDuration = Math.min(durationPlayed, 600);
+      }
+
       await database.write(async () => {
         await database.collections
           .get<PlaybackHistory>("playback_history")
@@ -85,19 +98,51 @@ export const HistoryService = {
             record.itemId = cleanId;
             record.itemType = "track";
             record.playContext = context;
-            record.durationPlayed = Math.floor(durationPlayed);
+            record.durationPlayed = Math.floor(cappedDuration);
             record.playedAt = new Date();
           });
       });
       console.log(
-        `[Historial] Canción ${cleanId} guardada. Tiempo: ${Math.floor(durationPlayed)}s`,
+        `[Historial] Canción ${cleanId} guardada. Tiempo: ${Math.floor(cappedDuration)}s`,
       );
     } catch (error) {
       console.error("Error guardando en base de datos:", error);
     }
   },
 
+  /**
+   * Sanea registros con duraciones anómalas previas (> 2 horas) producidas por suspensiones de Android Doze
+   */
+  async sanitizeCorruptedHistory() {
+    try {
+      const corrupted = await database.collections
+        .get<PlaybackHistory>('playback_history')
+        .query(Q.where('duration_played', Q.gt(7200)))
+        .fetch();
+
+      if (corrupted.length > 0) {
+        await database.write(async () => {
+          for (const rec of corrupted) {
+            try {
+              const track = await database.get<Track>('tracks').find(rec.itemId);
+              await rec.update(r => {
+                r.durationPlayed = track?.duration ? Math.floor(track.duration) : 300;
+              });
+            } catch {
+              await rec.destroyPermanently();
+            }
+          }
+        });
+        console.log(`[Historial] Sanitizados ${corrupted.length} registros con duraciones anómalas.`);
+      }
+    } catch (cleanErr) {
+      console.warn('[Historial] Error sanitizando registros anómalos:', cleanErr);
+    }
+  },
+
   async initializeDefaultsIfNeeded() {
+    this.sanitizeCorruptedHistory().catch(() => {});
+
     const state = usePlayerStore.getState();
     const hasMedia = state.recentMedia && state.recentMedia.length > 0;
     const hasPlaylists = state.recentPlaylists && state.recentPlaylists.length > 0;

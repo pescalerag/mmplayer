@@ -54,6 +54,10 @@ export const PlaybackTimeTracker = {
 
   clearAccumulated(trackId: string) {
     delete accumulatedTimes[trackId];
+    if (currentTrackId === trackId) {
+      lastPlayTimestamp = null;
+      currentTrackId = null;
+    }
   },
 
   getCurrentTrackId() {
@@ -97,12 +101,12 @@ export const PlaybackService = async function () {
       await TrackPlayer.play();
     }
   });
-  TrackPlayer.addEventListener(Event.RemoteNext, () => {
+  TrackPlayer.addEventListener(Event.RemoteNext, async () => {
     if (usePlayerStore.getState().isSyncingLyrics) {
       console.log("[PlaybackService] Ignored RemoteNext during lyrics sync");
       return;
     }
-    TrackPlayer.skipToNext();
+    await usePlayerStore.getState().skipToNext();
   });
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
     if (usePlayerStore.getState().isSyncingLyrics) {
@@ -231,16 +235,22 @@ export const PlaybackService = async function () {
       PlaybackTimeTracker.onStateNotPlaying();
 
       if (previousTrackId) {
-        const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId);
+        let durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId);
         let requiredSeconds = 20;
         try {
           const cleanId = previousTrackId.split('-')[0];
           const track = await database.get<Track>('tracks').find(cleanId);
           if (track && track.duration) {
             requiredSeconds = track.duration * 0.5;
+            if (durationPlayed > track.duration) {
+              durationPlayed = track.duration;
+            }
+          } else {
+            durationPlayed = Math.min(durationPlayed, 600);
           }
         } catch (e) {
           console.warn('[PlaybackService] Failed to find previous track for duration:', e);
+          durationPlayed = Math.min(durationPlayed, 600);
         }
         if (durationPlayed >= requiredSeconds) {
           console.log(`[Historial] Guardando en historial. Canción: ${previousTrackId}, Duración: ${Math.floor(durationPlayed)}s.`);
@@ -255,8 +265,9 @@ export const PlaybackService = async function () {
         PlaybackTimeTracker.clearAccumulated(previousTrackId);
       }
 
-      // If it was playing, restart the timer for the next/looped track
-      if (wasPlaying && nextTrackId) {
+      // Reiniciar el timer SOLO si el reproductor está efectivamente en estado de reproducción (Playing)
+      const currentState = await TrackPlayer.getPlaybackState();
+      if (currentState.state === State.Playing && nextTrackId) {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
 
@@ -351,7 +362,7 @@ export const PlaybackService = async function () {
               if (trackId === PlaybackTimeTracker.getCurrentTrackId()) {
                 PlaybackTimeTracker.onStateNotPlaying();
                 
-                const durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackId);
+                let durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackId);
                 
                 let requiredSeconds = 20;
                 try {
@@ -359,9 +370,15 @@ export const PlaybackService = async function () {
                   const track = await database.get<Track>('tracks').find(cleanId);
                   if (track && track.duration) {
                     requiredSeconds = track.duration * 0.5;
+                    if (durationPlayed > track.duration) {
+                      durationPlayed = track.duration;
+                    }
+                  } else {
+                    durationPlayed = Math.min(durationPlayed, 600);
                   }
                 } catch (e) {
                   console.warn('[PlaybackService] Failed to find loop track for duration:', e);
+                  durationPlayed = Math.min(durationPlayed, 600);
                 }
                 
                 if (durationPlayed >= requiredSeconds) {

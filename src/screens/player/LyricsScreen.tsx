@@ -658,7 +658,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
                     <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
 
-                    <TouchableOpacity onPress={() => TrackPlayer.skipToNext().catch(() => { })} style={styles.controlButton} disabled={!hasNext}>
+                    <TouchableOpacity onPress={() => usePlayerStore.getState().skipToNext().catch(() => { })} style={styles.controlButton} disabled={!hasNext}>
                         <Ionicons name="play-forward" size={38} color={hasNext ? colors.text : colors.disabled} />
                     </TouchableOpacity>
 

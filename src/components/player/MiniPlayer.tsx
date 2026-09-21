@@ -241,7 +241,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
-    const skipNext = () => TrackPlayer.skipToNext().catch(() => { });
+    const skipNext = () => usePlayerStore.getState().skipToNext().catch(() => { });
     const skipPrevious = () => TrackPlayer.skipToPrevious().catch(() => { });
 
     const panGesture = Gesture.Pan()
