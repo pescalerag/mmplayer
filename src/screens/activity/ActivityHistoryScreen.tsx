@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
+    BackHandler,
     RefreshControl,
     StyleSheet,
     Text,
@@ -15,6 +16,7 @@ import {
     View,
 } from 'react-native';
 import { State } from 'react-native-track-player';
+import { HistorySelectActionBar } from '@/components/activity/HistorySelectActionBar';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 import { database } from '../../database';
@@ -25,6 +27,8 @@ import Track from '../../database/models/Track';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { usePlayerStore } from '../../store/usePlayerStore';
+import { useStatsStore } from '../../store/useStatsStore';
+import { useToastStore } from '../../store/useToastStore';
 import { openTrackMenu } from '../../store/useUIStore';
 
 const PAGE_SIZE = 50;
@@ -161,28 +165,69 @@ const HistoryRowItem = React.memo(({
     item,
     isPlaying,
     isActuallyPlaying,
+    isSelected,
+    isSelectionMode,
     onPress,
     onLongPress,
+    onToggleSelect,
 }: {
     item: HistoryItem;
     isPlaying: boolean;
     isActuallyPlaying: boolean;
+    isSelected: boolean;
+    isSelectionMode: boolean;
     onPress: (item: HistoryItem) => void;
     onLongPress: (item: HistoryItem) => void;
+    onToggleSelect: (item: HistoryItem) => void;
 }) => {
     const { colors, fonts } = useAppTheme();
     const [imageError, setImageError] = useState(false);
 
     const hasCover = Boolean(item.coverUrl && !imageError);
 
+    const handleRowPress = useCallback(() => {
+        if (isSelectionMode) {
+            onToggleSelect(item);
+        } else {
+            onPress(item);
+        }
+    }, [isSelectionMode, onToggleSelect, onPress, item]);
+
+    const handleRowLongPress = useCallback(() => {
+        if (isSelectionMode) return;
+        onLongPress(item);
+    }, [isSelectionMode, onLongPress, item]);
+
+    const handleCirclePress = useCallback(() => {
+        onToggleSelect(item);
+    }, [onToggleSelect, item]);
+
     return (
         <TouchableOpacity
-            style={styles.rowContainer}
-            onPress={() => onPress(item)}
-            onLongPress={() => onLongPress(item)}
+            style={[
+                styles.rowContainer,
+                isSelected && { backgroundColor: colors.accentAlpha10 },
+            ]}
+            onPress={handleRowPress}
+            onLongPress={handleRowLongPress}
             activeOpacity={0.7}
             delayLongPress={300}
         >
+            {/* CIRCULITO DE SELECCIÓN */}
+            <TouchableOpacity
+                style={styles.selectCircleContainer}
+                onPress={handleCirclePress}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
+                accessibilityLabel={isSelected ? 'Deseleccionar' : 'Seleccionar'}
+            >
+                <Ionicons
+                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={22}
+                    color={isSelected ? colors.accent : colors.textSecondary}
+                />
+            </TouchableOpacity>
+
             {/* CARÁTULA */}
             <View style={styles.coverWrapper}>
                 {hasCover ? (
@@ -254,6 +299,7 @@ export default function ActivityHistoryScreen() {
     const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
 
     const [items, setItems] = useState<HistoryItem[]>([]);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -481,8 +527,87 @@ export default function ActivityHistoryScreen() {
         );
     }, [t]);
 
+    const handleToggleSelect = useCallback((item: HistoryItem) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(item.id)) {
+                next.delete(item.id);
+            } else {
+                next.add(item.id);
+            }
+            return next;
+        });
+    }, []);
+
+    const handleClearSelection = useCallback(() => {
+        setSelectedIds(new Set());
+    }, []);
+
+    // Interceptar botón atrás físico en Android para cancelar la selección
+    useEffect(() => {
+        if (selectedIds.size === 0) return;
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            handleClearSelection();
+            return true;
+        });
+        return () => backHandler.remove();
+    }, [selectedIds.size, handleClearSelection]);
+
+    // Cancelar la selección si se abandona la pantalla
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('beforeRemove', () => {
+            setSelectedIds(new Set());
+        });
+        return unsubscribe;
+    }, [navigation]);
+
+    const handleDeleteSelected = useCallback(() => {
+        if (selectedIds.size === 0) return;
+        const count = selectedIds.size;
+        Alert.alert(
+            t('activity.history_delete_selected') || 'Eliminar del historial',
+            count === 1
+                ? (t('activity.history_delete_selected_confirm_single') || '¿Estás seguro de que quieres eliminar esta escucha del historial?')
+                : (t('activity.history_delete_selected_confirm', { count }) || `¿Estás seguro de que quieres eliminar ${count} escuchas del historial?`),
+            [
+                { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
+                {
+                    text: t('common.delete') || 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const idsToDelete = Array.from(selectedIds);
+                            const CHUNK_SIZE = 500;
+                            await database.write(async () => {
+                                const historyCollection = database.collections.get<PlaybackHistory>('playback_history');
+                                for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+                                    const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+                                    const records = await historyCollection.query(Q.where('id', Q.oneOf(chunk))).fetch();
+                                    const batchOps = records.map(r => r.prepareDestroyPermanently());
+                                    await database.batch(batchOps);
+                                }
+                            });
+                            setItems(prev => prev.filter(item => !selectedIds.has(item.id)));
+                            setSelectedIds(new Set());
+                            useToastStore.getState().showToast(
+                                count === 1
+                                    ? (t('activity.history_deleted_toast_single') || 'Escucha eliminada')
+                                    : (t('activity.history_deleted_toast', { count }) || `${count} escuchas eliminadas`),
+                                'trash-outline',
+                                colors.heartIcon
+                            );
+                            useStatsStore.getState().fetchStats().catch(() => {});
+                        } catch (error) {
+                            console.error('[ActivityHistoryScreen] Error deleting selected history:', error);
+                        }
+                    },
+                },
+            ]
+        );
+    }, [selectedIds, t, colors.heartIcon]);
+
     const clearButton = useMemo(() => {
-        if (items.length === 0) return null;
+        if (items.length === 0 || selectedIds.size > 0) return null;
         return (
             <TouchableOpacity
                 onPress={handleClearHistory}
@@ -493,7 +618,7 @@ export default function ActivityHistoryScreen() {
                 <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
         );
-    }, [items.length, handleClearHistory, colors.textSecondary, t]);
+    }, [items.length, selectedIds.size, handleClearHistory, colors.textSecondary, t]);
 
     const renderItem = useCallback(({ item }: { item: HistoryListItem }) => {
         if (item.type === 'header') {
@@ -510,16 +635,20 @@ export default function ActivityHistoryScreen() {
         }
 
         const isPlaying = activeTrack?.id === item.item.trackId;
+        const isSelected = selectedIds.has(item.item.id);
         return (
             <HistoryRowItem
                 item={item.item}
                 isPlaying={isPlaying}
                 isActuallyPlaying={isActuallyPlaying}
+                isSelected={isSelected}
+                isSelectionMode={selectedIds.size > 0}
                 onPress={handlePlayItem}
                 onLongPress={handleOpenMenu}
+                onToggleSelect={handleToggleSelect}
             />
         );
-    }, [activeTrack?.id, isActuallyPlaying, handleToggleDay, handlePlayItem, handleOpenMenu]);
+    }, [activeTrack?.id, isActuallyPlaying, selectedIds, handleToggleDay, handlePlayItem, handleOpenMenu, handleToggleSelect]);
 
     const keyExtractor = useCallback((item: HistoryListItem) => item.id, []);
 
@@ -529,10 +658,16 @@ export default function ActivityHistoryScreen() {
         <ScreenHeaderLayout
             title={t('activity.history_title') || 'Historial de reproducción'}
             showBackButton={true}
+            onBackButtonPress={selectedIds.size > 0 ? handleClearSelection : undefined}
             rightComponent={clearButton}
         >
             {({ headerHeight, bottomPadding }) => (
                 <View style={[styles.container, { paddingTop: headerHeight + 10 }]}>
+                    <HistorySelectActionBar
+                        selectedCount={selectedIds.size}
+                        onClearSelection={handleClearSelection}
+                        onDelete={handleDeleteSelected}
+                    />
                     {loading ? (
                         <View style={styles.centerLoading}>
                             <ActivityIndicator size="large" color={colors.accentLight} />
@@ -540,9 +675,11 @@ export default function ActivityHistoryScreen() {
                     ) : (
                         <FlashList
                             data={listData}
+                            extraData={selectedIds}
                             keyExtractor={keyExtractor}
                             getItemType={getItemType}
                             renderItem={renderItem}
+                            maintainVisibleContentPosition={{ disabled: true }}
                             contentContainerStyle={{
                                 paddingHorizontal: 16,
                                 paddingBottom: bottomPadding + 20,
@@ -647,6 +784,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         borderRadius: 8,
         marginBottom: 2,
+    },
+    selectCircleContainer: {
+        marginRight: 8,
+        padding: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     coverWrapper: {
         width: 50,
