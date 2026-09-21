@@ -1276,6 +1276,7 @@
     "next_phrase": "Mark phrase start",
     "sync_instructions": "Tap the central button at the exact moment the highlighted purple phrase begins (not at the end).",
     "search_lyrics": "Search lyrics online",
+    "retry_search": "Retry internet search",
     "delete_lyrics": "Delete lyrics",
     "search_in_progress": "A lyrics search is already in progress at this moment.",
     "delete_confirm": "Are you sure you want to delete the lyrics for this song?",

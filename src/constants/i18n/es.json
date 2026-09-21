@@ -1276,6 +1276,7 @@
     "next_phrase": "Marcar inicio de frase",
     "sync_instructions": "Toca el botón central en el momento exacto en que comience a cantarse la frase destacada en morado (no al final).",
     "search_lyrics": "Buscar letras en internet",
+    "retry_search": "Reintentar búsqueda en internet",
     "delete_lyrics": "Eliminar letras",
     "search_in_progress": "Ya hay una búsqueda de letras en curso en este momento.",
     "delete_confirm": "¿Estás seguro de que quieres eliminar las letras de esta canción?",

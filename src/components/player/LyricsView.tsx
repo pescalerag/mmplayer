@@ -84,6 +84,29 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
         }
     };
 
+    const handleRetrySearch = async () => {
+        if (!track) return;
+        if (LyricsService.isFetching()) {
+            Alert.alert(
+                t('actions.warning') || 'Atención',
+                t('lyrics.search_in_progress') || 'Ya hay una búsqueda de letras en curso en este momento.'
+            );
+            return;
+        }
+
+        try {
+            const lyrics = await LyricsService.fetchLyrics(track, true);
+            if (lyrics) {
+                Alert.alert(t('actions.success') || 'Éxito', t('lyrics.search_success') || 'Letras encontradas e importadas correctamente.');
+            } else {
+                Alert.alert(t('actions.error') || 'Error', t('lyrics.search_not_found') || 'No se encontraron letras para esta canción en internet.');
+            }
+        } catch (e) {
+            console.error('Error searching lyrics online:', e);
+            Alert.alert(t('actions.error') || 'Error', t('lyrics.search_error') || 'Ocurrió un error al buscar las letras.');
+        }
+    };
+
     const renderBodyContent = () => {
         if (isLoading) {
             return (
@@ -102,8 +125,19 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
                     <TouchableOpacity
                         onPress={handleImportLRC}
                         style={styles.importButton}
+                        activeOpacity={0.8}
                     >
+                        <Ionicons name="cloud-upload-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
                         <Text style={styles.importButtonText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleRetrySearch}
+                        disabled={isLoading}
+                        style={[styles.importButton, { marginTop: 12 }]}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="search-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.importButtonText}>{t('lyrics.retry_search') || 'Reintentar búsqueda en internet'}</Text>
                     </TouchableOpacity>
                 </View>
             );
@@ -290,6 +324,9 @@ const getStyles = (colors: any, fonts: any) => StyleSheet.create({
         marginBottom: 24,
     },
     importButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: colors.accent,
         paddingVertical: 12,
         paddingHorizontal: 24,

@@ -269,6 +269,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const displayPosition = isSeeking ? seekValue : position;
 
     const [repeatMode, setRepeatMode] = useState<RepeatMode>(RepeatMode.Off);
+    const [bottomControlsHeight, setBottomControlsHeight] = useState(0);
     const heartScale = useSharedValue(1);
     const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
     const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
@@ -323,6 +324,29 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
             }
         } catch {
             Alert.alert(t('actions.error') || 'Error', t('lyrics.read_error') || 'No se pudo leer el archivo de letras.');
+        }
+    };
+
+    const handleRetrySearch = async () => {
+        if (!track) return;
+        if (LyricsService.isFetching()) {
+            Alert.alert(
+                t('actions.warning') || 'Atención',
+                t('lyrics.search_in_progress') || 'Ya hay una búsqueda de letras en curso en este momento.'
+            );
+            return;
+        }
+
+        try {
+            const lyrics = await LyricsService.fetchLyrics(track, true);
+            if (lyrics) {
+                Alert.alert(t('actions.success') || 'Éxito', t('lyrics.search_success') || 'Letras encontradas e importadas correctamente.');
+            } else {
+                Alert.alert(t('actions.error') || 'Error', t('lyrics.search_not_found') || 'No se encontraron letras para esta canción en internet.');
+            }
+        } catch (e) {
+            console.error('Error searching lyrics online:', e);
+            Alert.alert(t('actions.error') || 'Error', t('lyrics.search_error') || 'Ocurrió un error al buscar las letras.');
         }
     };
 
@@ -426,9 +450,20 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const heartAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
 
     const renderContent = () => {
+        const emptyContainerStyle = [
+            styles.centered,
+            {
+                position: 'absolute' as const,
+                top: insets.top + 60,
+                bottom: bottomControlsHeight > 0 ? bottomControlsHeight : (insets.bottom + 240),
+                left: 0,
+                right: 0,
+            }
+        ];
+
         if (isLoading) {
             return (
-                <View style={styles.centered}>
+                <View style={emptyContainerStyle}>
                     <ActivityIndicator size="large" color={colors.accent} />
                     <Text style={styles.stateText}>{t('audio_effects.lyrics_searching') || 'Buscando letras...'}</Text>
                 </View>
@@ -437,12 +472,21 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
         if (!lyricsText) {
             return (
-                <View style={styles.centered}>
+                <View style={emptyContainerStyle}>
                     <Ionicons name="mic-off-outline" size={72} color={colors.textSecondary} style={{ marginBottom: 20 }} />
                     <Text style={styles.stateText}>{t('audio_effects.lyrics_not_found') || 'No se encontraron letras'}</Text>
-                    <TouchableOpacity onPress={handleImportLRC} style={styles.importButton}>
+                    <TouchableOpacity onPress={handleImportLRC} style={styles.importButton} activeOpacity={0.8}>
                         <Ionicons name="cloud-upload-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
                         <Text style={styles.importButtonText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleRetrySearch}
+                        disabled={isLoading}
+                        style={[styles.importButton, { marginTop: 12 }]}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="search-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.importButtonText}>{t('lyrics.retry_search') || 'Reintentar búsqueda en internet'}</Text>
                     </TouchableOpacity>
                 </View>
             );
@@ -554,7 +598,15 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                 </TouchableOpacity>
             </View>
             {/* Absolute Bottom Controls */}
-            <View style={[styles.bottomContainer, { bottom: 0, paddingTop: 16, paddingBottom: insets.bottom + 20 }]}>
+            <View
+                onLayout={(e) => {
+                    const h = e.nativeEvent.layout.height;
+                    if (h > 0 && h !== bottomControlsHeight) {
+                        setBottomControlsHeight(h);
+                    }
+                }}
+                style={[styles.bottomContainer, { bottom: 0, paddingTop: 16, paddingBottom: insets.bottom + 20 }]}
+            >
 
                 {/* Progress Slider or Cast Remote Indicator */}
                 {isLocalCastActive ? (

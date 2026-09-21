@@ -26,7 +26,7 @@ export function useSyncedLyrics(track: Track | null) {
 
     useEffect(() => {
         if (!track) return;
-        if (track.lyricsLRC) {
+        if (track.lyricsLRC || track.lyricsFetchFailed) {
             setIsLocalLoading(false);
             return;
         }
@@ -47,7 +47,7 @@ export function useSyncedLyrics(track: Track | null) {
         return () => {
             isMounted = false;
         };
-    }, [track?.id]);
+    }, [track?.id, track?.lyricsLRC, track?.lyricsFetchFailed]);
 
     const lastIndexRef = useRef<number>(-1);
     const [activeIndex, setActiveIndex] = useState<number>(-1);
