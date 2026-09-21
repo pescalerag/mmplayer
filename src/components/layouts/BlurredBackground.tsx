@@ -23,11 +23,16 @@ const BlurredBackground = ({
         setHasError(false);
     }, [imageUrl]);
 
-    const showPlaceholder = !imageUrl || hasError;
+    const lastValidUriRef = React.useRef<string | null>(imageUrl || null);
+    if (imageUrl) {
+        lastValidUriRef.current = imageUrl;
+    }
+    const effectiveUri = imageUrl || lastValidUriRef.current;
+    const showPlaceholder = !effectiveUri || hasError;
 
     const imageSource = React.useMemo(() =>
-        imageUrl ? { uri: imageUrl } : null
-        , [imageUrl]);
+        effectiveUri ? { uri: effectiveUri } : null
+        , [effectiveUri]);
 
     return (
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
@@ -36,7 +41,6 @@ const BlurredBackground = ({
             ) : (
                 <>
                     <Image
-                        key={imageUrl ?? 'none'}
                         source={imageSource}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"

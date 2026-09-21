@@ -410,7 +410,7 @@ export default function HomeScreen() {
                 }}
             >
                 <View style={[styles.headerRow, isProfileRight && { flexDirection: 'row-reverse' }]}>
-                    <View style={styles.profileCluster}>
+                    <View style={[styles.profileCluster, isProfileRight && { flexDirection: 'row-reverse' }]}>
                         <TouchableOpacity
                             style={styles.settingsButton}
                             onPress={() => navigation.navigate('Settings')}
