@@ -64,7 +64,7 @@ export const StatsWidget: React.FC = () => {
             <View style={styles.statDivider} />
 
             <View style={styles.statBox}>
-              <View style={styles.marqueeContainer}>
+              <View style={styles.marqueeContainer} collapsable={false}>
                 <MarqueeText
                   text={topArtist || t('activity.none')}
                   style={[styles.statValue, { fontFamily: fonts.regular, color: colors.accentLight, marginBottom: 0 }]}
@@ -82,7 +82,7 @@ export const StatsWidget: React.FC = () => {
           {/* ROW 2: Album & Song */}
           <View style={styles.row}>
             <View style={styles.statBox}>
-              <View style={styles.marqueeContainer}>
+              <View style={styles.marqueeContainer} collapsable={false}>
                 <MarqueeText
                   text={topAlbum || t('activity.none')}
                   style={[styles.statValue, { fontFamily: fonts.regular, color: colors.accentLight, marginBottom: 0 }]}
@@ -96,7 +96,7 @@ export const StatsWidget: React.FC = () => {
             <View style={styles.statDivider} />
 
             <View style={styles.statBox}>
-              <View style={styles.marqueeContainer}>
+              <View style={styles.marqueeContainer} collapsable={false}>
                 <MarqueeText
                   text={topSong || t('activity.none')}
                   style={[styles.statValue, { fontFamily: fonts.regular, color: colors.accentLight, marginBottom: 0 }]}

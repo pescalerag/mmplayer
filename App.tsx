@@ -38,7 +38,7 @@ import { MediaAssetService } from "./src/services/MediaAssetService";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { PurchasesService } from "./src/services/PurchasesService";
 import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
-SystemUI.setBackgroundColorAsync('#000000');
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -50,11 +50,25 @@ export default function App() {
   const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
 
   useEffect(() => {
+    const hideSplash = async () => {
+      if (AppState.currentState === 'active') {
+        await SplashScreen.hideAsync().catch(() => {});
+      } else {
+        const sub = AppState.addEventListener('change', (nextState) => {
+          if (nextState === 'active') {
+            sub.remove();
+            SplashScreen.hideAsync().catch(() => {});
+          }
+        });
+      }
+    };
+
     async function prepare() {
       try {
         if (Platform.OS === "android") {
-          await NavigationBar.setBackgroundColorAsync("black");
-          await NavigationBar.setButtonStyleAsync("light");
+          await NavigationBar.setBackgroundColorAsync("black").catch(() => {});
+          await NavigationBar.setButtonStyleAsync("light").catch(() => {});
+          await SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
         }
 
         await Font.loadAsync({
@@ -82,14 +96,14 @@ export default function App() {
         console.warn("Error en la inicialización:", e);
       } finally {
         setFontsLoaded(true);
-        await SplashScreen.hideAsync().catch(() => { });
+        await hideSplash();
       }
     }
-    prepare().catch((e: any) => {
+    prepare().catch(async (e: any) => {
       console.error("Error fatal en prepare():", e);
       setError(e?.message ?? "Error desconocido al arrancar");
       setFontsLoaded(true);
-      SplashScreen.hideAsync().catch(() => { });
+      await hideSplash();
     });
   }, []);
 
