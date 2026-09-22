@@ -18,7 +18,7 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity, GestureHandlerRootView } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
@@ -176,9 +176,15 @@ export default function QueueSheet() {
 
     const isReordering = useRef(false);
 
-    const recentTracks = queue.slice(0, activeIndex).reverse();
+    const recentTracks = React.useMemo(() => {
+        return queue.slice(0, activeIndex).reverse();
+    }, [queue, activeIndex]);
+
     // Muestra TODA la cola restante sin capas ni límites de 50
-    const upcomingTracks = queue.slice(activeIndex + 1);
+    const upcomingTracks = React.useMemo(() => {
+        return queue.slice(activeIndex + 1);
+    }, [queue, activeIndex]);
+
     const currentTrack = queue[activeIndex] ?? null;
 
     const totalUpcomingCount = Math.max(0, queue.length - (activeIndex + 1));
@@ -609,15 +615,15 @@ export default function QueueSheet() {
                 </View>
 
                 {activeTab === 'queue' ? (
-                    <View style={{ flex: 1, overflow: 'hidden' }}>
-                        <View style={{ backgroundColor: colors.background || Colors.background, zIndex: 10, elevation: 10 }}>
+                    <View style={{ flex: 1 }}>
+                        <View style={{ backgroundColor: colors.background || Colors.background, zIndex: 5, elevation: 5 }}>
                             {listHeader}
                             {Boolean(currentTrack) && <View style={[styles.separator, { marginBottom: 0 }]} />}
                         </View>
-                        <View style={{ flex: 1, overflow: 'hidden', backgroundColor: colors.background || Colors.background }}>
+                        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background || Colors.background }}>
                             <DraggableFlatList
                                 data={upcomingTracks}
-                                keyExtractor={(item) => item.id}
+                                keyExtractor={(item, index) => item?.id ? String(item.id) : `queue-item-${index}`}
                                 renderItem={renderQueueItem}
                                 onDragBegin={() => {
                                     isReordering.current = true;
@@ -628,12 +634,23 @@ export default function QueueSheet() {
                                     }, 400);
                                 }}
                                 onDragEnd={handleDragEnd}
-                                activationDistance={0}
-                                autoscrollThreshold={75}
-                                autoscrollSpeed={160}
+                                activationDistance={5}
+                                autoscrollThreshold={50}
+                                autoscrollSpeed={120}
                                 dragItemOverflow={false}
-                                containerStyle={{ flex: 1, overflow: 'hidden' }}
-                                style={{ flex: 1, overflow: 'hidden' }}
+                                bounces={false}
+                                overScrollMode="never"
+                                containerStyle={{ flex: 1 }}
+                                style={{ flex: 1 }}
+                                getItemLayout={(_data, index) => ({
+                                    length: ITEM_ROW_HEIGHT,
+                                    offset: ITEM_ROW_HEIGHT * index,
+                                    index,
+                                })}
+                                initialNumToRender={15}
+                                maxToRenderPerBatch={15}
+                                windowSize={21}
+                                extraData={queue}
                                 ListEmptyComponent={
                                     <View style={styles.emptyState}>
                                         <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
@@ -643,8 +660,8 @@ export default function QueueSheet() {
                                 contentContainerStyle={styles.queueListContent}
                                 showsVerticalScrollIndicator={false}
                             />
-                        </View>
-                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background || Colors.background, zIndex: 10, elevation: 10 }]}>
+                        </GestureHandlerRootView>
+                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background || Colors.background, zIndex: 5, elevation: 5 }]}>
                             <View style={[styles.separator, { marginTop: 6, marginBottom: 6 }]} />
                             <View style={styles.shuffleOnEndRow}>
                                 <View style={styles.shuffleOnEndLeft}>
@@ -915,7 +932,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 }]]}>
+        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 || Colors.accentAlpha10 }]]}>
             <GHTouchableOpacity
                 onLongPress={drag}
                 delayLongPress={60}
@@ -1137,7 +1154,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        overflow: 'hidden',
     },
     trackRowActive: {
         backgroundColor: Colors.accentAlpha10,
@@ -1221,6 +1237,7 @@ const styles = StyleSheet.create({
     },
     queueListContent: {
         paddingTop: 6,
+        paddingBottom: 24,
     },
     bottomFooterContainer: {
         width: '100%',

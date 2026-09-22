@@ -238,12 +238,17 @@
     "steps": {
       "options": {
         "title": "Track Options",
-        "desc": "Tap the three-dots menu to access advanced features: set Canvas background videos, view album and artist details, or edit metadata.",
-        "tip": "💡 Canvas videos play in a seamless loop, animating the entire player background."
+        "desc": "Tap the three-dots menu to access advanced features: view album and artist details, add to playlists, edit metadata, or assign Canvas videos.",
+        "tip": "💡 You can also quickly open these options by pressing and holding the album artwork."
+      },
+      "visualizer": {
+        "title": "Visualization Options",
+        "desc": "Tap the palette icon to customize player visuals: enable the real-time audio visualizer, switch between classic cover, spinning CD, or vinyl, and configure dynamic backgrounds.",
+        "tip": "💡 Turn on the reactive equalizer or vinyl mode for an immersive visual experience."
       },
       "cover": {
-        "title": "Artwork & Visualizer",
-        "desc": "Press and hold the cover to open visualizer options: switch between classic cover, spinning CD, vinyl, or the real-time audio visualizer. Tap once to toggle immersive mode.",
+        "title": "Artwork & Gestures",
+        "desc": "Press and hold the cover art to quickly open the track options menu (just like tapping the three dots). Tap once to toggle immersive mode.",
         "tip": "💡 Swipe left or right on the artwork to skip to the next or previous song."
       },
       "tags": {

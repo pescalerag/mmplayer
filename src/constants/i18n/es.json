@@ -238,12 +238,17 @@
     "steps": {
       "options": {
         "title": "Opciones de la Canción",
-        "desc": "Pulsa el menú de tres puntos para acceder a funciones avanzadas: establecer vídeos de fondo Canvas, ver detalles del álbum y artista, o editar metadatos.",
-        "tip": "💡 Los vídeos Canvas se reproducen en bucle continuo y animan todo el fondo del reproductor."
+        "desc": "Pulsa el menú de tres puntos para acceder a funciones avanzadas: ver detalles del álbum y artista, añadir a listas, editar metadatos o asignar vídeos Canvas.",
+        "tip": "💡 También puedes abrir rápidamente estas opciones manteniendo pulsada la carátula."
+      },
+      "visualizer": {
+        "title": "Opciones de Visualización",
+        "desc": "Toca el icono de la paleta para personalizar la vista del reproductor: activa el ecualizador reactivo en tiempo real, alterna entre carátula clásica, CD o vinilo giratorio, y configura fondos dinámicos.",
+        "tip": "💡 Activa el ecualizador reactivo o el modo vinilo para disfrutar de una experiencia visual envolvente."
       },
       "cover": {
-        "title": "Carátula y Modos Visuales",
-        "desc": "Mantén pulsada la carátula para abrir el menú de visualización y alternar entre carátula clásica, CD giratorio, vinilo o el ecualizador reactivo en tiempo real. Toca una vez para activar el modo inmersivo.",
+        "title": "Carátula y Gestos",
+        "desc": "Mantén pulsada la carátula para abrir rápidamente el menú de opciones de la canción (igual que con el botón de tres puntos). Toca una vez para alternar el modo inmersivo.",
         "tip": "💡 Desliza hacia la izquierda o derecha sobre la carátula para pasar a la siguiente canción o volver a la anterior."
       },
       "tags": {

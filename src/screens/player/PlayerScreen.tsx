@@ -347,6 +347,7 @@ const PlayerScreenUI = ({
 
     const rootRef = React.useRef<View>(null);
     const moreButtonRef = React.useRef<View>(null);
+    const visualizerButtonRef = React.useRef<View>(null);
     const artworkRef = React.useRef<View>(null);
     const tagsRef = React.useRef<View>(null);
     const actionsRef = React.useRef<View>(null);
@@ -360,6 +361,7 @@ const PlayerScreenUI = ({
     const queueRef = React.useRef<View>(null);
 
     const moreButtonLayout = React.useRef<any>(null);
+    const visualizerButtonLayout = React.useRef<any>(null);
     const artworkLayout = React.useRef<any>(null);
     const tagsLayout = React.useRef<any>(null);
     const actionsLayout = React.useRef<any>(null);
@@ -921,12 +923,23 @@ const PlayerScreenUI = ({
             hasTriggeredHaptic.value = false;
         });
 
+    const handleMorePress = () => {
+        openTrackMenu(track, {
+            album: (albumId: string) => {
+                navigation.navigate('AlbumDetail', { albumId });
+            },
+            artist: (artistId: string) => {
+                navigation.navigate('ArtistDetail', { artistId });
+            },
+        });
+    };
+
     const longPressGesture = Gesture.LongPress()
         .enabled(!isSheetOrModalOpen)
         .minDuration(450)
         .onStart(() => {
             runOnJS(triggerHaptic)();
-            runOnJS(openPlayerMenu)();
+            runOnJS(handleMorePress)();
         });
 
     const tapGesture = Gesture.Tap()
@@ -1037,16 +1050,6 @@ const PlayerScreenUI = ({
         }
     };
 
-    const handleMorePress = () => {
-        openTrackMenu(track, {
-            album: (albumId: string) => {
-                navigation.navigate('AlbumDetail', { albumId });
-            },
-            artist: (artistId: string) => {
-                navigation.navigate('ArtistDetail', { artistId });
-            },
-        });
-    };
 
     const handleArtistPress = () => {
         if (artists && artists.length > 1) {
@@ -1222,14 +1225,22 @@ const PlayerScreenUI = ({
                             <Ionicons name="chevron-down" size={32} color={colors.text} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            onPress={openPlayerMenu}
-                            style={styles.moreButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            accessibilityLabel={t('visualizer.menu_title') || 'Opciones de Visualización'}
+                        <View
+                            ref={visualizerButtonRef}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                visualizerButtonLayout.current = e.nativeEvent.layout;
+                            }}
                         >
-                            <Ionicons name="color-palette-outline" size={23} color={colors.text} />
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={openPlayerMenu}
+                                style={styles.moreButton}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityLabel={t('visualizer.menu_title') || 'Opciones de Visualización'}
+                            >
+                                <Ionicons name="color-palette-outline" size={23} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <TouchableOpacity
@@ -1872,6 +1883,7 @@ const PlayerScreenUI = ({
                 onClose={handleCloseTutorial}
                 rootRef={rootRef}
                 moreButtonRef={moreButtonRef}
+                visualizerButtonRef={visualizerButtonRef}
                 artworkRef={artworkRef}
                 tagsRef={tagsRef}
                 actionsRef={actionsRef}
@@ -1884,6 +1896,7 @@ const PlayerScreenUI = ({
                 shareRef={shareRef}
                 queueRef={queueRef}
                 moreButtonLayout={moreButtonLayout}
+                visualizerButtonLayout={visualizerButtonLayout}
                 artworkLayout={artworkLayout}
                 tagsLayout={tagsLayout}
                 actionsLayout={actionsLayout}
