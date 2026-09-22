@@ -623,7 +623,10 @@
     "save_manual_to_playlist": "Add manual queue only",
     "clear_all_upcoming": "Clear all upcoming tracks",
     "shuffle_on_end": "Shuffle playback when queue ends",
-    "random_autoplay_started": "Queue ended: starting random playback"
+    "random_autoplay_started": "Queue ended: starting random playback",
+    "track_removed": "Removed a song from the queue",
+    "tracks_removed": "Removed {{count}} songs from the queue",
+    "undo": "Undo"
   },
   "playlist": {
     "new": "New playlist",
@@ -778,7 +781,10 @@
     "chromecast_sync_error": "Error syncing with Chromecast: {{error}}",
     "chromecast_connection_failed": "Failed to connect to Chromecast: {{error}}",
     "chromecast_prepare_error": "Could not prepare audio file for casting.",
-    "chromecast_load_error": "Error loading on Chromecast: {{error}}"
+    "chromecast_load_error": "Error loading on Chromecast: {{error}}",
+    "track_removed_from_queue": "Removed a song from the queue",
+    "tracks_removed_from_queue": "Removed {{count}} songs from the queue",
+    "undo": "Undo"
   },
   "changelog": {
     "history_title": "Version History",

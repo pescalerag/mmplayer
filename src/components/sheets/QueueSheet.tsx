@@ -31,6 +31,7 @@ import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
+import { useToastStore } from '../../store/useToastStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -42,6 +43,15 @@ const TAB_WIDTH = (width - 48 - 110) / 2;
 const ITEM_ROW_HEIGHT = 72; // Altura fija para optimizar getItemLayout
 
 type ActiveTab = 'queue' | 'recent';
+
+interface DeletedQueueItem {
+    track: TPTrack;
+    index: number;
+    isUserQueued: boolean;
+}
+
+let deletedQueueStack: DeletedQueueItem[] = [];
+let undoDeletionTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export default function QueueSheet() {
     const { colors } = useAppTheme();
@@ -318,8 +328,15 @@ export default function QueueSheet() {
         }
     }, [setActiveIndex]);
 
-    const handleRemove = React.useCallback(async (globalIndex: number, isUserQueued: boolean) => {
+    const handleRemove = React.useCallback(async (trackToRemove: TPTrack, globalIndex: number, isUserQueued: boolean) => {
         try {
+            // Guardar en la pila para deshacer
+            deletedQueueStack.push({
+                track: trackToRemove,
+                index: globalIndex,
+                isUserQueued,
+            });
+
             await TrackPlayer.remove(globalIndex);
             if (isUserQueued) decrementUserQueue();
             const [fullQueue, idx] = await Promise.all([
@@ -331,10 +348,90 @@ export default function QueueSheet() {
 
             await usePlayerStore.getState().updateQueueStatus(idx ?? undefined);
             await usePlayerStore.getState().savePlaybackState();
+
+            if (undoDeletionTimeout) {
+                clearTimeout(undoDeletionTimeout);
+            }
+
+            const TOAST_DURATION = 3000;
+            undoDeletionTimeout = setTimeout(() => {
+                deletedQueueStack = [];
+                undoDeletionTimeout = null;
+            }, TOAST_DURATION);
+
+            const count = deletedQueueStack.length;
+            const message = count === 1
+                ? t('queue.track_removed', 'Has eliminado una canción de la cola')
+                : t('queue.tracks_removed', { count, defaultValue: `Has eliminado ${count} canciones de la cola` });
+
+            useToastStore.getState().showToast(
+                message,
+                'close-circle',
+                '#EF4444',
+                {
+                    text: t('queue.undo', 'Deshacer'),
+                    color: colors.accentLight || colors.accent || '#8B5CF6',
+                    onPress: async () => {
+                        if (undoDeletionTimeout) {
+                            clearTimeout(undoDeletionTimeout);
+                            undoDeletionTimeout = null;
+                        }
+
+                        const itemsToRestore = [...deletedQueueStack];
+                        deletedQueueStack = [];
+
+                        let userQueuedRestored = 0;
+                        // Restaurar en orden LIFO para conservar exactamente los índices originales
+                        for (let i = itemsToRestore.length - 1; i >= 0; i--) {
+                            const item = itemsToRestore[i];
+                            try {
+                                const currentQ = await TrackPlayer.getQueue();
+                                const targetIdx = Math.min(item.index, currentQ.length);
+                                await TrackPlayer.add([item.track], targetIdx);
+                                if (item.isUserQueued) {
+                                    userQueuedRestored++;
+                                }
+                            } catch (err) {
+                                console.error('Error al restaurar canción en la cola:', err);
+                            }
+                        }
+
+                        if (userQueuedRestored > 0) {
+                            usePlayerStore.setState((state) => ({
+                                userQueueSize: state.userQueueSize + userQueuedRestored,
+                            }));
+                        }
+
+                        const [restoredQueue, restoredIdx] = await Promise.all([
+                            TrackPlayer.getQueue(),
+                            TrackPlayer.getActiveTrackIndex(),
+                        ]);
+                        setQueue(restoredQueue);
+                        if (restoredIdx !== undefined && restoredIdx !== null) setActiveIndex(restoredIdx);
+
+                        usePlayerStore.setState((state) => ({
+                            queueVersion: (state.queueVersion || 0) + 1,
+                            windowVersion: (state.windowVersion || 0) + 1,
+                        }));
+                        await usePlayerStore.getState().updateQueueStatus(restoredIdx ?? undefined);
+                        await usePlayerStore.getState().savePlaybackState();
+                    },
+                },
+                TOAST_DURATION
+            );
         } catch (error) {
             console.error('Error removing track:', error);
         }
-    }, [decrementUserQueue]);
+    }, [decrementUserQueue, colors.accent, colors.accentLight, t]);
+
+    const clearUndoState = React.useCallback(() => {
+        if (undoDeletionTimeout) {
+            clearTimeout(undoDeletionTimeout);
+            undoDeletionTimeout = null;
+        }
+        deletedQueueStack = [];
+        useToastStore.getState().hideToast();
+    }, []);
 
     const handleTrashPress = () => {
         setShowTrashMenu(true);
@@ -605,6 +702,7 @@ export default function QueueSheet() {
                                             style={styles.trashMenuButton}
                                             onPress={async () => {
                                                 setShowTrashMenu(false);
+                                                clearUndoState();
                                                 await clearUserQueue();
                                                 const [fullQueue, idx] = await Promise.all([
                                                     TrackPlayer.getQueue(),
@@ -626,6 +724,7 @@ export default function QueueSheet() {
                                             style={styles.trashMenuButton}
                                             onPress={async () => {
                                                 setShowTrashMenu(false);
+                                                clearUndoState();
                                                 await clearContextQueue();
                                                 const [fullQueue, idx] = await Promise.all([
                                                     TrackPlayer.getQueue(),
@@ -646,6 +745,7 @@ export default function QueueSheet() {
                                         style={styles.trashMenuButton}
                                         onPress={async () => {
                                             setShowTrashMenu(false);
+                                            clearUndoState();
                                             await clearPlayer();
                                             closeQueue();
                                         }}
@@ -796,7 +896,7 @@ interface QueueTrackRowProps {
     activeIndex: number;
     userQueueSize: number;
     onSkip: (globalIndex: number) => void;
-    onRemove: (globalIndex: number, isUserQueued: boolean) => void;
+    onRemove: (track: TPTrack, globalIndex: number, isUserQueued: boolean) => void;
     drag?: () => void;
     isActive?: boolean;
     colors: ReturnType<typeof useAppTheme>['colors'];
@@ -859,7 +959,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
 
             <TouchableOpacity
                 style={styles.removeButton}
-                onPress={() => onRemove(globalIndex, isUserQueued)}
+                onPress={() => onRemove(item, globalIndex, isUserQueued)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 disabled={isActive}
             >

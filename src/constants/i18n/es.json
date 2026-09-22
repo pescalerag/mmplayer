@@ -623,7 +623,10 @@
     "save_manual_to_playlist": "Añadir solo cola manual",
     "clear_all_upcoming": "Borrar toda la cola restante",
     "shuffle_on_end": "Reproducción aleatoria al finalizar la cola",
-    "random_autoplay_started": "Cola finalizada: iniciando reproducción aleatoria"
+    "random_autoplay_started": "Cola finalizada: iniciando reproducción aleatoria",
+    "track_removed": "Has eliminado una canción de la cola",
+    "tracks_removed": "Has eliminado {{count}} canciones de la cola",
+    "undo": "Deshacer"
   },
   "playlist": {
     "new": "Nueva playlist",
@@ -778,7 +781,10 @@
     "chromecast_sync_error": "Error al sincronizar con Chromecast: {{error}}",
     "chromecast_connection_failed": "Fallo al conectar con Chromecast: {{error}}",
     "chromecast_prepare_error": "No se pudo preparar el archivo de audio para transmitir.",
-    "chromecast_load_error": "Error al cargar en Chromecast: {{error}}"
+    "chromecast_load_error": "Error al cargar en Chromecast: {{error}}",
+    "track_removed_from_queue": "Has eliminado una canción de la cola",
+    "tracks_removed_from_queue": "Has eliminado {{count}} canciones de la cola",
+    "undo": "Deshacer"
   },
   "changelog": {
     "history_title": "Historial de versiones",

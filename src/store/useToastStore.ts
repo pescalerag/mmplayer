@@ -1,11 +1,24 @@
 import { create } from 'zustand';
 
+export interface ToastAction {
+    text: string;
+    onPress: () => void;
+    color?: string;
+}
+
 interface ToastState {
     visible: boolean;
     message: string;
     icon: string;
     color: string;
-    showToast: (message: string, icon?: string, color?: string) => void;
+    action?: ToastAction | null;
+    showToast: (
+        message: string,
+        icon?: string,
+        color?: string,
+        action?: ToastAction | null,
+        duration?: number
+    ) => void;
     hideToast: () => void;
 }
 
@@ -16,17 +29,24 @@ export const useToastStore = create<ToastState>((set) => ({
     message: '',
     icon: 'checkmark-circle',
     color: '#22C55E', // Default to green
-    showToast: (message, icon = 'checkmark-circle', color = '#22C55E') => {
+    action: null,
+    showToast: (
+        message,
+        icon = 'checkmark-circle',
+        color = '#22C55E',
+        action = null,
+        duration = 2500
+    ) => {
         if (timeoutId) clearTimeout(timeoutId);
-        
-        set({ visible: true, message, icon, color });
-        
+
+        set({ visible: true, message, icon, color, action });
+
         timeoutId = setTimeout(() => {
-            set({ visible: false });
-        }, 2500);
+            set({ visible: false, action: null });
+        }, duration);
     },
     hideToast: () => {
         if (timeoutId) clearTimeout(timeoutId);
-        set({ visible: false });
+        set({ visible: false, action: null });
     },
 }));

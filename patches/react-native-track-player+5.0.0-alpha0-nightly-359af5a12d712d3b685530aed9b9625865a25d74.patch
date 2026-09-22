@@ -10,66 +10,6 @@ index 0000000..bbe97e5
 +	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
 +	<classpathentry kind="output" path="bin/default"/>
 +</classpath>
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock b/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock
-new file mode 100644
-index 0000000..c475e41
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/dependencies-accessors/gc.properties b/node_modules/react-native-track-player/android/.gradle/8.9/dependencies-accessors/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin b/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin
-new file mode 100644
-index 0000000..f76dd23
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock b/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock
-new file mode 100644
-index 0000000..86b972e
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/gc.properties b/node_modules/react-native-track-player/android/.gradle/8.9/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/checksums.lock b/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/checksums.lock
-new file mode 100644
-index 0000000..b6b63ad
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/checksums.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/md5-checksums.bin b/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/md5-checksums.bin
-new file mode 100644
-index 0000000..176723d
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/md5-checksums.bin differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/sha1-checksums.bin b/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/sha1-checksums.bin
-new file mode 100644
-index 0000000..5bd2d54
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/9.2.0/checksums/sha1-checksums.bin differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/fileChanges/last-build.bin b/node_modules/react-native-track-player/android/.gradle/9.2.0/fileChanges/last-build.bin
-new file mode 100644
-index 0000000..f76dd23
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/9.2.0/fileChanges/last-build.bin differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/fileHashes/fileHashes.bin b/node_modules/react-native-track-player/android/.gradle/9.2.0/fileHashes/fileHashes.bin
-new file mode 100644
-index 0000000..ce9d58b
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/9.2.0/fileHashes/fileHashes.bin differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/fileHashes/fileHashes.lock b/node_modules/react-native-track-player/android/.gradle/9.2.0/fileHashes/fileHashes.lock
-new file mode 100644
-index 0000000..70fbb0f
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/9.2.0/fileHashes/fileHashes.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/9.2.0/gc.properties b/node_modules/react-native-track-player/android/.gradle/9.2.0/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
-new file mode 100644
-index 0000000..5c7e50a
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties
-new file mode 100644
-index 0000000..8585651
---- /dev/null
-+++ b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties
-@@ -0,0 +1,2 @@
-+#Mon Sep 21 20:30:37 CEST 2026
-+gradle.version=8.9
-diff --git a/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties b/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties
-new file mode 100644
-index 0000000..e69de29
 diff --git a/node_modules/react-native-track-player/android/.project b/node_modules/react-native-track-player/android/.project
 new file mode 100644
 index 0000000..52e8720
@@ -257,7 +197,7 @@ index 13a6c60..6a6862b 100644
          if (verifyServiceBoundOrReject(callback)) return@launchInScope
  
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..a0e574f 100644
+index b495b5a..d748317 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture
@@ -367,17 +307,41 @@ index b495b5a..a0e574f 100644
          }
  
          progressUpdateJob?.cancel()
-@@ -905,8 +956,10 @@ class MusicService : HeadlessJsMediaService() {
+@@ -905,24 +956,16 @@ class MusicService : HeadlessJsMediaService() {
                      onStartCommand(null, 0, 0)
                  }
              }
-+            val isSystemUi = controller.packageName == "com.android.systemui"
-             return if (
-                 isMediaNotificationController ||
-+                isSystemUi ||
-                 isAutomotiveController ||
-                 isAutoCompanionController
-             ) {
+-            return if (
+-                isMediaNotificationController ||
+-                isAutomotiveController ||
+-                isAutoCompanionController
+-            ) {
+-                MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+-                    .setCustomLayout(customLayout)
+-                    .setAvailableSessionCommands(
+-                        sessionCommands
+-                            ?: MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+-                    )
+-                    .setAvailablePlayerCommands(
+-                        playerCommands ?: MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+-                    )
+-                    .build()
+-            } else {
+-                super.onConnect(session, controller)
+-            }
++            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
++                .setCustomLayout(customLayout)
++                .setAvailableSessionCommands(
++                    sessionCommands
++                        ?: MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
++                )
++                .setAvailablePlayerCommands(
++                    playerCommands ?: MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
++                )
++                .build()
+         }
+ 
+         override fun onCustomCommand(
 diff --git a/node_modules/react-native-track-player/lib/module/trackPlayer.js b/node_modules/react-native-track-player/lib/module/trackPlayer.js
 index d748072..b549a5d 100644
 --- a/node_modules/react-native-track-player/lib/module/trackPlayer.js

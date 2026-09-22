@@ -127,6 +127,31 @@ export const PlaybackService = async function () {
     }
   });
 
+  TrackPlayer.addEventListener(Event.RemoteJumpForward, async () => {
+    console.log("[PlaybackService] Event.RemoteJumpForward triggered -> skipToNext");
+    if (usePlayerStore.getState().isSyncingLyrics) {
+      return;
+    }
+    await usePlayerStore.getState().skipToNext();
+  });
+
+  TrackPlayer.addEventListener(Event.RemoteJumpBackward, async () => {
+    console.log("[PlaybackService] Event.RemoteJumpBackward triggered -> skipToPrevious");
+    if (usePlayerStore.getState().isSyncingLyrics) {
+      return;
+    }
+    try {
+      const { position } = await TrackPlayer.getProgress();
+      if (position > SKIP_PREVIOUS_THRESHOLD) {
+        await TrackPlayer.seekTo(0);
+      } else {
+        await TrackPlayer.skipToPrevious();
+      }
+    } catch (e) {
+      console.log('Error in RemoteJumpBackward', e);
+    }
+  });
+
   TrackPlayer.addEventListener(Event.RemoteStop, async () => {
     try {
       await TrackPlayer.pause();
