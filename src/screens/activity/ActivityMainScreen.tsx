@@ -515,10 +515,10 @@ export default function ActivityMainScreen() {
     : t('activity.global_highlights');
 
   return (
-    <View ref={rootRef} style={styles.root}>
+    <View ref={rootRef} style={[styles.root, { backgroundColor: colors.background }]}>
       {/* BACKGROUND GRADIENT */}
       <LinearGradient
-        colors={[colors.accentAlpha15, colors.cardBackground]}
+        colors={[colors.accentAlpha15, 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -1147,7 +1147,7 @@ export default function ActivityMainScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

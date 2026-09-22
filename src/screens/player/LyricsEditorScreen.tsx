@@ -19,7 +19,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { LyricsService } from '../../services/LyricsService';
 
 export default function LyricsEditorScreen() {
-    const { colors, fonts, fontWeights, spacing } = useAppTheme();
+    const { colors, fonts, fontWeights, spacing } = useAppTheme({ ignoreTheme: true });
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { t } = useTranslation();

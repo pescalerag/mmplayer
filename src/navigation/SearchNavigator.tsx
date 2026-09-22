@@ -17,7 +17,7 @@ export default function SearchNavigator() {
         <Stack.Navigator screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
-            contentStyle: { backgroundColor: '#121212' },
+            contentStyle: { backgroundColor: 'transparent' },
             freezeOnBlur: false
         }}>
             <Stack.Screen name="Search" component={SearchScreen} />

@@ -20,6 +20,7 @@ export default function SettingsNavigator() {
         <Stack.Navigator screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
+            contentStyle: { backgroundColor: 'transparent' },
             freezeOnBlur: false
         }}>
             <Stack.Screen name="Settings" component={SettingsScreen} />

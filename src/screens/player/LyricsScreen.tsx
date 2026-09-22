@@ -181,7 +181,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
-    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
 
     const [extractedColor, setExtractedColor] = React.useState<string | null>(null);
 

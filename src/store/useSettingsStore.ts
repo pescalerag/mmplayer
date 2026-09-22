@@ -7,6 +7,7 @@ import i18n from '../constants/i18n';
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
 export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 export type LocalCastTheme = 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
+export type AppTheme = 'none' | 'legendary';
 
 interface SettingsState {
     userTier: UserTier;
@@ -19,6 +20,8 @@ interface SettingsState {
     setLocalCastTheme: (theme: LocalCastTheme) => void;
     customAccentColor: string | null;
     setCustomAccentColor: (color: string | null) => void;
+    activeAppTheme: AppTheme;
+    setActiveAppTheme: (theme: AppTheme) => void;
     hasOrphanedUpgrade: boolean;
     setHasOrphanedUpgrade: (val: boolean) => void;
     showTagColors: boolean;
@@ -215,6 +218,8 @@ export const useSettingsStore = create<SettingsState>()(
             setLocalCastTheme: (theme) => set({ localCastTheme: theme }),
             customAccentColor: null,
             setCustomAccentColor: (color) => set({ customAccentColor: color }),
+            activeAppTheme: 'none',
+            setActiveAppTheme: (theme) => set({ activeAppTheme: theme }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],

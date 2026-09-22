@@ -9,8 +9,8 @@ import ColorPicker, {
     Panel1,
     Swatches,
 } from 'reanimated-color-picker';
-import { useSettingsStore, StatsCardTheme, LocalCastTheme } from '../../store/useSettingsStore';
-import { useAppTheme } from '../../hooks/useAppTheme';
+import { useSettingsStore, StatsCardTheme, LocalCastTheme, AppTheme } from '../../store/useSettingsStore';
+import { useAppTheme, LEGENDARY_ACCENT } from '../../hooks/useAppTheme';
 import { getDynamicTagTextColor } from '../../utils/color';
 
 // Using require to safely handle the dynamic import if not installed fully native
@@ -260,6 +260,9 @@ export default function BenefitsView() {
     const activeCustomAccent = useSettingsStore(state => state.customAccentColor);
     const setStoreCustomAccent = useSettingsStore(state => state.setCustomAccentColor);
 
+    const activeAppTheme = useSettingsStore(state => state.activeAppTheme) || 'none';
+    const setStoreAppTheme = useSettingsStore(state => state.setActiveAppTheme);
+
     // Hierarchy: VIP unlocks both SUPPORTER and VIP benefits
     const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
     const isVip = userTier === 'VIP';
@@ -278,6 +281,11 @@ export default function BenefitsView() {
                 t('support.vip_benefits_locked_desc')
             );
             return;
+        }
+
+        // Selecting a custom accent manually deactivates any active app theme
+        if (activeAppTheme !== 'none') {
+            setStoreAppTheme('none');
         }
 
         const targetColor = hexColor.toUpperCase() === '#8B5CF6' ? null : hexColor;
@@ -311,6 +319,11 @@ export default function BenefitsView() {
                 t('support.benefits_locked_desc')
             );
             return;
+        }
+
+        // Manually selecting an icon deactivates any active app theme
+        if (activeAppTheme !== 'none') {
+            setStoreAppTheme('none');
         }
 
         try {
@@ -364,6 +377,47 @@ export default function BenefitsView() {
         Alert.alert(
             t('common.success'),
             t('support.localcast_theme_updated_success')
+        );
+    };
+
+    const handleAppThemeSelect = async (themeId: AppTheme) => {
+        if (!isSupporterOrVIP) {
+            Alert.alert(
+                t('support.benefits_locked_title'),
+                t('support.benefits_locked_desc')
+            );
+            return;
+        }
+
+        setStoreAppTheme(themeId);
+
+        // When legendary theme is activated, also apply the legend icon
+        if (themeId === 'legendary') {
+            try {
+                if (Platform.OS === 'android' || Platform.OS === 'ios') {
+                    await setAppIcon('legend', false);
+                }
+                setStoreAppIcon('legend');
+                // Disable custom accent color (theme overrides it)
+                setStoreCustomAccent(null);
+            } catch (e) {
+                console.warn('Could not set legend icon:', e);
+            }
+        } else if (themeId === 'none') {
+            // Restore default icon when theme is deactivated
+            try {
+                if (Platform.OS === 'android' || Platform.OS === 'ios') {
+                    await setAppIcon(null, false);
+                }
+                setStoreAppIcon('DEFAULT');
+            } catch (e) {
+                console.warn('Could not reset icon:', e);
+            }
+        }
+
+        Alert.alert(
+            t('common.success'),
+            t('support.app_theme_updated_success')
         );
     };
 
@@ -436,7 +490,116 @@ export default function BenefitsView() {
             </View>
 
             {/* ========================================================================= */}
-            {/* 2. SECCIÓN VIP: COLOR DE ACENTO DE LA APP                                 */}
+            {/* 1b. SECCIÓN SUPPORTER: TEMA DE LA APLICACIÓN                             */}
+            {/* ========================================================================= */}
+            <View style={styles.supporterCard}>
+                <View style={styles.badgeContainer}>
+                    <Ionicons name="heart" size={12} color="#2DD4BF" style={{ marginRight: 4 }} />
+                    <Text style={styles.badgeText}>{t('support.supporter.badge')}</Text>
+                </View>
+
+                <View style={styles.header}>
+                    <MaterialCommunityIcons name="palette-swatch-outline" size={24} color="#2DD4BF" style={{ marginRight: 8 }} />
+                    <Text style={[styles.title, { color: colors.text, fontFamily: fonts.bold }]}>
+                        {t('support.app_theme_title')}
+                    </Text>
+                </View>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                    {t('support.app_theme_subtitle')}
+                </Text>
+
+                {/* Active theme info chip */}
+                {activeAppTheme === 'legendary' && (
+                    <View style={styles.themeActiveChip}>
+                        <MaterialCommunityIcons name="crown" size={13} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
+                        <Text style={styles.themeActiveChipText}>{t('support.app_theme_active')}: {t('support.app_theme_legendary').toUpperCase()}</Text>
+                    </View>
+                )}
+
+                <View style={styles.grid}>
+                    {/* Option: No Theme */}
+                    {(() => {
+                        const isActive = activeAppTheme === 'none';
+                        return (
+                            <TouchableOpacity
+                                style={[
+                                    styles.itemCard,
+                                    { backgroundColor: colors.cardBackground },
+                                    isActive && { borderColor: '#2DD4BF', borderWidth: 2 }
+                                ]}
+                                activeOpacity={0.7}
+                                onPress={() => handleAppThemeSelect('none')}
+                            >
+                                <View style={[styles.previewWrapper, { backgroundColor: '#0F0F0F', borderRadius: 16 }]}>
+                                    <MaterialCommunityIcons name="theme-light-dark" size={36} color="#555" />
+                                </View>
+                                <Text style={[styles.itemName, { color: colors.text }, isActive && { color: '#2DD4BF', fontFamily: fonts.bold }]}>
+                                    {t('support.app_theme_none')}
+                                </Text>
+                                <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={1}>
+                                    {t('support.app_theme_none_desc')}
+                                </Text>
+                                {isActive && (
+                                    <View style={styles.activeBadge}>
+                                        <Ionicons name="checkmark-circle" size={20} color="#2DD4BF" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })()}
+
+                    {/* Option: Legendary Theme */}
+                    {(() => {
+                        const isActive = activeAppTheme === 'legendary';
+                        const isLocked = !isSupporterOrVIP;
+                        return (
+                            <TouchableOpacity
+                                style={[
+                                    styles.itemCard,
+                                    { backgroundColor: colors.cardBackground },
+                                    isActive && { borderColor: LEGENDARY_ACCENT, borderWidth: 2 }
+                                ]}
+                                activeOpacity={0.7}
+                                onPress={() => handleAppThemeSelect('legendary')}
+                            >
+                                <View style={styles.previewWrapper}>
+                                    <LinearGradient
+                                        colors={['#2A1604', '#78350F', LEGENDARY_ACCENT]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={[styles.themePreviewBox]}
+                                    >
+                                        <Image
+                                            source={require('../../assets/images/android-icon-legend.png')}
+                                            style={styles.themePreviewIcon}
+                                        />
+                                    </LinearGradient>
+                                    {isLocked && (
+                                        <View style={styles.lockedOverlay}>
+                                            <View style={styles.lockIconContainer}>
+                                                <MaterialCommunityIcons name="lock" size={20} color="#FFFFFF" />
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                                <Text style={[styles.itemName, { color: colors.text }, isActive && { color: LEGENDARY_ACCENT, fontFamily: fonts.bold }]}>
+                                    {t('support.app_theme_legendary')}
+                                </Text>
+                                <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={1}>
+                                    {t('support.app_theme_legendary_desc')}
+                                </Text>
+                                {isActive && (
+                                    <View style={styles.activeBadge}>
+                                        <Ionicons name="checkmark-circle" size={20} color={LEGENDARY_ACCENT} />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })()}
+                </View>
+            </View>
+
+
             {/* ========================================================================= */}
             <View style={styles.vipCard}>
                 <LinearGradient
@@ -460,6 +623,16 @@ export default function BenefitsView() {
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                     {t('support.accent_color_subtitle')}
                 </Text>
+
+                {/* Legendary theme override notice */}
+                {activeAppTheme === 'legendary' && (
+                    <View style={styles.themeOverrideNotice}>
+                        <MaterialCommunityIcons name="information-outline" size={14} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
+                        <Text style={styles.themeOverrideNoticeText}>
+                            {t('support.app_theme_active')} — {t('support.app_theme_legendary')}
+                        </Text>
+                    </View>
+                )}
 
                 {/* Active Accent Summary Chip */}
                 <View style={[styles.activeAccentRow, { backgroundColor: colors.cardBackground }]}>
@@ -1171,5 +1344,55 @@ const styles = StyleSheet.create({
     applyAccentBtnText: {
         fontSize: 14,
         fontWeight: '800',
+    },
+    // App Theme Styles
+    themePreviewBox: {
+        width: 72,
+        height: 72,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    themePreviewIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 10,
+    },
+    themeActiveChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245, 184, 0, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 184, 0, 0.35)',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        alignSelf: 'flex-start',
+        marginBottom: 14,
+    },
+    themeActiveChipText: {
+        color: '#F5B800',
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
+    themeOverrideNotice: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245, 184, 0, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 184, 0, 0.25)',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        marginBottom: 12,
+    },
+    themeOverrideNoticeText: {
+        color: '#F5B800',
+        fontSize: 12,
+        fontWeight: '600',
+        flex: 1,
     },
 });

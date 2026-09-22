@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
+  ImageBackground,
   Platform,
   StyleSheet,
   Text,
@@ -32,14 +33,21 @@ import { navigationRef } from "./src/navigation/navigationRef";
 import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { useSettingsStore } from "./src/store/useSettingsStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { PurchasesService } from "./src/services/PurchasesService";
+import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
 SystemUI.setBackgroundColorAsync('#000000');
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
+  const userTier = useSettingsStore(state => state.userTier);
+  const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
+  const isLegendaryTheme = activeAppTheme === 'legendary' && isSupporterOrVIP;
+  const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
 
   useEffect(() => {
     async function prepare() {
@@ -163,19 +171,23 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: "#000000" }}>
+      <ImageBackground
+        source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
+        style={{ flex: 1, backgroundColor: "#000000" }}
+        imageStyle={{ resizeMode: 'cover' }}
+      >
         <TrackPlayerSync />
         <NavigationContainer
           ref={navigationRef}
           theme={{
             dark: true,
             colors: {
-              primary: "#8B5CF6",
-              background: "#000000",
-              card: "#121212",
+              primary: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
+              background: isLegendaryTheme ? "transparent" : "#000000",
+              card: isLegendaryTheme ? "transparent" : "#121212",
               text: "#FFFFFF",
-              border: "#282828",
-              notification: "#8B5CF6",
+              border: isLegendaryTheme ? "rgba(245, 184, 0, 0.25)" : "#282828",
+              notification: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
             },
             fonts: {
               regular: { fontFamily: "Montserrat", fontWeight: "400" },
@@ -198,7 +210,7 @@ export default function App() {
           <ZipProgressModal />
           <TagFormModal />
         </NavigationContainer>
-      </View>
+      </ImageBackground>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -159,5 +159,17 @@
         <data android:scheme="mmplayer"/>
       </intent-filter>
     </activity-alias>
+    <activity-alias android:name="com.pescalerag.mmplayer.MainActivitylegend" android:enabled="false" android:exported="true" android:icon="@mipmap/legend" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/legend_round">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="mmplayer"/>
+      </intent-filter>
+    </activity-alias>
   </application>
 </manifest>

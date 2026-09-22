@@ -311,7 +311,7 @@ PlayerArtwork.displayName = 'PlayerArtwork';
 const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
 }: PlayerScreenUIProps) => {
-    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const openQueue = openQueueSheet;
