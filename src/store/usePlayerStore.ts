@@ -122,6 +122,7 @@ interface PlayerState {
   windowVersion: number;
   updateTrackMetadata: (trackId: string) => Promise<void>;
   refreshRecentsFromDatabase: () => Promise<void>;
+  syncWithTrackPlayer: () => Promise<void>;
 }
 
 export type RecentItem = {
@@ -554,6 +555,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({ activeTrack: track, activeTrackInstanceId: instId });
     } catch (error) {
       console.error("Error setting active track by ID:", error);
+    }
+  },
+
+  syncWithTrackPlayer: async () => {
+    try {
+      const [activeTP, activeIndex] = await Promise.all([
+        TrackPlayer.getActiveTrack(),
+        TrackPlayer.getActiveTrackIndex(),
+      ]);
+
+      let targetTP = activeTP;
+      if (!targetTP && activeIndex !== undefined && activeIndex !== null) {
+        const queue = await TrackPlayer.getQueue();
+        targetTP = queue[activeIndex] || null;
+      }
+
+      if (targetTP?.id) {
+        const cleanId = targetTP.id.toString().split('-')[0];
+        const current = get().activeTrack;
+        const instId = (targetTP as any)?.instanceId || (targetTP.id.includes('-') ? targetTP.id.substring(cleanId.length + 1) : null);
+
+        if (!current || current.id.toString() !== cleanId) {
+          const track = await database.get<Track>("tracks").find(cleanId);
+          set({
+            activeTrack: track,
+            activeTrackInstanceId: instId,
+            queueVersion: get().queueVersion + 1,
+            windowVersion: get().windowVersion + 1,
+          });
+        }
+      }
+
+      if (activeIndex !== undefined && activeIndex !== null) {
+        await get().updateQueueStatus(activeIndex);
+      }
+    } catch (e) {
+      console.error("[usePlayerStore] Error en syncWithTrackPlayer:", e);
     }
   },
 

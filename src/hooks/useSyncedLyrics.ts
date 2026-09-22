@@ -11,6 +11,18 @@ const sanitizePos = (pos: any): number => {
 };
 
 export function useSyncedLyrics(track: Track | null) {
+    const [prevTrackId, setPrevTrackId] = useState<string | null>(track?.id ?? null);
+    const [activeIndex, setActiveIndex] = useState<number>(-1);
+
+    // Synchronous reset during render if track changes so that new track lyrics
+    // never get indexed with the previous track's activeIndex for even a single frame
+    let effectiveActiveIndex = activeIndex;
+    if (track?.id !== prevTrackId) {
+        setPrevTrackId(track?.id ?? null);
+        setActiveIndex(-1);
+        effectiveActiveIndex = -1;
+    }
+
     const [isLocalLoading, setIsLocalLoading] = useState(false);
     const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
     const speed = usePlayerStore(state => state.playbackSpeed);
@@ -50,8 +62,8 @@ export function useSyncedLyrics(track: Track | null) {
     }, [track?.id, track?.lyricsLRC, track?.lyricsFetchFailed]);
 
     const lastIndexRef = useRef<number>(-1);
-    const [activeIndex, setActiveIndex] = useState<number>(-1);
     const lastFrameTimeRef = useRef<number>(Date.now());
+    const trackChangeTimeRef = useRef<number>(Date.now());
 
     const syncData = useRef({
         isPlaying: false,
@@ -62,8 +74,23 @@ export function useSyncedLyrics(track: Track | null) {
 
     const syncAnchor = async () => {
         try {
+            const activeTP = await TrackPlayer.getActiveTrack();
+            if (activeTP?.id && track?.id) {
+                const cleanActiveId = activeTP.id.toString().split('-')[0];
+                const cleanCurrentId = track.id.toString().split('-')[0];
+                if (cleanActiveId !== cleanCurrentId) {
+                    return;
+                }
+            }
             const { position } = await TrackPlayer.getProgress();
-            syncData.current.anchorPosition = sanitizePos(position);
+            const pos = sanitizePos(position);
+
+            const timeSinceChange = Date.now() - trackChangeTimeRef.current;
+            if (timeSinceChange < 1500 && pos > 2.0) {
+                return;
+            }
+
+            syncData.current.anchorPosition = pos;
             syncData.current.anchorDate = Date.now();
         } catch (e) {}
     };
@@ -80,14 +107,14 @@ export function useSyncedLyrics(track: Track | null) {
 
     useEffect(() => {
         lastIndexRef.current = -1;
-        setActiveIndex(-1);
+        trackChangeTimeRef.current = Date.now();
         syncData.current = {
             isPlaying,
             anchorPosition: 0,
             anchorDate: Date.now(),
             speed: typeof speed === 'number' && speed > 0 ? speed : 1.0,
         };
-        syncAnchor();
+        // We do not call syncAnchor() immediately here to avoid reading the stale position of the previous track
     }, [track?.id]);
 
     // Resincronizar cuando la app vuelve del segundo plano o bloqueo de pantalla
@@ -175,18 +202,36 @@ export function useSyncedLyrics(track: Track | null) {
 
         const intervalId = setInterval(async () => {
             try {
-                const state = await TrackPlayer.getPlaybackState();
-                const { position } = await TrackPlayer.getProgress();
+                const [state, activeTP, progress] = await Promise.all([
+                    TrackPlayer.getPlaybackState(),
+                    TrackPlayer.getActiveTrack(),
+                    TrackPlayer.getProgress(),
+                ]);
+
+                if (activeTP?.id && track?.id) {
+                    const cleanActiveId = activeTP.id.toString().split('-')[0];
+                    const cleanCurrentId = track.id.toString().split('-')[0];
+                    if (cleanActiveId !== cleanCurrentId) {
+                        return;
+                    }
+                }
+
+                const pos = sanitizePos(progress.position);
+                const timeSinceChange = Date.now() - trackChangeTimeRef.current;
+                if (timeSinceChange < 1500 && pos > 2.0) {
+                    return;
+                }
+
                 const isPlayingReal = state.state === State.Playing;
                 syncData.current.isPlaying = isPlayingReal;
-                syncData.current.anchorPosition = sanitizePos(position);
+                syncData.current.anchorPosition = pos;
                 syncData.current.anchorDate = Date.now();
 
                 // Watchdog: Si requestAnimationFrame fue suspendido por el sistema (>300ms sin frame),
                 // actualizamos activeIndex inmediatamente y revivimos el bucle
                 const timeSinceLastFrame = Date.now() - lastFrameTimeRef.current;
                 if (timeSinceLastFrame > 300 && isSynced && parsedLyrics.length > 0) {
-                    const curPos = sanitizePos(position);
+                    const curPos = pos;
                     let index = -1;
                     for (let i = 0; i < parsedLyrics.length; i++) {
                         if (curPos >= parsedLyrics[i].time) {
@@ -219,7 +264,7 @@ export function useSyncedLyrics(track: Track | null) {
 
     return {
         parsedLyrics,
-        activeIndex,
+        activeIndex: effectiveActiveIndex,
         isLoading,
         isSynced,
         lyricsText: track?.lyricsLRC || null,

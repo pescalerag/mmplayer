@@ -1,3 +1,5 @@
+import React, { useEffect } from 'react';
+import { AppState } from 'react-native';
 import TrackPlayer, {
     Event,
     State,
@@ -68,7 +70,17 @@ const updateUserQueueSlot = (index?: number, lastIndex?: number) => {
 };
 
 const handleActiveTrackChangedEvent = async (event: any) => {
-    const { index, lastIndex, track } = event;
+    let { index, lastIndex, track } = event;
+
+    if (!track?.id) {
+        try {
+            track = await TrackPlayer.getActiveTrack();
+            if (!track?.id && index !== undefined && index !== null) {
+                const queue = await TrackPlayer.getQueue();
+                track = queue[index] ?? null;
+            }
+        } catch {}
+    }
 
     if (isTrackChangeIgnored(track)) {
         return;
@@ -91,6 +103,14 @@ const handleActiveTrackChangedEvent = async (event: any) => {
 };
 
 export const TrackPlayerSync = () => {
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+            }
+        });
+        return () => subscription.remove();
+    }, []);
 
     useTrackPlayerEvents([
         Event.PlaybackQueueEnded,

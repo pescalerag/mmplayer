@@ -316,12 +316,23 @@ export const PlaybackService = async function () {
       // ── Sync Zustand store so PlayerScreen always reflects the real active track ──
       // This is the single source of truth for the UI. Without this, skipping from
       // the notification, lock screen, or LocalCast /api/next leaves activeTrack stale.
-      if (event.track?.id) {
+      let effectiveTrack = event.track;
+      if (!effectiveTrack?.id) {
+        try {
+          effectiveTrack = await TrackPlayer.getActiveTrack();
+          if (!effectiveTrack?.id && event.index !== undefined && event.index !== null) {
+            const queue = await TrackPlayer.getQueue();
+            effectiveTrack = queue[event.index] ?? null;
+          }
+        } catch {}
+      }
+
+      if (effectiveTrack?.id) {
         try {
           const { setActiveTrackById, updateQueueStatus } = usePlayerStore.getState();
-          const instanceId = (event.track as any)?.instanceId;
-          await setActiveTrackById(event.track.id.toString(), instanceId);
-          const newIndex = await TrackPlayer.getActiveTrackIndex();
+          const instanceId = (effectiveTrack as any)?.instanceId;
+          await setActiveTrackById(effectiveTrack.id.toString(), instanceId);
+          const newIndex = event.index ?? await TrackPlayer.getActiveTrackIndex();
           if (newIndex !== undefined && newIndex !== null) {
             await updateQueueStatus(newIndex);
           }

@@ -30,11 +30,13 @@ export default function MarqueeText({
 
     const translateX = useRef(new Animated.Value(0)).current;
     const animRef = useRef<Animated.CompositeAnimation | null>(null);
+    const prevTextRef = useRef(text);
 
     const overflows = containerWidth > 0 && textWidth > containerWidth;
 
     useEffect(() => {
         animRef.current?.stop();
+        translateX.stopAnimation();
         translateX.setValue(0);
 
         if (!overflows) return;
@@ -43,7 +45,11 @@ export default function MarqueeText({
         const distance = textWidth + spacing;
         const slideDuration = (distance / speed) * 1000;
 
+        let isCancelled = false;
+
         const runAnimation = () => {
+            if (isCancelled) return;
+
             translateX.setValue(0);
 
             animRef.current = Animated.sequence([
@@ -59,7 +65,7 @@ export default function MarqueeText({
             ]);
 
             animRef.current.start(({ finished }) => {
-                if (finished) {
+                if (finished && !isCancelled) {
                     // Al terminar, la segunda copia está en la posición 0.
                     // Reiniciar a 0 es un cambio transparente sin salto visual.
                     runAnimation();
@@ -70,9 +76,12 @@ export default function MarqueeText({
         runAnimation();
 
         return () => {
+            isCancelled = true;
             animRef.current?.stop();
+            translateX.stopAnimation();
+            translateX.setValue(0);
         };
-    }, [overflows, textWidth, containerWidth, pauseDuration, speed, spacing, translateX, text]);
+    }, [overflows, textWidth, containerWidth, pauseDuration, speed, spacing, text]);
 
     return (
         <View

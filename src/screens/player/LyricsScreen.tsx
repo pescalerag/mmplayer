@@ -586,6 +586,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
                 <TouchableOpacity style={styles.headerTextContainer} onPress={handleAlbumPress}>
                     <MarqueeText
+                        key={`lyrics-title-${track.id}`}
                         text={track.title}
                         style={styles.headerTitle}
                         speed={35}

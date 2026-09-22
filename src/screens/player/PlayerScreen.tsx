@@ -1237,6 +1237,7 @@ const PlayerScreenUI = ({
                         onPress={handleAlbumPress}
                     >
                         <MarqueeText
+                            key={`album-${track.id}-${album?.title || ''}`}
                             text={album?.title || t('actions.unknown')}
                             style={styles.headerTitle}
                             speed={35}
@@ -1544,6 +1545,7 @@ const PlayerScreenUI = ({
                             )}
                             <View style={isAltDisplay ? { flex: 1 } : null}>
                                 <MarqueeText
+                                    key={`title-${track.id}`}
                                     text={track.title}
                                     style={styles.title}
                                     speed={45}
@@ -1553,6 +1555,7 @@ const PlayerScreenUI = ({
                                     onPress={handleArtistPress}
                                 >
                                     <MarqueeText
+                                        key={`artist-${track.id}`}
                                         text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || t('actions.unknown'))}
                                         style={styles.artist}
                                         speed={35}
@@ -1918,6 +1921,20 @@ const PlayerScreen = () => {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
+
+    useEffect(() => {
+        if (isFocused) {
+            usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+        }
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active' && isFocused) {
+                usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+            }
+        });
+        return () => {
+            subscription.remove();
+        };
+    }, [isFocused]);
 
     if (!activeTrackModel) return null;
 

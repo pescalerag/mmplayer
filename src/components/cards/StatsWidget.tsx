@@ -179,6 +179,7 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     marginBottom: 4,
+    overflow: 'hidden',
   },
   statLabel: {
     fontSize: 12,
