@@ -219,7 +219,7 @@ export const useSettingsStore = create<SettingsState>()(
             customAccentColor: null,
             setCustomAccentColor: (color) => set({ customAccentColor: color }),
             activeAppTheme: 'none',
-            setActiveAppTheme: (theme) => set({ activeAppTheme: theme }),
+            setActiveAppTheme: (_theme) => set({ activeAppTheme: 'none' }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],
@@ -287,6 +287,9 @@ export const useSettingsStore = create<SettingsState>()(
                         state.setLanguage(defaultLang);
                     } else {
                         i18n.changeLanguage(state.language);
+                    }
+                    if (state.activeAppTheme && state.activeAppTheme !== 'none') {
+                        state.setActiveAppTheme('none');
                     }
                     if (state.appTabsOrder) {
                         if ((state.appTabsOrder as any[]).includes('Configuración')) {

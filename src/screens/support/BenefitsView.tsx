@@ -380,7 +380,13 @@ export default function BenefitsView() {
         );
     };
 
+    const SHOW_APP_THEMES_FEATURE = false; // Deshabilitado para v2.3.0 - Vendrá en una futura versión
+
     const handleAppThemeSelect = async (themeId: AppTheme) => {
+        if (!SHOW_APP_THEMES_FEATURE) {
+            return;
+        }
+
         if (!isSupporterOrVIP) {
             Alert.alert(
                 t('support.benefits_locked_title'),
@@ -492,6 +498,7 @@ export default function BenefitsView() {
             {/* ========================================================================= */}
             {/* 1b. SECCIÓN SUPPORTER: TEMA DE LA APLICACIÓN                             */}
             {/* ========================================================================= */}
+            {SHOW_APP_THEMES_FEATURE && (
             <View style={styles.supporterCard}>
                 <View style={styles.badgeContainer}>
                     <Ionicons name="heart" size={12} color="#2DD4BF" style={{ marginRight: 4 }} />
@@ -598,6 +605,7 @@ export default function BenefitsView() {
                     })()}
                 </View>
             </View>
+            )}
 
 
             {/* ========================================================================= */}
@@ -625,7 +633,7 @@ export default function BenefitsView() {
                 </Text>
 
                 {/* Legendary theme override notice */}
-                {activeAppTheme === 'legendary' && (
+                {SHOW_APP_THEMES_FEATURE && activeAppTheme === 'legendary' && (
                     <View style={styles.themeOverrideNotice}>
                         <MaterialCommunityIcons name="information-outline" size={14} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
                         <Text style={styles.themeOverrideNoticeText}>

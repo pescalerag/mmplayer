@@ -46,7 +46,9 @@ export default function App() {
   const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
   const userTier = useSettingsStore(state => state.userTier);
   const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
-  const isLegendaryTheme = activeAppTheme === 'legendary' && isSupporterOrVIP;
+  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
+  // const isLegendaryTheme = activeAppTheme === 'legendary' && isSupporterOrVIP;
+  const isLegendaryTheme = false;
   const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
 
   useEffect(() => {

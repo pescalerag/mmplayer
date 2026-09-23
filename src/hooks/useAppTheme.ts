@@ -19,7 +19,9 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
   const isVip = userTier === 'VIP';
   const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
-  const isLegendaryTheme = !options?.ignoreTheme && activeAppTheme === 'legendary' && isSupporterOrVIP;
+  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
+  // const isLegendaryTheme = !options?.ignoreTheme && activeAppTheme === 'legendary' && isSupporterOrVIP;
+  const isLegendaryTheme = false;
 
   // Legendary theme overrides custom accent; custom accent only applies when no theme is active
   const effectiveAccent = isLegendaryTheme
