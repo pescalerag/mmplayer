@@ -22,7 +22,7 @@ import HomeNavigator from "./HomeNavigator";
 import LibraryNavigator from "./LibraryNavigator";
 import PlayerNavigator from "./PlayerNavigator";
 import SearchNavigator from "./SearchNavigator";
-import SettingsNavigator from "./SettingsNavigator";
+import ActivityNavigator from "./ActivityNavigator";
 import ActivityShareScreen from "../screens/activity/ActivityShareScreen";
 import SongShareScreen from "../screens/player/SongShareScreen";
 import LyricsShareScreen from "../screens/player/LyricsShareScreen";
@@ -138,8 +138,8 @@ const TabBarIcon = ({ routeName, focused, color }: TabBarIconProps) => {
     iconName = focused ? "home" : "home-outline";
   } else if (routeName === "Biblioteca") {
     iconName = focused ? "library" : "library-outline";
-  } else if (routeName === "Configuración") {
-    iconName = focused ? "settings" : "settings-outline";
+  } else if (routeName === "Actividad") {
+    iconName = focused ? "stats-chart" : "stats-chart-outline";
   } else if (routeName === "Buscar") {
     iconName = focused ? "search" : "search-outline";
   } else {
@@ -161,13 +161,13 @@ const LibraryIcon = ({
   focused: boolean;
 }) => <TabBarIcon routeName="Biblioteca" color={color} focused={focused} />;
 
-const SettingsIcon = ({
+const ActivityIcon = ({
   color,
   focused,
 }: {
   color: string;
   focused: boolean;
-}) => <TabBarIcon routeName="Configuración" color={color} focused={focused} />;
+}) => <TabBarIcon routeName="Actividad" color={color} focused={focused} />;
 
 const SearchIcon = ({
   color,
@@ -223,6 +223,11 @@ function MainTabs() {
   const { colors } = useAppTheme();
   const activeTrack = usePlayerStore(state => state.activeTrack);
 
+  const effectiveTabsOrder = React.useMemo(() => {
+    return appTabsOrder.map(tab => (tab as any) === 'Configuración' ? 'Actividad' : tab);
+  }, [appTabsOrder]);
+  const effectiveInitialRoute = (initialAppRoute as any) === 'Configuración' ? 'Actividad' : initialAppRoute;
+
   const screenOptions = React.useMemo(
     () => ({
       tabBarShowLabel: false,
@@ -247,8 +252,8 @@ function MainTabs() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Tab.Navigator screenOptions={screenOptions} initialRouteName={initialAppRoute}>
-        {appTabsOrder.map(tabName => {
+      <Tab.Navigator screenOptions={screenOptions} initialRouteName={effectiveInitialRoute}>
+        {effectiveTabsOrder.map(tabName => {
           let Component: any;
           let IconComp: any;
           let useListener = true;
@@ -271,9 +276,10 @@ function MainTabs() {
               IconComp = TagsIcon;
               useListener = true; // Ahora TagsNavigator sí usa listener
               break;
-            case 'Configuración':
-              Component = SettingsNavigator;
-              IconComp = SettingsIcon;
+            case 'Actividad':
+              Component = ActivityNavigator;
+              IconComp = ActivityIcon;
+              useListener = true;
               break;
           }
 
@@ -330,6 +336,9 @@ export default function MainNavigator() {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         const isSilent = useSettingsStore.getState().hideSyncToastOnResume;
         ScannerService.syncLibrary(undefined, isSilent);
+        usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+      } else if (nextAppState.match(/inactive|background/)) {
+        usePlayerStore.getState().savePlaybackState().catch(() => {});
       }
       appState.current = nextAppState;
     });

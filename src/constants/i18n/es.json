@@ -76,6 +76,7 @@
     "library": "Biblioteca",
     "search": "Buscar",
     "tags": "Etiquetas",
+    "activity": "Actividad",
     "settings": "Configuración"
   },
   "library": {
@@ -237,12 +238,17 @@
     "steps": {
       "options": {
         "title": "Opciones de la Canción",
-        "desc": "Pulsa el menú de tres puntos para acceder a funciones avanzadas: establecer vídeos de fondo Canvas, ver detalles del álbum y artista, o editar metadatos.",
-        "tip": "💡 Los vídeos Canvas se reproducen en bucle continuo y animan todo el fondo del reproductor."
+        "desc": "Pulsa el menú de tres puntos para acceder a funciones avanzadas: ver detalles del álbum y artista, añadir a listas, editar metadatos o asignar vídeos Canvas.",
+        "tip": "💡 También puedes abrir rápidamente estas opciones manteniendo pulsada la carátula."
+      },
+      "visualizer": {
+        "title": "Opciones de Visualización",
+        "desc": "Toca el icono de la paleta para personalizar la vista del reproductor: activa el ecualizador reactivo en tiempo real, alterna entre carátula clásica, CD o vinilo giratorio, y configura fondos dinámicos.",
+        "tip": "💡 Activa el ecualizador reactivo o el modo vinilo para disfrutar de una experiencia visual envolvente."
       },
       "cover": {
-        "title": "Carátula y Modos Visuales",
-        "desc": "Mantén pulsada la carátula para abrir el menú de visualización y alternar entre carátula clásica, CD giratorio, vinilo o el ecualizador reactivo en tiempo real. Toca una vez para activar el modo inmersivo.",
+        "title": "Carátula y Gestos",
+        "desc": "Mantén pulsada la carátula para abrir rápidamente el menú de opciones de la canción (igual que con el botón de tres puntos). Toca una vez para alternar el modo inmersivo.",
         "tip": "💡 Desliza hacia la izquierda o derecha sobre la carátula para pasar a la siguiente canción o volver a la anterior."
       },
       "tags": {
@@ -558,9 +564,12 @@
     "app_tabs_order": "Navegación principal",
     "app_tabs_desc": "Personaliza la barra inferior",
     "home_sections": "Secciones de inicio",
-    "home_sections_desc": "Elige qué secciones se muestran en la pantalla de inicio",
+    "home_sections_desc": "Personaliza el orden y visibilidad de las secciones de inicio",
     "home_sections_title": "Secciones de inicio",
-    "home_sections_subtitle": "Activa o desactiva las secciones",
+    "home_sections_subtitle": "Personaliza el orden y visibilidad de las secciones",
+    "home_section_stats": "Widget de estadísticas",
+    "home_section_shuffle": "Botón de reproducción aleatoria",
+    "drag_to_reorder_home_sections": "Orden de las secciones (Mantén presionado para mover)",
     "initial_route": "Pantalla de inicio",
     "drag_to_reorder_tabs": "Orden de la barra (Mantén presionado para mover)",
     "confirm_restart": "Confirmar y Reiniciar",
@@ -619,7 +628,10 @@
     "save_manual_to_playlist": "Añadir solo cola manual",
     "clear_all_upcoming": "Borrar toda la cola restante",
     "shuffle_on_end": "Reproducción aleatoria al finalizar la cola",
-    "random_autoplay_started": "Cola finalizada: iniciando reproducción aleatoria"
+    "random_autoplay_started": "Cola finalizada: iniciando reproducción aleatoria",
+    "track_removed": "Has eliminado una canción de la cola",
+    "tracks_removed": "Has eliminado {{count}} canciones de la cola",
+    "undo": "Deshacer"
   },
   "playlist": {
     "new": "Nueva playlist",
@@ -774,7 +786,10 @@
     "chromecast_sync_error": "Error al sincronizar con Chromecast: {{error}}",
     "chromecast_connection_failed": "Fallo al conectar con Chromecast: {{error}}",
     "chromecast_prepare_error": "No se pudo preparar el archivo de audio para transmitir.",
-    "chromecast_load_error": "Error al cargar en Chromecast: {{error}}"
+    "chromecast_load_error": "Error al cargar en Chromecast: {{error}}",
+    "track_removed_from_queue": "Has eliminado una canción de la cola",
+    "tracks_removed_from_queue": "Has eliminado {{count}} canciones de la cola",
+    "undo": "Deshacer"
   },
   "changelog": {
     "history_title": "Historial de versiones",
@@ -982,6 +997,15 @@
     "icon_pink": "Rosa",
     "icon_red": "Rojo",
     "icon_white": "Blanco",
+    "icon_legend": "Legend 🏆",
+    "app_theme_title": "Tema de la Aplicación",
+    "app_theme_subtitle": "Transforma la apariencia completa de MMPlayer con un tema exclusivo. Al activar un tema, el color de acento personalizado y el icono personalizado se desactivan.",
+    "app_theme_none": "Sin Tema",
+    "app_theme_none_desc": "Apariencia predeterminada",
+    "app_theme_legendary": "Legendario",
+    "app_theme_legendary_desc": "Dorado Trifuerza y bronce ancestral",
+    "app_theme_updated_success": "El tema de la aplicación se ha activado correctamente.",
+    "app_theme_active": "TEMA ACTIVO",
     "stats_cards_title": "Estadísticas Premium",
     "stats_cards_subtitle": "Desbloquea fondos y texturas exclusivas (Cristal, Holográfico, Oro) para compartir tus tarjetas de Actividad Musical.",
     "stats_theme_default": "Clásico",
@@ -1093,6 +1117,19 @@
   },
   "activity": {
     "title": "ACTIVIDAD",
+    "history_title": "Historial de reproducción",
+    "history_empty": "El historial de reproducción está vacío",
+    "history_empty_desc": "Las canciones que escuches aparecerán aquí",
+    "history_clear": "Borrar historial",
+    "history_clear_confirm": "¿Estás seguro de que quieres borrar todo el historial de reproducción?",
+    "history_delete_selected": "Eliminar del historial",
+    "history_delete_selected_confirm": "¿Estás seguro de que quieres eliminar {{count}} escuchas del historial?",
+    "history_delete_selected_confirm_single": "¿Estás seguro de que quieres eliminar esta escucha del historial?",
+    "history_deleted_toast": "{{count}} escuchas eliminadas",
+    "history_deleted_toast_single": "Escucha eliminada",
+    "history_listened_prefix": "Escuchado:",
+    "history_today": "Hoy",
+    "history_yesterday": "Ayer",
     "plays": "reproducciones",
     "play_singular": "reproducción",
     "play_plural": "reproducciones",
@@ -1117,6 +1154,7 @@
     "all_activity": "Toda la actividad",
     "unknown_artist": "Artista desconocido",
     "custom_date_title": "Fecha Personalizada",
+    "custom_date_button": "Fecha personalizada",
     "custom_date_from": "Desde (Fecha de Inicio)",
     "custom_date_to": "Hasta (Fecha de Fin)",
     "custom_date_start": "Inicio",
@@ -1266,6 +1304,7 @@
     "next_phrase": "Marcar inicio de frase",
     "sync_instructions": "Toca el botón central en el momento exacto en que comience a cantarse la frase destacada en morado (no al final).",
     "search_lyrics": "Buscar letras en internet",
+    "retry_search": "Reintentar búsqueda en internet",
     "delete_lyrics": "Eliminar letras",
     "search_in_progress": "Ya hay una búsqueda de letras en curso en este momento.",
     "delete_confirm": "¿Estás seguro de que quieres eliminar las letras de esta canción?",
@@ -1383,9 +1422,25 @@
     "scan_error": "Error al escanear",
     "delete_scan_error": "Error al borrar/escanear"
   },
+  "migration": {
+    "title": "Actualización de biblioteca",
+    "detected_message": "Se ha detectado un movimiento o eliminación de {{count}} archivo. Espera mientras migramos los cambios.",
+    "detected_message_plural": "Se ha detectado un movimiento o eliminación de {{count}} archivos. Espera mientras migramos los cambios.",
+    "searching_disk": "Buscando archivos en el almacenamiento...",
+    "indexing_system": "Sincronizando archivos con el sistema...",
+    "reconciling_tracks": "Reubicando {{count}} canción en la biblioteca...",
+    "reconciling_tracks_plural": "Reubicando {{count}} canciones en la biblioteca...",
+    "cleaning_up": "Finalizando cambios...",
+    "unresolved_title": "¿Archivos no encontrados?",
+    "unresolved_message": "No se han encontrado {{count}} canciones en el almacenamiento. ¿Qué deseas hacer con ellas?",
+    "moved_files": "Los he cambiado de sitio",
+    "delete_from_library": "Eliminar",
+    "keep_and_continue": "Conservar y continuar"
+  },
   "common": {
     "accept": "Aceptar",
     "cancel": "Cancelar",
+    "done": "Listo",
     "success": "Éxito",
     "error": "Error",
     "delete": "Eliminar",

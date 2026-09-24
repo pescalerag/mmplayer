@@ -49,6 +49,11 @@ export const LyricsService = {
             return track.lyricsLRC;
         }
 
+        // If not forced and lyrics were deleted or search failed previously, do not search
+        if (!force && track.lyricsFetchFailed) {
+            return null;
+        }
+
         if (activeFetchingTrackIds.has(track.id)) {
             console.log(`[LyricsService] Fetch ignored: search already in progress for track: ${track.title}`);
             return null;
@@ -95,19 +100,32 @@ export const LyricsService = {
 
             if (!response.ok) {
                 console.log(`[LyricsService] Lyrics API response: ${response.status}`);
+                await database.write(async () => {
+                    await track.update(t => {
+                        t.lyricsFetchFailed = true;
+                    });
+                });
                 return null;
             }
 
             const data = await response.json();
             const lyrics = data.syncedLyrics || data.plainLyrics || null;
 
-            if (lyrics) {
-                await database.write(async () => {
-                    await track.update(t => {
+            await database.write(async () => {
+                await track.update(t => {
+                    if (lyrics) {
                         t.lyricsLRC = lyrics;
-                    });
+                        t.lyricsFetchFailed = false;
+                    } else {
+                        t.lyricsFetchFailed = true;
+                    }
                 });
+            });
+
+            if (lyrics) {
                 console.log(`[LyricsService] Lyrics successfully saved to DB for track: ${track.title}`);
+            } else {
+                console.log(`[LyricsService] No lyrics found for track: ${track.title}`);
             }
 
             return lyrics;
@@ -145,6 +163,7 @@ export const LyricsService = {
                 await database.write(async () => {
                     await track.update(t => {
                         t.lyricsLRC = fileContent;
+                        t.lyricsFetchFailed = false;
                     });
                 });
                 console.log(`[LyricsService] Custom LRC lyrics imported for track: ${track.title}`);
@@ -159,11 +178,23 @@ export const LyricsService = {
     },
 
     saveLyrics: async (track: Track, lyrics: string): Promise<void> => {
+        const hasLyrics = !!lyrics?.trim();
         await database.write(async () => {
             await track.update(t => {
-                t.lyricsLRC = lyrics;
+                t.lyricsLRC = hasLyrics ? lyrics : null;
+                t.lyricsFetchFailed = !hasLyrics;
             });
         });
         console.log(`[LyricsService] Custom lyrics saved to DB for track: ${track.title}`);
+    },
+
+    deleteLyrics: async (track: Track): Promise<void> => {
+        await database.write(async () => {
+            await track.update(t => {
+                t.lyricsLRC = null;
+                t.lyricsFetchFailed = true;
+            });
+        });
+        console.log(`[LyricsService] Lyrics deleted and auto-fetch suppressed for track: ${track.title}`);
     }
 };

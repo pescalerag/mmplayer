@@ -16,6 +16,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export type PlayerSpotlightStepKey =
     | 'options'
+    | 'visualizer'
     | 'cover'
     | 'tags'
     | 'actions'
@@ -43,6 +44,13 @@ const PLAYER_SPOTLIGHT_STEPS: StepInfo[] = [
         titleKey: 'steps.options.title',
         descKey: 'steps.options.desc',
         proTipKey: 'steps.options.tip',
+    },
+    {
+        key: 'visualizer',
+        icon: 'color-palette-outline',
+        titleKey: 'steps.visualizer.title',
+        descKey: 'steps.visualizer.desc',
+        proTipKey: 'steps.visualizer.tip',
     },
     {
         key: 'cover',
@@ -135,6 +143,7 @@ interface PlayerSpotlightTutorialProps {
     onClose: () => void;
     rootRef: React.RefObject<any>;
     moreButtonRef?: React.RefObject<any>;
+    visualizerButtonRef?: React.RefObject<any>;
     artworkRef?: React.RefObject<any>;
     tagsRef?: React.RefObject<any>;
     actionsRef?: React.RefObject<any>;
@@ -148,6 +157,7 @@ interface PlayerSpotlightTutorialProps {
     queueRef?: React.RefObject<any>;
     // Layouts
     moreButtonLayout?: React.MutableRefObject<any>;
+    visualizerButtonLayout?: React.MutableRefObject<any>;
     artworkLayout?: React.MutableRefObject<any>;
     tagsLayout?: React.MutableRefObject<any>;
     actionsLayout?: React.MutableRefObject<any>;
@@ -166,6 +176,7 @@ export default function PlayerSpotlightTutorial({
     onClose,
     rootRef,
     moreButtonRef,
+    visualizerButtonRef,
     artworkRef,
     tagsRef,
     actionsRef,
@@ -178,6 +189,7 @@ export default function PlayerSpotlightTutorial({
     shareRef,
     queueRef,
     moreButtonLayout,
+    visualizerButtonLayout,
     artworkLayout,
     tagsLayout,
     actionsLayout,
@@ -249,6 +261,13 @@ export default function PlayerSpotlightTutorial({
             const btnY = insets.top + 11;
             calculatedRect = { x: btnX, y: btnY, width: btnW, height: btnH };
             radius = 20;
+        } else if (step.key === 'visualizer') {
+            const btnW = visualizerButtonLayout?.current?.width || 38;
+            const btnH = visualizerButtonLayout?.current?.height || 38;
+            const btnX = insets.left + 62;
+            const btnY = insets.top + 11;
+            calculatedRect = { x: btnX, y: btnY, width: btnW, height: btnH };
+            radius = 20;
         } else if (step.key === 'cover') {
             const coverSize = SCREEN_WIDTH - 64;
             const coverX = 32;
@@ -293,6 +312,7 @@ export default function PlayerSpotlightTutorial({
             let targetEl: any = null;
             switch (step.key) {
                 case 'options': targetEl = moreButtonRef?.current; break;
+                case 'visualizer': targetEl = visualizerButtonRef?.current; break;
                 case 'cover': targetEl = artworkRef?.current; break;
                 case 'tags': targetEl = tagsRef?.current; break;
                 case 'actions': targetEl = actionsRef?.current; break;
@@ -342,6 +362,7 @@ export default function PlayerSpotlightTutorial({
         measureTimers.current = [t1, t2, t3, t4];
     }, [
         moreButtonRef,
+        visualizerButtonRef,
         artworkRef,
         tagsRef,
         actionsRef,
@@ -356,7 +377,9 @@ export default function PlayerSpotlightTutorial({
         rootRef,
         insets.top,
         insets.bottom,
+        insets.left,
         moreButtonLayout,
+        visualizerButtonLayout,
         artworkLayout,
         tagsLayout,
         actionsLayout,
@@ -420,7 +443,8 @@ export default function PlayerSpotlightTutorial({
     const holeCenterX = holeX + holeW / 2;
 
     const idealCardLeft = holeCenterX - CARD_WIDTH / 2;
-    const isStepAboveTarget = currentStepIndex >= 2;
+    const isHeaderOrCover = currentStep.key === 'options' || currentStep.key === 'visualizer' || currentStep.key === 'cover';
+    const isStepAboveTarget = !isHeaderOrCover;
     const cardLeft = isStepAboveTarget
         ? Math.round((SCREEN_WIDTH - CARD_WIDTH) / 2)
         : Math.max(16, Math.min(idealCardLeft, SCREEN_WIDTH - CARD_WIDTH - 16));
@@ -430,11 +454,9 @@ export default function PlayerSpotlightTutorial({
     const arrowLeft = Math.max(18, Math.min(rawArrowLeft, CARD_WIDTH - 38));
 
     // Posicionamiento vertical dinámico y óptimo:
-    // - Pasos 1 y 2 (opciones en cabecera y carátula): el modal se sitúa DEBAJO del elemento a distancia cómoda (+14px).
-    // - Pasos 3 al 12 (tags, acciones, controles y footer): el modal se sitúa ENCIMA del elemento a distancia óptima,
-    //   calculada según la posición 'holeY' del elemento enfocado, de modo que el modal quede inmediatamente encima
-    //   (a 16px del foco) con la flecha apuntando hacia abajo, permitiendo leer y ver el elemento a la vez con total comodidad
-    //   sin desplazarse excesivamente arriba hacia la cabecera cuando los iconos están abajo.
+    // - Pasos en cabecera ('options', 'visualizer'): el modal se sitúa DEBAJO a distancia cómoda (+14px).
+    // - Paso 'cover': situar justo debajo de la carátula.
+    // - Pasos restantes (tags, acciones, controles y footer): el modal se sitúa ENCIMA del elemento a distancia óptima.
     const minTop = insets.top + 54;
     let tooltipTop: number;
     let arrowDirection: 'up' | 'down';
@@ -444,11 +466,11 @@ export default function PlayerSpotlightTutorial({
         const idealTop = holeY - cardHeight - 16;
         tooltipTop = Math.max(minTop, idealTop);
         arrowDirection = 'down';
-    } else if (currentStep.key === 'options') {
+    } else if (currentStep.key === 'options' || currentStep.key === 'visualizer') {
         tooltipTop = holeY + holeH + 14;
         arrowDirection = 'up';
     } else {
-        // Step 2 ('cover'): situar justo debajo de la carátula
+        // Paso 'cover': situar justo debajo de la carátula
         tooltipTop = Math.min(holeY + holeH + 14, SCREEN_HEIGHT - insets.bottom - cardHeight - 10);
         arrowDirection = 'up';
     }

@@ -166,3 +166,21 @@ export async function requestIgnoreBatteryOptimizations(): Promise<boolean> {
     return false;
   }
 }
+
+export async function findAndScanUnindexedAudioFiles(knownUris: string[]): Promise<string[]> {
+  try {
+    return await NativeAudioScannerModule.findAndScanUnindexedAudioFiles(knownUris);
+  } catch (e) {
+    console.warn('[NativeAudioScanner] findAndScanUnindexedAudioFiles error:', e);
+    return [];
+  }
+}
+
+export async function checkFilesExistOnDisk(filePaths: string[]): Promise<boolean[]> {
+  try {
+    return await NativeAudioScannerModule.checkFilesExistOnDisk(filePaths);
+  } catch (e) {
+    console.warn('[NativeAudioScanner] checkFilesExistOnDisk error:', e);
+    return filePaths.map(() => false);
+  }
+}

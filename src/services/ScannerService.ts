@@ -3,10 +3,10 @@ import { useSyncStore } from '@/store/useSyncStore';
 import { Q } from '@nozbe/watermelondb';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
+import { PermissionService } from './PermissionService';
 import { Platform, Image as RNImage } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { getAudioFiles, getReplayGain } from '../../modules/native-audio-scanner';
+import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGain } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -14,6 +14,7 @@ import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useToastStore } from '../store/useToastStore';
+import { useMigrationStore } from '../store/useMigrationStore';
 import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
@@ -585,6 +586,188 @@ const showToastNotification = (created: number, deleted: number, reconciled: num
     }
 };
 
+const getFilenameFromUri = (uri: string) => {
+    const clean = uri.split('?')[0];
+    const lastSlash = clean.lastIndexOf('/');
+    if (lastSlash === -1) return '';
+    const raw = clean.substring(lastSlash + 1);
+    try {
+        return decodeURIComponent(raw).toLowerCase().trim();
+    } catch {
+        return raw.toLowerCase().trim();
+    }
+};
+
+const runMultiTierMatching = (
+    remainingOrphans: Track[],
+    newCandidates: any[],
+    artistMap: Map<string, string>,
+    albumMap: Map<string, string>
+): { track: Track; file: any }[] => {
+    const matched: { track: Track; file: any }[] = [];
+
+    // --- Tier 1: Nombre de archivo idéntico ---
+    for (let i = remainingOrphans.length - 1; i >= 0; i--) {
+        const orphan = remainingOrphans[i];
+        const orphanName = getFilenameFromUri(orphan.fileUrl);
+        if (!orphanName) continue;
+
+        // Buscar todos los candidatos con el mismo nombre de archivo
+        const matchingIndices: number[] = [];
+        for (let j = 0; j < newCandidates.length; j++) {
+            if (getFilenameFromUri(newCandidates[j].uri) === orphanName) {
+                matchingIndices.push(j);
+            }
+        }
+
+        if (matchingIndices.length === 1) {
+            // Nombre de archivo único: coincidencia directa 100% segura
+            const matchedFile = newCandidates.splice(matchingIndices[0], 1)[0];
+            remainingOrphans.splice(i, 1);
+            matched.push({ track: orphan, file: matchedFile });
+        } else if (matchingIndices.length > 1) {
+            // Varios archivos con el mismo nombre (ej: 01.mp3): desempatar por duración más cercana
+            let bestIdx = -1;
+            let bestDiff = 999999;
+            for (const idx of matchingIndices) {
+                const cand = newCandidates[idx];
+                const diff = Math.abs((cand.duration || 0) - (orphan.duration || 0));
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestIdx = idx;
+                }
+            }
+            if (bestIdx !== -1 && bestDiff <= 4.0) {
+                const matchedFile = newCandidates.splice(bestIdx, 1)[0];
+                remainingOrphans.splice(i, 1);
+                matched.push({ track: orphan, file: matchedFile });
+            }
+        }
+    }
+
+    if (remainingOrphans.length === 0 || newCandidates.length === 0) return matched;
+
+    // --- Tier 2: Huella completa (Título + Artista + Álbum + Duración) ---
+    const getFullFp = (title: string, duration: number, artist: string = '', album: string = '') => {
+        const cleanTitle = normalizeText(title);
+        const cleanArtist = normalizeText(artist);
+        const cleanAlbum = normalizeText(album);
+        const roundedDuration = Math.round(duration);
+        return `${roundedDuration}_${cleanTitle}_${cleanArtist}_${cleanAlbum}`;
+    };
+
+    const orphanFpMap = new Map<string, Track[]>();
+    for (const track of remainingOrphans) {
+        const trackArtistId = (track._raw as any).artist_id;
+        const trackAlbumId = (track._raw as any).album_id;
+        const artistName = artistMap.get(trackArtistId) || '';
+        const albumTitle = albumMap.get(trackAlbumId) || '';
+        const fp = getFullFp(track.title, track.duration, artistName, albumTitle);
+        if (!orphanFpMap.has(fp)) orphanFpMap.set(fp, []);
+        orphanFpMap.get(fp)!.push(track);
+    }
+
+    for (let j = newCandidates.length - 1; j >= 0; j--) {
+        const file = newCandidates[j];
+        const meta = extractFileMetadata(file);
+        const fp = getFullFp(meta.title, meta.durationInSeconds, meta.artistString, meta.albumTitle);
+        const matches = orphanFpMap.get(fp);
+        if (matches && matches.length > 0) {
+            const matchedTrack = matches.shift()!;
+            const idx = remainingOrphans.indexOf(matchedTrack);
+            if (idx !== -1) remainingOrphans.splice(idx, 1);
+            newCandidates.splice(j, 1);
+            matched.push({ track: matchedTrack, file });
+        }
+    }
+
+    if (remainingOrphans.length === 0 || newCandidates.length === 0) return matched;
+
+    // --- Tier 3: Huella relajada (Título + Artista + Duración) ---
+    const getRelaxedFp = (title: string, duration: number, artist: string = '') => {
+        const cleanTitle = normalizeText(title);
+        const cleanArtist = normalizeText(artist);
+        const roundedDuration = Math.round(duration);
+        return `${roundedDuration}_${cleanTitle}_${cleanArtist}`;
+    };
+
+    const orphanRelaxedMap = new Map<string, Track[]>();
+    for (const track of remainingOrphans) {
+        const trackArtistId = (track._raw as any).artist_id;
+        const artistName = artistMap.get(trackArtistId) || '';
+        const fp = getRelaxedFp(track.title, track.duration, artistName);
+        if (!orphanRelaxedMap.has(fp)) orphanRelaxedMap.set(fp, []);
+        orphanRelaxedMap.get(fp)!.push(track);
+    }
+
+    for (let j = newCandidates.length - 1; j >= 0; j--) {
+        const file = newCandidates[j];
+        const meta = extractFileMetadata(file);
+        const fp = getRelaxedFp(meta.title, meta.durationInSeconds, meta.artistString);
+        const matches = orphanRelaxedMap.get(fp);
+        if (matches && matches.length > 0) {
+            const matchedTrack = matches.shift()!;
+            const idx = remainingOrphans.indexOf(matchedTrack);
+            if (idx !== -1) remainingOrphans.splice(idx, 1);
+            newCandidates.splice(j, 1);
+            matched.push({ track: matchedTrack, file });
+        }
+    }
+
+    if (remainingOrphans.length === 0 || newCandidates.length === 0) return matched;
+
+    // --- Tier 4: Título distintivo (>= 4 letras) + Álbum o Artista coincidente ---
+    for (let i = remainingOrphans.length - 1; i >= 0; i--) {
+        const orphan = remainingOrphans[i];
+        const cleanTitle = normalizeText(orphan.title);
+        if (cleanTitle.length < 4) continue;
+        const trackArtistId = (orphan._raw as any).artist_id;
+        const trackAlbumId = (orphan._raw as any).album_id;
+        const orphanArtist = normalizeText(artistMap.get(trackArtistId) || '');
+        const orphanAlbum = normalizeText(albumMap.get(trackAlbumId) || '');
+
+        const matchIdx = newCandidates.findIndex(f => {
+            const meta = extractFileMetadata(f);
+            const cleanNewTitle = normalizeText(meta.title);
+            if (cleanNewTitle !== cleanTitle) return false;
+            const newArtist = normalizeText(meta.artistString);
+            const newAlbum = normalizeText(meta.albumTitle);
+            const durDiff = Math.abs(meta.durationInSeconds - orphan.duration);
+            return (durDiff <= 3.0) || (orphanArtist && newArtist === orphanArtist) || (orphanAlbum && newAlbum === orphanAlbum);
+        });
+
+        if (matchIdx !== -1) {
+            const matchedFile = newCandidates.splice(matchIdx, 1)[0];
+            remainingOrphans.splice(i, 1);
+            matched.push({ track: orphan, file: matchedFile });
+        }
+    }
+
+    if (remainingOrphans.length === 0 || newCandidates.length === 0) return matched;
+
+    // --- Tier 5: Título distintivo (>= 4 letras) + Duración exacta (±2s) ---
+    for (let i = remainingOrphans.length - 1; i >= 0; i--) {
+        const orphan = remainingOrphans[i];
+        const cleanTitle = normalizeText(orphan.title);
+        if (cleanTitle.length < 4) continue;
+
+        const matchIdx = newCandidates.findIndex(f => {
+            const meta = extractFileMetadata(f);
+            const cleanNewTitle = normalizeText(meta.title);
+            const durDiff = Math.abs(meta.durationInSeconds - orphan.duration);
+            return cleanNewTitle === cleanTitle && durDiff <= 2.0;
+        });
+
+        if (matchIdx !== -1) {
+            const matchedFile = newCandidates.splice(matchIdx, 1)[0];
+            remainingOrphans.splice(i, 1);
+            matched.push({ track: orphan, file: matchedFile });
+        }
+    }
+
+    return matched;
+};
+
 export const ScannerService = {
     syncLibrary: async (
         onProgress?: (current: number, total: number, phase: string) => void,
@@ -597,13 +780,13 @@ export const ScannerService = {
             useSyncStore.getState().setIsScanning(true, isSilent);
 
             onProgress?.(0, 0, i18n.t('scanner.requesting_permissions'));
-            const { status } = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
+            const status = await PermissionService.requestAudioPermission();
             if (status !== 'granted') {
                 throw new Error(i18n.t('scanner.permission_denied'));
             }
 
             onProgress?.(0, 0, i18n.t('scanner.searching_files'));
-            const audioFiles = await getAudioFiles(false);
+            let audioFiles = await getAudioFiles(false);
             if (!audioFiles || audioFiles.length === 0) {
                 if (!isSilent) {
                     showToastNotification(0, 0, 0);
@@ -629,7 +812,7 @@ export const ScannerService = {
             };
 
             const devicePaths = new Set<string>();
-            const activeAudioFiles = audioFiles.filter(f => {
+            let activeAudioFiles = audioFiles.filter(f => {
                 if (isExcluded(f.uri)) return false;
                 devicePaths.add(f.uri);
                 return true;
@@ -638,10 +821,44 @@ export const ScannerService = {
             const dbPaths = new Set(allTracks.map(t => t.fileUrl));
 
             // canciones_huerfanas: en la BD pero no en el móvil
-            const canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+            let canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+            let archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
 
-            // archivos_nuevos: en el móvil pero no en la BD
-            const archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
+            // --- Fase de Detección en Disco y Migración ---
+            // Si hay canciones en la BD que no aparecen en MediaStore, buscar en disco
+            if (canciones_huerfanas.length > 0) {
+                // Si alguna canción huérfana está en reproducción o en la cola, parar la reproducción
+                await usePlayerStore.getState().checkAndPauseIfTracksActiveOrQueued(
+                    canciones_huerfanas.map(t => t.id)
+                ).catch(() => {});
+
+                useMigrationStore.getState().startMigration(
+                    canciones_huerfanas.length,
+                    i18n.t('migration.searching_disk')
+                );
+
+                try {
+                    const knownUris = Array.from(devicePaths);
+                    const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
+                    if (unindexedFiles.length > 0) {
+                        useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
+                        const refreshedAudio = await getAudioFiles(false);
+                        if (refreshedAudio && refreshedAudio.length > 0) {
+                            audioFiles = refreshedAudio;
+                            devicePaths.clear();
+                            activeAudioFiles = audioFiles.filter(f => {
+                                if (isExcluded(f.uri)) return false;
+                                devicePaths.add(f.uri);
+                                return true;
+                            });
+                            canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+                            archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
+                        }
+                    }
+                } catch (diskScanErr) {
+                    console.warn('[ScannerService] Error buscando archivos no indexados en disco:', diskScanErr);
+                }
+            }
 
             // archivos_modificados: en la BD y en el móvil, pero con lastModified mayor
             const trackMap = new Map<string, Track>();
@@ -681,207 +898,254 @@ export const ScannerService = {
             const deletedAlbumIds: string[] = [];
             const deletedArtistIds: string[] = [];
 
-            // --- Fase 2: Condición de Escape (Fast-Path) ---
-            const needsReconciliation = canciones_huerfanas.length > 0 && archivos_nuevos.length > 0;
-            const hasModifiedFiles = archivos_modificados.length > 0;
+            // --- Fase de Reconciliación Multicapa con Bucle Dinámico ---
+            const remainingOrphans: Track[] = [...canciones_huerfanas];
+            const canciones_reubicadas: { track: Track; file: any }[] = [];
+            let unassignedNewFiles: any[] = [];
 
-            if (!needsReconciliation && !hasModifiedFiles) {
-                if (canciones_huerfanas.length > 0) {
-                    onProgress?.(0, 0, i18n.t('scanner.deleting_orphans'));
-                    const idsToDelete = canciones_huerfanas.map(t => t.id);
-                    deletedTrackIds.push(...idsToDelete);
-                    tracksDeleted = canciones_huerfanas.length;
+            const allArtists = await artistsCollection.query().fetch();
+            const artistMap = new Map<string, string>();
+            allArtists.forEach(a => artistMap.set(a.id, a.name));
 
-                    await performDeleteTracks(canciones_huerfanas);
+            const allAlbums = await albumsCollection.query().fetch();
+            const albumMap = new Map<string, string>();
+            allAlbums.forEach(al => albumMap.set(al.id, al.title));
+
+            if (remainingOrphans.length > 0) {
+                if (useMigrationStore.getState().isVisible) {
+                    useMigrationStore.getState().setPhase(
+                        'reconciling',
+                        i18n.t('migration.reconciling_tracks', { count: remainingOrphans.length })
+                    );
                 }
 
-                if (archivos_nuevos.length > 0) {
-                    onProgress?.(0, 0, i18n.t('scanner.importing_new'));
-                    const result = await performCreateTracks(archivos_nuevos, onProgress);
-                    tracksCreated = result.added;
-                }
-            } else {
-                // --- Fase 3 & 4: Huella Ligera & Reconciliación ---
-                if (needsReconciliation) {
-                    onProgress?.(0, 0, i18n.t('scanner.reconciling_moved'));
-                } else {
-                    onProgress?.(0, 0, i18n.t('scanner.updating_metadata'));
-                }
-                
-                const allArtists = await artistsCollection.query().fetch();
-                const artistMap = new Map<string, string>();
-                allArtists.forEach(a => artistMap.set(a.id, a.name));
+                const alreadyRelocatedUris = new Set<string>();
+                let newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
 
-                const allAlbums = await albumsCollection.query().fetch();
-                const albumMap = new Map<string, string>();
-                allAlbums.forEach(al => albumMap.set(al.id, al.title));
-
-                const getTrackFingerprint = (title: string, duration: number, artist: string = '', album: string = '') => {
-                    const cleanTitle = title.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-                    const cleanArtist = artist.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-                    const cleanAlbum = album.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-                    const roundedDuration = Math.round(duration);
-                    return `${roundedDuration}_${cleanTitle}_${cleanArtist}_${cleanAlbum}`;
-                };
-
-                const orphanMap = new Map<string, Track[]>();
-                for (const track of canciones_huerfanas) {
-                    const trackArtistId = (track._raw as any).artist_id;
-                    const trackAlbumId = (track._raw as any).album_id;
-                    const artistName = artistMap.get(trackArtistId) || '';
-                    const albumTitle = albumMap.get(trackAlbumId) || '';
-                    const fp = getTrackFingerprint(track.title, track.duration, artistName, albumTitle);
-
-                    if (!orphanMap.has(fp)) {
-                        orphanMap.set(fp, []);
+                if (newCandidates.length > 0) {
+                    const matched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
+                    for (const m of matched) {
+                        canciones_reubicadas.push(m);
+                        alreadyRelocatedUris.add(m.file.uri);
                     }
-                    orphanMap.get(fp)!.push(track);
                 }
 
-                const canciones_actualizadas: { track: Track; file: any }[] = [...archivos_modificados];
-                const canciones_nuevas_restantes: any[] = [];
-
-                let matchedCount = 0;
-                for (const file of archivos_nuevos) {
-                    const meta = extractFileMetadata(file);
-                    const fp = getTrackFingerprint(meta.title, meta.durationInSeconds, meta.artistString, meta.albumTitle);
-
-                    const matchingOrphans = orphanMap.get(fp);
-                    if (matchingOrphans && matchingOrphans.length > 0) {
-                        const matchedTrack = matchingOrphans.shift()!;
-                        canciones_actualizadas.push({
-                            track: matchedTrack,
-                            file: file
+                // Si aún quedan huérfanas, esperar brevemente y re-consultar MediaStore por si hubo latencia de escritura en disco
+                if (remainingOrphans.length > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    const refreshedAudio = await getAudioFiles(false);
+                    if (refreshedAudio && refreshedAudio.length > 0) {
+                        audioFiles = refreshedAudio;
+                        devicePaths.clear();
+                        activeAudioFiles = audioFiles.filter(f => {
+                            if (isExcluded(f.uri)) return false;
+                            devicePaths.add(f.uri);
+                            return true;
                         });
-                        matchedCount++;
-                    } else {
-                        canciones_nuevas_restantes.push(file);
-                    }
-                }
-
-                const canciones_huerfanas_restantes: Track[] = [];
-                for (const tracks of orphanMap.values()) {
-                    canciones_huerfanas_restantes.push(...tracks);
-                }
-
-                // --- Fase 5: Acción en WatermelonDB (Batch) ---
-                let batchOps: any[] = [];
-                const BATCH_SIZE = 500;
-
-                if (canciones_actualizadas.length > 0 || canciones_huerfanas_restantes.length > 0) {
-                    await database.write(async () => {
-                        const artistCache = new Map<string, Artist>();
-                        const albumCache = new Map<string, Album>();
-
-                        const existingArtists = await artistsCollection.query().fetch();
-                        for (const a of existingArtists) artistCache.set(a.name, a);
-
-                        const existingAlbums = await albumsCollection.query().fetch();
-                        for (const a of existingAlbums) albumCache.set(a.title, a);
-
-                        if (canciones_actualizadas.length > 0) {
-                            tracksReconciled = matchedCount;
-                            for (const item of canciones_actualizadas) {
-                                const matchedTrack = item.track;
-                                const file = item.file;
-
-                                const meta = extractFileMetadata(file);
-
-                                const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
-                                batchOps.push(...newArtistOps);
-                                const primaryArtist = trackArtists[0];
-
-                                let albumArtistObj = primaryArtist;
-                                if (meta.albumArtist) {
-                                    const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
-                                    batchOps.push(...newAlbumArtistOps);
-                                    if (albumArtists.length > 0) {
-                                        albumArtistObj = albumArtists[0];
-                                    }
-                                }
-
-                                const { album, newAlbumOps } = await resolveAlbum(
-                                    meta.albumId,
-                                    meta.albumTitle,
-                                    albumArtistObj,
-                                    !!meta.albumArtist,
-                                    meta.coverUrl,
-                                    meta.year,
-                                    albumCache,
-                                    albumsCollection,
-                                    artistCache,
-                                    artistsCollection,
-                                    batchOps
-                                );
-                                batchOps.push(...newAlbumOps);
-
-                                const updateOp = matchedTrack.prepareUpdate((t: any) => {
-                                    t.fileUrl = file.uri.replace(/#/g, '%23');
-                                    t.lastModified = file.lastModified || Date.now();
-                                    t.title = meta.title;
-                                    t.normalizedTitle = normalizeText(meta.title);
-                                    t.duration = meta.durationInSeconds;
-                                    t.trackNumber = file.trackNumber || 0;
-                                    t.discNumber = file.discNumber || 1;
-                                    t.album.set(album);
-                                    t.artist.set(primaryArtist);
-                                    t.genre = meta.genre || null;
-                                });
-                                batchOps.push(updateOp);
-
-                                const collaboratorsCollection = database.collections.get('track_collaborators');
-                                const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', matchedTrack.id)).fetch();
-                                const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
-                                batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
-
-                                for (const artist of trackArtists) {
-                                    const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
-                                        tc.track.set(matchedTrack);
-                                        tc.artist.set(artist);
-                                    });
-                                    batchOps.push(newCollab);
-                                }
+                        newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUris.has(f.uri));
+                        if (newCandidates.length > 0) {
+                            const secondMatched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
+                            for (const m of secondMatched) {
+                                canciones_reubicadas.push(m);
+                                alreadyRelocatedUris.add(m.file.uri);
                             }
                         }
+                    }
+                }
 
-                        if (canciones_huerfanas_restantes.length > 0) {
-                            tracksDeleted = canciones_huerfanas_restantes.length;
-                            const idsToDelete = canciones_huerfanas_restantes.map(t => t.id);
-                            deletedTrackIds.push(...idsToDelete);
+            }
 
-                            const playlistTracksCollection = database.collections.get('playlist_tracks');
-                            const trackTagsCollection = database.collections.get('track_tags');
-                            const trackCollaboratorsCollection = database.collections.get('track_collaborators');
-                            const playbackHistoryCollection = database.collections.get('playback_history');
+            // Gestión de huérfanas no encontradas (3 opciones: Los he cambiado de sitio, Eliminar, Conservar y continuar)
+            let shouldDeleteOrphans = false;
+            while (remainingOrphans.length > 0) {
+                const action = await useMigrationStore.getState().promptConfirmDelete(
+                    remainingOrphans.length
+                );
 
-                            const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
-                                playlistTracksCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
-                                trackTagsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
-                                trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
-                                playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(idsToDelete))).fetch()
-                            ]);
+                if (action === 'delete') {
+                    shouldDeleteOrphans = true;
+                    break;
+                } else if (action === 'keep') {
+                    shouldDeleteOrphans = false;
+                    break;
+                } else if (action === 'retry') {
+                    // "Los he cambiado de sitio": re-ejecuta la búsqueda de archivos en disco
+                    useMigrationStore.getState().setPhase('searching', i18n.t('migration.searching_disk'));
+                    try {
+                        const knownUris = Array.from(devicePaths);
+                        const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
+                        if (unindexedFiles.length > 0) {
+                            useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            const refreshedAudio = await getAudioFiles(false);
+                            if (refreshedAudio && refreshedAudio.length > 0) {
+                                audioFiles = refreshedAudio;
+                                devicePaths.clear();
+                                activeAudioFiles = audioFiles.filter(f => {
+                                    if (isExcluded(f.uri)) return false;
+                                    devicePaths.add(f.uri);
+                                    return true;
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[ScannerService] Error al reintentar escaneo de disco:', e);
+                    }
 
-                            batchOps.push(
-                                ...canciones_huerfanas_restantes.map(t => t.prepareDestroyPermanently()),
-                                ...playlistTracks.map(r => r.prepareDestroyPermanently()),
-                                ...trackTags.map(r => r.prepareDestroyPermanently()),
-                                ...trackCollaborators.map(r => r.prepareDestroyPermanently()),
-                                ...playbackHistory.map(r => r.prepareDestroyPermanently())
+                    useMigrationStore.getState().setPhase(
+                        'reconciling',
+                        i18n.t('migration.reconciling_tracks', { count: remainingOrphans.length })
+                    );
+
+                    const alreadyRelocatedUris = new Set<string>(canciones_reubicadas.map(r => r.file.uri));
+                    const newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUris.has(f.uri));
+                    if (newCandidates.length > 0 && remainingOrphans.length > 0) {
+                        const matched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
+                        for (const m of matched) {
+                            canciones_reubicadas.push(m);
+                            alreadyRelocatedUris.add(m.file.uri);
+                        }
+                    }
+
+                    if (remainingOrphans.length === 0) {
+                        break;
+                    }
+                }
+            }
+
+            if (useMigrationStore.getState().isVisible) {
+                useMigrationStore.getState().setPhase('cleaning', i18n.t('migration.cleaning_up'));
+            }
+
+            const alreadyRelocatedUrisFinal = new Set<string>(canciones_reubicadas.map(r => r.file.uri));
+            unassignedNewFiles = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUrisFinal.has(f.uri));
+
+            tracksReconciled = canciones_reubicadas.length;
+            const canciones_actualizadas: { track: Track; file: any }[] = [
+                ...canciones_reubicadas,
+                ...archivos_modificados
+            ];
+            const canciones_nuevas_restantes: any[] = unassignedNewFiles;
+            const canciones_huerfanas_restantes: Track[] = remainingOrphans;
+
+            // --- Fase de Acción en WatermelonDB (Batch) ---
+            let batchOps: any[] = [];
+            const BATCH_SIZE = 500;
+
+            const hasOrphansToDelete = shouldDeleteOrphans && canciones_huerfanas_restantes.length > 0;
+
+            if (canciones_actualizadas.length > 0 || hasOrphansToDelete) {
+                await database.write(async () => {
+                    const artistCache = new Map<string, Artist>();
+                    const albumCache = new Map<string, Album>();
+
+                    const existingArtists = await artistsCollection.query().fetch();
+                    for (const a of existingArtists) artistCache.set(a.name, a);
+
+                    const existingAlbums = await albumsCollection.query().fetch();
+                    for (const a of existingAlbums) albumCache.set(a.title, a);
+
+                    if (canciones_actualizadas.length > 0) {
+                        for (const item of canciones_actualizadas) {
+                            const matchedTrack = item.track;
+                            const file = item.file;
+
+                            const meta = extractFileMetadata(file);
+
+                            const { trackArtists, newArtistOps } = await resolveArtists(meta.artistString, artistCache, artistsCollection);
+                            batchOps.push(...newArtistOps);
+                            const primaryArtist = trackArtists[0];
+
+                            let albumArtistObj = primaryArtist;
+                            if (meta.albumArtist) {
+                                const { trackArtists: albumArtists, newArtistOps: newAlbumArtistOps } = await resolveArtists(meta.albumArtist, artistCache, artistsCollection);
+                                batchOps.push(...newAlbumArtistOps);
+                                if (albumArtists.length > 0) {
+                                    albumArtistObj = albumArtists[0];
+                                }
+                            }
+
+                            const { album, newAlbumOps } = await resolveAlbum(
+                                meta.albumId,
+                                meta.albumTitle,
+                                albumArtistObj,
+                                !!meta.albumArtist,
+                                meta.coverUrl,
+                                meta.year,
+                                albumCache,
+                                albumsCollection,
+                                artistCache,
+                                artistsCollection,
+                                batchOps
                             );
-                        }
+                            batchOps.push(...newAlbumOps);
 
-                        for (let i = 0; i < batchOps.length; i += BATCH_SIZE) {
-                            const chunk = batchOps.slice(i, i + BATCH_SIZE);
-                            await database.batch(chunk);
-                        }
-                    });
-                }
+                            const updateOp = matchedTrack.prepareUpdate((t: any) => {
+                                t.fileUrl = file.uri.replace(/#/g, '%23');
+                                t.lastModified = file.lastModified || Date.now();
+                                t.title = meta.title;
+                                t.normalizedTitle = normalizeText(meta.title);
+                                t.duration = meta.durationInSeconds;
+                                t.trackNumber = file.trackNumber || 0;
+                                t.discNumber = file.discNumber || 1;
+                                t.album.set(album);
+                                t.artist.set(primaryArtist);
+                                t.genre = meta.genre || null;
+                            });
+                            batchOps.push(updateOp);
 
-                if (canciones_nuevas_restantes.length > 0) {
-                    onProgress?.(0, canciones_nuevas_restantes.length, i18n.t('scanner.importing_new'));
-                    const result = await performCreateTracks(canciones_nuevas_restantes, onProgress);
-                    tracksCreated = result.added;
-                }
+                            const collaboratorsCollection = database.collections.get('track_collaborators');
+                            const existingCollabs = await collaboratorsCollection.query(Q.where('track_id', matchedTrack.id)).fetch();
+                            const collabsToDestroy = existingCollabs.filter(c => !(c as any)._preparedState);
+                            batchOps.push(...collabsToDestroy.map(c => c.prepareDestroyPermanently()));
+
+                            for (const artist of trackArtists) {
+                                const newCollab = collaboratorsCollection.prepareCreate((tc: any) => {
+                                    tc.track.set(matchedTrack);
+                                    tc.artist.set(artist);
+                                });
+                                batchOps.push(newCollab);
+                            }
+                        }
+                    }
+
+                    if (hasOrphansToDelete) {
+                        tracksDeleted = canciones_huerfanas_restantes.length;
+                        const idsToDelete = canciones_huerfanas_restantes.map(t => t.id);
+                        deletedTrackIds.push(...idsToDelete);
+
+                        const playlistTracksCollection = database.collections.get('playlist_tracks');
+                        const trackTagsCollection = database.collections.get('track_tags');
+                        const trackCollaboratorsCollection = database.collections.get('track_collaborators');
+                        const playbackHistoryCollection = database.collections.get('playback_history');
+
+                        const [playlistTracks, trackTags, trackCollaborators, playbackHistory] = await Promise.all([
+                            playlistTracksCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+                            trackTagsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+                            trackCollaboratorsCollection.query(Q.where('track_id', Q.oneOf(idsToDelete))).fetch(),
+                            playbackHistoryCollection.query(Q.where('item_type', 'track'), Q.where('item_id', Q.oneOf(idsToDelete))).fetch()
+                        ]);
+
+                        batchOps.push(
+                            ...canciones_huerfanas_restantes.map(t => t.prepareDestroyPermanently()),
+                            ...playlistTracks.map(r => r.prepareDestroyPermanently()),
+                            ...trackTags.map(r => r.prepareDestroyPermanently()),
+                            ...trackCollaborators.map(r => r.prepareDestroyPermanently()),
+                            ...playbackHistory.map(r => r.prepareDestroyPermanently())
+                        );
+                    }
+
+                    for (let i = 0; i < batchOps.length; i += BATCH_SIZE) {
+                        const chunk = batchOps.slice(i, i + BATCH_SIZE);
+                        await database.batch(chunk);
+                    }
+                });
+            }
+
+            if (canciones_nuevas_restantes.length > 0) {
+                onProgress?.(0, canciones_nuevas_restantes.length, i18n.t('scanner.importing_new'));
+                const result = await performCreateTracks(canciones_nuevas_restantes, onProgress);
+                tracksCreated = result.added;
             }
 
             // --- Fase de Limpieza Final ---
@@ -909,6 +1173,11 @@ export const ScannerService = {
                 await usePlayerStore.getState().handleDeletedEntities(deletedTrackIds, deletedAlbumIds, deletedArtistIds);
             }
 
+            if (canciones_reubicadas.length > 0) {
+                const relocatedTrackIds = canciones_reubicadas.map(r => r.track.id);
+                await usePlayerStore.getState().handleRelocatedTracks(relocatedTrackIds);
+            }
+
             // Sincronizar recientes tras cambios en la base de datos
             await usePlayerStore.getState().refreshRecentsFromDatabase().catch(() => {});
 
@@ -929,10 +1198,15 @@ export const ScannerService = {
 
             onProgress?.(audioFiles.length, audioFiles.length, i18n.t('toasts.library_updated'));
 
+            if (useMigrationStore.getState().isVisible) {
+                useMigrationStore.getState().finishMigration();
+            }
+
             showToastNotification(tracksCreated, tracksDeleted, tracksReconciled, tracksUpdated, isSilent);
 
         } catch (error: any) {
             console.error("Error en syncLibrary:", error);
+            useMigrationStore.getState().close();
             if (!isSilent) {
                 import('react-native').then(({ Alert }) => {
                     Alert.alert(i18n.t('scanner.scan_error'), error?.message || String(error));
@@ -940,6 +1214,7 @@ export const ScannerService = {
             }
         } finally {
             useSyncStore.getState().setIsScanning(false, false);
+            useMigrationStore.getState().close();
         }
     },
     fullDataWipe: async (onProgress?: (current: number, total: number, phase: string) => void) => {

@@ -6,10 +6,21 @@ export type HomeStackParamList = {
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     PlaylistDetail: { playlistId: string };
     FavoritesDetail: undefined;
-    WeeklyActivity: undefined;
+    WeeklyActivity: { fromProfile?: boolean } | undefined;
     SmartListDetail: { smartListId: string };
     UserProfile: undefined;
     Support: undefined;
+    Settings: undefined;
+    ActivityHistory: undefined;
+    FolderDetail: { folderPath: string; folderName?: string };
+};
+
+export type ActivityStackParamList = {
+    Activity: undefined;
+    ArtistDetail: { artistId: string; fromPlayer?: boolean };
+    AlbumDetail: { albumId: string; fromPlayer?: boolean };
+    SmartListDetail: { smartListId: string };
+    ActivityHistory: undefined;
 };
 
 export type LibraryStackParamList = {
@@ -21,6 +32,7 @@ export type LibraryStackParamList = {
     PlaylistDetail: { playlistId: string };
     SmartListDetail: { smartListId: string };
     Support: undefined;
+    FolderDetail: { folderPath: string; folderName?: string };
 };
 
 export type SearchStackParamList = {
@@ -30,6 +42,7 @@ export type SearchStackParamList = {
     TagDetail: { tagId: string; tagName: string; tagColor: string };
     PlaylistDetail: { playlistId: string };
     SmartListDetail: { smartListId: string };
+    FolderDetail: { folderPath: string; folderName?: string };
 };
 
 export type TagsStackParamList = {
@@ -90,8 +103,11 @@ export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 export type LibraryNavigationProp = NativeStackNavigationProp<LibraryStackParamList>;
 export type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 export type TagsNavigationProp = NativeStackNavigationProp<TagsStackParamList>;
+export type ActivityNavigationProp = NativeStackNavigationProp<ActivityStackParamList>;
 export type ArtistDetailRouteProp = RouteProp<LibraryStackParamList, 'ArtistDetail'>;
 export type AlbumDetailRouteProp = RouteProp<LibraryStackParamList, 'AlbumDetail'>;
 export type TagDetailRouteProp = RouteProp<SearchStackParamList, 'TagDetail'>;
+export type FolderDetailRouteProp = RouteProp<LibraryStackParamList, 'FolderDetail'>;
+export type FolderDetailNavigationProp = NativeStackNavigationProp<LibraryStackParamList, 'FolderDetail'>;
 
 export type MainNavigationProp = NativeStackNavigationProp<RootStackParamList>;

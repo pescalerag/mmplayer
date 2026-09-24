@@ -232,14 +232,87 @@ const CanvasVideo = React.memo(({
 });
 CanvasVideo.displayName = 'CanvasVideo';
 
-let hasShownCustomizeHint = false;
+interface PlayerArtworkProps {
+    coverUrl?: string | null;
+    size: number;
+    borderRadius?: number;
+    shadowStyle?: any;
+    cardBackgroundColor: string;
+    textSecondaryColor: string;
+}
+
+const PlayerArtwork = ({
+    coverUrl,
+    size,
+    borderRadius = 10,
+    shadowStyle,
+    cardBackgroundColor,
+    textSecondaryColor,
+}: PlayerArtworkProps) => {
+    const [hasError, setHasError] = React.useState(false);
+
+    React.useEffect(() => {
+        setHasError(false);
+    }, [coverUrl]);
+
+    // Mirror BlurredBackground: keep lastValidUriRef so null intermediates
+    // (during track change while observable resolves) never flash a placeholder.
+    const lastValidUriRef = React.useRef<string | null>(coverUrl || null);
+    if (coverUrl) {
+        lastValidUriRef.current = coverUrl;
+    }
+    const effectiveUri = coverUrl || lastValidUriRef.current;
+    const showPlaceholder = !effectiveUri || hasError;
+
+    const imageSource = React.useMemo(
+        () => (effectiveUri ? { uri: effectiveUri } : null),
+        [effectiveUri]
+    );
+
+    return (
+        <View
+            style={[
+                {
+                    width: size,
+                    height: size,
+                    borderRadius,
+                    overflow: 'hidden',
+                    backgroundColor: cardBackgroundColor,
+                },
+                shadowStyle,
+            ]}
+        >
+            {showPlaceholder ? (
+                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: cardBackgroundColor }]}>
+                    <Ionicons
+                        name="musical-notes"
+                        size={Math.min(80, Math.floor(size * 0.25))}
+                        color={textSecondaryColor}
+                    />
+                </View>
+            ) : (
+                <Image
+                    source={imageSource}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    transition={0}
+                    recyclingKey={imageSource?.uri}
+                    cachePolicy="memory-disk"
+                    onError={() => setHasError(true)}
+                />
+            )}
+        </View>
+    );
+};
+PlayerArtwork.displayName = 'PlayerArtwork';
+
+
 
 const PlayerScreenUI = ({
     track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
 }: PlayerScreenUIProps) => {
-    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme();
+    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
     const { t } = useTranslation();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
     const insets = useSafeAreaInsets();
     const openQueue = openQueueSheet;
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
@@ -274,6 +347,7 @@ const PlayerScreenUI = ({
 
     const rootRef = React.useRef<View>(null);
     const moreButtonRef = React.useRef<View>(null);
+    const visualizerButtonRef = React.useRef<View>(null);
     const artworkRef = React.useRef<View>(null);
     const tagsRef = React.useRef<View>(null);
     const actionsRef = React.useRef<View>(null);
@@ -287,6 +361,7 @@ const PlayerScreenUI = ({
     const queueRef = React.useRef<View>(null);
 
     const moreButtonLayout = React.useRef<any>(null);
+    const visualizerButtonLayout = React.useRef<any>(null);
     const artworkLayout = React.useRef<any>(null);
     const tagsLayout = React.useRef<any>(null);
     const actionsLayout = React.useRef<any>(null);
@@ -377,6 +452,106 @@ const PlayerScreenUI = ({
         return () => { isMounted = false; };
     }, [nextTrackModel]);
 
+    const lastTrackIdRef = React.useRef<string>(track.id);
+
+    const nextTrackModelRef = React.useRef(nextTrackModel);
+    const nextCoverUrlRef = React.useRef(nextCoverUrl);
+    const prevTrackModelRef = React.useRef(prevTrackModel);
+    const prevCoverUrlRef = React.useRef(prevCoverUrl);
+
+    useEffect(() => {
+        nextTrackModelRef.current = nextTrackModel;
+    }, [nextTrackModel]);
+
+    useEffect(() => {
+        nextCoverUrlRef.current = nextCoverUrl;
+        if (nextCoverUrl) {
+            Image.prefetch(nextCoverUrl);
+        }
+    }, [nextCoverUrl]);
+
+    useEffect(() => {
+        prevTrackModelRef.current = prevTrackModel;
+    }, [prevTrackModel]);
+
+    useEffect(() => {
+        prevCoverUrlRef.current = prevCoverUrl;
+        if (prevCoverUrl) {
+            Image.prefetch(prevCoverUrl);
+        }
+    }, [prevCoverUrl]);
+
+    // Swipe Gestures
+    const translateX = useSharedValue(0);
+    const hasTriggeredHaptic = useSharedValue(false);
+
+    if (lastTrackIdRef.current !== track.id) {
+        lastTrackIdRef.current = track.id;
+        translateX.value = 0;
+    }
+
+    const cleanTrackId = track.id.toString().split('-')[0];
+    const cleanNextId = nextTrackModelRef.current?.id?.toString().split('-')[0];
+    const cleanPrevId = prevTrackModelRef.current?.id?.toString().split('-')[0];
+
+    // Async cover fallback: runs ONLY when track changes (not when album?.coverUrl changes)
+    // to avoid a second setAsyncCoverUrl that would trigger a second image transition.
+    const [asyncCoverUrl, setAsyncCoverUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        setAsyncCoverUrl(null);
+
+        // Always fetch — album?.coverUrl might already be set, in which case the
+        // stableCoverUrlRef below will prefer it and asyncCoverUrl won't be used.
+        track.album.fetch().then((alb: any) => {
+            if (isMounted && alb?.coverUrl) {
+                setAsyncCoverUrl(alb.coverUrl);
+                return;
+            }
+            TrackPlayer.getActiveTrack().then((tp: any) => {
+                if (isMounted && tp?.artwork) {
+                    setAsyncCoverUrl(tp.artwork);
+                }
+            }).catch(() => {});
+        }).catch(() => {
+            TrackPlayer.getActiveTrack().then((tp: any) => {
+                if (isMounted && tp?.artwork) {
+                    setAsyncCoverUrl(tp.artwork);
+                }
+            }).catch(() => {});
+        });
+
+        return () => { isMounted = false; };
+    }, [track.id]); // ← only track.id, NOT album?.coverUrl
+
+    // ── Stable cover URL: first non-null URL wins per track ─────────────────────────
+    // Prevents currentCoverUrl from changing twice (asyncCoverUrl resolves → then
+    // album?.coverUrl resolves), which would interrupt the expo-image transition on
+    // Android and leave the image alpha stuck at 0 (transparent).
+    const rawCoverUrl = album?.coverUrl || asyncCoverUrl || null;
+    let initialCover = rawCoverUrl;
+    if (!initialCover) {
+        if (nextTrackModelRef.current?.id === track.id && nextCoverUrlRef.current) {
+            initialCover = nextCoverUrlRef.current;
+        } else if (prevTrackModelRef.current?.id === track.id && prevCoverUrlRef.current) {
+            initialCover = prevCoverUrlRef.current;
+        }
+    }
+
+    const stableCoverRef = React.useRef<{ trackId: string; url: string | null }>(
+        { trackId: track.id, url: initialCover }
+    );
+    if (stableCoverRef.current.trackId !== track.id) {
+        // New track: reset and seed with initialCover (uses known cover from adjacent slot if available)
+        stableCoverRef.current = { trackId: track.id, url: initialCover };
+    } else if (!stableCoverRef.current.url && rawCoverUrl) {
+        // First non-null URL for this track: lock it in
+        stableCoverRef.current = { ...stableCoverRef.current, url: rawCoverUrl };
+    }
+    const currentCoverUrl: string | null = stableCoverRef.current.url;
+
+
     const [isTransitioning, setIsTransitioning] = React.useState(false);
 
     // ── Shared values for swipe gesture (worklet-safe, no stale closures) ─────────────────────────────
@@ -430,11 +605,22 @@ const PlayerScreenUI = ({
     const isCasting = isLocalCastActive || isChromecastConnected;
     const openCastSheet = openLocalCast;
 
-    const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track);
+    const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track, position);
     const hasLyrics = !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
     const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
         ? parsedLyrics[activeIndex].text
         : '';
+
+    const baseArtworkSize = width - 64;
+    const maxAvailableHeight = Dimensions.get('window').height - insets.top - insets.bottom - (showPlayerLyrics ? 410 : 360);
+    const artworkSize = (maxAvailableHeight > 0 && maxAvailableHeight < baseArtworkSize)
+        ? Math.max(140, Math.floor(maxAvailableHeight))
+        : baseArtworkSize;
+
+    const styles = React.useMemo(
+        () => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize),
+        [colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize]
+    );
 
     const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
 
@@ -444,8 +630,8 @@ const PlayerScreenUI = ({
     const handleABLongPress = useABRepeatStore(state => state.handleLongPress);
 
     const artworkSource = React.useMemo(() =>
-        album?.coverUrl ? { uri: album.coverUrl } : null
-        , [album?.coverUrl]);
+        currentCoverUrl ? { uri: currentCoverUrl } : null
+        , [currentCoverUrl]);
 
     const [coverColor, setCoverColor] = useState<string | null>(null);
 
@@ -467,28 +653,26 @@ const PlayerScreenUI = ({
 
     useEffect(() => {
         let isMounted = true;
-        if (!album?.coverUrl) {
+        const targetCover = currentCoverUrl;
+        if (!targetCover) {
             setCoverColor(null);
             return;
         }
 
-        extractColorFromImage(album.coverUrl)
+        extractColorFromImage(targetCover)
             .then(color => {
-                if (isMounted) {
+                if (isMounted && color) {
                     setCoverColor(color);
                 }
             })
             .catch(err => {
                 console.error("Error extracting cover color in PlayerScreen:", err);
-                if (isMounted) {
-                    setCoverColor(null);
-                }
             });
 
         return () => {
             isMounted = false;
         };
-    }, [album?.coverUrl]);
+    }, [currentCoverUrl]);
 
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
 
@@ -510,14 +694,6 @@ const PlayerScreenUI = ({
         };
     });
 
-    // Swipe Gestures
-    const translateX = useSharedValue(0);
-    const hasTriggeredHaptic = useSharedValue(false);
-
-    // RESET TRANSPARENTE: Cuando la canción cambia en React, reseteamos translateX a 0 sin saltos visuales
-    useEffect(() => {
-        translateX.value = 0;
-    }, [track.id, translateX]);
 
     // CD / Vinyl spin animation
     const spinDeg = useSharedValue(0);
@@ -558,36 +734,12 @@ const PlayerScreenUI = ({
         }
     }, [track.bgVideo, showCanvas, isImmersive]);
 
-    const longPressHintOpacity = useSharedValue(0);
-    useEffect(() => {
-        if (isFocused && !isTransitioning && playerCoverStyle === 'cover' && !hasShownCustomizeHint) {
-            hasShownCustomizeHint = true;
-            longPressHintOpacity.value = withSequence(
-                withTiming(1, { duration: 600 }),
-                withDelay(1500, withTiming(0, { duration: 800 }))
-            );
-        } else {
-            longPressHintOpacity.value = 0;
-        }
-    }, [isFocused, isTransitioning, playerCoverStyle]);
-
-    const longPressHintStyle = useAnimatedStyle(() => ({
-        opacity: longPressHintOpacity.value
-    }));
-
-    const lyricsShift = useSharedValue(0);
-    useEffect(() => {
-        lyricsShift.value = withTiming(hasLyrics && !isImmersive ? -10 : 0, {
-            duration: 300,
-            easing: Easing.bezier(0.25, 0.1, 0.25, 1.0)
-        });
-    }, [hasLyrics, isImmersive, lyricsShift]);
 
     const lyricsHeight = useSharedValue(hasLyrics ? 46 : 0);
     const lyricsOpacity = useSharedValue(hasLyrics ? 1 : 0);
     useEffect(() => {
-        lyricsHeight.value = withSpring(hasLyrics ? 46 : 0, { damping: 15 });
-        lyricsOpacity.value = withTiming(hasLyrics ? 1 : 0, { duration: 300 });
+        lyricsHeight.value = withTiming(hasLyrics ? 46 : 0, { duration: 200 });
+        lyricsOpacity.value = withTiming(hasLyrics ? 1 : 0, { duration: 200 });
     }, [hasLyrics, lyricsHeight, lyricsOpacity]);
 
     const lyricsAnimatedStyle = useAnimatedStyle(() => ({
@@ -687,10 +839,7 @@ const PlayerScreenUI = ({
 
     const performSkipNext = async () => {
         try {
-            await TrackPlayer.skipToNext();
-            // Immediately bump windowVersion so adjacent slots in the swipe view refresh
-            // without waiting for the full PlaybackActiveTrackChanged event chain
-            usePlayerStore.setState((s: any) => ({ windowVersion: (s.windowVersion || 0) + 1 }));
+            await usePlayerStore.getState().skipToNext();
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
@@ -699,7 +848,6 @@ const PlayerScreenUI = ({
     const performSkipPrevious = async () => {
         try {
             await TrackPlayer.skipToPrevious();
-            usePlayerStore.setState((s: any) => ({ windowVersion: (s.windowVersion || 0) + 1 }));
         } catch (e) {
             translateX.value = withSpring(0, { damping: 25, stiffness: 120 });
         }
@@ -712,7 +860,9 @@ const PlayerScreenUI = ({
             const queue = await TrackPlayer.getQueue();
             const idx = await TrackPlayer.getActiveTrackIndex();
             if (idx === undefined || idx === null) return false;
-            return idx < queue.length - 1;
+            const repeatMode = await TrackPlayer.getRepeatMode();
+            const { shuffleOnQueueEnd } = useSettingsStore.getState();
+            return idx < queue.length - 1 || repeatMode !== RepeatMode.Off || shuffleOnQueueEnd;
         } catch { return hasNext; }
     }, [hasNext]);
 
@@ -773,12 +923,23 @@ const PlayerScreenUI = ({
             hasTriggeredHaptic.value = false;
         });
 
+    const handleMorePress = () => {
+        openTrackMenu(track, {
+            album: (albumId: string) => {
+                navigation.navigate('AlbumDetail', { albumId });
+            },
+            artist: (artistId: string) => {
+                navigation.navigate('ArtistDetail', { artistId });
+            },
+        });
+    };
+
     const longPressGesture = Gesture.LongPress()
         .enabled(!isSheetOrModalOpen)
         .minDuration(450)
         .onStart(() => {
             runOnJS(triggerHaptic)();
-            runOnJS(openPlayerMenu)();
+            runOnJS(handleMorePress)();
         });
 
     const tapGesture = Gesture.Tap()
@@ -843,8 +1004,7 @@ const PlayerScreenUI = ({
     const swipeAnimatedStyle = useAnimatedStyle(() => {
         return {
             transform: [
-                { translateX: translateX.value },
-                { translateY: lyricsShift.value }
+                { translateX: translateX.value }
             ]
         };
     });
@@ -890,16 +1050,6 @@ const PlayerScreenUI = ({
         }
     };
 
-    const handleMorePress = () => {
-        openTrackMenu(track, {
-            album: (albumId: string) => {
-                navigation.navigate('AlbumDetail', { albumId });
-            },
-            artist: (artistId: string) => {
-                navigation.navigate('ArtistDetail', { artistId });
-            },
-        });
-    };
 
     const handleArtistPress = () => {
         if (artists && artists.length > 1) {
@@ -926,23 +1076,17 @@ const PlayerScreenUI = ({
             title: track.title,
             artist: artist?.name || '',
             album: album?.title || '',
-            coverUrl: album?.coverUrl || null,
+            coverUrl: currentCoverUrl || null,
             fileUrl: track.fileUrl,
             duration: track.duration,
         });
-    }, [track, artist, album, navigation]);
-
-    const [imageError, setImageError] = React.useState(false);
-
-    React.useEffect(() => {
-        setImageError(false);
-    }, [track.id]);
+    }, [track, artist, album, navigation, currentCoverUrl]);
 
     const currBgVideo = (showCanvas && !!track.bgVideo) ? track.bgVideo : null;
     const prevBgVideo = (showCanvas && !!prevTrackModel?.bgVideo) ? prevTrackModel.bgVideo : null;
     const nextBgVideo = (showCanvas && !!nextTrackModel?.bgVideo) ? nextTrackModel.bgVideo : null;
 
-    const currCover = album?.coverUrl || null;
+    const currCover = currentCoverUrl;
 
     const isPrevBgIdentical = React.useMemo(() => {
         if (!prevTrackModel) return true;
@@ -1000,14 +1144,14 @@ const PlayerScreenUI = ({
                     }}>
                         {prevTrackModel && showCanvas && !!prevTrackModel.bgVideo ? (
                             <CanvasVideo
-                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}-${windowVersion}`}
+                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}`}
                                 sourceUri={prevTrackModel.bgVideo}
                                 isImmersive={false}
                                 gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-prev-${prevTrackModel?.id || 'none'}-${windowVersion}`}
+                                key={`blur-prev-${prevTrackModel?.id || 'none'}`}
                                 imageUrl={prevCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
@@ -1030,8 +1174,7 @@ const PlayerScreenUI = ({
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-curr-${track.id}`}
-                                imageUrl={album?.coverUrl}
+                                imageUrl={currentCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={
                                     playerBackgroundStyle === 'gradient' && coverColor
@@ -1052,14 +1195,14 @@ const PlayerScreenUI = ({
                     }}>
                         {nextTrackModel && showCanvas && !!nextTrackModel.bgVideo ? (
                             <CanvasVideo
-                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}-${windowVersion}`}
+                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}`}
                                 sourceUri={nextTrackModel.bgVideo}
                                 isImmersive={false}
                                 gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
                             />
                         ) : (
                             <BlurredBackground
-                                key={`blur-next-${nextTrackModel?.id || 'none'}-${windowVersion}`}
+                                key={`blur-next-${nextTrackModel?.id || 'none'}`}
                                 imageUrl={nextCoverUrl}
                                 blurIntensity={10}
                                 gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
@@ -1072,15 +1215,40 @@ const PlayerScreenUI = ({
             <View style={styles.safeArea}>
                 {/* Header */}
                 <View style={[styles.header, { marginTop: insets.top }]}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.dismissButton}>
-                        <Ionicons name="chevron-down" size={32} color={colors.text} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TouchableOpacity
+                            onPress={() => navigation.goBack()}
+                            style={styles.dismissButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityLabel={t('actions.close') || 'Cerrar'}
+                        >
+                            <Ionicons name="chevron-down" size={32} color={colors.text} />
+                        </TouchableOpacity>
+
+                        <View
+                            ref={visualizerButtonRef}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                visualizerButtonLayout.current = e.nativeEvent.layout;
+                            }}
+                        >
+                            <TouchableOpacity
+                                onPress={openPlayerMenu}
+                                style={styles.moreButton}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityLabel={t('visualizer.menu_title') || 'Opciones de Visualización'}
+                            >
+                                <Ionicons name="color-palette-outline" size={23} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
                     <TouchableOpacity
                         style={styles.headerTextContainer}
                         onPress={handleAlbumPress}
                     >
                         <MarqueeText
+                            key={`album-${track.id}-${album?.title || ''}`}
                             text={album?.title || t('actions.unknown')}
                             style={styles.headerTitle}
                             speed={35}
@@ -1089,16 +1257,19 @@ const PlayerScreenUI = ({
                     </TouchableOpacity>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        {!isImmersive && (
-                            <TouchableOpacity
-                                onPress={() => setIsTutorialVisible(true)}
-                                style={styles.moreButton}
-                                accessibilityLabel={t('player_tutorial.help_btn')}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            >
-                                <Ionicons name="help-circle-outline" size={24} color={colors.text} />
-                            </TouchableOpacity>
-                        )}
+                        <TouchableOpacity
+                            onPress={() => setIsTutorialVisible(true)}
+                            disabled={isImmersive}
+                            style={[styles.moreButton, isImmersive && { opacity: 0.65 }]}
+                            accessibilityLabel={t('player_tutorial.help_btn')}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Ionicons
+                                name="help-circle-outline"
+                                size={24}
+                                color={isImmersive ? colors.textSecondary : colors.text}
+                            />
+                        </TouchableOpacity>
 
                         <View
                             ref={moreButtonRef}
@@ -1154,34 +1325,23 @@ const PlayerScreenUI = ({
                                     if (!prevTrackModel) {
                                         return (
                                             <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                                <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                                <Ionicons name="musical-notes" size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
                                             </View>
                                         );
                                     }
                                     if (showCanvas && !!prevTrackModel.bgVideo) {
-                                        return <View style={{ width: width - 64, height: width - 64 }} />;
-                                    }
-                                    const formattedUri = prevCoverUrl
-                                        ? (prevCoverUrl.startsWith('file://') && !prevCoverUrl.includes('?t=') ? `${prevCoverUrl}?t=${Date.now()}` : prevCoverUrl)
-                                        : null;
-                                    if (formattedUri) {
-                                        return (
-                                            <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
-                                                <Image
-                                                    key={`prev-${prevTrackModel.id}-${windowVersion}`}
-                                                    source={{ uri: formattedUri }}
-                                                    style={styles.artwork}
-                                                    contentFit="cover"
-                                                    transition={200}
-                                                    cachePolicy="memory-disk"
-                                                />
-                                            </View>
-                                        );
+                                        return <View style={{ width: artworkSize, height: artworkSize }} />;
                                     }
                                     return (
-                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
-                                        </View>
+                                        <PlayerArtwork
+                                            key={`art-prev-${prevTrackModel.id}`}
+                                            coverUrl={prevCoverUrl}
+                                            size={artworkSize}
+                                            borderRadius={radii.md || 10}
+                                            shadowStyle={shadows.lg}
+                                            cardBackgroundColor={colors.cardBackground}
+                                            textSecondaryColor={colors.textSecondary}
+                                        />
                                     );
                                 })()}
                             </View>
@@ -1200,7 +1360,7 @@ const PlayerScreenUI = ({
                                         active={true}
                                         type={playerVisualizerType}
                                         color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
-                                        coverUrl={album?.coverUrl || undefined}
+                                        coverUrl={currentCoverUrl || undefined}
                                         style={{
                                             width: '100%',
                                             height: 240,
@@ -1208,11 +1368,11 @@ const PlayerScreenUI = ({
                                         }}
                                     />
                                 ) : (showCanvas && !!track.bgVideo) ? (
-                                    <View style={{ width: width - 64, height: width - 64 }} />
+                                    <View style={{ width: artworkSize, height: artworkSize }} />
                                 ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
                                     <View style={{
-                                        width: width - 64,
-                                        height: width - 64,
+                                        width: artworkSize,
+                                        height: artworkSize,
                                         alignSelf: 'center',
                                         position: 'relative'
                                     }}>
@@ -1223,10 +1383,10 @@ const PlayerScreenUI = ({
                                                         style={StyleSheet.absoluteFillObject}
                                                         maskElement={
                                                             <View style={{
-                                                                width: width - 64,
-                                                                height: width - 64,
-                                                                borderRadius: (width - 64) / 2,
-                                                                borderWidth: ((width - 64) - 35) / 2,
+                                                                width: artworkSize,
+                                                                height: artworkSize,
+                                                                borderRadius: artworkSize / 2,
+                                                                borderWidth: (artworkSize - 35) / 2,
                                                                 borderColor: 'black',
                                                                 backgroundColor: 'transparent',
                                                             }} />
@@ -1269,7 +1429,7 @@ const PlayerScreenUI = ({
                                                         style={{
                                                             position: 'absolute',
                                                             top: 0, left: 0, right: 0, bottom: 0,
-                                                            borderRadius: (width - 64) / 2,
+                                                            borderRadius: artworkSize / 2,
                                                             backgroundColor: coverColor,
                                                             opacity: 0.25,
                                                         }}
@@ -1280,23 +1440,14 @@ const PlayerScreenUI = ({
                                         )}
                                     </View>
                                 ) : (
-                                    artworkSource && !imageError ? (
-                                        <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
-                                            <Image
-                                                key={track.id}
-                                                source={artworkSource}
-                                                style={styles.artwork}
-                                                contentFit="cover"
-                                                transition={300}
-                                                cachePolicy="memory-disk"
-                                                onError={() => setImageError(true)}
-                                            />
-                                        </View>
-                                    ) : (
-                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
-                                        </View>
-                                    )
+                                    <PlayerArtwork
+                                        coverUrl={currentCoverUrl}
+                                        size={artworkSize}
+                                        borderRadius={radii.md || 10}
+                                        shadowStyle={shadows.lg}
+                                        cardBackgroundColor={colors.cardBackground}
+                                        textSecondaryColor={colors.textSecondary}
+                                    />
                                 )}
                             </View>
 
@@ -1313,62 +1464,29 @@ const PlayerScreenUI = ({
                                     if (!nextTrackModel) {
                                         return (
                                             <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                                <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
+                                                <Ionicons name={useSettingsStore.getState().shuffleOnQueueEnd ? "shuffle" : "musical-notes"} size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
                                             </View>
                                         );
                                     }
                                     if (showCanvas && !!nextTrackModel.bgVideo) {
-                                        return <View style={{ width: width - 64, height: width - 64 }} />;
-                                    }
-                                    const formattedUri = nextCoverUrl
-                                        ? (nextCoverUrl.startsWith('file://') && !nextCoverUrl.includes('?t=') ? `${nextCoverUrl}?t=${Date.now()}` : nextCoverUrl)
-                                        : null;
-                                    if (formattedUri) {
-                                        return (
-                                            <View style={{ position: 'relative', width: width - 64, height: width - 64 }}>
-                                                <Image
-                                                    key={`next-${nextTrackModel.id}-${windowVersion}`}
-                                                    source={{ uri: formattedUri }}
-                                                    style={styles.artwork}
-                                                    contentFit="cover"
-                                                    transition={200}
-                                                    cachePolicy="memory-disk"
-                                                />
-                                            </View>
-                                        );
+                                        return <View style={{ width: artworkSize, height: artworkSize }} />;
                                     }
                                     return (
-                                        <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                            <Ionicons name="musical-notes" size={80} color={colors.textSecondary} />
-                                        </View>
+                                        <PlayerArtwork
+                                            key={`art-next-${nextTrackModel.id}`}
+                                            coverUrl={nextCoverUrl}
+                                            size={artworkSize}
+                                            borderRadius={radii.md || 10}
+                                            shadowStyle={shadows.lg}
+                                            cardBackgroundColor={colors.cardBackground}
+                                            textSecondaryColor={colors.textSecondary}
+                                        />
                                     );
                                 })()}
                             </View>
                         </Animated.View>
                     </GestureDetector>
-                    {!isImmersive && (
-                        <Animated.View
-                            pointerEvents="none"
-                            style={[
-                                {
-                                    position: 'absolute',
-                                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-                                    paddingHorizontal: 50,
-                                    paddingVertical: 8,
-                                    borderRadius: 20,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                },
-                                longPressHintStyle
-                            ]}
-                        >
-                            <Ionicons name="color-palette-outline" size={16} color="#FFFFFF" />
-                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600', fontFamily: fonts.regular }}>
-                                {t('actions.longPressCoverToCustomize')}
-                            </Text>
-                        </Animated.View>
-                    )}
+
                 </View>
 
                 {hasLyrics && (
@@ -1427,17 +1545,18 @@ const PlayerScreenUI = ({
 
                         {/* Title & Artist row with optional mini cover */}
                         <View style={isAltDisplay ? { flexDirection: 'row', alignItems: 'center' } : null}>
-                            {isAltDisplay && artworkSource && !imageError && (
+                            {isAltDisplay && artworkSource && (
                                 <Image
-                                    key={`mini-${track.id}`}
                                     source={artworkSource}
                                     style={styles.miniArtwork}
                                     contentFit="cover"
+                                    transition={200}
                                     cachePolicy="memory-disk"
                                 />
                             )}
                             <View style={isAltDisplay ? { flex: 1 } : null}>
                                 <MarqueeText
+                                    key={`title-${track.id}`}
                                     text={track.title}
                                     style={styles.title}
                                     speed={45}
@@ -1447,6 +1566,7 @@ const PlayerScreenUI = ({
                                     onPress={handleArtistPress}
                                 >
                                     <MarqueeText
+                                        key={`artist-${track.id}`}
                                         text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || t('actions.unknown'))}
                                         style={styles.artist}
                                         speed={35}
@@ -1576,7 +1696,7 @@ const PlayerScreenUI = ({
 
                         {/* Forward */}
                         <TouchableOpacity
-                            onPress={() => TrackPlayer.skipToNext().catch(() => { })}
+                            onPress={() => usePlayerStore.getState().skipToNext().catch(() => { })}
                             style={styles.controlButton}
                             disabled={!hasNext}
                         >
@@ -1763,6 +1883,7 @@ const PlayerScreenUI = ({
                 onClose={handleCloseTutorial}
                 rootRef={rootRef}
                 moreButtonRef={moreButtonRef}
+                visualizerButtonRef={visualizerButtonRef}
                 artworkRef={artworkRef}
                 tagsRef={tagsRef}
                 actionsRef={actionsRef}
@@ -1775,6 +1896,7 @@ const PlayerScreenUI = ({
                 shareRef={shareRef}
                 queueRef={queueRef}
                 moreButtonLayout={moreButtonLayout}
+                visualizerButtonLayout={visualizerButtonLayout}
                 artworkLayout={artworkLayout}
                 tagsLayout={tagsLayout}
                 actionsLayout={actionsLayout}
@@ -1813,6 +1935,20 @@ const PlayerScreen = () => {
     const isFocused = useIsFocused();
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
 
+    useEffect(() => {
+        if (isFocused) {
+            usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+        }
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active' && isFocused) {
+                usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+            }
+        });
+        return () => {
+            subscription.remove();
+        };
+    }, [isFocused]);
+
     if (!activeTrackModel) return null;
 
     return (
@@ -1830,7 +1966,7 @@ const PlayerScreen = () => {
     );
 };
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radii: any = { sm: 4, md: 8, lg: 12, full: 9999 }, fontWeights: any = { regular: '400', semiBold: '600', bold: '700' }, shadows: any = { lg: {} }) => StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radii: any = { sm: 4, md: 8, lg: 12, full: 9999 }, fontWeights: any = { regular: '400', semiBold: '600', bold: '700' }, shadows: any = { lg: {} }, artworkSize: number = width - 64) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -1873,8 +2009,8 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4,
         paddingBottom: spacing.sm || 8,
     },
     artwork: {
-        width: width - 64,
-        height: width - 64,
+        width: artworkSize,
+        height: artworkSize,
         borderRadius: radii.md || 10,
         backgroundColor: colors.cardBackground,
         ...shadows.lg,

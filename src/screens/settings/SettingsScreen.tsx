@@ -31,7 +31,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
     const { colors } = useAppTheme();
 
     return (
-        <ScreenHeaderLayout title={t('settings.title')} showBackButton={false} titleStyle={styles.headerTitle}>
+        <ScreenHeaderLayout title={t('settings.title')} showBackButton={true}>
             {({ headerHeight, bottomPadding }) => (
                 <ScrollView
                     style={{ flex: 1 }}
@@ -383,7 +383,7 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                 {/* --- SECCIÓN DE APP INFO FOOTER --- */}
                 <View style={styles.infoTextContainer}>
-                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.2.3'}</Text>
+                    <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '2.3.0'}</Text>
                     <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
                 </View>
             </ScrollView>

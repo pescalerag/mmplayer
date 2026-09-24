@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
+  ImageBackground,
   Platform,
   StyleSheet,
   Text,
@@ -25,28 +26,53 @@ import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import ZipProgressModal from "./src/components/modals/ZipProgressModal";
+import MigrationBlockingModal from "./src/components/modals/MigrationBlockingModal";
 import TagFormModal from "./src/components/modals/TagFormModal";
+import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
 import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { useSettingsStore } from "./src/store/useSettingsStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { PurchasesService } from "./src/services/PurchasesService";
-SystemUI.setBackgroundColorAsync('#000000');
+import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
+  const userTier = useSettingsStore(state => state.userTier);
+  const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
+  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
+  // const isLegendaryTheme = activeAppTheme === 'legendary' && isSupporterOrVIP;
+  const isLegendaryTheme = false;
+  const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
 
   useEffect(() => {
+    const hideSplash = async () => {
+      if (AppState.currentState === 'active') {
+        await SplashScreen.hideAsync().catch(() => {});
+      } else {
+        const sub = AppState.addEventListener('change', (nextState) => {
+          if (nextState === 'active') {
+            sub.remove();
+            SplashScreen.hideAsync().catch(() => {});
+          }
+        });
+      }
+    };
+
     async function prepare() {
       try {
         if (Platform.OS === "android") {
-          await NavigationBar.setBackgroundColorAsync("black");
-          await NavigationBar.setButtonStyleAsync("light");
+          await NavigationBar.setBackgroundColorAsync("#00000000").catch(() => {});
+          await NavigationBar.setButtonStyleAsync("light").catch(() => {});
+          await SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
         }
 
         await Font.loadAsync({
@@ -74,14 +100,14 @@ export default function App() {
         console.warn("Error en la inicialización:", e);
       } finally {
         setFontsLoaded(true);
-        await SplashScreen.hideAsync().catch(() => { });
+        await hideSplash();
       }
     }
-    prepare().catch((e: any) => {
+    prepare().catch(async (e: any) => {
       console.error("Error fatal en prepare():", e);
       setError(e?.message ?? "Error desconocido al arrancar");
       setFontsLoaded(true);
-      SplashScreen.hideAsync().catch(() => { });
+      await hideSplash();
     });
   }, []);
 
@@ -163,19 +189,23 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: "#000000" }}>
+      <ImageBackground
+        source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
+        style={{ flex: 1, backgroundColor: "#000000" }}
+        imageStyle={{ resizeMode: 'cover' }}
+      >
         <TrackPlayerSync />
         <NavigationContainer
           ref={navigationRef}
           theme={{
             dark: true,
             colors: {
-              primary: "#8B5CF6",
-              background: "#000000",
-              card: "#121212",
+              primary: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
+              background: isLegendaryTheme ? "transparent" : "#000000",
+              card: isLegendaryTheme ? "transparent" : "#121212",
               text: "#FFFFFF",
-              border: "#282828",
-              notification: "#8B5CF6",
+              border: isLegendaryTheme ? "rgba(245, 184, 0, 0.25)" : "#282828",
+              notification: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
             },
             fonts: {
               regular: { fontFamily: "Montserrat", fontWeight: "400" },
@@ -196,9 +226,11 @@ export default function App() {
           <GlobalToast />
           <BackupBlockingModal />
           <ZipProgressModal />
+          <MigrationBlockingModal />
           <TagFormModal />
+          <ActivityCustomDateModal />
         </NavigationContainer>
-      </View>
+      </ImageBackground>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

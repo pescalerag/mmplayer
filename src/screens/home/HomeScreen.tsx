@@ -25,9 +25,9 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 import { MediaCard } from '@/components/cards/MediaCard';
-import { StatsWidget } from '@/components/cards/StatsWidget';
 import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
 import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
+import { StatsWidget } from '@/components/cards/StatsWidget';
 import MarqueeText from '@/components/common/MarqueeText';
 import { useStatsStore } from '../../store/useStatsStore';
 
@@ -126,17 +126,30 @@ export default function HomeScreen() {
                 }
             }
         }
+        if (!order.includes('stats')) {
+            const recentIdx = order.indexOf('recent_media');
+            if (recentIdx !== -1) {
+                order.splice(recentIdx + 1, 0, 'stats');
+            } else {
+                order.unshift('stats');
+            }
+        }
+        if (!order.includes('shuffle_button')) {
+            order.push('shuffle_button');
+        }
         return order;
     }, [homeSectionsOrderRaw]);
+
+    const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
 
     const homeSectionsVisibility = React.useMemo(() => {
         return {
             ...homeSectionsVisibilityRaw,
-            smart_playlists: homeSectionsVisibilityRaw?.smart_playlists ?? true
+            smart_playlists: homeSectionsVisibilityRaw?.smart_playlists ?? true,
+            stats: homeSectionsVisibilityRaw?.stats ?? true,
+            shuffle_button: homeSectionsVisibilityRaw?.shuffle_button ?? showGlobalShuffle ?? true,
         };
-    }, [homeSectionsVisibilityRaw]);
-
-    const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
+    }, [homeSectionsVisibilityRaw, showGlobalShuffle]);
 
     const activeTrack = usePlayerStore(state => state.activeTrack);
     const playbackStateRN = usePlaybackState();
@@ -411,55 +424,66 @@ export default function HomeScreen() {
                 }}
             >
                 <View style={[styles.headerRow, isProfileRight && { flexDirection: 'row-reverse' }]}>
-                    <TouchableOpacity
-                        style={styles.profileBadge}
-                        onPress={() => navigation.navigate('UserProfile')}
-                        activeOpacity={0.7}
-                    >
-                        {userAvatarUri ? (
-                            <Image
-                                source={{ uri: userAvatarUri.startsWith('file://') && !userAvatarUri.includes('?t=') ? `${userAvatarUri}?t=${Date.now()}` : userAvatarUri }}
-                                style={styles.profileAvatar}
-                                contentFit="cover"
-                                cachePolicy="memory-disk"
-                            />
-                        ) : (
-                            <View style={styles.profileAvatarPlaceholder}>
-                                <Ionicons name="person" size={18} color={colors.onAccent} />
-                            </View>
-                        )}
-                        <Text
-                            style={styles.profileAliasText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
+                    <View style={[styles.profileCluster, isProfileRight && { flexDirection: 'row-reverse' }]}>
+                        <TouchableOpacity
+                            style={styles.settingsButton}
+                            onPress={() => navigation.navigate('Settings')}
+                            activeOpacity={0.7}
+                            accessibilityLabel={t('settings.title') || 'Configuración'}
                         >
-                            {userAlias || t('profile.default_user', 'Usuario')}
-                        </Text>
-                    </TouchableOpacity>
+                            <Ionicons name="settings-outline" size={20} color={colors.text} />
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.userTierBadge,
-                            userTier === 'VIP' && styles.userTierBadgeVip,
-                            userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
-                        ]}
-                        onPress={() => navigation.navigate('Support')}
-                        activeOpacity={0.7}
-                    >
-                        {userTier === 'VIP' && (
-                            <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />
-                        )}
-                        {userTier === 'SUPPORTER' && (
-                            <Ionicons name="heart" size={11} color="#2DD4BF" />
-                        )}
-                        <Text style={[
-                            styles.userTierBadgeText,
-                            userTier === 'VIP' && styles.userTierBadgeTextVip,
-                            userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
-                        ]}>
-                            {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
-                        </Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.profileBadge}
+                            onPress={() => navigation.navigate('UserProfile')}
+                            activeOpacity={0.7}
+                        >
+                            {userAvatarUri ? (
+                                <Image
+                                    source={{ uri: userAvatarUri.startsWith('file://') && !userAvatarUri.includes('?t=') ? `${userAvatarUri}?t=${Date.now()}` : userAvatarUri }}
+                                    style={styles.profileAvatar}
+                                    contentFit="cover"
+                                    cachePolicy="memory-disk"
+                                />
+                            ) : (
+                                <View style={styles.profileAvatarPlaceholder}>
+                                    <Ionicons name="person" size={18} color={colors.onAccent} />
+                                </View>
+                            )}
+                            <Text
+                                style={styles.profileAliasText}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                            >
+                                {userAlias || t('profile.default_user', 'Usuario')}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.userTierBadge,
+                                userTier === 'VIP' && styles.userTierBadgeVip,
+                                userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
+                            ]}
+                            onPress={() => navigation.navigate('Support')}
+                            activeOpacity={0.7}
+                        >
+                            {userTier === 'VIP' && (
+                                <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />
+                            )}
+                            {userTier === 'SUPPORTER' && (
+                                <Ionicons name="heart" size={11} color="#2DD4BF" />
+                            )}
+                            <Text style={[
+                                styles.userTierBadgeText,
+                                userTier === 'VIP' && styles.userTierBadgeTextVip,
+                                userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
+                            ]}>
+                                {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View style={[
                         styles.welcomeTextWrapper,
@@ -489,7 +513,7 @@ export default function HomeScreen() {
 
                     switch (section) {
                         case 'stats':
-                            return <StatsWidget key="stats" />;
+                            return <StatsWidget key="home-stats-widget" />;
 
                         case 'recent_media':
                             return (
@@ -627,13 +651,13 @@ export default function HomeScreen() {
                                 />
                             );
 
+                        case 'shuffle_button':
+                            return <GlobalShuffleButton key="home-shuffle-button" />;
+
                         default:
                             return null;
                     }
                 })}
-
-                {/* Global Shuffle Button at the bottom */}
-                {showGlobalShuffle && <GlobalShuffleButton />}
             </ScrollView>
         </View>
     );
@@ -658,6 +682,24 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 8,
+        },
+        profileCluster: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 1,
+            maxWidth: '65%',
+        },
+        settingsButton: {
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.14)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexShrink: 0,
         },
         profileBadge: {
             flexDirection: 'row',

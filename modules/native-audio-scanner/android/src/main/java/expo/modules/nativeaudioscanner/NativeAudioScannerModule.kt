@@ -64,6 +64,96 @@ class NativeAudioScannerModule : Module() {
     pendingBatchIndex = 0
   }
 
+  companion object {
+    private val AUDIO_EXTENSIONS = setOf(
+      "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma", "alac", "aiff", "aif", "mka", "mp4"
+    )
+  }
+
+  private fun getStorageRoots(context: Context): List<File> {
+    val roots = mutableListOf<File>()
+    try {
+      val primary = Environment.getExternalStorageDirectory()
+      if (primary != null && primary.exists() && primary.canRead()) {
+        roots.add(primary)
+      }
+    } catch (e: Exception) {
+      Log.w("NativeAudioScanner", "Error accessing primary storage: ${e.message}")
+    }
+
+    try {
+      val externalDirs = androidx.core.content.ContextCompat.getExternalFilesDirs(context, null)
+      for (dir in externalDirs) {
+        if (dir != null) {
+          var cur: File? = dir
+          while (cur != null && !cur.name.equals("Android", ignoreCase = true)) {
+            cur = cur.parentFile
+          }
+          val sdRoot = cur?.parentFile
+          if (sdRoot != null && sdRoot.exists() && sdRoot.canRead() && !roots.contains(sdRoot)) {
+            roots.add(sdRoot)
+          }
+        }
+      }
+    } catch (e: Exception) {
+      Log.w("NativeAudioScanner", "Error finding external storage roots: ${e.message}")
+    }
+    return roots
+  }
+
+  private fun collectAudioFilesFromDisk(rootDir: File, maxDepth: Int = 10): List<File> {
+    val result = mutableListOf<File>()
+    val queue = java.util.ArrayDeque<Pair<File, Int>>()
+    queue.add(Pair(rootDir, 0))
+
+    while (queue.isNotEmpty()) {
+      val item = queue.poll() ?: continue
+      val dir = item.first
+      val depth = item.second
+      if (depth > maxDepth) continue
+
+      val name = dir.name
+      // Skip hidden folders (e.g. .thumbnails, .trash, .git)
+      if (name.startsWith(".") && name != "." && name != "..") continue
+      // Skip only Android/data and Android/obb, but ALLOW Android/media
+      val parentName = dir.parentFile?.name
+      if (parentName.equals("Android", ignoreCase = true) &&
+          (name.equals("data", ignoreCase = true) || name.equals("obb", ignoreCase = true))) {
+        continue
+      }
+
+      val files = try {
+        dir.listFiles()
+      } catch (e: Exception) {
+        null
+      } ?: continue
+
+      // If directory has .nomedia, skip it and its subdirectories
+      var hasNoMedia = false
+      for (f in files) {
+        if (f.name.equals(".nomedia", ignoreCase = true)) {
+          hasNoMedia = true
+          break
+        }
+      }
+      if (hasNoMedia) continue
+
+      for (f in files) {
+        if (f.isDirectory) {
+          if (!f.name.startsWith(".")) {
+            queue.add(Pair(f, depth + 1))
+          }
+        } else if (f.isFile) {
+          val ext = f.extension.lowercase()
+          if (AUDIO_EXTENSIONS.contains(ext) && f.length() > 0) {
+            result.add(f)
+          }
+        }
+      }
+    }
+    return result
+  }
+
   private fun getUriForPath(path: String): Uri? {
     val context = appContext.reactContext ?: return null
     val cleanPath = if (path.startsWith("file://")) path.substring(7) else path
@@ -452,7 +542,10 @@ class NativeAudioScannerModule : Module() {
           projection.add(MediaStore.Audio.Media.GENRE)
         }
         
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+        val selection = "(${MediaStore.Audio.Media.IS_MUSIC} != 0 OR ${MediaStore.Audio.Media.IS_MUSIC} IS NULL) " +
+          "AND (${MediaStore.Audio.Media.IS_NOTIFICATION} == 0 OR ${MediaStore.Audio.Media.IS_NOTIFICATION} IS NULL) " +
+          "AND (${MediaStore.Audio.Media.IS_RINGTONE} == 0 OR ${MediaStore.Audio.Media.IS_RINGTONE} IS NULL) " +
+          "AND (${MediaStore.Audio.Media.IS_ALARM} == 0 OR ${MediaStore.Audio.Media.IS_ALARM} IS NULL)"
         
         val genreMap = mutableMapOf<Long, String>()
         if (!supportsGenre) {
@@ -742,6 +835,93 @@ class NativeAudioScannerModule : Module() {
         handler.removeCallbacks(timeoutRunnable)
         promise.reject("ERR_SCAN_FAILED", "Failed to scan files: ${e.message}", e)
       }
+    }
+
+    AsyncFunction("checkFilesExistOnDisk") { filePaths: List<String> ->
+      filePaths.map { rawPath ->
+        val cleanPath = if (rawPath.startsWith("file://")) rawPath.substring(7) else rawPath
+        try {
+          val decoded = try {
+            java.net.URLDecoder.decode(cleanPath, "UTF-8")
+          } catch (_: Exception) {
+            cleanPath
+          }
+          File(cleanPath).exists() || File(decoded).exists()
+        } catch (_: Exception) {
+          false
+        }
+      }
+    }
+
+    AsyncFunction("findAndScanUnindexedAudioFiles") { knownUris: List<String>, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("ERR_CONTEXT", "React context is null", null)
+        return@AsyncFunction
+      }
+
+      Thread {
+        try {
+          val knownPaths = HashSet<String>(knownUris.size * 2)
+          for (uri in knownUris) {
+            val path = if (uri.startsWith("file://")) uri.substring(7) else uri
+            knownPaths.add(path)
+            try {
+              val decoded = java.net.URLDecoder.decode(path, "UTF-8")
+              knownPaths.add(decoded)
+            } catch (_: Exception) {}
+          }
+
+          val roots = getStorageRoots(context)
+          val allAudioFiles = mutableListOf<File>()
+          for (root in roots) {
+            allAudioFiles.addAll(collectAudioFilesFromDisk(root))
+          }
+
+          val unindexedPaths = mutableListOf<String>()
+          for (file in allAudioFiles) {
+            val absPath = file.absolutePath
+            if (!knownPaths.contains(absPath)) {
+              unindexedPaths.add(absPath)
+            }
+          }
+
+          if (unindexedPaths.isEmpty()) {
+            promise.resolve(emptyList<String>())
+            return@Thread
+          }
+
+          val totalToScan = unindexedPaths.size
+          val remaining = java.util.concurrent.atomic.AtomicInteger(totalToScan)
+          var isResolved = false
+
+          val handler = android.os.Handler(android.os.Looper.getMainLooper())
+          val timeoutMs = Math.max(30000L, totalToScan * 150L)
+          val timeoutRunnable = Runnable {
+            if (!isResolved) {
+              isResolved = true
+              Log.w("NativeAudioScanner", "findAndScanUnindexedAudioFiles timed out after ${timeoutMs}ms, remaining: ${remaining.get()}/$totalToScan")
+              val result = unindexedPaths.map { "file://$it" }
+              promise.resolve(result)
+            }
+          }
+          handler.postDelayed(timeoutRunnable, timeoutMs)
+
+          MediaScannerConnection.scanFile(context, unindexedPaths.toTypedArray(), null) { path, uri ->
+            val left = remaining.decrementAndGet()
+            if (left <= 0 && !isResolved) {
+              isResolved = true
+              handler.removeCallbacks(timeoutRunnable)
+              Log.d("NativeAudioScanner", "findAndScanUnindexedAudioFiles finished scanning all $totalToScan files")
+              val result = unindexedPaths.map { "file://$it" }
+              promise.resolve(result)
+            }
+          }
+        } catch (e: Exception) {
+          Log.e("NativeAudioScanner", "Error in findAndScanUnindexedAudioFiles: ${e.message}", e)
+          promise.reject("ERR_DISK_SCAN", "Error scanning disk: ${e.message}", e)
+        }
+      }.start()
     }
 
     AsyncFunction("requestWritePermission") { filePaths: List<String>, promise: Promise ->

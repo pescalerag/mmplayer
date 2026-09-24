@@ -1001,9 +1001,9 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
 
 type Folder = { path: string; name: string; trackCount: number };
 
-const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (path: string) => void, onMenu: (path: string, name: string) => void }) {
+const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { folder: Folder, onOpen: (folder: Folder) => void, onMenu: (path: string, name: string) => void }) {
     const { t } = useTranslation();
-    const handlePress = React.useCallback(() => onOpen(folder.path), [folder.path, onOpen]);
+    const handlePress = React.useCallback(() => onOpen(folder), [folder, onOpen]);
     const handleLongPress = React.useCallback(() => onMenu(folder.path, folder.name), [folder.path, folder.name, onMenu]);
 
     return (
@@ -1019,21 +1019,7 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
-    const { colors } = useAppTheme();
-    const [activeFolderPath, setActiveFolderPath] = useState<string | null>(null);
-    const isFocused = useIsFocused();
-
-    useEffect(() => {
-        if (!activeFolderPath || !isFocused) return;
-
-        const onBackPress = () => {
-            setActiveFolderPath(null);
-            return true;
-        };
-
-        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-        return () => subscription.remove();
-    }, [activeFolderPath, isFocused]);
+    const navigation = useNavigation<any>();
 
     // Get unique leaf folders that directly contain tracks
     const folders = React.useMemo(() => {
@@ -1058,73 +1044,9 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
     }, [tracks]);
 
-    // Automatically clear selection if the folder no longer exists or becomes empty
-    useEffect(() => {
-        if (activeFolderPath) {
-            const exists = tracks.some(t => {
-                const lastSlash = t.fileUrl.lastIndexOf('/');
-                return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
-            });
-            if (!exists) {
-                setActiveFolderPath(null);
-            }
-        }
-    }, [tracks, activeFolderPath]);
-
-    const activeFolderName = React.useMemo(() => {
-        if (!activeFolderPath) return '';
-        return getSafeFileName(activeFolderPath);
-    }, [activeFolderPath]);
-
-    const directTracks = React.useMemo(() => {
-        if (!activeFolderPath) return [];
-
-        const filteredTracks = tracks.filter(t => {
-            const lastSlash = t.fileUrl.lastIndexOf('/');
-            return lastSlash !== -1 && t.fileUrl.substring(0, lastSlash) === activeFolderPath;
-        });
-
-        return filteredTracks.sort((a, b) => {
-            const titleA = a.title || '';
-            const titleB = b.title || '';
-            return titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
-        });
-    }, [tracks, activeFolderPath]);
-
-    const renderItemTrack = React.useCallback((info: { item: Track }) => {
-        return (
-            <View style={{ minHeight: 64, width: '100%' }}>
-                <EnhancedTrackCard track={info.item} />
-            </View>
-        );
-    }, []);
-
-    if (activeFolderPath) {
-        return (
-            <FlashList
-                key="folder-tracks"
-                ref={scrollRef}
-                data={directTracks}
-                keyExtractor={t => t.id}
-                renderItem={renderItemTrack}
-                contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-                ListHeaderComponent={
-                    <View style={styles.folderHeaderContainer}>
-                        <View style={styles.folderTitleRow}>
-                            <TouchableOpacity onPress={() => setActiveFolderPath(null)} style={[styles.folderBackBtn, { backgroundColor: colors.accentAlpha10 }]} activeOpacity={0.7}>
-                                <Ionicons name="chevron-back" size={20} color={colors.accent} />
-                                <Text style={[styles.folderBackBtnText, { color: colors.accent }]}>{t('library.back')}</Text>
-                            </TouchableOpacity>
-                            <Text style={[styles.currentFolderTitle, { marginLeft: 8 }]} numberOfLines={1}>
-                                📁 {activeFolderName}
-                            </Text>
-                        </View>
-                    </View>
-                }
-            />
-        );
-    }
-
+    const handleOpenFolder = React.useCallback((folder: Folder) => {
+        navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name });
+    }, [navigation]);
 
     return (
         <FlashList
@@ -1144,7 +1066,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                     <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
                         <FolderCard
                             folder={item}
-                            onOpen={setActiveFolderPath}
+                            onOpen={handleOpenFolder}
                             onMenu={(path, name) => openFolderMenu(path, name)}
                         />
                     </View>
@@ -1589,39 +1511,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         textAlign: 'center',
         marginTop: 2,
-    },
-    folderHeaderContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 10,
-    },
-    folderTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    folderBackBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 15,
-    },
-    folderBackBtnText: {
-        color: Colors.accent,
-        fontSize: 13,
-        fontFamily: 'Montserrat',
-        fontWeight: '700',
-    },
-    currentFolderTitle: {
-        fontSize: 18,
-        fontFamily: 'Montserrat',
-        fontWeight: '800',
-        color: '#FFFFFF',
-        flex: 1,
-    },
-    folderGrid: {
-        marginBottom: 20,
     },
     sectionTitle: {
         fontSize: 16,

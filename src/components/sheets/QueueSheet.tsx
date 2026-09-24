@@ -18,7 +18,7 @@ import {
     View,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity, GestureHandlerRootView } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
@@ -31,6 +31,7 @@ import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
+import { useToastStore } from '../../store/useToastStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -42,6 +43,15 @@ const TAB_WIDTH = (width - 48 - 110) / 2;
 const ITEM_ROW_HEIGHT = 72; // Altura fija para optimizar getItemLayout
 
 type ActiveTab = 'queue' | 'recent';
+
+interface DeletedQueueItem {
+    track: TPTrack;
+    index: number;
+    isUserQueued: boolean;
+}
+
+let deletedQueueStack: DeletedQueueItem[] = [];
+let undoDeletionTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export default function QueueSheet() {
     const { colors } = useAppTheme();
@@ -166,9 +176,15 @@ export default function QueueSheet() {
 
     const isReordering = useRef(false);
 
-    const recentTracks = queue.slice(0, activeIndex).reverse();
+    const recentTracks = React.useMemo(() => {
+        return queue.slice(0, activeIndex).reverse();
+    }, [queue, activeIndex]);
+
     // Muestra TODA la cola restante sin capas ni límites de 50
-    const upcomingTracks = queue.slice(activeIndex + 1);
+    const upcomingTracks = React.useMemo(() => {
+        return queue.slice(activeIndex + 1);
+    }, [queue, activeIndex]);
+
     const currentTrack = queue[activeIndex] ?? null;
 
     const totalUpcomingCount = Math.max(0, queue.length - (activeIndex + 1));
@@ -318,8 +334,15 @@ export default function QueueSheet() {
         }
     }, [setActiveIndex]);
 
-    const handleRemove = React.useCallback(async (globalIndex: number, isUserQueued: boolean) => {
+    const handleRemove = React.useCallback(async (trackToRemove: TPTrack, globalIndex: number, isUserQueued: boolean) => {
         try {
+            // Guardar en la pila para deshacer
+            deletedQueueStack.push({
+                track: trackToRemove,
+                index: globalIndex,
+                isUserQueued,
+            });
+
             await TrackPlayer.remove(globalIndex);
             if (isUserQueued) decrementUserQueue();
             const [fullQueue, idx] = await Promise.all([
@@ -331,10 +354,90 @@ export default function QueueSheet() {
 
             await usePlayerStore.getState().updateQueueStatus(idx ?? undefined);
             await usePlayerStore.getState().savePlaybackState();
+
+            if (undoDeletionTimeout) {
+                clearTimeout(undoDeletionTimeout);
+            }
+
+            const TOAST_DURATION = 3000;
+            undoDeletionTimeout = setTimeout(() => {
+                deletedQueueStack = [];
+                undoDeletionTimeout = null;
+            }, TOAST_DURATION);
+
+            const count = deletedQueueStack.length;
+            const message = count === 1
+                ? t('queue.track_removed', 'Has eliminado una canción de la cola')
+                : t('queue.tracks_removed', { count, defaultValue: `Has eliminado ${count} canciones de la cola` });
+
+            useToastStore.getState().showToast(
+                message,
+                'close-circle',
+                '#EF4444',
+                {
+                    text: t('queue.undo', 'Deshacer'),
+                    color: colors.accentLight || colors.accent || '#8B5CF6',
+                    onPress: async () => {
+                        if (undoDeletionTimeout) {
+                            clearTimeout(undoDeletionTimeout);
+                            undoDeletionTimeout = null;
+                        }
+
+                        const itemsToRestore = [...deletedQueueStack];
+                        deletedQueueStack = [];
+
+                        let userQueuedRestored = 0;
+                        // Restaurar en orden LIFO para conservar exactamente los índices originales
+                        for (let i = itemsToRestore.length - 1; i >= 0; i--) {
+                            const item = itemsToRestore[i];
+                            try {
+                                const currentQ = await TrackPlayer.getQueue();
+                                const targetIdx = Math.min(item.index, currentQ.length);
+                                await TrackPlayer.add([item.track], targetIdx);
+                                if (item.isUserQueued) {
+                                    userQueuedRestored++;
+                                }
+                            } catch (err) {
+                                console.error('Error al restaurar canción en la cola:', err);
+                            }
+                        }
+
+                        if (userQueuedRestored > 0) {
+                            usePlayerStore.setState((state) => ({
+                                userQueueSize: state.userQueueSize + userQueuedRestored,
+                            }));
+                        }
+
+                        const [restoredQueue, restoredIdx] = await Promise.all([
+                            TrackPlayer.getQueue(),
+                            TrackPlayer.getActiveTrackIndex(),
+                        ]);
+                        setQueue(restoredQueue);
+                        if (restoredIdx !== undefined && restoredIdx !== null) setActiveIndex(restoredIdx);
+
+                        usePlayerStore.setState((state) => ({
+                            queueVersion: (state.queueVersion || 0) + 1,
+                            windowVersion: (state.windowVersion || 0) + 1,
+                        }));
+                        await usePlayerStore.getState().updateQueueStatus(restoredIdx ?? undefined);
+                        await usePlayerStore.getState().savePlaybackState();
+                    },
+                },
+                TOAST_DURATION
+            );
         } catch (error) {
             console.error('Error removing track:', error);
         }
-    }, [decrementUserQueue]);
+    }, [decrementUserQueue, colors.accent, colors.accentLight, t]);
+
+    const clearUndoState = React.useCallback(() => {
+        if (undoDeletionTimeout) {
+            clearTimeout(undoDeletionTimeout);
+            undoDeletionTimeout = null;
+        }
+        deletedQueueStack = [];
+        useToastStore.getState().hideToast();
+    }, []);
 
     const handleTrashPress = () => {
         setShowTrashMenu(true);
@@ -512,15 +615,15 @@ export default function QueueSheet() {
                 </View>
 
                 {activeTab === 'queue' ? (
-                    <View style={{ flex: 1, overflow: 'hidden' }}>
-                        <View style={{ backgroundColor: colors.background || Colors.background, zIndex: 10, elevation: 10 }}>
+                    <View style={{ flex: 1 }}>
+                        <View style={{ backgroundColor: colors.background || Colors.background, zIndex: 5, elevation: 5 }}>
                             {listHeader}
                             {Boolean(currentTrack) && <View style={[styles.separator, { marginBottom: 0 }]} />}
                         </View>
-                        <View style={{ flex: 1, overflow: 'hidden', backgroundColor: colors.background || Colors.background }}>
+                        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background || Colors.background }}>
                             <DraggableFlatList
                                 data={upcomingTracks}
-                                keyExtractor={(item) => item.id}
+                                keyExtractor={(item, index) => item?.id ? String(item.id) : `queue-item-${index}`}
                                 renderItem={renderQueueItem}
                                 onDragBegin={() => {
                                     isReordering.current = true;
@@ -531,12 +634,23 @@ export default function QueueSheet() {
                                     }, 400);
                                 }}
                                 onDragEnd={handleDragEnd}
-                                activationDistance={0}
-                                autoscrollThreshold={75}
-                                autoscrollSpeed={160}
+                                activationDistance={5}
+                                autoscrollThreshold={50}
+                                autoscrollSpeed={120}
                                 dragItemOverflow={false}
-                                containerStyle={{ flex: 1, overflow: 'hidden' }}
-                                style={{ flex: 1, overflow: 'hidden' }}
+                                bounces={false}
+                                overScrollMode="never"
+                                containerStyle={{ flex: 1 }}
+                                style={{ flex: 1 }}
+                                getItemLayout={(_data, index) => ({
+                                    length: ITEM_ROW_HEIGHT,
+                                    offset: ITEM_ROW_HEIGHT * index,
+                                    index,
+                                })}
+                                initialNumToRender={15}
+                                maxToRenderPerBatch={15}
+                                windowSize={21}
+                                extraData={queue}
                                 ListEmptyComponent={
                                     <View style={styles.emptyState}>
                                         <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
@@ -546,8 +660,8 @@ export default function QueueSheet() {
                                 contentContainerStyle={styles.queueListContent}
                                 showsVerticalScrollIndicator={false}
                             />
-                        </View>
-                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background || Colors.background, zIndex: 10, elevation: 10 }]}>
+                        </GestureHandlerRootView>
+                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background || Colors.background, zIndex: 5, elevation: 5 }]}>
                             <View style={[styles.separator, { marginTop: 6, marginBottom: 6 }]} />
                             <View style={styles.shuffleOnEndRow}>
                                 <View style={styles.shuffleOnEndLeft}>
@@ -605,6 +719,7 @@ export default function QueueSheet() {
                                             style={styles.trashMenuButton}
                                             onPress={async () => {
                                                 setShowTrashMenu(false);
+                                                clearUndoState();
                                                 await clearUserQueue();
                                                 const [fullQueue, idx] = await Promise.all([
                                                     TrackPlayer.getQueue(),
@@ -626,6 +741,7 @@ export default function QueueSheet() {
                                             style={styles.trashMenuButton}
                                             onPress={async () => {
                                                 setShowTrashMenu(false);
+                                                clearUndoState();
                                                 await clearContextQueue();
                                                 const [fullQueue, idx] = await Promise.all([
                                                     TrackPlayer.getQueue(),
@@ -646,6 +762,7 @@ export default function QueueSheet() {
                                         style={styles.trashMenuButton}
                                         onPress={async () => {
                                             setShowTrashMenu(false);
+                                            clearUndoState();
                                             await clearPlayer();
                                             closeQueue();
                                         }}
@@ -796,7 +913,7 @@ interface QueueTrackRowProps {
     activeIndex: number;
     userQueueSize: number;
     onSkip: (globalIndex: number) => void;
-    onRemove: (globalIndex: number, isUserQueued: boolean) => void;
+    onRemove: (track: TPTrack, globalIndex: number, isUserQueued: boolean) => void;
     drag?: () => void;
     isActive?: boolean;
     colors: ReturnType<typeof useAppTheme>['colors'];
@@ -815,7 +932,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
     const artist = dbMeta?.artist ?? item.artist;
 
     return (
-        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 }]]}>
+        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 || Colors.accentAlpha10 }]]}>
             <GHTouchableOpacity
                 onLongPress={drag}
                 delayLongPress={60}
@@ -859,7 +976,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
 
             <TouchableOpacity
                 style={styles.removeButton}
-                onPress={() => onRemove(globalIndex, isUserQueued)}
+                onPress={() => onRemove(item, globalIndex, isUserQueued)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 disabled={isActive}
             >
@@ -1037,7 +1154,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        overflow: 'hidden',
     },
     trackRowActive: {
         backgroundColor: Colors.accentAlpha10,
@@ -1121,6 +1237,7 @@ const styles = StyleSheet.create({
     },
     queueListContent: {
         paddingTop: 6,
+        paddingBottom: 24,
     },
     bottomFooterContainer: {
         width: '100%',

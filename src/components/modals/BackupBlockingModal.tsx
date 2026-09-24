@@ -1,22 +1,59 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-    Modal,
     View,
     Text,
     StyleSheet,
     ActivityIndicator,
     TouchableOpacity,
-    TouchableWithoutFeedback
+    TouchableWithoutFeedback,
+    Platform,
+    BackHandler,
+    Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as NavigationBar from 'expo-navigation-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBackupStore } from '../../store/useBackupStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function BackupBlockingModal() {
     const { colors, fonts } = useAppTheme();
+    const insets = useSafeAreaInsets();
     const { isVisible, mode, progressMessage, close } = useBackupStore();
+    const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const isFinished = mode === 'success' || mode === 'error';
+
+    useEffect(() => {
+        if (!isVisible) {
+            fadeAnim.setValue(0);
+            return;
+        }
+
+        if (Platform.OS === 'android') {
+            NavigationBar.setBackgroundColorAsync('#00000000').catch(() => {});
+            NavigationBar.setButtonStyleAsync('light').catch(() => {});
+        }
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (isFinished) {
+                close();
+            }
+            return true; // Prevent back press while backup/restore is ongoing
+        });
+
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+        }).start();
+
+        return () => {
+            backHandler.remove();
+        };
+    }, [isVisible, isFinished]);
+
+    if (!isVisible) return null;
 
     const handleBackdropPress = () => {
         if (isFinished) {
@@ -24,80 +61,79 @@ export default function BackupBlockingModal() {
         }
     };
 
-    const handleRequestClose = () => {
-        if (isFinished) {
-            close();
-        }
-    };
-
     return (
-        <Modal
-            transparent
-            visible={isVisible}
-            animationType="fade"
-            onRequestClose={handleRequestClose}
+        <View
+            style={[
+                StyleSheet.absoluteFill,
+                {
+                    zIndex: 999999,
+                    elevation: 999999,
+                }
+            ]}
+            pointerEvents="auto"
         >
-            <TouchableWithoutFeedback onPress={handleBackdropPress}>
-                <View style={styles.overlay}>
-                    <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                        <View style={[styles.card, { backgroundColor: '#161616', borderColor: '#282828' }]}>
-                            {mode === 'error' && (
-                                <Ionicons
-                                    name="alert-circle-outline"
-                                    size={56}
-                                    color="#EF4444"
-                                    style={styles.icon}
-                                />
-                            )}
-                            {mode === 'success' && (
-                                <Ionicons
-                                    name="checkmark-circle-outline"
-                                    size={56}
-                                    color="#22C55E"
-                                    style={styles.icon}
-                                />
-                            )}
-                            {!isFinished && (
-                                <ActivityIndicator
-                                    size="large"
-                                    color={colors.accent || '#8B5CF6'}
-                                    style={styles.spinner}
-                                />
-                            )}
+            <Animated.View style={[styles.overlay, { opacity: fadeAnim, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+                <TouchableWithoutFeedback onPress={handleBackdropPress}>
+                    <View style={StyleSheet.absoluteFill} />
+                </TouchableWithoutFeedback>
+                <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                    <View style={[styles.card, { backgroundColor: '#161616', borderColor: '#282828' }]}>
+                        {mode === 'error' && (
+                            <Ionicons
+                                name="alert-circle-outline"
+                                size={56}
+                                color="#EF4444"
+                                style={styles.icon}
+                            />
+                        )}
+                        {mode === 'success' && (
+                            <Ionicons
+                                name="checkmark-circle-outline"
+                                size={56}
+                                color="#22C55E"
+                                style={styles.icon}
+                            />
+                        )}
+                        {!isFinished && (
+                            <ActivityIndicator
+                                size="large"
+                                color={colors.accent || '#8B5CF6'}
+                                style={styles.spinner}
+                            />
+                        )}
 
-                            <Text style={[styles.message, { color: colors.text || '#FFFFFF', fontFamily: fonts.regular }]}>
-                                {progressMessage}
-                            </Text>
+                        <Text style={[styles.message, { color: colors.text || '#FFFFFF', fontFamily: fonts.regular }]}>
+                            {progressMessage}
+                        </Text>
 
-                            {isFinished && (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.button,
-                                        { backgroundColor: mode === 'error' ? '#EF4444' : (colors.accent || '#8B5CF6') }
-                                    ]}
-                                    onPress={close}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={[styles.buttonText, { fontFamily: fonts.bold }, mode !== 'error' && { color: colors.onAccent }]}>
-                                        {mode === 'error' ? 'Cerrar' : 'Aceptar'}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    </TouchableWithoutFeedback>
-                </View>
-            </TouchableWithoutFeedback>
-        </Modal>
+                        {isFinished && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.button,
+                                    { backgroundColor: mode === 'error' ? '#EF4444' : (colors.accent || '#8B5CF6') }
+                                ]}
+                                onPress={close}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.buttonText, { fontFamily: fonts.bold }, mode !== 'error' && { color: colors.onAccent }]}>
+                                    {mode === 'error' ? 'Cerrar' : 'Aceptar'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </TouchableWithoutFeedback>
+            </Animated.View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     overlay: {
-        flex: 1,
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0, 0, 0, 0.90)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 24,
+        paddingHorizontal: 24,
     },
     card: {
         width: '100%',

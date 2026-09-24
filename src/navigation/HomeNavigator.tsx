@@ -9,14 +9,19 @@ import ActivityMainScreen from '../screens/activity/ActivityMainScreen';
 import SmartListDetailScreen from '../screens/library/SmartListDetailScreen';
 import UserProfileScreen from '../screens/profile/UserProfileScreen';
 import SupportScreen from '../screens/support/SupportScreen';
+import SettingsNavigator from './SettingsNavigator';
+import ActivityHistoryScreen from '../screens/activity/ActivityHistoryScreen';
+import FolderDetailScreen from '../screens/library/FolderDetailScreen';
+import { HomeStackParamList } from './types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<HomeStackParamList>();
 
 export default function HomeNavigator() {
     return (
         <Stack.Navigator screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
+            contentStyle: { backgroundColor: 'transparent' },
             freezeOnBlur: false
         }}>
             <Stack.Screen name="Home" component={HomeScreen} />
@@ -28,6 +33,9 @@ export default function HomeNavigator() {
             <Stack.Screen name="SmartListDetail" component={SmartListDetailScreen} />
             <Stack.Screen name="UserProfile" component={UserProfileScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />
+            <Stack.Screen name="Settings" component={SettingsNavigator} />
+            <Stack.Screen name="ActivityHistory" component={ActivityHistoryScreen} />
+            <Stack.Screen name="FolderDetail" component={FolderDetailScreen} getId={({ params }) => params.folderPath} />
         </Stack.Navigator>
     );
 }

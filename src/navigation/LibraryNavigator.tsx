@@ -8,6 +8,7 @@ import TagDetailScreen from '../screens/tags/TagDetailScreen';
 import FavoritesDetailScreen from '../screens/library/FavoritesDetailScreen';
 import PlaylistDetailScreen from '../screens/library/PlaylistDetailScreen';
 import SmartListDetailScreen from '../screens/library/SmartListDetailScreen';
+import FolderDetailScreen from '../screens/library/FolderDetailScreen';
 import { LibraryStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<LibraryStackParamList>();
@@ -17,7 +18,7 @@ export default function LibraryNavigator() {
         <Stack.Navigator screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
-            contentStyle: { backgroundColor: '#121212' },
+            contentStyle: { backgroundColor: 'transparent' },
             freezeOnBlur: false
         }}>
             <Stack.Screen name="Library" component={LibraryScreen} />
@@ -27,6 +28,7 @@ export default function LibraryNavigator() {
             <Stack.Screen name="FavoritesDetail" component={FavoritesDetailScreen} />
             <Stack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} getId={({ params }) => params.playlistId} />
             <Stack.Screen name="SmartListDetail" component={SmartListDetailScreen} getId={({ params }) => params.smartListId} />
+            <Stack.Screen name="FolderDetail" component={FolderDetailScreen} getId={({ params }) => params.folderPath} />
         </Stack.Navigator>
     );
 }

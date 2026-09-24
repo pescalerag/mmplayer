@@ -7,6 +7,7 @@ import i18n from '../constants/i18n';
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
 export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 export type LocalCastTheme = 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
+export type AppTheme = 'none' | 'legendary';
 
 interface SettingsState {
     userTier: UserTier;
@@ -19,6 +20,8 @@ interface SettingsState {
     setLocalCastTheme: (theme: LocalCastTheme) => void;
     customAccentColor: string | null;
     setCustomAccentColor: (color: string | null) => void;
+    activeAppTheme: AppTheme;
+    setActiveAppTheme: (theme: AppTheme) => void;
     hasOrphanedUpgrade: boolean;
     setHasOrphanedUpgrade: (val: boolean) => void;
     showTagColors: boolean;
@@ -112,13 +115,15 @@ interface SettingsState {
     setHomeProfilePosition: (position: 'left' | 'right') => void;
     shuffleOnQueueEnd: boolean;
     setShuffleOnQueueEnd: (value: boolean) => void;
+    homeSectionsVersion: number;
+    setHomeSectionsVersion: (version: number) => void;
 }
 
 export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
-export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Configuración';
-export type HomeSection = 'stats' | 'recent_media' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore';
+export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Actividad';
+export type HomeSection = 'recent_media' | 'stats' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore' | 'shuffle_button';
 
 export const useSettingsStore = create<SettingsState>()(
     persist(
@@ -141,24 +146,33 @@ export const useSettingsStore = create<SettingsState>()(
             setSwipeRightAction: (action) => set({ swipeRightAction: action }),
             libraryTabsOrder: ['albums', 'playlists', 'artists', 'folders', 'tracks'],
             setLibraryTabsOrder: (order) => set({ libraryTabsOrder: order }),
-            appTabsOrder: ['Inicio', 'Biblioteca', 'Buscar', 'Etiquetas', 'Configuración'],
+            appTabsOrder: ['Inicio', 'Biblioteca', 'Buscar', 'Etiquetas', 'Actividad'],
             setAppTabsOrder: (order) => set({ appTabsOrder: order }),
             initialAppRoute: 'Inicio',
             setInitialAppRoute: (route) => set({ initialAppRoute: route }),
-            homeSectionsOrder: ['stats', 'recent_media', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore'],
+            homeSectionsOrder: ['recent_media', 'stats', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore', 'shuffle_button'],
             setHomeSectionsOrder: (order) => set({ homeSectionsOrder: order }),
+            homeSectionsVersion: 2,
+            setHomeSectionsVersion: (version) => set({ homeSectionsVersion: version }),
             homeSectionsVisibility: {
-                stats: true,
                 recent_media: true,
+                stats: true,
                 smart_playlists: true,
                 recent_playlists: true,
                 recently_added: true,
                 most_played: true,
                 explore: true,
+                shuffle_button: true,
             },
             setHomeSectionsVisibility: (visibility) => set({ homeSectionsVisibility: visibility }),
             showGlobalShuffle: true,
-            setShowGlobalShuffle: (value) => set({ showGlobalShuffle: value }),
+            setShowGlobalShuffle: (value) => set((state) => ({
+                showGlobalShuffle: value,
+                homeSectionsVisibility: {
+                    ...state.homeSectionsVisibility,
+                    shuffle_button: value,
+                },
+            })),
             isCompactTags: true,
             setIsCompactTags: (value) => set({ isCompactTags: value }),
             artistImageDownloadMode: 'disabled',
@@ -204,6 +218,8 @@ export const useSettingsStore = create<SettingsState>()(
             setLocalCastTheme: (theme) => set({ localCastTheme: theme }),
             customAccentColor: null,
             setCustomAccentColor: (color) => set({ customAccentColor: color }),
+            activeAppTheme: 'none',
+            setActiveAppTheme: (_theme) => set({ activeAppTheme: 'none' }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],
@@ -251,7 +267,13 @@ export const useSettingsStore = create<SettingsState>()(
             homeProfilePosition: 'left',
             setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
             shuffleOnQueueEnd: false,
-            setShuffleOnQueueEnd: (value) => set({ shuffleOnQueueEnd: value }),
+            setShuffleOnQueueEnd: (value) => {
+                set({ shuffleOnQueueEnd: value });
+                try {
+                    const { usePlayerStore } = require('./usePlayerStore');
+                    usePlayerStore.getState().updateQueueStatus();
+                } catch { }
+            },
         }),
         {
             name: 'mmplayer-settings',
@@ -265,6 +287,55 @@ export const useSettingsStore = create<SettingsState>()(
                         state.setLanguage(defaultLang);
                     } else {
                         i18n.changeLanguage(state.language);
+                    }
+                    if (state.activeAppTheme && state.activeAppTheme !== 'none') {
+                        state.setActiveAppTheme('none');
+                    }
+                    if (state.appTabsOrder) {
+                        if ((state.appTabsOrder as any[]).includes('Configuración')) {
+                            state.setAppTabsOrder(state.appTabsOrder.map(tab => (tab as any) === 'Configuración' ? 'Actividad' : tab));
+                        }
+                        if ((state.initialAppRoute as any) === 'Configuración') {
+                            state.setInitialAppRoute('Actividad');
+                        }
+                    }
+                    if (state.homeSectionsVersion !== 2) {
+                        let newOrder = state.homeSectionsOrder ? [...state.homeSectionsOrder] : [];
+                        newOrder = newOrder.filter(s => s !== 'stats' && s !== 'shuffle_button');
+                        const recentIdx = newOrder.indexOf('recent_media');
+                        if (recentIdx !== -1) {
+                            newOrder.splice(recentIdx + 1, 0, 'stats');
+                        } else {
+                            newOrder.unshift('stats');
+                        }
+                        newOrder.push('shuffle_button');
+                        state.setHomeSectionsOrder(newOrder);
+
+                        const newVis = { ...state.homeSectionsVisibility };
+                        newVis.stats = true;
+                        newVis.shuffle_button = state.showGlobalShuffle ?? true;
+                        state.setHomeSectionsVisibility(newVis);
+
+                        state.setHomeSectionsVersion(2);
+                    } else if (state.homeSectionsOrder) {
+                        let currentOrder = [...state.homeSectionsOrder];
+                        let changed = false;
+                        if (!currentOrder.includes('stats')) {
+                            const recentIdx = currentOrder.indexOf('recent_media');
+                            if (recentIdx !== -1) {
+                                currentOrder.splice(recentIdx + 1, 0, 'stats');
+                            } else {
+                                currentOrder.unshift('stats');
+                            }
+                            changed = true;
+                        }
+                        if (!currentOrder.includes('shuffle_button')) {
+                            currentOrder.push('shuffle_button');
+                            changed = true;
+                        }
+                        if (changed) {
+                            state.setHomeSectionsOrder(currentOrder);
+                        }
                     }
                 }
             }

@@ -27,7 +27,6 @@ export async function setupPlayer() {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
             Capability.SeekTo,
-            Capability.Stop,
             Capability.PlayFromSearch,
         ],
         notificationCapabilities: [
@@ -36,7 +35,6 @@ export async function setupPlayer() {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
             Capability.SeekTo,
-            Capability.Stop,
         ],
     });
 

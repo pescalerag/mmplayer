@@ -70,29 +70,59 @@ const hslToHex = (h: number, s: number, l: number): string => {
 const generateCoverGradients = (extractedHex: string | null) => {
   if (!extractedHex) {
     return {
-      colors: ['#231238', '#140822', '#0c0416', '#040108'] as [string, string, string, string],
-      accent: '#A78BFA',
-      glow: 'rgba(167, 139, 250, 0.35)',
+      colors: ['#38234C', '#2E1C3F', '#251633', '#1F122C'] as [string, string, string, string],
+      accent: '#C4B5FD',
+      glow: 'rgba(167, 139, 250, 0.4)',
     };
   }
   try {
     const hsl = hexToHsl(extractedHex);
-    const topGradient = hslToHex(hsl.h, Math.min(hsl.s + 10, 60), 24);
-    const midGradient = hslToHex(hsl.h, Math.min(hsl.s, 45), 14);
-    const baseColor = hslToHex(hsl.h, Math.min(hsl.s - 5, 35), 8);
-    const bottomGradient = hslToHex(hsl.h, 20, 4);
-    const accent = hslToHex(hsl.h, 85, 60);
-    const glow = `rgba(${Math.round(hsl.s * 2.5)}, 120, 240, 0.4)`;
+    // Use the exact hue from the cover, similar to LyricsScreen
+    const h = hsl.s < 10 ? 245 : hsl.h;
+    // Controlled, elegant saturation around the 30-40% level used by LyricsScreen
+    const baseS = hsl.s < 10 ? 30 : Math.min(Math.max(hsl.s, 30), 45);
+
+    // Color 1 (Top-Left): Intermediate tone based on LyricsScreen (L ~ 25%), not bright/neon
+    const topColor = hslToHex(
+      h,
+      baseS + 4,
+      25
+    );
+
+    // Color 2 (Upper-Mid): Smooth transition tone (L ~ 22%)
+    const midColor1 = hslToHex(
+      (h + 4) % 360,
+      baseS + 1,
+      22
+    );
+
+    // Color 3 (Lower-Mid): Deeper tone with subtle analogous shift (L ~ 19%)
+    const midColor2 = hslToHex(
+      (h - 6 + 360) % 360,
+      baseS - 2,
+      19
+    );
+
+    // Color 4 (Bottom-Right): Deep, rich colored base tone (L ~ 16%) - NEVER BLACK!
+    const bottomColor = hslToHex(
+      (h - 10 + 360) % 360,
+      baseS - 4,
+      16
+    );
+
+    const accent = hslToHex(h, Math.min(Math.max(hsl.s, 70), 90), 65);
+    const glow = `rgba(${Math.round(baseS * 2.5)}, 120, 240, 0.4)`;
+
     return {
-      colors: [topGradient, midGradient, baseColor, bottomGradient] as [string, string, string, string],
+      colors: [topColor, midColor1, midColor2, bottomColor] as [string, string, string, string],
       accent,
       glow,
     };
   } catch {
     return {
-      colors: ['#231238', '#140822', '#0c0416', '#040108'] as [string, string, string, string],
-      accent: '#A78BFA',
-      glow: 'rgba(167, 139, 250, 0.35)',
+      colors: ['#38234C', '#2E1C3F', '#251633', '#1F122C'] as [string, string, string, string],
+      accent: '#C4B5FD',
+      glow: 'rgba(167, 139, 250, 0.4)',
     };
   }
 };
@@ -206,17 +236,17 @@ const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
           {/* Background Gradient */}
           <LinearGradient
             colors={gradientColors}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
+            start={{ x: 0.1, y: 0.05 }}
+            end={{ x: 0.9, y: 0.95 }}
             style={StyleSheet.absoluteFillObject}
           />
 
-          {/* Top Brand Header: Real App Icon at top-left */}
+          {/* Top Brand Header: Real App Icon at top-left (Same as stats share) */}
           <View style={cardStyles.brandHeader}>
             <Image
-              source={require('../../assets/images/icon.png')}
+              source={require('../../assets/images/splash-icon.png')}
               style={cardStyles.appIcon}
-              contentFit="cover"
+              contentFit="contain"
             />
           </View>
 
@@ -806,7 +836,7 @@ const styles = StyleSheet.create({
 
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#05020a',
+    backgroundColor: 'transparent',
     borderRadius: 0,
     padding: 22,
     justifyContent: 'space-between',
@@ -820,9 +850,9 @@ const cardStyles = StyleSheet.create({
     width: '100%',
   },
   appIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 0,
   },
   songMetadataChip: {
     flexDirection: 'row',

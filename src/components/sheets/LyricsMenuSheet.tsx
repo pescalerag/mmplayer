@@ -64,7 +64,7 @@ export default function LyricsMenuSheet() {
     try {
       const imported = await LyricsService.importCustomLyrics(track);
       if (imported) {
-        onImportSuccess(imported);
+        onImportSuccess?.(imported);
         Alert.alert(t('actions.success') || 'Éxito', t('lyrics.import_success') || 'Letras importadas correctamente.');
       }
     } catch {
@@ -85,7 +85,7 @@ export default function LyricsMenuSheet() {
     try {
       const lyrics = await LyricsService.fetchLyrics(track, true);
       if (lyrics) {
-        onImportSuccess(lyrics);
+        onImportSuccess?.(lyrics);
         Alert.alert(t('actions.success') || 'Éxito', t('lyrics.search_success') || 'Letras encontradas e importadas correctamente.');
       } else {
         Alert.alert(t('actions.error') || 'Error', t('lyrics.search_not_found') || 'No se encontraron letras para esta canción en internet.');
@@ -107,8 +107,8 @@ export default function LyricsMenuSheet() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await LyricsService.saveLyrics(track, '');
-              onImportSuccess('');
+              await LyricsService.deleteLyrics(track);
+              onImportSuccess?.('');
               closeMenu();
               Alert.alert(t('actions.success') || 'Éxito', t('lyrics.delete_success') || 'Letras eliminadas correctamente.');
             } catch (e) {

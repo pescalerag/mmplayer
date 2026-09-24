@@ -113,7 +113,7 @@ const SyncInstructions = React.memo(({ colors, fonts, t }: { colors: any; fonts:
 SyncInstructions.displayName = 'SyncInstructions';
 
 export default function LyricsSyncScreen() {
-    const { colors, fonts, fontWeights } = useAppTheme();
+    const { colors, fonts, fontWeights } = useAppTheme({ ignoreTheme: true });
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { t } = useTranslation();

@@ -138,6 +138,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 40,
   },
   backBtn: {
     marginRight: 12,
@@ -152,6 +153,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     flex: 1,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   rightComponentContainer: {
     justifyContent: 'center',
