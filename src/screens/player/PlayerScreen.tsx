@@ -605,7 +605,7 @@ const PlayerScreenUI = ({
     const isCasting = isLocalCastActive || isChromecastConnected;
     const openCastSheet = openLocalCast;
 
-    const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track);
+    const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track, position);
     const hasLyrics = !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
     const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
         ? parsedLyrics[activeIndex].text

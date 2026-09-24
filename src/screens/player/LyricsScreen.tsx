@@ -288,30 +288,44 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     }, [isLocalCastActive, navigation]);
 
-    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track);
+    const { parsedLyrics, activeIndex, isLoading, isSynced, lyricsText } = useSyncedLyrics(track, position);
 
+    const prevTrackIdRef = useRef<string | null>(track.id);
     const isInitialScrollRef = useRef(true);
 
     useEffect(() => {
-        isInitialScrollRef.current = true;
-        // Reset scroll position to top on track changes
-        if (flatListRef.current) {
-            flatListRef.current.scrollToOffset({ offset: 0, animated: false });
-        }
-        if (scrollViewRef.current) {
-            scrollViewRef.current.scrollTo({ y: 0, animated: false });
+        if (prevTrackIdRef.current !== track.id) {
+            prevTrackIdRef.current = track.id;
+            isInitialScrollRef.current = true;
+            // Reset scroll position to top ONLY on actual track changes
+            if (flatListRef.current) {
+                flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+            }
+            if (scrollViewRef.current) {
+                scrollViewRef.current.scrollTo({ y: 0, animated: false });
+            }
         }
     }, [track.id]);
 
     useEffect(() => {
         if (isSynced && activeIndex !== -1 && flatListRef.current) {
             const isInitial = isInitialScrollRef.current;
+            const targetOffset = activeIndex * LYRIC_ITEM_HEIGHT;
+
             flatListRef.current.scrollToOffset({
-                offset: activeIndex * LYRIC_ITEM_HEIGHT,
+                offset: targetOffset,
                 animated: !isInitial,
             });
+
             if (isInitial) {
                 isInitialScrollRef.current = false;
+                const timer = setTimeout(() => {
+                    flatListRef.current?.scrollToOffset({
+                        offset: targetOffset,
+                        animated: false,
+                    });
+                }, 60);
+                return () => clearTimeout(timer);
             }
         }
     }, [activeIndex, isSynced]);
@@ -508,11 +522,19 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                     )}
                     contentContainerStyle={[styles.listContent, { paddingTop, paddingBottom }]}
                     getItemLayout={(_, index) => ({ length: LYRIC_ITEM_HEIGHT, offset: LYRIC_ITEM_HEIGHT * index, index })}
+                    initialScrollIndex={activeIndex >= 0 && activeIndex < parsedLyrics.length ? activeIndex : undefined}
                     onScrollToIndexFailed={info => {
+                        const targetIndex = typeof info.index === 'number' ? info.index : info.highestMeasuredFrameIndex;
                         flatListRef.current?.scrollToOffset({
-                            offset: info.highestMeasuredFrameIndex * LYRIC_ITEM_HEIGHT,
+                            offset: targetIndex * LYRIC_ITEM_HEIGHT,
                             animated: false,
                         });
+                        setTimeout(() => {
+                            flatListRef.current?.scrollToOffset({
+                                offset: targetIndex * LYRIC_ITEM_HEIGHT,
+                                animated: false,
+                            });
+                        }, 50);
                     }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
