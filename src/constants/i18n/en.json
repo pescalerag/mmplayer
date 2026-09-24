@@ -1422,6 +1422,21 @@
     "scan_error": "Error scanning",
     "delete_scan_error": "Error deleting/scanning"
   },
+  "migration": {
+    "title": "Library update",
+    "detected_message": "A movement or deletion of {{count}} file has been detected. Please wait while changes are migrated.",
+    "detected_message_plural": "A movement or deletion of {{count}} files has been detected. Please wait while changes are migrated.",
+    "searching_disk": "Searching files in storage...",
+    "indexing_system": "Syncing files with system...",
+    "reconciling_tracks": "Relocating {{count}} song in library...",
+    "reconciling_tracks_plural": "Relocating {{count}} songs in library...",
+    "cleaning_up": "Finalizing changes...",
+    "unresolved_title": "Files not found?",
+    "unresolved_message": "{{count}} songs were not found in storage. What would you like to do with them?",
+    "moved_files": "I've moved them",
+    "delete_from_library": "Delete",
+    "keep_and_continue": "Keep and continue"
+  },
   "common": {
     "accept": "Accept",
     "cancel": "Cancel",

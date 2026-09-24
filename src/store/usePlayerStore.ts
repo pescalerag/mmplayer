@@ -112,6 +112,8 @@ interface PlayerState {
   removePlaylistFromRecents: (playlistId: string) => void;
   updateMediaImageInRecents: (id: string, type: RecentItem["type"], imageUrl: string | null) => void;
   handleDeletedEntities: (trackIds: string[], albumIds: string[], artistIds: string[]) => Promise<void>;
+  handleRelocatedTracks: (relocatedTrackIds: string[]) => Promise<void>;
+  checkAndPauseIfTracksActiveOrQueued: (trackIds: string[]) => Promise<boolean>;
   isRestoring: boolean;
   isQueueLoading: boolean;
   isSyncingLyrics: boolean;
@@ -1333,29 +1335,156 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       // Handle queue
       const activeTrack = state.activeTrack;
-      if (activeTrack && trackIds.includes(activeTrack.id)) {
-        // Current track deleted -> clear queue and stop
-        await get().clearPlayer();
-      } else if (trackIds.length > 0) {
-        const queue = await TrackPlayer.getQueue();
-        const indicesToRemove: number[] = [];
-        queue.forEach((track, index) => {
-          if (track.id) {
-            const originalId = (track.id as string).split('-')[0];
-            if (trackIds.includes(originalId)) {
-              indicesToRemove.push(index);
-            }
-          }
-        });
+      const activeTP = await TrackPlayer.getActiveTrack().catch(() => null);
+      const activeTPId = activeTP?.id ? (activeTP.id as string).split('-')[0] : null;
 
-        if (indicesToRemove.length > 0) {
+      const isActiveTrackDeleted = Boolean(
+        (activeTrack && trackIds.includes(activeTrack.id)) ||
+        (activeTPId && trackIds.includes(activeTPId))
+      );
+
+      const queue = await TrackPlayer.getQueue();
+      const indicesToRemove: number[] = [];
+      queue.forEach((track, index) => {
+        if (track.id) {
+          const originalId = (track.id as string).split('-')[0];
+          if (trackIds.includes(originalId)) {
+            indicesToRemove.push(index);
+          }
+        }
+      });
+
+      const isAnyQueueTrackDeleted = indicesToRemove.length > 0;
+
+      if (isActiveTrackDeleted || isAnyQueueTrackDeleted) {
+        // Si alguna canción se ha eliminado y está en reproducción o en la cola, parar la reproducción
+        await TrackPlayer.pause().catch(() => {});
+
+        if (isActiveTrackDeleted) {
+          // Current track deleted -> clear queue and stop
+          await get().clearPlayer();
+        } else if (isAnyQueueTrackDeleted) {
           await TrackPlayer.remove(indicesToRemove);
+          if (state.shuffleOriginalQueue.length > 0) {
+            const updatedShuffle = state.shuffleOriginalQueue.filter((t) => {
+              if (!t?.id) return true;
+              const origId = (t.id as string).split('-')[0];
+              return !trackIds.includes(origId);
+            });
+            set({ shuffleOriginalQueue: updatedShuffle });
+          }
           await get().updateQueueStatus();
           await get().savePlaybackState();
         }
       }
     } catch (error) {
       console.error("Error handling deleted entities in player store:", error);
+    }
+  },
+
+  handleRelocatedTracks: async (relocatedTrackIds) => {
+    try {
+      if (!relocatedTrackIds || relocatedTrackIds.length === 0) return;
+
+      const state = get();
+      const activeTrack = state.activeTrack;
+      const activeTP = await TrackPlayer.getActiveTrack().catch(() => null);
+      const activeTPId = activeTP?.id ? (activeTP.id as string).split('-')[0] : null;
+
+      const isActiveTrackRelocated = Boolean(
+        (activeTrack && relocatedTrackIds.includes(activeTrack.id)) ||
+        (activeTPId && relocatedTrackIds.includes(activeTPId))
+      );
+
+      const queue = await TrackPlayer.getQueue();
+      const relocatedIndices: number[] = [];
+      queue.forEach((track, index) => {
+        if (track.id) {
+          const originalId = (track.id as string).split('-')[0];
+          if (relocatedTrackIds.includes(originalId)) {
+            relocatedIndices.push(index);
+          }
+        }
+      });
+
+      const isAnyQueueTrackRelocated = relocatedIndices.length > 0;
+
+      if (isActiveTrackRelocated || isAnyQueueTrackRelocated) {
+        // Si alguna canción se ha recolocado y está en reproducción o en la cola, parar la reproducción
+        await TrackPlayer.pause().catch(() => {});
+
+        if (isActiveTrackRelocated) {
+          // Si la pista activa ha sido reubicada, su archivo se ha movido: reseteamos el reproductor
+          await get().clearPlayer();
+        } else if (isAnyQueueTrackRelocated) {
+          // Actualizar en orden inverso para preservar índices
+          for (let i = relocatedIndices.length - 1; i >= 0; i--) {
+            const index = relocatedIndices[i];
+            const item = queue[index];
+            const originalId = (item.id as string).split('-')[0];
+            const updatedModel = await database.get<Track>("tracks").find(originalId).catch(() => null);
+            if (updatedModel) {
+              const newTPTrack = await mapToTPTrack(updatedModel, (item as any).instanceId);
+              await TrackPlayer.remove(index);
+              await TrackPlayer.add(newTPTrack, index);
+            }
+          }
+
+          if (state.shuffleOriginalQueue.length > 0) {
+            const updatedShuffle = await Promise.all(
+              state.shuffleOriginalQueue.map(async (t) => {
+                if (!t?.id) return t;
+                const origId = (t.id as string).split('-')[0];
+                if (relocatedTrackIds.includes(origId)) {
+                  const updatedModel = await database.get<Track>("tracks").find(origId).catch(() => null);
+                  if (updatedModel) {
+                    return await mapToTPTrack(updatedModel, (t as any).instanceId);
+                  }
+                }
+                return t;
+              })
+            );
+            set({ shuffleOriginalQueue: updatedShuffle });
+          }
+
+          await get().updateQueueStatus();
+          await get().savePlaybackState();
+        }
+      }
+    } catch (error) {
+      console.error("Error handling relocated tracks in player store:", error);
+    }
+  },
+
+  checkAndPauseIfTracksActiveOrQueued: async (trackIds) => {
+    try {
+      if (!trackIds || trackIds.length === 0) return false;
+      const targetIds = new Set(trackIds);
+      const state = get();
+      const activeTrack = state.activeTrack;
+      const activeTP = await TrackPlayer.getActiveTrack().catch(() => null);
+      const activeTPId = activeTP?.id ? (activeTP.id as string).split('-')[0] : null;
+
+      const isActiveTrackTarget = Boolean(
+        (activeTrack && targetIds.has(activeTrack.id)) ||
+        (activeTPId && targetIds.has(activeTPId))
+      );
+
+      const queue = await TrackPlayer.getQueue().catch(() => []);
+      const isAnyQueueTarget = queue.some(t => {
+        if (!t.id) return false;
+        const origId = (t.id as string).split('-')[0];
+        return targetIds.has(origId);
+      });
+
+      if (isActiveTrackTarget || isAnyQueueTarget) {
+        await TrackPlayer.pause().catch(() => {});
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("[usePlayerStore] Error checking and pausing tracks:", e);
+      return false;
     }
   },
 

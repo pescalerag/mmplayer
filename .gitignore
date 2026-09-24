@@ -23,6 +23,8 @@ expo-env.d.ts
 android/
 ios/
 !android/app/src/main/res/xml/network_security_config.xml
+!android/app/src/main/res/values/styles.xml
+!android/app/src/main/res/values/colors.xml
 !modules/**/android/
 modules/**/android/build/
 modules/**/android/.gradle/

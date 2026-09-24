@@ -1422,6 +1422,21 @@
     "scan_error": "Error al escanear",
     "delete_scan_error": "Error al borrar/escanear"
   },
+  "migration": {
+    "title": "Actualización de biblioteca",
+    "detected_message": "Se ha detectado un movimiento o eliminación de {{count}} archivo. Espera mientras migramos los cambios.",
+    "detected_message_plural": "Se ha detectado un movimiento o eliminación de {{count}} archivos. Espera mientras migramos los cambios.",
+    "searching_disk": "Buscando archivos en el almacenamiento...",
+    "indexing_system": "Sincronizando archivos con el sistema...",
+    "reconciling_tracks": "Reubicando {{count}} canción en la biblioteca...",
+    "reconciling_tracks_plural": "Reubicando {{count}} canciones en la biblioteca...",
+    "cleaning_up": "Finalizando cambios...",
+    "unresolved_title": "¿Archivos no encontrados?",
+    "unresolved_message": "No se han encontrado {{count}} canciones en el almacenamiento. ¿Qué deseas hacer con ellas?",
+    "moved_files": "Los he cambiado de sitio",
+    "delete_from_library": "Eliminar",
+    "keep_and_continue": "Conservar y continuar"
+  },
   "common": {
     "accept": "Aceptar",
     "cancel": "Cancelar",

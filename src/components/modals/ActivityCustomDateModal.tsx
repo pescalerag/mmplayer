@@ -1,24 +1,29 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Modal,
-  Pressable,
+  TouchableWithoutFeedback,
+  Platform,
+  BackHandler,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { HistoryService } from '../../services/HistoryService';
+import { useCustomDateModalStore } from '../../store/useCustomDateModalStore';
 
 interface ActivityCustomDateModalProps {
-  visible: boolean;
+  visible?: boolean;
   initialStartDate?: Date | null;
   initialEndDate?: Date | null;
-  onClose: () => void;
-  onApply: (startDate: Date, endDate: Date) => void;
+  onClose?: () => void;
+  onApply?: (startDate: Date, endDate: Date) => void;
 }
 
 const MONTH_NAMES_ES = [
@@ -41,15 +46,20 @@ const SHORT_MONTH_NAMES_EN = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
-export default function ActivityCustomDateModal({
-  visible,
-  initialStartDate,
-  initialEndDate,
-  onClose,
-  onApply,
-}: ActivityCustomDateModalProps) {
+export default function ActivityCustomDateModal(props?: ActivityCustomDateModalProps) {
+  const store = useCustomDateModalStore();
+
+  const isControlled = props?.visible !== undefined;
+  const visible = isControlled ? !!props?.visible : store.isVisible;
+  const initialStartDate = isControlled ? props?.initialStartDate : store.initialStartDate;
+  const initialEndDate = isControlled ? props?.initialEndDate : store.initialEndDate;
+  const onClose = isControlled ? (props?.onClose || (() => {})) : store.close;
+  const onApply = isControlled ? (props?.onApply || (() => {})) : (store.onApply || (() => {}));
+
   const { colors, fonts, radii } = useAppTheme();
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const isSpanish = (i18n.language || 'es').startsWith('es');
   const monthNames = isSpanish ? MONTH_NAMES_ES : MONTH_NAMES_EN;
@@ -155,6 +165,34 @@ export default function ActivityCustomDateModal({
       setClampedNotice(null);
     }
   }, [visible, initialStartDate, initialEndDate, todayStart]);
+
+  // Manejo de barra de navegación transparente, botón de retroceso y fade
+  useEffect(() => {
+    if (!visible) {
+      fadeAnim.setValue(0);
+      return;
+    }
+
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync('#00000000').catch(() => {});
+      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    }
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [visible, onClose]);
 
   // Cálculos de la cuadrícula del calendario
   const daysInMonth = useMemo(() => {
@@ -296,26 +334,44 @@ export default function ActivityCustomDateModal({
     });
   };
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      statusBarTranslucent={true}
-      onRequestClose={onClose}
+    <View
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          zIndex: 999999,
+          elevation: 999999,
+        },
+      ]}
+      pointerEvents="auto"
     >
       <StatusBar style="light" />
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={styles.cardContainer}>
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.cardBackground,
-                borderRadius: radii.lg || 16,
-              },
-            ]}
-          >
+      <Animated.View
+        style={[
+          styles.overlay,
+          {
+            opacity: fadeAnim,
+            paddingTop: insets.top + 16,
+            paddingBottom: insets.bottom + 16,
+          },
+        ]}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+        <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+          <View style={styles.cardContainer}>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderRadius: radii.lg || 16,
+                },
+              ]}
+            >
             {/* ENCABEZADO */}
             <View style={styles.headerRow}>
               <View style={styles.headerLeft}>
@@ -690,15 +746,16 @@ export default function ActivityCustomDateModal({
               </TouchableOpacity>
             </View>
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        </View>
+      </TouchableWithoutFeedback>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',

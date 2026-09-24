@@ -36,7 +36,7 @@
         "backgroundImage": "./src/assets/images/android-icon-background.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 26,
+      "versionCode": 27,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
@@ -50,20 +50,6 @@
       "backgroundColor": "#000000"
     },
     "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to allow you to set artist and album covers."
-        }
-      ],
-      [
-        "expo-media-library",
-        {
-          "granularPermissions": [
-            "audio"
-          ]
-        }
-      ],
       [
         "expo-build-properties",
         {

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import ActivitySpotlightTutorial from '../../components/modals/ActivitySpotlightTutorial';
-import ActivityCustomDateModal from '../../components/modals/ActivityCustomDateModal';
+import { openCustomDateModal } from '../../store/useCustomDateModalStore';
 import {
   View,
   Text,
@@ -143,7 +143,6 @@ export default function ActivityMainScreen() {
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
   // Custom date picker states
-  const [isCustomDatePickerVisible, setIsCustomDatePickerVisible] = useState(false);
   const [customFrom, setCustomFrom] = useState<Date | null>(null);
   const [customTo, setCustomTo] = useState<Date>(new Date());
 
@@ -481,7 +480,6 @@ export default function ActivityMainScreen() {
     setCustomTo(endDate);
     setPeriod('custom');
     setDateOffset(0);
-    setIsCustomDatePickerVisible(false);
   };
 
   const hasActivity = hasRealActivity || isTutorialVisible;
@@ -668,7 +666,11 @@ export default function ActivityMainScreen() {
             styles.customDateBtn,
             period === 'custom' && { backgroundColor: colors.accentAlpha15, borderColor: colors.accent },
           ]}
-          onPress={() => setIsCustomDatePickerVisible(true)}
+          onPress={() => openCustomDateModal({
+            initialStartDate: customFrom,
+            initialEndDate: customTo,
+            onApply: applyCustomRange,
+          })}
           activeOpacity={0.75}
         >
           <Ionicons
@@ -1110,14 +1112,6 @@ export default function ActivityMainScreen() {
           )}
         </ScrollView>
       )}
-
-      <ActivityCustomDateModal
-        visible={isCustomDatePickerVisible}
-        initialStartDate={customFrom}
-        initialEndDate={customTo}
-        onClose={() => setIsCustomDatePickerVisible(false)}
-        onApply={applyCustomRange}
-      />
 
       <ActivitySpotlightTutorial
         visible={isTutorialVisible}

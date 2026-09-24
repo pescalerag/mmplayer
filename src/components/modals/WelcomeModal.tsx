@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as MediaLibrary from 'expo-media-library';
+import { PermissionService, AudioPermissionStatus } from '../../services/PermissionService';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -41,7 +41,7 @@ export default function WelcomeModal() {
 
     // Storage permission status
     const [permissionGranted, setPermissionGranted] = useState(false);
-    const [permissionStatus, setPermissionStatus] = useState<MediaLibrary.PermissionStatus | null>(null);
+    const [permissionStatus, setPermissionStatus] = useState<AudioPermissionStatus | null>(null);
 
     const {
         hasSeenWelcomeModal,
@@ -129,13 +129,9 @@ export default function WelcomeModal() {
 
     const checkPermission = async () => {
         try {
-            const status = await MediaLibrary.getPermissionsAsync();
-            setPermissionStatus(status.status);
-            if (status.status === 'granted' || status.granted) {
-                setPermissionGranted(true);
-            } else {
-                setPermissionGranted(false);
-            }
+            const isGranted = await PermissionService.checkAudioPermission();
+            setPermissionGranted(isGranted);
+            setPermissionStatus(isGranted ? 'granted' : 'denied');
         } catch (error) {
             console.warn('Error checking storage permissions:', error);
         }
@@ -143,13 +139,9 @@ export default function WelcomeModal() {
 
     const handleRequestPermission = async () => {
         try {
-            const status = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
-            setPermissionStatus(status.status);
-            if (status.status === 'granted' || status.granted) {
-                setPermissionGranted(true);
-            } else {
-                setPermissionGranted(false);
-            }
+            const status = await PermissionService.requestAudioPermission();
+            setPermissionStatus(status);
+            setPermissionGranted(status === 'granted');
         } catch (error) {
             console.warn('Error requesting storage permissions:', error);
         }
@@ -231,7 +223,7 @@ export default function WelcomeModal() {
                 </Text>
             </TouchableOpacity>
 
-            {!permissionGranted && permissionStatus === 'denied' && (
+            {!permissionGranted && (permissionStatus === 'denied' || permissionStatus === 'never_ask_again') && (
                 <TouchableOpacity
                     style={[styles.buttonOutline, { marginBottom: 24 }]}
                     onPress={() => Linking.openSettings()}

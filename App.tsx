@@ -26,7 +26,9 @@ import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import ZipProgressModal from "./src/components/modals/ZipProgressModal";
+import MigrationBlockingModal from "./src/components/modals/MigrationBlockingModal";
 import TagFormModal from "./src/components/modals/TagFormModal";
+import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
 import "./src/constants/i18n";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef } from "./src/navigation/navigationRef";
@@ -68,7 +70,7 @@ export default function App() {
     async function prepare() {
       try {
         if (Platform.OS === "android") {
-          await NavigationBar.setBackgroundColorAsync("black").catch(() => {});
+          await NavigationBar.setBackgroundColorAsync("#00000000").catch(() => {});
           await NavigationBar.setButtonStyleAsync("light").catch(() => {});
           await SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
         }
@@ -224,7 +226,9 @@ export default function App() {
           <GlobalToast />
           <BackupBlockingModal />
           <ZipProgressModal />
+          <MigrationBlockingModal />
           <TagFormModal />
+          <ActivityCustomDateModal />
         </NavigationContainer>
       </ImageBackground>
       </SafeAreaProvider>
