@@ -26,7 +26,9 @@ import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
 import TopMatchCard from '@/components/cards/TopMatchCard';
 import TrackRow from '@/components/player/TrackRow';
+import PlaylistCover from '@/components/player/PlaylistCover';
 import SearchSpotlightTutorial from '@/components/modals/SearchSpotlightTutorial';
+import { SmartList } from "../../services/SmartListService";
 import { database } from "../../database";
 import Album from "../../database/models/Album";
 import Artist from "../../database/models/Artist";
@@ -279,6 +281,59 @@ SearchTagCard.displayName = "SearchTagCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const NORMAL_CARD_WIDTH = (SCREEN_WIDTH - 40 - 12) / 2;
+const GENRE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 40 - 24) / 3);
+
+const getGenreQuery = (genre: string) => {
+  return database.collections.get<Track>('tracks').query(
+    Q.where('genre', genre),
+    Q.sortBy('title', Q.asc)
+  );
+};
+
+const SearchGenreCard = withObservables(
+  ['genre'],
+  ({ genre }: { genre: string }) => ({
+    tracks: getGenreQuery(genre).observe().pipe(catchError(() => of([]))),
+  })
+)(function SearchGenreCardWrapper({
+  smartList,
+  tracks,
+  cardWidth,
+  onPress,
+}: {
+  smartList: SmartList;
+  tracks: Track[];
+  cardWidth: number;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation();
+  const count = tracks ? tracks.length : 0;
+  const subtitle = `${count} ${count === 1 ? t('library.song_singular') : t('library.song_plural')}`;
+
+  return (
+    <TouchableOpacity
+      style={[styles.genreCard, { width: cardWidth }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.genreImageContainer, { width: cardWidth, height: cardWidth }]}>
+        <PlaylistCover
+          playlistId={`smart-list-${smartList.id}`}
+          size={cardWidth}
+        />
+      </View>
+      <View style={styles.genreTitleContainer}>
+        <Text style={styles.genreTitle} numberOfLines={1}>
+          {smartList.name}
+        </Text>
+      </View>
+      <Text style={styles.genreSubtitle} numberOfLines={1}>
+        {subtitle}
+      </Text>
+    </TouchableOpacity>
+  );
+});
+SearchGenreCard.displayName = "SearchGenreCard";
 
 // --- MAIN SCREEN ---
 
@@ -296,6 +351,45 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     }, 150);
     return () => clearTimeout(timer);
   }, []);
+
+  const [genreLists, setGenreLists] = useState<SmartList[]>([]);
+
+  useEffect(() => {
+    const sub = database.collections.get<Track>('tracks')
+      .query(
+        Q.where('genre', Q.notEq(null)),
+        Q.where('genre', Q.notEq(''))
+      )
+      .observe()
+      .pipe(catchError(() => of([])))
+      .subscribe((tracks) => {
+        const genreSet = new Set<string>();
+        for (const t of tracks) {
+          const g = t.genre?.trim();
+          if (g) {
+            genreSet.add(g);
+          }
+        }
+        const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+        const lists: SmartList[] = sortedGenres.map(genre => ({
+          id: `genre_${encodeURIComponent(genre)}`,
+          name: genre,
+          description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
+          placeholderIcon: 'disc-outline',
+          group: 'genre' as const,
+          genre,
+          getTracks: async () => {
+            return database.collections.get<Track>('tracks').query(
+              Q.where('genre', genre),
+              Q.sortBy('title', Q.asc)
+            ).fetch();
+          }
+        }));
+        setGenreLists(lists);
+      });
+
+    return () => sub.unsubscribe();
+  }, [t]);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { isCompactTags, setIsCompactTags, hasSeenSearchTutorial, setHasSeenSearchTutorial } = useSettingsStore();
@@ -727,6 +821,34 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                     }}
                   />
                 </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Exploración por géneros */}
+      {!isCurrentlySearching && (
+        <View style={styles.genresSection}>
+          <View style={styles.tagsSectionHeader}>
+            <Text style={styles.tagsSectionTitle}>{t('search.explore_genres') || 'Exploración por género'}</Text>
+          </View>
+          {genreLists.length === 0 ? (
+            <Text style={styles.noTagsText}>
+              {t('search.no_genres') || 'No se encontraron canciones con género en tu biblioteca.'}
+            </Text>
+          ) : (
+            <View style={styles.genresGrid}>
+              {genreLists.map((list) => (
+                <SearchGenreCard
+                  key={list.id}
+                  genre={list.genre || list.name}
+                  smartList={list}
+                  cardWidth={GENRE_CARD_WIDTH}
+                  onPress={() => {
+                    navigation.navigate('SmartListDetail', { smartListId: list.id });
+                  }}
+                />
               ))}
             </View>
           )}
@@ -1306,6 +1428,49 @@ const styles = StyleSheet.create({
   tagsSection: {
     marginTop: 10,
     marginBottom: 20,
+  },
+  genresSection: {
+    marginTop: 10,
+    marginBottom: 24,
+  },
+  genresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  genreCard: {
+    marginBottom: 16,
+  },
+  genreImageContainer: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#282828',
+    marginBottom: 8,
+  },
+  genreTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 2,
+  },
+  genreTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  genreSubtitle: {
+    color: '#CCCCCC',
+    fontSize: 11,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
   },
   smartListsGrid: {
     flexDirection: 'row',

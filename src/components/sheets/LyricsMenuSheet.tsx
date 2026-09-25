@@ -149,7 +149,7 @@ export default function LyricsMenuSheet() {
       />
 
       <MenuOption
-        icon="cloud-upload-outline"
+        icon="cloud-download-outline"
         text={t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}
         disabled={isFetchingLyrics}
         containerStyle={isFetchingLyrics ? { opacity: 0.4 } : undefined}
@@ -157,7 +157,7 @@ export default function LyricsMenuSheet() {
       />
 
       <MenuOption
-        icon="cloud-download-outline"
+        icon="cloud-upload-outline"
         text={t('lyrics.export_lrc') || 'Exportar archivo .LRC'}
         disabled={!hasLyrics || isFetchingLyrics}
         containerStyle={(!hasLyrics || isFetchingLyrics) ? { opacity: 0.4 } : undefined}
