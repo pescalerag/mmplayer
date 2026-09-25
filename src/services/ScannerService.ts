@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { PermissionService } from './PermissionService';
 import { Platform, Image as RNImage } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGain } from '../../modules/native-audio-scanner';
+import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGain, readMetadata } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -772,9 +772,16 @@ export const ScannerService = {
     syncLibrary: async (
         onProgress?: (current: number, total: number, phase: string) => void,
         isSilent: boolean = false,
-        forcedFileUrls?: Set<string> | string[]
+        forcedFileUrls?: Set<string> | string[] | Map<string, any>
     ) => {
-        if (useSyncStore.getState().isScanning) return;
+        if (useSyncStore.getState().isScanning) {
+            let waitCount = 0;
+            while (useSyncStore.getState().isScanning && waitCount < 30) {
+                await new Promise(r => setTimeout(r, 200));
+                waitCount++;
+            }
+            if (useSyncStore.getState().isScanning) return;
+        }
         try {
             coverExistsCache.clear();
             useSyncStore.getState().setIsScanning(true, isSilent);
@@ -890,26 +897,81 @@ export const ScannerService = {
             });
 
             const forcedUrlsSet = forcedFileUrls
-                ? (forcedFileUrls instanceof Set ? forcedFileUrls : new Set(forcedFileUrls))
+                ? (forcedFileUrls instanceof Set 
+                    ? forcedFileUrls 
+                    : (forcedFileUrls instanceof Map ? new Set(forcedFileUrls.keys()) : new Set(forcedFileUrls)))
                 : undefined;
+            const forcedMetaMap = forcedFileUrls instanceof Map ? forcedFileUrls : undefined;
 
-            const archivos_modificados: { track: Track; file: any }[] = [];
+            const archivos_modificados: { track: Track; file: any; isForced?: boolean }[] = [];
             for (const file of activeAudioFiles) {
                 const existing = trackMap.get(file.uri) || (file.uri.includes('#') ? trackMap.get(file.uri.replace(/#/g, '%23')) : undefined);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
                     const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
-                    const isForced = forcedUrlsSet && (
+                    const isForced = !!(forcedUrlsSet && (
                         forcedUrlsSet.has(file.uri) ||
                         forcedUrlsSet.has(existing.fileUrl) ||
                         forcedUrlsSet.has(file.uri.replace(/#/g, '%23')) ||
                         forcedUrlsSet.has(existing.fileUrl.replace(/%23/g, '#'))
-                    );
+                    ));
                     if (file.lastModified > dbLastModified || needsGenreBackfill || isForced) {
                         if (isForced) {
                             file.lastModified = Date.now();
                         }
-                        archivos_modificados.push({ track: existing, file });
+                        archivos_modificados.push({ track: existing, file, isForced });
+                    }
+                }
+            }
+
+            // Para archivos editados/forzados, leer metadatos físicos reales del archivo para evitar
+            // que la latencia o caché desactualizada de Android MediaStore sobreescriba los cambios guardados.
+            if (forcedUrlsSet && archivos_modificados.some(a => a.isForced)) {
+                const parseNumOrNull = (val: any) => {
+                    if (val === null || val === undefined || val === '') return null;
+                    const parsed = parseInt(String(val), 10);
+                    return isNaN(parsed) ? null : parsed;
+                };
+
+                for (const item of archivos_modificados) {
+                    if (item.isForced) {
+                        const file = item.file;
+                        const existing = item.track;
+                        try {
+                            const physical = await readMetadata(file.uri);
+                            if (physical) {
+                                if (physical.title) file.title = physical.title;
+                                if (physical.artist) file.artist = physical.artist;
+                                if (physical.album) file.album = physical.album;
+                                if (physical.albumArtist) file.albumArtist = physical.albumArtist;
+                                if (physical.genre) file.genre = physical.genre;
+                                if (physical.year) file.year = parseInt(physical.year, 10) || file.year;
+                                if (physical.trackNumber) file.trackNumber = parseInt(physical.trackNumber, 10) || file.trackNumber;
+                                if (physical.discNumber) file.discNumber = parseInt(physical.discNumber, 10) || file.discNumber;
+                            }
+                        } catch (readErr) {
+                            console.warn('[ScannerService] No se pudo leer metadatos físicos directos para:', file.uri, readErr);
+                        }
+
+                        // Sobrescribir con cualquier metadato explícito pasado desde MetadataEditorService
+                        const explicitMeta = forcedMetaMap?.get(file.uri) ||
+                            forcedMetaMap?.get(existing.fileUrl) ||
+                            (file.uri.includes('#') ? forcedMetaMap?.get(file.uri.replace(/#/g, '%23')) : undefined) ||
+                            (existing.fileUrl.includes('%23') ? forcedMetaMap?.get(existing.fileUrl.replace(/%23/g, '#')) : undefined);
+
+                        if (explicitMeta) {
+                            if (explicitMeta.title !== undefined && explicitMeta.title !== null) file.title = explicitMeta.title;
+                            if (explicitMeta.artist !== undefined && explicitMeta.artist !== null) file.artist = explicitMeta.artist;
+                            if (explicitMeta.album !== undefined && explicitMeta.album !== null) file.album = explicitMeta.album;
+                            if (explicitMeta.albumArtist !== undefined) file.albumArtist = explicitMeta.albumArtist || null;
+                            if (explicitMeta.genre !== undefined) file.genre = explicitMeta.genre || null;
+                            if (explicitMeta.year !== undefined) file.year = parseNumOrNull(explicitMeta.year);
+                            if (explicitMeta.trackNumber !== undefined) file.trackNumber = parseNumOrNull(explicitMeta.trackNumber) || 0;
+                            if (explicitMeta.discNumber !== undefined) file.discNumber = parseNumOrNull(explicitMeta.discNumber) || 1;
+                            if (explicitMeta.coverArtPath !== undefined) {
+                                file.coverUrl = explicitMeta.coverArtPath || RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+                            }
+                        }
                     }
                 }
             }
