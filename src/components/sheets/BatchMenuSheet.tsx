@@ -1,7 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
@@ -9,7 +8,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
-import { openMetadataEditor, openPlaylistSelector, openTagManagerForBatch } from '@/store/useUIStore';
+import { openMetadataEditor, openPlaylistSelector, openTagManagerForBatch, openCanvasManager } from '@/store/useUIStore';
 import { database } from '../../database';
 import { ScannerService } from '../../services/ScannerService';
 import { MediaAssetService } from '../../services/MediaAssetService';
@@ -47,51 +46,53 @@ export default function BatchMenuSheet() {
     openMetadataEditor(selectedTracks);
   };
 
-  const performPickCanvas = async (targetTracks: any[]) => {
+  const handleOpenCanvasManager = (targetTracks: any[]) => {
     if (targetTracks.length === 0) {
-      Alert.alert('Info', 'No hay canciones para actualizar.');
+      Alert.alert(t('actions.info') || 'Info', t('canvas.no_tracks_to_update') || 'No hay canciones para actualizar.');
       return;
     }
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
-        copyToCacheDirectory: true,
-      });
-
-      const asset = result.assets?.[0];
-      if (asset) {
-        for (const track of targetTracks) {
-          const persistentUri = await MediaAssetService.saveTrackCanvasVideo(track.id, asset.uri);
-          await database.write(async () => {
-            await track.update((t: any) => {
-              t.bgVideo = persistentUri;
-            });
-          });
-        }
-        useToastStore.getState().showToast(t('actions.canvas_saved'), 'videocam');
-        exitSelectionMode();
-        closeMenu();
-      }
-    } catch (error) {
-      console.error('Error al seleccionar vídeo en lote:', error);
-      Alert.alert(t('actions.error'), t('actions.canvas_error'));
-    }
+    closeMenu();
+    openCanvasManager(targetTracks);
   };
 
   const handlePickCanvas = () => {
     if (anyHasCanvas) {
       Alert.alert(
-        'Actualizar Canvas',
-        'Algunas canciones seleccionadas ya tienen un vídeo de fondo asignado. ¿Qué deseas hacer?',
+        t('canvas.update_batch_title') || 'Actualizar Canvas',
+        t('canvas.update_batch_msg') || 'Algunas canciones seleccionadas ya tienen un vídeo de fondo asignado. ¿Qué deseas hacer?',
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Actualizar todas', onPress: () => performPickCanvas(selectedTracks) },
-          { text: 'Solo las que no tienen', onPress: () => performPickCanvas(selectedTracks.filter(t => !t.bgVideo)) }
+          { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
+          { text: t('canvas.update_all') || 'Actualizar todas', onPress: () => handleOpenCanvasManager(selectedTracks) },
+          { text: t('canvas.update_only_without') || 'Solo las que no tienen', onPress: () => handleOpenCanvasManager(selectedTracks.filter((t: any) => !t.bgVideo)) }
         ]
       );
     } else {
-      performPickCanvas(selectedTracks);
+      handleOpenCanvasManager(selectedTracks);
     }
+  };
+
+  const handleRemoveCanvas = () => {
+    Alert.alert(
+      t('canvas.remove_from_tracks') || 'Quitar vídeo de fondo',
+      t('canvas.remove_confirm') || '¿Quitar el vídeo de fondo de las canciones seleccionadas?',
+      [
+        { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
+        {
+          text: t('actions.confirm') || 'Confirmar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await MediaAssetService.removeCanvasFromTracks(selectedTracks);
+              useToastStore.getState().showToast(t('actions.canvas_removed') || 'Vídeo de fondo eliminado', 'trash');
+              exitSelectionMode();
+              closeMenu();
+            } catch (e) {
+              console.error('[BatchMenuSheet] Error quitando vídeo:', e);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleManageTags = () => {
@@ -205,6 +206,17 @@ export default function BatchMenuSheet() {
         text={t('actions.canvas_change')}
         onPress={handlePickCanvas}
       />
+
+      {/* OPTION: Remove Background Video if at least one selected has canvas */}
+      {anyHasCanvas && (
+        <MenuOption
+          icon="videocam-off-outline"
+          text={t('actions.canvas_remove')}
+          iconColor={colors.heartIcon}
+          textStyle={{ color: colors.heartIcon }}
+          onPress={handleRemoveCanvas}
+        />
+      )}
 
       {/* OPTION: Manage Tags */}
       <MenuOption

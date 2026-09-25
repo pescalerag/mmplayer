@@ -15,6 +15,9 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.RandomAccessFile
 import android.media.MediaScannerConnection
+import android.media.MediaMetadataRetriever
+import android.graphics.Bitmap
+import java.io.FileOutputStream
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.os.Build
@@ -1121,6 +1124,53 @@ class NativeAudioScannerModule : Module() {
             false
           }
         }
+      }
+    }
+
+    AsyncFunction("generateVideoThumbnail") { videoUri: String, destPath: String ->
+      val retriever = MediaMetadataRetriever()
+      try {
+        if (videoUri.startsWith("content://")) {
+          val context = appContext.reactContext
+          if (context != null) {
+            retriever.setDataSource(context, Uri.parse(videoUri))
+          } else {
+            retriever.setDataSource(videoUri)
+          }
+        } else {
+          val cleanPath = if (videoUri.startsWith("file://")) videoUri.substring(7) else videoUri
+          retriever.setDataSource(cleanPath)
+        }
+
+        val bitmap: Bitmap? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+          retriever.getScaledFrameAtTime(500000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 360, 640)
+            ?: retriever.getScaledFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 360, 640)
+            ?: retriever.getFrameAtTime(500000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            ?: retriever.frameAtTime
+        } else {
+          retriever.getFrameAtTime(500000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            ?: retriever.frameAtTime
+        }
+
+        if (bitmap != null) {
+          val cleanDest = if (destPath.startsWith("file://")) destPath.substring(7) else destPath
+          val file = File(cleanDest)
+          file.parentFile?.mkdirs()
+          FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+          }
+          bitmap.recycle()
+          destPath
+        } else {
+          null
+        }
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error generating video thumbnail: ${e.message}")
+        null
+      } finally {
+        try {
+          retriever.release()
+        } catch (_: Exception) {}
       }
     }
   }

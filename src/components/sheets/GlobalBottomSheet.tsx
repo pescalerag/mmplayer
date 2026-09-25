@@ -42,6 +42,9 @@ import BatchMenuSheet from '@/components/sheets/BatchMenuSheet';
 import AdvancedTagSearchSheet from '@/components/sheets/AdvancedTagSearchSheet';
 import EditAliasSheet from '@/components/sheets/EditAliasSheet';
 import QueueManageSheet from '@/components/sheets/QueueManageSheet';
+import CanvasManagerSheet from '@/components/sheets/CanvasManagerSheet';
+import TrackDetailsSheet from '@/components/sheets/TrackDetailsSheet';
+
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -215,6 +218,10 @@ export default function GlobalBottomSheet() {
         return <EditAliasSheet />;
       case 'clear-queue':
         return <QueueManageSheet />;
+      case 'canvas-manager':
+        return <CanvasManagerSheet />;
+      case 'track-details':
+        return <TrackDetailsSheet />;
       default:
         return null;
     }
@@ -225,6 +232,8 @@ export default function GlobalBottomSheet() {
     if (renderedSheet === 'metadata-editor') return SCREEN_HEIGHT * 0.92;
     if (renderedSheet === 'home-sections') return SCREEN_HEIGHT * 0.88;
     if (renderedSheet === 'playlist-selector') return SCREEN_HEIGHT * 0.85;
+    if (renderedSheet === 'canvas-manager') return SCREEN_HEIGHT * 0.88;
+    if (renderedSheet === 'track-details') return SCREEN_HEIGHT * 0.85;
     return SCREEN_HEIGHT * 0.80;
   };
 

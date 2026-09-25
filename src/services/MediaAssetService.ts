@@ -5,12 +5,14 @@ import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
+import { generateVideoThumbnail } from '../../modules/native-audio-scanner';
 
 const BASE_MEDIA_DIR = `${FileSystem.documentDirectory}media_assets/`;
 const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
+const CANVAS_THUMBNAILS_DIR = `${BASE_MEDIA_DIR}canvas_thumbnails/`;
 const USER_AVATAR_DIR = `${BASE_MEDIA_DIR}user_avatar/`;
 
 const getFileExtension = (uri: string, defaultExt: string = 'jpg'): string => {
@@ -52,7 +54,16 @@ const purgeEntityFiles = async (dirPath: string, filePrefix: string) => {
     }
 };
 
-const cleanupTempSource = async (sourceUri: string) => {
+export interface CanvasVideoItem {
+    uri: string;
+    fileName: string;
+    size: number;
+    md5: string;
+    thumbnailUri?: string | null;
+    modificationTime?: number;
+}
+
+export const cleanupTempSource = async (sourceUri: string) => {
     if (!sourceUri || !sourceUri.startsWith('file://')) return;
     if (sourceUri.includes('/cache/') || sourceUri.includes('/Caches/') || sourceUri.includes('DocumentPicker')) {
         try {
@@ -64,6 +75,8 @@ const cleanupTempSource = async (sourceUri: string) => {
 };
 
 export const MediaAssetService = {
+    cleanupTempSource,
+
     init: async () => {
         if (Platform.OS === 'web') return;
         await ensureDirectoryExists(BASE_MEDIA_DIR);
@@ -71,6 +84,7 @@ export const MediaAssetService = {
         await ensureDirectoryExists(PLAYLIST_DIR);
         await ensureDirectoryExists(CD_DIR);
         await ensureDirectoryExists(CANVAS_DIR);
+        await ensureDirectoryExists(CANVAS_THUMBNAILS_DIR);
         await ensureDirectoryExists(USER_AVATAR_DIR);
     },
 
@@ -162,17 +176,217 @@ export const MediaAssetService = {
         await purgeEntityFiles(CD_DIR, `album_cd_${albumId}.`);
     },
 
+    /**
+     * Obtiene todos los vídeos Canvas subidos a la aplicación de forma rápida.
+     */
+    getAllUploadedCanvasVideos: async (): Promise<CanvasVideoItem[]> => {
+        if (Platform.OS === 'web') return [];
+        await MediaAssetService.init();
+
+        try {
+            const files = await FileSystem.readDirectoryAsync(CANVAS_DIR);
+            const videoFiles = files.filter(f => /\.(mp4|mov|mkv|webm|m4v|3gp)$/i.test(f));
+
+            const items: CanvasVideoItem[] = [];
+
+            for (const file of videoFiles) {
+                const uri = `${CANVAS_DIR}${file}`;
+                try {
+                    // Verificación rápida con stat (sin calcular MD5 de todo el archivo para evitar bloqueos)
+                    const info = await FileSystem.getInfoAsync(uri);
+                    if (info.exists) {
+                        const hashMatch = file.match(/^canvas_([a-f0-9]+)\.[a-z0-9]+$/i);
+                        const md5Val = hashMatch ? hashMatch[1] : `${file}_${info.size}`;
+
+                        const thumbPath = `${CANVAS_THUMBNAILS_DIR}${file}.jpg`;
+                        let thumbExists = false;
+                        try {
+                            const thumbInfo = await FileSystem.getInfoAsync(thumbPath);
+                            thumbExists = thumbInfo.exists;
+                        } catch {}
+
+                        if (!thumbExists) {
+                            try {
+                                const genResult = await generateVideoThumbnail(uri, thumbPath);
+                                if (genResult) {
+                                    thumbExists = true;
+                                }
+                            } catch (e) {
+                                console.warn(`[MediaAssetService] Error generando miniatura de ${file}:`, e);
+                            }
+                        }
+
+                        items.push({
+                            uri,
+                            fileName: file,
+                            size: info.size ?? 0,
+                            md5: md5Val,
+                            thumbnailUri: thumbExists ? thumbPath : null,
+                            modificationTime: info.modificationTime,
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`[MediaAssetService] Error leyendo archivo canvas ${file}:`, e);
+                }
+            }
+
+            items.sort((a, b) => (b.modificationTime || 0) - (a.modificationTime || 0));
+            return items;
+        } catch (e) {
+            console.error('[MediaAssetService] Error obteniendo vídeos canvas subidos:', e);
+            return [];
+        }
+    },
+
+    /**
+     * Comprueba si un vídeo ya ha sido subido comparando su hash MD5 o tamaño.
+     */
+    checkCanvasDuplicate: async (sourceUri: string): Promise<{ isDuplicate: boolean; existingVideo?: CanvasVideoItem; md5?: string }> => {
+        if (Platform.OS === 'web' || !sourceUri) return { isDuplicate: false };
+        await MediaAssetService.init();
+
+        try {
+            const info = await FileSystem.getInfoAsync(sourceUri, { md5: true });
+            if (!info.exists) return { isDuplicate: false };
+
+            const md5 = (info as any).md5;
+            const existingVideos = await MediaAssetService.getAllUploadedCanvasVideos();
+
+            if (md5) {
+                const match = existingVideos.find(v => v.md5 === md5);
+                if (match) {
+                    return { isDuplicate: true, existingVideo: match, md5 };
+                }
+            } else if (info.size > 0) {
+                const match = existingVideos.find(v => v.size === info.size);
+                if (match) {
+                    return { isDuplicate: true, existingVideo: match };
+                }
+            }
+
+            return { isDuplicate: false, md5 };
+        } catch (e) {
+            console.error('[MediaAssetService] Error comprobando duplicado canvas:', e);
+            return { isDuplicate: false };
+        }
+    },
+
+    /**
+     * Guarda un nuevo vídeo Canvas en el almacenamiento persistente con prevención de duplicados por hash.
+     */
+    saveNewCanvasVideo: async (sourceUri: string, knownMd5?: string): Promise<string> => {
+        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+        await MediaAssetService.init();
+
+        const ext = getFileExtension(sourceUri, 'mp4');
+        let md5 = knownMd5;
+        if (!md5) {
+            try {
+                const info = await FileSystem.getInfoAsync(sourceUri, { md5: true });
+                if (info.exists && (info as any).md5) {
+                    md5 = (info as any).md5;
+                }
+            } catch {}
+        }
+
+        const fileName = md5 ? `canvas_${md5}.${ext}` : `canvas_${Date.now()}.${ext}`;
+        const destPath = `${CANVAS_DIR}${fileName}`;
+        const thumbDest = `${CANVAS_THUMBNAILS_DIR}${fileName}.jpg`;
+
+        if (sourceUri !== destPath && !sourceUri.startsWith(CANVAS_DIR)) {
+            await FileSystem.copyAsync({ from: sourceUri, to: destPath });
+            await cleanupTempSource(sourceUri);
+        }
+
+        try {
+            await generateVideoThumbnail(destPath, thumbDest);
+        } catch (err) {
+            console.warn('[MediaAssetService] Error generando miniatura de vídeo:', err);
+        }
+
+        return destPath;
+    },
+
+    /**
+     * Asigna un vídeo Canvas a una lista de canciones en una única operación atómica por lote.
+     */
+    assignCanvasToTracks: async (tracks: Track[], videoUri: string): Promise<void> => {
+        if (!tracks || tracks.length === 0) return;
+        await database.write(async () => {
+            const batchUpdates = tracks.map(track =>
+                track.prepareUpdate(t => {
+                    t.bgVideo = videoUri;
+                })
+            );
+            await database.batch(batchUpdates);
+        });
+    },
+
+    /**
+     * Elimina el vídeo Canvas de una lista de canciones en una única operación atómica.
+     */
+    removeCanvasFromTracks: async (tracks: Track[]): Promise<void> => {
+        if (!tracks || tracks.length === 0) return;
+        await database.write(async () => {
+            const batchUpdates = tracks.map(track =>
+                track.prepareUpdate(t => {
+                    t.bgVideo = null;
+                })
+            );
+            await database.batch(batchUpdates);
+        });
+    },
+
+    /**
+     * Elimina un archivo de vídeo del almacenamiento y desasocia las canciones que lo usen.
+     */
+    deleteCanvasVideo: async (videoUri: string): Promise<void> => {
+        if (Platform.OS === 'web' || !videoUri) return;
+        try {
+            const tracksColl = database.collections.get<Track>('tracks');
+            const allTracks = await tracksColl.query().fetch();
+            const matchingTracks = allTracks.filter(t => t.bgVideo === videoUri);
+
+            if (matchingTracks.length > 0) {
+                await database.write(async () => {
+                    const batchUpdates = matchingTracks.map(track =>
+                        track.prepareUpdate(t => {
+                            t.bgVideo = null;
+                        })
+                    );
+                    await database.batch(batchUpdates);
+                });
+            }
+
+            await FileSystem.deleteAsync(videoUri, { idempotent: true });
+
+            const fileName = videoUri.split('/').pop();
+            if (fileName) {
+                const thumbPath = `${CANVAS_THUMBNAILS_DIR}${fileName}.jpg`;
+                await FileSystem.deleteAsync(thumbPath, { idempotent: true });
+            }
+        } catch (e) {
+            console.error('[MediaAssetService] Error eliminando vídeo canvas:', e);
+        }
+    },
+
     saveTrackCanvasVideo: async (trackId: string, sourceUri: string): Promise<string> => {
         if (Platform.OS === 'web' || !sourceUri) return sourceUri;
         await MediaAssetService.init();
 
         const ext = getFileExtension(sourceUri, 'mp4');
-        const prefix = `canvas_track_${trackId}.`;
-        await purgeEntityFiles(CANVAS_DIR, prefix);
+        let md5: string | undefined;
+        try {
+            const info = await FileSystem.getInfoAsync(sourceUri, { md5: true });
+            if (info.exists && (info as any).md5) {
+                md5 = (info as any).md5;
+            }
+        } catch {}
 
-        const destPath = `${CANVAS_DIR}canvas_track_${trackId}.${ext}`;
+        const fileName = md5 ? `canvas_${md5}.${ext}` : `canvas_track_${trackId}.${ext}`;
+        const destPath = `${CANVAS_DIR}${fileName}`;
 
-        if (sourceUri === destPath) return destPath;
+        if (sourceUri === destPath || sourceUri.startsWith(CANVAS_DIR)) return sourceUri;
 
         await FileSystem.copyAsync({ from: sourceUri, to: destPath });
         await cleanupTempSource(sourceUri);
@@ -183,6 +397,7 @@ export const MediaAssetService = {
         if (Platform.OS === 'web') return;
         await purgeEntityFiles(CANVAS_DIR, `canvas_track_${trackId}.`);
     },
+
 
     /**
      * Migración ligera en segundo plano para usuarios existentes con archivos en cacheDirectory o nombres antiguos.

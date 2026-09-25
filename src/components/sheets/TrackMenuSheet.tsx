@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, View, Text, TouchableOpacity } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -13,9 +12,8 @@ import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
-import { MediaAssetService } from '../../services/MediaAssetService';
 import { useSheetProps } from '@/hooks/useSheetProps';
-import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
+import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 
@@ -313,24 +311,9 @@ export default function TrackMenuSheet() {
       <MenuOption
         icon="videocam-outline"
         text={selectedTrack.bgVideo ? t('actions.canvas_change') : t('actions.canvas_add')}
-        onPress={async () => {
-          try {
-            const result = await DocumentPicker.getDocumentAsync({
-              type: 'video/*',
-              copyToCacheDirectory: true,
-            });
-
-            const asset = result.assets?.[0];
-            if (asset) {
-              const persistentUri = await MediaAssetService.saveTrackCanvasVideo(selectedTrack.id, asset.uri);
-              await selectedTrack.updateBgVideo(persistentUri);
-              useToastStore.getState().showToast(t('actions.canvas_saved'), 'videocam');
-              closeMenu();
-            }
-          } catch (error) {
-            console.error('Error al seleccionar vídeo:', error);
-            Alert.alert(t('actions.error'), t('actions.canvas_error'));
-          }
+        onPress={() => {
+          closeMenu();
+          openCanvasManager(selectedTrack);
         }}
       />
 
@@ -342,7 +325,6 @@ export default function TrackMenuSheet() {
           iconColor={colors.heartIcon}
           textStyle={{ color: colors.heartIcon }}
           onPress={async () => {
-            await MediaAssetService.removeTrackCanvasVideo(selectedTrack.id);
             await selectedTrack.updateBgVideo(null);
             useToastStore.getState().showToast(t('actions.canvas_removed'), 'trash');
             closeMenu();
@@ -479,6 +461,17 @@ export default function TrackMenuSheet() {
         iconColor={colors.heartIcon}
         textStyle={{ color: colors.heartIcon }}
         onPress={handleExclude}
+      />
+
+      {/* OPTION: Properties */}
+      <MenuSeparator />
+      <MenuOption
+        icon="information-circle-outline"
+        text={t('track_details.open_button')}
+        onPress={() => {
+          closeMenu();
+          openTrackDetails(selectedTrack);
+        }}
       />
     </BaseMenuSheet>
   );

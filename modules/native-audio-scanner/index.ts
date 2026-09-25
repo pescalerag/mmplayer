@@ -183,4 +183,16 @@ export async function checkFilesExistOnDisk(filePaths: string[]): Promise<boolea
     console.warn('[NativeAudioScanner] checkFilesExistOnDisk error:', e);
     return filePaths.map(() => false);
   }
-}
+}
+
+export async function generateVideoThumbnail(videoUri: string, destPath: string): Promise<string | null> {
+  try {
+    if (NativeAudioScannerModule && typeof NativeAudioScannerModule.generateVideoThumbnail === 'function') {
+      return await NativeAudioScannerModule.generateVideoThumbnail(videoUri, destPath);
+    }
+  } catch (e) {
+    console.warn('[NativeAudioScanner] generateVideoThumbnail error:', e);
+  }
+  return null;
+}
+

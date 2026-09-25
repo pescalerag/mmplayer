@@ -1,7 +1,7 @@
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayerSpotlightTutorial from '@/components/modals/PlayerSpotlightTutorial';
-import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu, useUIStore } from '@/store/useUIStore';
 import { useTagFormStore } from '@/store/useTagFormStore';
+import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu, useUIStore } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -25,15 +25,15 @@ import {
     View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
     State as TrackPlayerState,
     useProgress,
 } from 'react-native-track-player';
-import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 
 import { database } from '../../database';
 import Album from '../../database/models/Album';
@@ -47,16 +47,15 @@ import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
+import ABRepeatIcon from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
-import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
-import ABRepeatIcon from '@/components/player/ABRepeatIcon';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
 import { getDynamicTagTextColor } from '../../utils/color';
@@ -513,13 +512,13 @@ const PlayerScreenUI = ({
                 if (isMounted && tp?.artwork) {
                     setAsyncCoverUrl(tp.artwork);
                 }
-            }).catch(() => {});
+            }).catch(() => { });
         }).catch(() => {
             TrackPlayer.getActiveTrack().then((tp: any) => {
                 if (isMounted && tp?.artwork) {
                     setAsyncCoverUrl(tp.artwork);
                 }
-            }).catch(() => {});
+            }).catch(() => { });
         });
 
         return () => { isMounted = false; };
@@ -1125,793 +1124,793 @@ const PlayerScreenUI = ({
                     screenDismissAnimatedStyle
                 ]}
             >
-            {/* 3-Slot Sliding Background Stage Container */}
-            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-                <Animated.View style={[
-                    bgSwipeAnimatedStyle,
-                    {
-                        width: width,
-                        height: '100%',
-                    }
-                ]}>
-                    {/* Background Slot -1: Previous Track (-width) */}
-                    <View style={{
-                        position: 'absolute',
-                        left: -width,
-                        width: width,
-                        height: '100%',
-                        overflow: 'hidden',
-                    }}>
-                        {prevTrackModel && showCanvas && !!prevTrackModel.bgVideo ? (
-                            <CanvasVideo
-                                key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}`}
-                                sourceUri={prevTrackModel.bgVideo}
-                                isImmersive={false}
-                                gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
-                            />
-                        ) : (
-                            <BlurredBackground
-                                key={`blur-prev-${prevTrackModel?.id || 'none'}`}
-                                imageUrl={prevCoverUrl}
-                                blurIntensity={10}
-                                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
-                            />
-                        )}
-                    </View>
-
-                    {/* Background Slot 0: Active Track (Center 0) */}
-                    <View style={{
-                        width: width,
-                        height: '100%',
-                        overflow: 'hidden',
-                    }}>
-                        {isFocused && !isTransitioning && showCanvas && !!track.bgVideo ? (
-                            <CanvasVideo
-                                key={`bg-canvas-curr-${track.id}-${track.bgVideo}`}
-                                sourceUri={track.bgVideo}
-                                isImmersive={isImmersive}
-                                gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
-                            />
-                        ) : (
-                            <BlurredBackground
-                                imageUrl={currentCoverUrl}
-                                blurIntensity={10}
-                                gradientColors={
-                                    playerBackgroundStyle === 'gradient' && coverColor
-                                        ? [topGradientColor, bottomGradientColor, bottomGradientColor]
-                                        : ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]
-                                }
-                            />
-                        )}
-                    </View>
-
-                    {/* Background Slot +1: Next Track (+width) */}
-                    <View style={{
-                        position: 'absolute',
-                        left: width,
-                        width: width,
-                        height: '100%',
-                        overflow: 'hidden',
-                    }}>
-                        {nextTrackModel && showCanvas && !!nextTrackModel.bgVideo ? (
-                            <CanvasVideo
-                                key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}`}
-                                sourceUri={nextTrackModel.bgVideo}
-                                isImmersive={false}
-                                gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
-                            />
-                        ) : (
-                            <BlurredBackground
-                                key={`blur-next-${nextTrackModel?.id || 'none'}`}
-                                imageUrl={nextCoverUrl}
-                                blurIntensity={10}
-                                gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
-                            />
-                        )}
-                    </View>
-                </Animated.View>
-            </View>
-
-            <View style={styles.safeArea}>
-                {/* Header */}
-                <View style={[styles.header, { marginTop: insets.top }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                            onPress={() => navigation.goBack()}
-                            style={styles.dismissButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            accessibilityLabel={t('actions.close') || 'Cerrar'}
-                        >
-                            <Ionicons name="chevron-down" size={32} color={colors.text} />
-                        </TouchableOpacity>
-
-                        <View
-                            ref={visualizerButtonRef}
-                            collapsable={false}
-                            onLayout={(e) => {
-                                visualizerButtonLayout.current = e.nativeEvent.layout;
-                            }}
-                        >
-                            <TouchableOpacity
-                                onPress={openPlayerMenu}
-                                style={styles.moreButton}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                accessibilityLabel={t('visualizer.menu_title') || 'Opciones de Visualización'}
-                            >
-                                <Ionicons name="color-palette-outline" size={23} color={colors.text} />
-                            </TouchableOpacity>
+                {/* 3-Slot Sliding Background Stage Container */}
+                <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                    <Animated.View style={[
+                        bgSwipeAnimatedStyle,
+                        {
+                            width: width,
+                            height: '100%',
+                        }
+                    ]}>
+                        {/* Background Slot -1: Previous Track (-width) */}
+                        <View style={{
+                            position: 'absolute',
+                            left: -width,
+                            width: width,
+                            height: '100%',
+                            overflow: 'hidden',
+                        }}>
+                            {prevTrackModel && showCanvas && !!prevTrackModel.bgVideo ? (
+                                <CanvasVideo
+                                    key={`bg-canvas-prev-${prevTrackModel.id}-${prevTrackModel.bgVideo}`}
+                                    sourceUri={prevTrackModel.bgVideo}
+                                    isImmersive={false}
+                                    gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                                />
+                            ) : (
+                                <BlurredBackground
+                                    key={`blur-prev-${prevTrackModel?.id || 'none'}`}
+                                    imageUrl={prevCoverUrl}
+                                    blurIntensity={10}
+                                    gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                                />
+                            )}
                         </View>
-                    </View>
 
-                    <TouchableOpacity
-                        style={styles.headerTextContainer}
-                        onPress={handleAlbumPress}
-                    >
-                        <MarqueeText
-                            key={`album-${track.id}-${album?.title || ''}`}
-                            text={album?.title || t('actions.unknown')}
-                            style={styles.headerTitle}
-                            speed={35}
-                            pauseDuration={2000}
-                        />
-                    </TouchableOpacity>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                            onPress={() => setIsTutorialVisible(true)}
-                            disabled={isImmersive}
-                            style={[styles.moreButton, isImmersive && { opacity: 0.65 }]}
-                            accessibilityLabel={t('player_tutorial.help_btn')}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <Ionicons
-                                name="help-circle-outline"
-                                size={24}
-                                color={isImmersive ? colors.textSecondary : colors.text}
-                            />
-                        </TouchableOpacity>
-
-                        <View
-                            ref={moreButtonRef}
-                            collapsable={false}
-                            onLayout={(e) => {
-                                moreButtonLayout.current = e.nativeEvent.layout;
-                            }}
-                        >
-                            <TouchableOpacity
-                                style={styles.moreButton}
-                                onPress={handleMorePress}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            >
-                                <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
-                            </TouchableOpacity>
+                        {/* Background Slot 0: Active Track (Center 0) */}
+                        <View style={{
+                            width: width,
+                            height: '100%',
+                            overflow: 'hidden',
+                        }}>
+                            {isFocused && !isTransitioning && showCanvas && !!track.bgVideo ? (
+                                <CanvasVideo
+                                    key={`bg-canvas-curr-${track.id}-${track.bgVideo}`}
+                                    sourceUri={track.bgVideo}
+                                    isImmersive={isImmersive}
+                                    gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                                />
+                            ) : (
+                                <BlurredBackground
+                                    imageUrl={currentCoverUrl}
+                                    blurIntensity={10}
+                                    gradientColors={
+                                        playerBackgroundStyle === 'gradient' && coverColor
+                                            ? [topGradientColor, bottomGradientColor, bottomGradientColor]
+                                            : ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]
+                                    }
+                                />
+                            )}
                         </View>
-                    </View>
+
+                        {/* Background Slot +1: Next Track (+width) */}
+                        <View style={{
+                            position: 'absolute',
+                            left: width,
+                            width: width,
+                            height: '100%',
+                            overflow: 'hidden',
+                        }}>
+                            {nextTrackModel && showCanvas && !!nextTrackModel.bgVideo ? (
+                                <CanvasVideo
+                                    key={`bg-canvas-next-${nextTrackModel.id}-${nextTrackModel.bgVideo}`}
+                                    sourceUri={nextTrackModel.bgVideo}
+                                    isImmersive={false}
+                                    gradientColors={['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+                                />
+                            ) : (
+                                <BlurredBackground
+                                    key={`blur-next-${nextTrackModel?.id || 'none'}`}
+                                    imageUrl={nextCoverUrl}
+                                    blurIntensity={10}
+                                    gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                                />
+                            )}
+                        </View>
+                    </Animated.View>
                 </View>
 
-                {/* Artwork / Visualizer / CD / Vinyl Container */}
-                <View
-                    ref={artworkRef}
-                    collapsable={false}
-                    onLayout={(e) => {
-                        artworkLayout.current = e.nativeEvent.layout;
-                    }}
-                    style={[
-                        styles.artworkContainer,
-                        isAltDisplay && { paddingHorizontal: 0 },
-                        isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
-                    ]}
-                >
-                    <GestureDetector gesture={composedGesture}>
-                        <Animated.View style={[
-                            swipeAnimatedStyle,
-                            {
-                                width: width,
-                                height: '100%',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                            }
-                        ]}>
-                            {/* Slot -1: Previous Track (-width) */}
-                            <View style={{
-                                position: 'absolute',
-                                left: -width,
-                                width: width,
-                                height: '100%',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                            }} pointerEvents="none">
-                                {(() => {
-                                    if (!prevTrackModel) {
-                                        return (
-                                            <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                                <Ionicons name="musical-notes" size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
-                                            </View>
-                                        );
-                                    }
-                                    if (showCanvas && !!prevTrackModel.bgVideo) {
-                                        return <View style={{ width: artworkSize, height: artworkSize }} />;
-                                    }
-                                    return (
-                                        <PlayerArtwork
-                                            key={`art-prev-${prevTrackModel.id}`}
-                                            coverUrl={prevCoverUrl}
-                                            size={artworkSize}
-                                            borderRadius={radii.md || 10}
-                                            shadowStyle={shadows.lg}
-                                            cardBackgroundColor={colors.cardBackground}
-                                            textSecondaryColor={colors.textSecondary}
-                                        />
-                                    );
-                                })()}
-                            </View>
+                <View style={styles.safeArea}>
+                    {/* Header */}
+                    <View style={[styles.header, { marginTop: insets.top }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <TouchableOpacity
+                                onPress={() => navigation.goBack()}
+                                style={styles.dismissButton}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityLabel={t('actions.close') || 'Cerrar'}
+                            >
+                                <Ionicons name="chevron-down" size={32} color={colors.text} />
+                            </TouchableOpacity>
 
-                            {/* Slot 0: Active Track (Center 0) */}
-                            <View style={{
-                                width: width,
-                                height: '100%',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                            }}>
-                                {isImmersive ? (
-                                    <View style={StyleSheet.absoluteFillObject} />
-                                ) : showPlayerVisualizer ? (
-                                    <NativeVisualizer
-                                        active={true}
-                                        type={playerVisualizerType}
-                                        color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
-                                        coverUrl={currentCoverUrl || undefined}
-                                        style={{
-                                            width: '100%',
-                                            height: 240,
-                                            backgroundColor: 'transparent',
-                                        }}
-                                    />
-                                ) : (showCanvas && !!track.bgVideo) ? (
-                                    <View style={{ width: artworkSize, height: artworkSize }} />
-                                ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
-                                    <View style={{
-                                        width: artworkSize,
-                                        height: artworkSize,
-                                        alignSelf: 'center',
-                                        position: 'relative'
-                                    }}>
-                                        {playerCoverStyle === 'cd' ? (
-                                            album?.cdArtUrl ? (
-                                                <>
-                                                    <MaskedView
-                                                        style={StyleSheet.absoluteFillObject}
-                                                        maskElement={
-                                                            <View style={{
-                                                                width: artworkSize,
-                                                                height: artworkSize,
-                                                                borderRadius: artworkSize / 2,
-                                                                borderWidth: (artworkSize - 35) / 2,
-                                                                borderColor: 'black',
-                                                                backgroundColor: 'transparent',
-                                                            }} />
-                                                        }
-                                                    >
-                                                        <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
+                            <View
+                                ref={visualizerButtonRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    visualizerButtonLayout.current = e.nativeEvent.layout;
+                                }}
+                            >
+                                <TouchableOpacity
+                                    onPress={openPlayerMenu}
+                                    style={styles.moreButton}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    accessibilityLabel={t('visualizer.menu_title') || 'Opciones de Visualización'}
+                                >
+                                    <Ionicons name="color-palette-outline" size={23} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.headerTextContainer}
+                            onPress={handleAlbumPress}
+                        >
+                            <MarqueeText
+                                key={`album-${track.id}-${album?.title || ''}`}
+                                text={album?.title || t('actions.unknown')}
+                                style={styles.headerTitle}
+                                speed={35}
+                                pauseDuration={2000}
+                            />
+                        </TouchableOpacity>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <TouchableOpacity
+                                onPress={() => setIsTutorialVisible(true)}
+                                disabled={isImmersive}
+                                style={[styles.moreButton, isImmersive && { opacity: 0.65 }]}
+                                accessibilityLabel={t('player_tutorial.help_btn')}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <Ionicons
+                                    name="help-circle-outline"
+                                    size={24}
+                                    color={isImmersive ? colors.textSecondary : colors.text}
+                                />
+                            </TouchableOpacity>
+
+                            <View
+                                ref={moreButtonRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    moreButtonLayout.current = e.nativeEvent.layout;
+                                }}
+                            >
+                                <TouchableOpacity
+                                    style={styles.moreButton}
+                                    onPress={handleMorePress}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                    <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Artwork / Visualizer / CD / Vinyl Container */}
+                    <View
+                        ref={artworkRef}
+                        collapsable={false}
+                        onLayout={(e) => {
+                            artworkLayout.current = e.nativeEvent.layout;
+                        }}
+                        style={[
+                            styles.artworkContainer,
+                            isAltDisplay && { paddingHorizontal: 0 },
+                            isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
+                        ]}
+                    >
+                        <GestureDetector gesture={composedGesture}>
+                            <Animated.View style={[
+                                swipeAnimatedStyle,
+                                {
+                                    width: width,
+                                    height: '100%',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }
+                            ]}>
+                                {/* Slot -1: Previous Track (-width) */}
+                                <View style={{
+                                    position: 'absolute',
+                                    left: -width,
+                                    width: width,
+                                    height: '100%',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }} pointerEvents="none">
+                                    {(() => {
+                                        if (!prevTrackModel) {
+                                            return (
+                                                <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                                    <Ionicons name="musical-notes" size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
+                                                </View>
+                                            );
+                                        }
+                                        if (showCanvas && !!prevTrackModel.bgVideo) {
+                                            return <View style={{ width: artworkSize, height: artworkSize }} />;
+                                        }
+                                        return (
+                                            <PlayerArtwork
+                                                key={`art-prev-${prevTrackModel.id}`}
+                                                coverUrl={prevCoverUrl}
+                                                size={artworkSize}
+                                                borderRadius={radii.md || 10}
+                                                shadowStyle={shadows.lg}
+                                                cardBackgroundColor={colors.cardBackground}
+                                                textSecondaryColor={colors.textSecondary}
+                                            />
+                                        );
+                                    })()}
+                                </View>
+
+                                {/* Slot 0: Active Track (Center 0) */}
+                                <View style={{
+                                    width: width,
+                                    height: '100%',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }}>
+                                    {isImmersive ? (
+                                        <View style={StyleSheet.absoluteFillObject} />
+                                    ) : showPlayerVisualizer ? (
+                                        <NativeVisualizer
+                                            active={true}
+                                            type={playerVisualizerType}
+                                            color={playerVisualizerColorMode === 'cover' ? 'cover' : colors.accentLight || '#8B5CF6'}
+                                            coverUrl={currentCoverUrl || undefined}
+                                            style={{
+                                                width: '100%',
+                                                height: 240,
+                                                backgroundColor: 'transparent',
+                                            }}
+                                        />
+                                    ) : (showCanvas && !!track.bgVideo) ? (
+                                        <View style={{ width: artworkSize, height: artworkSize }} />
+                                    ) : playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' ? (
+                                        <View style={{
+                                            width: artworkSize,
+                                            height: artworkSize,
+                                            alignSelf: 'center',
+                                            position: 'relative'
+                                        }}>
+                                            {playerCoverStyle === 'cd' ? (
+                                                album?.cdArtUrl ? (
+                                                    <>
+                                                        <MaskedView
+                                                            style={StyleSheet.absoluteFillObject}
+                                                            maskElement={
+                                                                <View style={{
+                                                                    width: artworkSize,
+                                                                    height: artworkSize,
+                                                                    borderRadius: artworkSize / 2,
+                                                                    borderWidth: (artworkSize - 35) / 2,
+                                                                    borderColor: 'black',
+                                                                    backgroundColor: 'transparent',
+                                                                }} />
+                                                            }
+                                                        >
+                                                            <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
+                                                                <Image
+                                                                    source={{ uri: album?.cdArtUrl || undefined }}
+                                                                    style={{ width: '100%', height: '100%' }}
+                                                                    contentFit="cover"
+                                                                />
+                                                            </Animated.View>
+                                                        </MaskedView>
+                                                        <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
                                                             <Image
-                                                                source={{ uri: album?.cdArtUrl || undefined }}
-                                                                style={{ width: '100%', height: '100%' }}
-                                                                contentFit="cover"
+                                                                source={require('../../assets/cd-custom.svg')}
+                                                                style={{ position: 'absolute', width: '100%', height: '100%' }}
+                                                                contentFit="contain"
                                                             />
                                                         </Animated.View>
-                                                    </MaskedView>
-                                                    <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
+                                                    </>
+                                                ) : (
+                                                    <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                                         <Image
-                                                            source={require('../../assets/cd-custom.svg')}
-                                                            style={{ position: 'absolute', width: '100%', height: '100%' }}
+                                                            source={require('../../assets/cd-base.webp')}
+                                                            style={{ width: '100%', height: '100%' }}
                                                             contentFit="contain"
                                                         />
                                                     </Animated.View>
-                                                </>
+                                                )
                                             ) : (
                                                 <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
                                                     <Image
-                                                        source={require('../../assets/cd-base.svg')}
+                                                        source={require('../../assets/vinyl.svg')}
                                                         style={{ width: '100%', height: '100%' }}
                                                         contentFit="contain"
                                                     />
+                                                    {coverColor && (
+                                                        <View
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: 0, left: 0, right: 0, bottom: 0,
+                                                                borderRadius: artworkSize / 2,
+                                                                backgroundColor: coverColor,
+                                                                opacity: 0.25,
+                                                            }}
+                                                            pointerEvents="none"
+                                                        />
+                                                    )}
                                                 </Animated.View>
-                                            )
-                                        ) : (
-                                            <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
-                                                <Image
-                                                    source={require('../../assets/vinyl.svg')}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    contentFit="contain"
-                                                />
-                                                {coverColor && (
-                                                    <View
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: 0, left: 0, right: 0, bottom: 0,
-                                                            borderRadius: artworkSize / 2,
-                                                            backgroundColor: coverColor,
-                                                            opacity: 0.25,
-                                                        }}
-                                                        pointerEvents="none"
-                                                    />
-                                                )}
-                                            </Animated.View>
-                                        )}
-                                    </View>
-                                ) : (
-                                    <PlayerArtwork
-                                        coverUrl={currentCoverUrl}
-                                        size={artworkSize}
-                                        borderRadius={radii.md || 10}
-                                        shadowStyle={shadows.lg}
-                                        cardBackgroundColor={colors.cardBackground}
-                                        textSecondaryColor={colors.textSecondary}
-                                    />
-                                )}
-                            </View>
-
-                            {/* Slot +1: Next Track (+width) */}
-                            <View style={{
-                                position: 'absolute',
-                                left: width,
-                                width: width,
-                                height: '100%',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                            }} pointerEvents="none">
-                                {(() => {
-                                    if (!nextTrackModel) {
-                                        return (
-                                            <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                                                <Ionicons name={useSettingsStore.getState().shuffleOnQueueEnd ? "shuffle" : "musical-notes"} size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
-                                            </View>
-                                        );
-                                    }
-                                    if (showCanvas && !!nextTrackModel.bgVideo) {
-                                        return <View style={{ width: artworkSize, height: artworkSize }} />;
-                                    }
-                                    return (
+                                            )}
+                                        </View>
+                                    ) : (
                                         <PlayerArtwork
-                                            key={`art-next-${nextTrackModel.id}`}
-                                            coverUrl={nextCoverUrl}
+                                            coverUrl={currentCoverUrl}
                                             size={artworkSize}
                                             borderRadius={radii.md || 10}
                                             shadowStyle={shadows.lg}
                                             cardBackgroundColor={colors.cardBackground}
                                             textSecondaryColor={colors.textSecondary}
                                         />
-                                    );
-                                })()}
-                            </View>
-                        </Animated.View>
-                    </GestureDetector>
+                                    )}
+                                </View>
 
-                </View>
+                                {/* Slot +1: Next Track (+width) */}
+                                <View style={{
+                                    position: 'absolute',
+                                    left: width,
+                                    width: width,
+                                    height: '100%',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }} pointerEvents="none">
+                                    {(() => {
+                                        if (!nextTrackModel) {
+                                            return (
+                                                <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                                                    <Ionicons name={useSettingsStore.getState().shuffleOnQueueEnd ? "shuffle" : "musical-notes"} size={Math.min(80, Math.floor(artworkSize * 0.25))} color={colors.textSecondary} />
+                                                </View>
+                                            );
+                                        }
+                                        if (showCanvas && !!nextTrackModel.bgVideo) {
+                                            return <View style={{ width: artworkSize, height: artworkSize }} />;
+                                        }
+                                        return (
+                                            <PlayerArtwork
+                                                key={`art-next-${nextTrackModel.id}`}
+                                                coverUrl={nextCoverUrl}
+                                                size={artworkSize}
+                                                borderRadius={radii.md || 10}
+                                                shadowStyle={shadows.lg}
+                                                cardBackgroundColor={colors.cardBackground}
+                                                textSecondaryColor={colors.textSecondary}
+                                            />
+                                        );
+                                    })()}
+                                </View>
+                            </Animated.View>
+                        </GestureDetector>
 
-                {hasLyrics && (
-                    <TouchableOpacity
-                        activeOpacity={0.8}
-                        disabled={isLocalCastActive}
-                        onPress={() => navigation.navigate('Lyrics')}
-                    >
-                        <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                            <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
-                                {activeLyricText}
-                            </Animated.Text>
-                        </Animated.View>
-                    </TouchableOpacity>
-                )}
-
-                {/* Info */}
-                <Animated.View style={[styles.infoContainer, infoContainerAnimatedStyle]}>
-                    <View style={styles.infoTextContainer}>
-                        {/* Tags row */}
-                        <View
-                            ref={tagsRef}
-                            collapsable={false}
-                            onLayout={(e) => {
-                                tagsLayout.current = e.nativeEvent.layout;
-                            }}
-                            style={styles.tagsRow}
-                        >
-                            {tags && tags.length > 0 ? (
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.tagsScroll}
-                                    keyboardShouldPersistTaps="handled"
-                                >
-                                    {tags.map(t => (
-                                        <TouchableOpacity
-                                            key={t.id}
-                                            style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : colors.overlayAlpha08 }]}
-                                            onPress={handleOpenTagManager}
-                                        >
-                                            <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : colors.text }]}>{t.name}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            ) : (
-                                <TouchableOpacity
-                                    style={styles.addTagButton}
-                                    onPress={handleOpenTagManager}
-                                >
-                                    <Ionicons name="add-circle-outline" size={14} color={colors.textSecondary} />
-                                    <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        {/* Title & Artist row with optional mini cover */}
-                        <View style={isAltDisplay ? { flexDirection: 'row', alignItems: 'center' } : null}>
-                            {isAltDisplay && artworkSource && (
-                                <Image
-                                    source={artworkSource}
-                                    style={styles.miniArtwork}
-                                    contentFit="cover"
-                                    transition={200}
-                                    cachePolicy="memory-disk"
-                                />
-                            )}
-                            <View style={isAltDisplay ? { flex: 1 } : null}>
-                                <MarqueeText
-                                    key={`title-${track.id}`}
-                                    text={track.title}
-                                    style={styles.title}
-                                    speed={45}
-                                    pauseDuration={1800}
-                                />
-                                <TouchableOpacity
-                                    onPress={handleArtistPress}
-                                >
-                                    <MarqueeText
-                                        key={`artist-${track.id}`}
-                                        text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || t('actions.unknown'))}
-                                        style={styles.artist}
-                                        speed={35}
-                                        pauseDuration={2000}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
                     </View>
 
-                    {/* Actions Column (Heart + Plus) */}
-                    <View
-                        ref={actionsRef}
-                        collapsable={false}
-                        onLayout={(e) => {
-                            actionsLayout.current = e.nativeEvent.layout;
-                        }}
-                        style={styles.infoActionsContainer}
-                    >
-                        <Animated.View style={heartAnimatedStyle}>
+                    {hasLyrics && (
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            disabled={isLocalCastActive}
+                            onPress={() => navigation.navigate('Lyrics')}
+                        >
+                            <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                                <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
+                                    {activeLyricText}
+                                </Animated.Text>
+                            </Animated.View>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Info */}
+                    <Animated.View style={[styles.infoContainer, infoContainerAnimatedStyle]}>
+                        <View style={styles.infoTextContainer}>
+                            {/* Tags row */}
+                            <View
+                                ref={tagsRef}
+                                collapsable={false}
+                                onLayout={(e) => {
+                                    tagsLayout.current = e.nativeEvent.layout;
+                                }}
+                                style={styles.tagsRow}
+                            >
+                                {tags && tags.length > 0 ? (
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.tagsScroll}
+                                        keyboardShouldPersistTaps="handled"
+                                    >
+                                        {tags.map(t => (
+                                            <TouchableOpacity
+                                                key={t.id}
+                                                style={[styles.tagBadge, { backgroundColor: showTagColors ? t.color : colors.overlayAlpha08 }]}
+                                                onPress={handleOpenTagManager}
+                                            >
+                                                <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(t.color) : colors.text }]}>{t.name}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.addTagButton}
+                                        onPress={handleOpenTagManager}
+                                    >
+                                        <Ionicons name="add-circle-outline" size={14} color={colors.textSecondary} />
+                                        <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            {/* Title & Artist row with optional mini cover */}
+                            <View style={isAltDisplay ? { flexDirection: 'row', alignItems: 'center' } : null}>
+                                {isAltDisplay && artworkSource && (
+                                    <Image
+                                        source={artworkSource}
+                                        style={styles.miniArtwork}
+                                        contentFit="cover"
+                                        transition={200}
+                                        cachePolicy="memory-disk"
+                                    />
+                                )}
+                                <View style={isAltDisplay ? { flex: 1 } : null}>
+                                    <MarqueeText
+                                        key={`title-${track.id}`}
+                                        text={track.title}
+                                        style={styles.title}
+                                        speed={45}
+                                        pauseDuration={1800}
+                                    />
+                                    <TouchableOpacity
+                                        onPress={handleArtistPress}
+                                    >
+                                        <MarqueeText
+                                            key={`artist-${track.id}`}
+                                            text={artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || t('actions.unknown'))}
+                                            style={styles.artist}
+                                            speed={35}
+                                            pauseDuration={2000}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* Actions Column (Heart + Plus) */}
+                        <View
+                            ref={actionsRef}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                actionsLayout.current = e.nativeEvent.layout;
+                            }}
+                            style={styles.infoActionsContainer}
+                        >
+                            <Animated.View style={heartAnimatedStyle}>
+                                <TouchableOpacity
+                                    onPress={handleLikePress}
+                                    style={styles.actionButton}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <Ionicons
+                                        name={track.isFavorite ? "heart" : "heart-outline"}
+                                        size={28}
+                                        color={track.isFavorite ? colors.heartIcon : colors.text}
+                                    />
+                                </TouchableOpacity>
+                            </Animated.View>
+
                             <TouchableOpacity
-                                onPress={handleLikePress}
+                                onPress={handleOpenPlaylistSelector}
                                 style={styles.actionButton}
                                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
+                                <Ionicons name="add" size={28} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+
+                    {/* Animated Bottom Controls Group */}
+                    <Animated.View
+                        style={[bottomControlsAnimatedStyle]}
+                        pointerEvents={isImmersive ? 'none' : 'auto'}
+                    >
+                        {/* Progress Slider or Cast Remote Indicator */}
+                        {isLocalCastActive ? (
+                            <View style={styles.castingRemoteBanner}>
+                                <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
+                                <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
+                                    {t('cast.remote_mode_banner', 'LocalCast activo · Modo control remoto')}
+                                </Text>
+                            </View>
+                        ) : (
+                            <View style={styles.progressSection}>
+                                <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+                                    <ABSliderMarkers duration={duration} />
+                                    <Slider
+                                        style={{ width: '100%', height: 40 }}
+                                        minimumValue={0}
+                                        maximumValue={duration > 0 ? duration : 1}
+                                        value={isSeeking ? seekValue : position}
+                                        minimumTrackTintColor={colors.text}
+                                        maximumTrackTintColor={colors.overlayAlpha20}
+                                        thumbTintColor={colors.text}
+                                        onSlidingStart={(value) => {
+                                            setIsSeeking(true);
+                                            setSeekValue(value);
+                                        }}
+                                        onValueChange={(value) => {
+                                            setSeekValue(value);
+                                        }}
+                                        onSlidingComplete={(value) => {
+                                            setIsSeeking(false);
+                                            TrackPlayer.seekTo(value).catch(() => { });
+                                        }}
+                                    />
+                                </View>
+                                <View style={styles.timeContainer}>
+                                    <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
+                                    <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Controls */}
+                        <View
+                            ref={controlsRef}
+                            collapsable={false}
+                            onLayout={(e) => {
+                                controlsLayout.current = e.nativeEvent.layout;
+                            }}
+                            style={styles.controlsContainer}
+                        >
+                            {/* Shuffle */}
+                            <TouchableOpacity
+                                onPress={toggleShuffle}
+                                style={styles.secondaryControlButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
                                 <Ionicons
-                                    name={track.isFavorite ? "heart" : "heart-outline"}
-                                    size={28}
-                                    color={track.isFavorite ? colors.heartIcon : colors.text}
+                                    name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
+                                    size={24}
+                                    color={isShuffleEnabled ? colors.accentLight : colors.disabled}
                                 />
                             </TouchableOpacity>
-                        </Animated.View>
 
-                        <TouchableOpacity
-                            onPress={handleOpenPlaylistSelector}
-                            style={styles.actionButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons name="add" size={28} color={colors.text} />
-                        </TouchableOpacity>
-                    </View>
-                </Animated.View>
-
-                {/* Animated Bottom Controls Group */}
-                <Animated.View
-                    style={[bottomControlsAnimatedStyle]}
-                    pointerEvents={isImmersive ? 'none' : 'auto'}
-                >
-                    {/* Progress Slider or Cast Remote Indicator */}
-                    {isLocalCastActive ? (
-                        <View style={styles.castingRemoteBanner}>
-                            <Ionicons name="radio" size={16} color={colors.accentLight || colors.text} />
-                            <Text style={[styles.castingRemoteText, { color: colors.textSecondary }]}>
-                                {t('cast.remote_mode_banner', 'LocalCast activo · Modo control remoto')}
-                            </Text>
-                        </View>
-                    ) : (
-                        <View style={styles.progressSection}>
-                            <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
-                                <ABSliderMarkers duration={duration} />
-                                <Slider
-                                    style={{ width: '100%', height: 40 }}
-                                    minimumValue={0}
-                                    maximumValue={duration > 0 ? duration : 1}
-                                    value={isSeeking ? seekValue : position}
-                                    minimumTrackTintColor={colors.text}
-                                    maximumTrackTintColor={colors.overlayAlpha20}
-                                    thumbTintColor={colors.text}
-                                    onSlidingStart={(value) => {
-                                        setIsSeeking(true);
-                                        setSeekValue(value);
-                                    }}
-                                    onValueChange={(value) => {
-                                        setSeekValue(value);
-                                    }}
-                                    onSlidingComplete={(value) => {
-                                        setIsSeeking(false);
-                                        TrackPlayer.seekTo(value).catch(() => { });
-                                    }}
-                                />
-                            </View>
-                            <View style={styles.timeContainer}>
-                                <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
-                                <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Controls */}
-                    <View
-                        ref={controlsRef}
-                        collapsable={false}
-                        onLayout={(e) => {
-                            controlsLayout.current = e.nativeEvent.layout;
-                        }}
-                        style={styles.controlsContainer}
-                    >
-                        {/* Shuffle */}
-                        <TouchableOpacity
-                            onPress={toggleShuffle}
-                            style={styles.secondaryControlButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Ionicons
-                                name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
-                                size={24}
-                                color={isShuffleEnabled ? colors.accentLight : colors.disabled}
-                            />
-                        </TouchableOpacity>
-
-                        {/* Back */}
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (position > SKIP_PREVIOUS_THRESHOLD) {
-                                    TrackPlayer.seekTo(0).catch(() => { });
-                                } else {
-                                    TrackPlayer.skipToPrevious().catch(() => { });
-                                }
-                            }}
-                            style={styles.controlButton}
-                            disabled={!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD}
-                        >
-                            <Ionicons name="play-back" size={38} color={(hasPrevious || position > SKIP_PREVIOUS_THRESHOLD) ? colors.text : colors.disabled} />
-                        </TouchableOpacity>
-
-                        <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
-
-                        {/* Forward */}
-                        <TouchableOpacity
-                            onPress={() => usePlayerStore.getState().skipToNext().catch(() => { })}
-                            style={styles.controlButton}
-                            disabled={!hasNext}
-                        >
-                            <Ionicons name="play-forward" size={38} color={hasNext ? colors.text : colors.disabled} />
-                        </TouchableOpacity>
-
-                        {/* Repeat */}
-                        <TouchableOpacity
-                            onPress={cycleRepeatMode}
-                            style={styles.secondaryControlButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <View>
-                                <Ionicons
-                                    name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
-                                    size={24}
-                                    color={
-                                        repeatMode === RepeatMode.Off ? colors.disabled : colors.accentLight
+                            {/* Back */}
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (position > SKIP_PREVIOUS_THRESHOLD) {
+                                        TrackPlayer.seekTo(0).catch(() => { });
+                                    } else {
+                                        TrackPlayer.skipToPrevious().catch(() => { });
                                     }
-                                />
-                                {repeatMode === RepeatMode.Track && (
-                                    <Text style={styles.repeatOneBadge}>1</Text>
-                                )}
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Footer */}
-                    <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
-                        {/* Left group */}
-                        <View style={styles.footerLeftGroup}>
-                            <View
-                                ref={sleepTimerRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    sleepTimerLayout.current = e.nativeEvent.layout;
                                 }}
+                                style={styles.controlButton}
+                                disabled={!hasPrevious && position <= SKIP_PREVIOUS_THRESHOLD}
                             >
-                                <TouchableOpacity
-                                    onPress={openSleepTimer}
-                                    style={styles.footerButton}
-                                    disabled={isServerRunning}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                                >
+                                <Ionicons name="play-back" size={38} color={(hasPrevious || position > SKIP_PREVIOUS_THRESHOLD) ? colors.text : colors.disabled} />
+                            </TouchableOpacity>
+
+                            <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
+
+                            {/* Forward */}
+                            <TouchableOpacity
+                                onPress={() => usePlayerStore.getState().skipToNext().catch(() => { })}
+                                style={styles.controlButton}
+                                disabled={!hasNext}
+                            >
+                                <Ionicons name="play-forward" size={38} color={hasNext ? colors.text : colors.disabled} />
+                            </TouchableOpacity>
+
+                            {/* Repeat */}
+                            <TouchableOpacity
+                                onPress={cycleRepeatMode}
+                                style={styles.secondaryControlButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <View>
                                     <Ionicons
-                                        name="timer-outline"
+                                        name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
                                         size={24}
-                                        color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
+                                        color={
+                                            repeatMode === RepeatMode.Off ? colors.disabled : colors.accentLight
+                                        }
                                     />
-                                </TouchableOpacity>
-                            </View>
+                                    {repeatMode === RepeatMode.Track && (
+                                        <Text style={styles.repeatOneBadge}>1</Text>
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                        </View>
 
-                            <View
-                                ref={speedRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    speedLayout.current = e.nativeEvent.layout;
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={openSpeedPitch}
-                                    style={styles.footerButton}
-                                    disabled={isServerRunning}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        {/* Footer */}
+                        <View style={[styles.footer, { marginBottom: insets.bottom + 30 }]}>
+                            {/* Left group */}
+                            <View style={styles.footerLeftGroup}>
+                                <View
+                                    ref={sleepTimerRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        sleepTimerLayout.current = e.nativeEvent.layout;
+                                    }}
                                 >
-                                    <Ionicons
-                                        name="speedometer-outline"
-                                        size={24}
-                                        color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
-                                    />
-                                </TouchableOpacity>
-                            </View>
+                                    <TouchableOpacity
+                                        onPress={openSleepTimer}
+                                        style={styles.footerButton}
+                                        disabled={isServerRunning}
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <Ionicons
+                                            name="timer-outline"
+                                            size={24}
+                                            color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View
-                                ref={lyricsRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    lyricsLayout.current = e.nativeEvent.layout;
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={() => navigation.navigate('Lyrics')}
-                                    style={styles.footerButton}
-                                    disabled={isLocalCastActive}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <View
+                                    ref={speedRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        speedLayout.current = e.nativeEvent.layout;
+                                    }}
                                 >
-                                    <Ionicons
-                                        name="mic-outline"
-                                        size={24}
-                                        color={isLocalCastActive ? colors.disabled : colors.textSecondary}
-                                    />
-                                </TouchableOpacity>
-                            </View>
+                                    <TouchableOpacity
+                                        onPress={openSpeedPitch}
+                                        style={styles.footerButton}
+                                        disabled={isServerRunning}
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <Ionicons
+                                            name="speedometer-outline"
+                                            size={24}
+                                            color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View
-                                ref={castRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    castLayout.current = e.nativeEvent.layout;
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={openCastSheet}
-                                    style={styles.footerButton}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <View
+                                    ref={lyricsRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        lyricsLayout.current = e.nativeEvent.layout;
+                                    }}
                                 >
-                                    <Ionicons
-                                        name={isChromecastConnected ? "tv" : isLocalCastActive ? "desktop" : "desktop-outline"}
-                                        size={24}
-                                        color={isCasting ? (isChromecastConnected ? "#60A5FA" : colors.accentLight) : colors.textSecondary}
-                                    />
-                                </TouchableOpacity>
-                            </View>
+                                    <TouchableOpacity
+                                        onPress={() => navigation.navigate('Lyrics')}
+                                        style={styles.footerButton}
+                                        disabled={isLocalCastActive}
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <Ionicons
+                                            name="mic-outline"
+                                            size={24}
+                                            color={isLocalCastActive ? colors.disabled : colors.textSecondary}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View
-                                ref={abRepeatRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    abRepeatLayout.current = e.nativeEvent.layout;
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={() => handleABButtonPress(position)}
-                                    onLongPress={handleABLongPress}
-                                    delayLongPress={350}
-                                    style={styles.footerButton}
-                                    disabled={isCasting}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                <View
+                                    ref={castRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        castLayout.current = e.nativeEvent.layout;
+                                    }}
                                 >
-                                    <ABRepeatIcon
-                                        pointA={pointA}
-                                        pointB={pointB}
+                                    <TouchableOpacity
+                                        onPress={openCastSheet}
+                                        style={styles.footerButton}
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <Ionicons
+                                            name={isChromecastConnected ? "tv" : isLocalCastActive ? "desktop" : "desktop-outline"}
+                                            size={24}
+                                            color={isCasting ? (isChromecastConnected ? "#60A5FA" : colors.accentLight) : colors.textSecondary}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View
+                                    ref={abRepeatRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        abRepeatLayout.current = e.nativeEvent.layout;
+                                    }}
+                                >
+                                    <TouchableOpacity
+                                        onPress={() => handleABButtonPress(position)}
+                                        onLongPress={handleABLongPress}
+                                        delayLongPress={350}
+                                        style={styles.footerButton}
                                         disabled={isCasting}
-                                    />
-                                </TouchableOpacity>
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <ABRepeatIcon
+                                            pointA={pointA}
+                                            pointB={pointB}
+                                            disabled={isCasting}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {/* Right group */}
+                            <View style={styles.footerRightGroup}>
+                                <View
+                                    ref={shareRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        shareLayout.current = e.nativeEvent.layout;
+                                    }}
+                                >
+                                    <TouchableOpacity
+                                        onPress={handleShare}
+                                        style={styles.footerButton}
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <Ionicons
+                                            name="share-social-outline"
+                                            size={24}
+                                            color={colors.textSecondary}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View
+                                    ref={queueRef}
+                                    collapsable={false}
+                                    onLayout={(e) => {
+                                        queueLayout.current = e.nativeEvent.layout;
+                                    }}
+                                >
+                                    <TouchableOpacity
+                                        onPress={openQueue}
+                                        style={styles.footerButton}
+                                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                    >
+                                        <Ionicons name="list" size={24} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
+                    </Animated.View>
+                </View>
 
-                        {/* Right group */}
-                        <View style={styles.footerRightGroup}>
-                            <View
-                                ref={shareRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    shareLayout.current = e.nativeEvent.layout;
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={handleShare}
-                                    style={styles.footerButton}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                                >
-                                    <Ionicons
-                                        name="share-social-outline"
-                                        size={24}
-                                        color={colors.textSecondary}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View
-                                ref={queueRef}
-                                collapsable={false}
-                                onLayout={(e) => {
-                                    queueLayout.current = e.nativeEvent.layout;
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={openQueue}
-                                    style={styles.footerButton}
-                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                                >
-                                    <Ionicons name="list" size={24} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </Animated.View>
-            </View>
-
-            {/* Tutorial Contextual Spotlight de PlayerScreen */}
-            <PlayerSpotlightTutorial
-                visible={isTutorialVisible}
-                onClose={handleCloseTutorial}
-                rootRef={rootRef}
-                moreButtonRef={moreButtonRef}
-                visualizerButtonRef={visualizerButtonRef}
-                artworkRef={artworkRef}
-                tagsRef={tagsRef}
-                actionsRef={actionsRef}
-                controlsRef={controlsRef}
-                sleepTimerRef={sleepTimerRef}
-                speedRef={speedRef}
-                lyricsRef={lyricsRef}
-                castRef={castRef}
-                abRepeatRef={abRepeatRef}
-                shareRef={shareRef}
-                queueRef={queueRef}
-                moreButtonLayout={moreButtonLayout}
-                visualizerButtonLayout={visualizerButtonLayout}
-                artworkLayout={artworkLayout}
-                tagsLayout={tagsLayout}
-                actionsLayout={actionsLayout}
-                controlsLayout={controlsLayout}
-                sleepTimerLayout={sleepTimerLayout}
-                speedLayout={speedLayout}
-                lyricsLayout={lyricsLayout}
-                castLayout={castLayout}
-                abRepeatLayout={abRepeatLayout}
-                shareLayout={shareLayout}
-                queueLayout={queueLayout}
-            />
-        </Animated.View>
-    </GestureDetector>
-);
+                {/* Tutorial Contextual Spotlight de PlayerScreen */}
+                <PlayerSpotlightTutorial
+                    visible={isTutorialVisible}
+                    onClose={handleCloseTutorial}
+                    rootRef={rootRef}
+                    moreButtonRef={moreButtonRef}
+                    visualizerButtonRef={visualizerButtonRef}
+                    artworkRef={artworkRef}
+                    tagsRef={tagsRef}
+                    actionsRef={actionsRef}
+                    controlsRef={controlsRef}
+                    sleepTimerRef={sleepTimerRef}
+                    speedRef={speedRef}
+                    lyricsRef={lyricsRef}
+                    castRef={castRef}
+                    abRepeatRef={abRepeatRef}
+                    shareRef={shareRef}
+                    queueRef={queueRef}
+                    moreButtonLayout={moreButtonLayout}
+                    visualizerButtonLayout={visualizerButtonLayout}
+                    artworkLayout={artworkLayout}
+                    tagsLayout={tagsLayout}
+                    actionsLayout={actionsLayout}
+                    controlsLayout={controlsLayout}
+                    sleepTimerLayout={sleepTimerLayout}
+                    speedLayout={speedLayout}
+                    lyricsLayout={lyricsLayout}
+                    castLayout={castLayout}
+                    abRepeatLayout={abRepeatLayout}
+                    shareLayout={shareLayout}
+                    queueLayout={queueLayout}
+                />
+            </Animated.View>
+        </GestureDetector>
+    );
 };
 
 const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
@@ -1937,11 +1936,11 @@ const PlayerScreen = () => {
 
     useEffect(() => {
         if (isFocused) {
-            usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+            usePlayerStore.getState().syncWithTrackPlayer().catch(() => { });
         }
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active' && isFocused) {
-                usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+                usePlayerStore.getState().syncWithTrackPlayer().catch(() => { });
             }
         });
         return () => {

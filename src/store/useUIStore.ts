@@ -26,7 +26,9 @@ export type SheetType =
   | 'batch-menu'
   | 'advanced-tag-search'
   | 'edit-alias'
-  | 'clear-queue';
+  | 'clear-queue'
+  | 'canvas-manager'
+  | 'track-details';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -154,4 +156,12 @@ export const openTagManagerForBatch = (tracks: any[]) =>
 
 export const openEditAlias = () =>
   useUIStore.getState().openSheet('edit-alias');
+
+export const openCanvasManager = (tracks: any = []) =>
+  useUIStore.getState().openSheet('canvas-manager', {
+    tracks: Array.isArray(tracks) ? tracks : [tracks],
+  });
+
+export const openTrackDetails = (track: any) =>
+  useUIStore.getState().openSheet('track-details', { track });
 
