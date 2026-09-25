@@ -812,16 +812,41 @@ export const ScannerService = {
             };
 
             const devicePaths = new Set<string>();
-            let activeAudioFiles = audioFiles.filter(f => {
-                if (isExcluded(f.uri)) return false;
-                devicePaths.add(f.uri);
-                return true;
+            const isDevicePath = (uri: string) => {
+                if (!uri) return false;
+                if (devicePaths.has(uri)) return true;
+                if (uri.includes('%23') && devicePaths.has(uri.replace(/%23/g, '#'))) return true;
+                if (uri.includes('#') && devicePaths.has(uri.replace(/#/g, '%23'))) return true;
+                return false;
+            };
+
+            const populateActiveAudioFiles = (files: any[]) => {
+                devicePaths.clear();
+                return files.filter(f => {
+                    if (isExcluded(f.uri)) return false;
+                    devicePaths.add(f.uri);
+                    if (f.uri.includes('#')) {
+                        devicePaths.add(f.uri.replace(/#/g, '%23'));
+                    }
+                    return true;
+                });
+            };
+
+            let activeAudioFiles = populateActiveAudioFiles(audioFiles);
+
+            const dbPaths = new Set<string>();
+            allTracks.forEach(t => {
+                dbPaths.add(t.fileUrl);
+                if (t.fileUrl.includes('%23')) {
+                    dbPaths.add(t.fileUrl.replace(/%23/g, '#'));
+                }
+                if (t.fileUrl.includes('#')) {
+                    dbPaths.add(t.fileUrl.replace(/#/g, '%23'));
+                }
             });
 
-            const dbPaths = new Set(allTracks.map(t => t.fileUrl));
-
             // canciones_huerfanas: en la BD pero no en el móvil
-            let canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+            let canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
             let archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
 
             // --- Fase de Detección en Disco y Migración ---
@@ -845,13 +870,8 @@ export const ScannerService = {
                         const refreshedAudio = await getAudioFiles(false);
                         if (refreshedAudio && refreshedAudio.length > 0) {
                             audioFiles = refreshedAudio;
-                            devicePaths.clear();
-                            activeAudioFiles = audioFiles.filter(f => {
-                                if (isExcluded(f.uri)) return false;
-                                devicePaths.add(f.uri);
-                                return true;
-                            });
-                            canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+                            activeAudioFiles = populateActiveAudioFiles(audioFiles);
+                            canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
                             archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
                         }
                     }
@@ -862,7 +882,12 @@ export const ScannerService = {
 
             // archivos_modificados: en la BD y en el móvil, pero con lastModified mayor
             const trackMap = new Map<string, Track>();
-            allTracks.forEach(t => trackMap.set(t.fileUrl, t));
+            allTracks.forEach(t => {
+                trackMap.set(t.fileUrl, t);
+                if (t.fileUrl.includes('%23')) {
+                    trackMap.set(t.fileUrl.replace(/%23/g, '#'), t);
+                }
+            });
 
             const forcedUrlsSet = forcedFileUrls
                 ? (forcedFileUrls instanceof Set ? forcedFileUrls : new Set(forcedFileUrls))
@@ -870,7 +895,7 @@ export const ScannerService = {
 
             const archivos_modificados: { track: Track; file: any }[] = [];
             for (const file of activeAudioFiles) {
-                const existing = trackMap.get(file.uri);
+                const existing = trackMap.get(file.uri) || (file.uri.includes('#') ? trackMap.get(file.uri.replace(/#/g, '%23')) : undefined);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
                     const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
@@ -936,12 +961,7 @@ export const ScannerService = {
                     const refreshedAudio = await getAudioFiles(false);
                     if (refreshedAudio && refreshedAudio.length > 0) {
                         audioFiles = refreshedAudio;
-                        devicePaths.clear();
-                        activeAudioFiles = audioFiles.filter(f => {
-                            if (isExcluded(f.uri)) return false;
-                            devicePaths.add(f.uri);
-                            return true;
-                        });
+                        activeAudioFiles = populateActiveAudioFiles(audioFiles);
                         newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUris.has(f.uri));
                         if (newCandidates.length > 0) {
                             const secondMatched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
@@ -980,12 +1000,7 @@ export const ScannerService = {
                             const refreshedAudio = await getAudioFiles(false);
                             if (refreshedAudio && refreshedAudio.length > 0) {
                                 audioFiles = refreshedAudio;
-                                devicePaths.clear();
-                                activeAudioFiles = audioFiles.filter(f => {
-                                    if (isExcluded(f.uri)) return false;
-                                    devicePaths.add(f.uri);
-                                    return true;
-                                });
+                                activeAudioFiles = populateActiveAudioFiles(audioFiles);
                             }
                         }
                     } catch (e) {
