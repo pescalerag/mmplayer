@@ -1289,6 +1289,7 @@
     "lyrics": "Letras",
     "lyrics_not_found": "No se encontraron letras",
     "lyrics_import": "Importar archivo .LRC",
+    "lyrics_export": "Exportar archivo .LRC",
     "lyrics_searching": "Buscando letras..."
   },
   "metadata_editor": {
@@ -1339,6 +1340,10 @@
     "search_success": "Letras encontradas e importadas correctamente.",
     "search_not_found": "No se encontraron letras para esta canción en internet.",
     "import_success": "Letras importadas correctamente.",
+    "export_lrc": "Exportar archivo .LRC",
+    "export_success": "Letras exportadas correctamente.",
+    "export_error": "No se pudo exportar el archivo de letras.",
+    "no_lyrics_to_export": "Esta canción no tiene letras para exportar.",
     "read_error": "No se pudo leer el archivo de letras.",
     "save_error": "No se pudieron guardar los cambios.",
     "search_error": "Ocurrió un error al buscar las letras.",

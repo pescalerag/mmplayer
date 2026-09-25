@@ -1289,6 +1289,7 @@
     "lyrics": "Lyrics",
     "lyrics_not_found": "No lyrics found",
     "lyrics_import": "Import .LRC file",
+    "lyrics_export": "Export .LRC file",
     "lyrics_searching": "Searching lyrics..."
   },
   "metadata_editor": {
@@ -1339,6 +1340,10 @@
     "search_success": "Lyrics found and imported successfully.",
     "search_not_found": "No lyrics found for this song online.",
     "import_success": "Lyrics imported successfully.",
+    "export_lrc": "Export .LRC file",
+    "export_success": "Lyrics exported successfully.",
+    "export_error": "Could not export lyrics file.",
+    "no_lyrics_to_export": "This song has no lyrics to export.",
     "read_error": "Could not read lyrics file.",
     "save_error": "Could not save changes.",
     "search_error": "An error occurred while searching for lyrics.",
