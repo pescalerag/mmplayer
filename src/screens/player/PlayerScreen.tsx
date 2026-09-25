@@ -22,6 +22,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -610,11 +611,23 @@ const PlayerScreenUI = ({
         ? parsedLyrics[activeIndex].text
         : '';
 
-    const baseArtworkSize = width - 64;
-    const maxAvailableHeight = Dimensions.get('window').height - insets.top - insets.bottom - (showPlayerLyrics ? 410 : 360);
-    const artworkSize = (maxAvailableHeight > 0 && maxAvailableHeight < baseArtworkSize)
-        ? Math.max(140, Math.floor(maxAvailableHeight))
-        : baseArtworkSize;
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const [measuredArtworkHeight, setMeasuredArtworkHeight] = useState<number>(0);
+
+    const baseArtworkSize = windowWidth - 64;
+    const nonArtworkSpace = insets.top + insets.bottom + (hasLyrics ? 490 : 430);
+    const estimatedAvailableHeight = windowHeight - nonArtworkSpace;
+
+    const artworkSize = React.useMemo(() => {
+        const availableHeight = measuredArtworkHeight > 0
+            ? measuredArtworkHeight - 28
+            : estimatedAvailableHeight;
+
+        if (availableHeight > 0 && availableHeight < baseArtworkSize) {
+            return Math.max(140, Math.floor(availableHeight));
+        }
+        return baseArtworkSize;
+    }, [measuredArtworkHeight, estimatedAvailableHeight, baseArtworkSize]);
 
     const styles = React.useMemo(
         () => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize),
@@ -1294,6 +1307,10 @@ const PlayerScreenUI = ({
                         collapsable={false}
                         onLayout={(e) => {
                             artworkLayout.current = e.nativeEvent.layout;
+                            const h = e.nativeEvent.layout.height;
+                            if (h > 0 && Math.abs(h - measuredArtworkHeight) > 2) {
+                                setMeasuredArtworkHeight(h);
+                            }
                         }}
                         style={[
                             styles.artworkContainer,

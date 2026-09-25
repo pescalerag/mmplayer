@@ -522,6 +522,7 @@ class NativeAudioScannerModule : Module() {
       try {
         val audioList = mutableListOf<Map<String, Any?>>()
         val validAlbumArts = mutableMapOf<Long, String?>()
+        val stalePaths = mutableListOf<String>()
         
         val supportsAlbumArtist = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
         val supportsGenre = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
@@ -605,6 +606,20 @@ class NativeAudioScannerModule : Module() {
 
             val id = cursor.getLong(idColumn)
             val data = cursor.getString(dataColumn) ?: continue
+
+            val file = File(data)
+            if (!file.exists()) {
+              val decodedExists = try {
+                val decoded = java.net.URLDecoder.decode(data, "UTF-8")
+                File(decoded).exists()
+              } catch (_: Exception) {
+                false
+              }
+              if (!decodedExists) {
+                stalePaths.add(data)
+                continue
+              }
+            }
             
             val title = if (titleColumn >= 0) cursor.getString(titleColumn) ?: "Unknown Title" else "Unknown Title"
             val artist = if (artistColumn >= 0) cursor.getString(artistColumn) ?: "Unknown Artist" else "Unknown Artist"
@@ -645,6 +660,14 @@ class NativeAudioScannerModule : Module() {
               "replayGain" to replayGain
             )
             audioList.add(fileMap)
+          }
+        }
+
+        if (stalePaths.isNotEmpty()) {
+          try {
+            MediaScannerConnection.scanFile(context, stalePaths.toTypedArray(), null, null)
+          } catch (e: Exception) {
+            Log.w("NativeAudioScanner", "Failed to trigger rescan for stale paths: ${e.message}")
           }
         }
         

@@ -1170,6 +1170,7 @@
     "reproduction_plural": "{{count}} plays",
     "reproductions_label": "Plays",
     "time_label": "Time",
+    "loading": "Loading statistics...",
     "no_data": "No playback data for this period",
     "total_listening_time": "Total listening time · {{period}}",
     "total_plays": "Total plays · {{period}}",
