@@ -1144,6 +1144,7 @@
     "reproduction_plural": "{{count}} reproducciones",
     "reproductions_label": "Reproducciones",
     "time_label": "Tiempo",
+    "loading": "Cargando estadísticas...",
     "no_data": "No hay datos de reproducción para este período",
     "total_listening_time": "Tiempo total de escucha · {{period}}",
     "total_plays": "Total de reproducciones · {{period}}",

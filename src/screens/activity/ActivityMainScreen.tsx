@@ -9,6 +9,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -168,7 +169,15 @@ export default function ActivityMainScreen() {
     topArtists: [],
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const latestFetchId = useRef(0);
+  const activePeriodRef = useRef(period);
+  activePeriodRef.current = period;
+  const dateOffsetRef = useRef(dateOffset);
+  dateOffsetRef.current = dateOffset;
+  const activeMetricRef = useRef(metric);
+  activeMetricRef.current = metric;
   const [smartLists, setSmartLists] = useState<{ id: string; name: string; placeholderIcon: string; trackCount: number }[]>([]);
 
   // Auto-launch tutorial on first visit
@@ -332,19 +341,44 @@ export default function ActivityMainScreen() {
 
   const handlePrevPeriod = useCallback(() => {
     if (dateRangeInfo.canGoPrev) {
-      setDateOffset((prev) => prev - 1);
+      setIsLoading(true);
+      setDateOffset((prev) => {
+        const next = prev - 1;
+        dateOffsetRef.current = next;
+        return next;
+      });
     }
   }, [dateRangeInfo.canGoPrev]);
 
   const handleNextPeriod = useCallback(() => {
     if (dateRangeInfo.canGoNext) {
-      setDateOffset((prev) => prev + 1);
+      setIsLoading(true);
+      setDateOffset((prev) => {
+        const next = prev + 1;
+        dateOffsetRef.current = next;
+        return next;
+      });
     }
   }, [dateRangeInfo.canGoNext]);
 
   const handlePeriodChange = useCallback((newPeriod: Period) => {
+    if (newPeriod === activePeriodRef.current && dateOffsetRef.current === 0) {
+      return;
+    }
+    activePeriodRef.current = newPeriod;
+    dateOffsetRef.current = 0;
+    setIsLoading(true);
     setPeriod(newPeriod);
     setDateOffset(0);
+  }, []);
+
+  const handleMetricChange = useCallback((newMetric: Metric) => {
+    if (newMetric === activeMetricRef.current) {
+      return;
+    }
+    activeMetricRef.current = newMetric;
+    setIsLoading(true);
+    setMetric(newMetric);
   }, []);
 
   const visibleSmartLists = React.useMemo(() => {
@@ -364,8 +398,11 @@ export default function ActivityMainScreen() {
     return nonKeys.filter(l => l.id === 'top_50');
   }, [smartLists, period, dateOffset, isTutorialVisible]);
 
-  const fetchStats = useCallback(async () => {
-    setIsLoading(true);
+  const fetchStats = useCallback(async (isRefresh = false) => {
+    const fetchId = ++latestFetchId.current;
+    if (!isRefresh) {
+      setIsLoading(true);
+    }
     try {
       const result = await HistoryService.getDetailedStatsForPeriod(
         period,
@@ -373,20 +410,35 @@ export default function ActivityMainScreen() {
         dateRangeInfo.from,
         dateRangeInfo.to
       );
-      setDetailedStats(result);
+      if (fetchId === latestFetchId.current) {
+        setDetailedStats(result);
+      }
     } catch (err) {
       console.error('[ActivityMainScreen] Failed to fetch stats:', err);
-      setDetailedStats({
-        totalHours: 0,
-        totalPlays: 0,
-        topSongs: [],
-        topAlbums: [],
-        topArtists: [],
-      });
+      if (fetchId === latestFetchId.current) {
+        setDetailedStats({
+          totalHours: 0,
+          totalPlays: 0,
+          topSongs: [],
+          topAlbums: [],
+          topArtists: [],
+        });
+      }
     } finally {
-      setIsLoading(false);
+      if (fetchId === latestFetchId.current) {
+        setIsLoading(false);
+      }
     }
   }, [period, metric, dateRangeInfo.from, dateRangeInfo.to]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([fetchStats(true), loadStatsSmartLists()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchStats, loadStatsSmartLists]);
 
   useFocusEffect(
     useCallback(() => {
@@ -476,6 +528,17 @@ export default function ActivityMainScreen() {
   };
 
   const applyCustomRange = (startDate: Date, endDate: Date) => {
+    if (
+      activePeriodRef.current === 'custom' &&
+      customFrom?.getTime() === startDate.getTime() &&
+      customTo?.getTime() === endDate.getTime() &&
+      dateOffsetRef.current === 0
+    ) {
+      return;
+    }
+    activePeriodRef.current = 'custom';
+    dateOffsetRef.current = 0;
+    setIsLoading(true);
     setCustomFrom(startDate);
     setCustomTo(endDate);
     setPeriod('custom');
@@ -693,7 +756,7 @@ export default function ActivityMainScreen() {
 
         <View style={styles.metricToggle}>
           <TouchableOpacity
-            onPress={() => setMetric('duration')}
+            onPress={() => handleMetricChange('duration')}
             activeOpacity={0.75}
             style={[
               styles.metricBtn,
@@ -718,7 +781,7 @@ export default function ActivityMainScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setMetric('plays')}
+            onPress={() => handleMetricChange('plays')}
             activeOpacity={0.75}
             style={[
               styles.metricBtn,
@@ -746,7 +809,7 @@ export default function ActivityMainScreen() {
       </View>
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.accentLight} size="large" />
+          <ActivityIndicator color={colors.accentLight || colors.accent} size="large" />
         </View>
       ) : (
         <ScrollView
@@ -754,6 +817,14 @@ export default function ActivityMainScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.accentLight || colors.accent}
+              colors={[colors.accent]}
+            />
+          }
         >
           {hasActivity ? (
             <>
@@ -1369,6 +1440,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 280,
   },
   // ---- SCROLL CONTENT ----
   scrollContent: {

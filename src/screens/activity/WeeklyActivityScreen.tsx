@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -34,7 +34,8 @@ export default function WeeklyActivityScreen() {
     topSongId,
     topSongImg,
     topSongArtist,
-    topSongDuration
+    topSongDuration,
+    isLoading,
   } = useStatsStore();
 
   useFocusEffect(
@@ -103,11 +104,16 @@ export default function WeeklyActivityScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={colors.accentLight || colors.accent} size="large" />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {hasActivity ? (
           <>
             {/* TOTAL HOURS HERO CARD */}
@@ -226,6 +232,7 @@ export default function WeeklyActivityScreen() {
           </View>
         )}
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -338,6 +345,12 @@ const styles = StyleSheet.create({
   },
   arrow: {
     marginLeft: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 280,
   },
   emptyContainer: {
     flex: 1,
