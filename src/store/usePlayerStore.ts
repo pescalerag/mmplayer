@@ -11,6 +11,7 @@ import Track from "../database/models/Track";
 import { navigationRef } from '../navigation/navigationRef';
 import { useToastStore } from "./useToastStore";
 import i18n from "../constants/i18n";
+import { ShuffleService } from "../services/ShuffleService";
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
@@ -475,9 +476,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       isHandlingQueueEnded = true;
 
-      const allTracks = await database.collections.get<Track>('tracks').query().fetch();
-      const excluded = useSettingsStore.getState().excludedSongs || [];
-      const availableTracks = allTracks.filter(t => !excluded.includes(t.fileUrl));
+      const availableTracks = await ShuffleService.getEligibleShuffleTracks();
 
       if (availableTracks.length === 0) return;
 

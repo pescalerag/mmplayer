@@ -12,6 +12,7 @@ import { openMetadataEditor, openPlaylistSelector, openTagManagerForBatch, openC
 import { database } from '../../database';
 import { ScannerService } from '../../services/ScannerService';
 import { MediaAssetService } from '../../services/MediaAssetService';
+import { ShuffleService } from '../../services/ShuffleService';
 import { zipAndShareTracks } from '../../utils/zipHelper';
 
 export default function BatchMenuSheet() {
@@ -26,6 +27,30 @@ export default function BatchMenuSheet() {
 
   const anyHasCanvas = selectedTracks.some(t => !!t.bgVideo);
   const anyIsFavorite = selectedTracks.some(t => t.isFavorite);
+  const anyIsExcludedFromShuffle = selectedTracks.some(t => !!t.isExcludedFromShuffle);
+  const anyIsNotExcludedFromShuffle = selectedTracks.some(t => !t.isExcludedFromShuffle);
+
+  const handleExcludeFromShuffle = async () => {
+    try {
+      await ShuffleService.batchSetTracksExclusion(selectedTracks, true);
+      useToastStore.getState().showToast(t('toasts.batch_excluded_from_shuffle'), 'shuffle');
+      exitSelectionMode();
+      closeMenu();
+    } catch (e) {
+      console.error('Error excluyendo canciones de aleatorio en lote:', e);
+    }
+  };
+
+  const handleIncludeInShuffle = async () => {
+    try {
+      await ShuffleService.batchSetTracksExclusion(selectedTracks, false);
+      useToastStore.getState().showToast(t('toasts.batch_included_in_shuffle'), 'shuffle');
+      exitSelectionMode();
+      closeMenu();
+    } catch (e) {
+      console.error('Error incluyendo canciones en aleatorio en lote:', e);
+    }
+  };
 
   const handleAddNext = () => {
     addMultipleToQueueNext(selectedTracks);
@@ -254,6 +279,24 @@ export default function BatchMenuSheet() {
           iconColor={colors.heartIcon}
           textStyle={{ color: colors.heartIcon }}
           onPress={handleRemoveFromFavorites}
+        />
+      )}
+
+      {/* OPTION: Exclude from Shuffle */}
+      {anyIsNotExcludedFromShuffle && (
+        <MenuOption
+          icon="shuffle-outline"
+          text={t('actions.batch_exclude_from_shuffle')}
+          onPress={handleExcludeFromShuffle}
+        />
+      )}
+
+      {/* OPTION: Include in Shuffle */}
+      {anyIsExcludedFromShuffle && (
+        <MenuOption
+          icon="shuffle-outline"
+          text={t('actions.batch_include_in_shuffle')}
+          onPress={handleIncludeInShuffle}
         />
       )}
 

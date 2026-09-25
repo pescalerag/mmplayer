@@ -4,6 +4,7 @@ import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { database } from '../../database';
 import Track from '../../database/models/Track';
+import { ShuffleService } from '../../services/ShuffleService';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useToastStore } from '../../store/useToastStore';
@@ -17,12 +18,12 @@ export const GlobalShuffleButton: React.FC = () => {
   const handleShuffle = async () => {
     setLoading(true);
     try {
-      const allTracks = await database.collections.get<Track>('tracks').query().fetch();
-      if (allTracks.length === 0) {
+      const eligibleTracks = await ShuffleService.getEligibleShuffleTracks();
+      if (eligibleTracks.length === 0) {
         useToastStore.getState().showToast(t('home.no_tracks_to_shuffle') || "No hay canciones para reproducir", "warning");
         return;
       }
-      await usePlayerStore.getState().startShuffled(allTracks, 'global');
+      await usePlayerStore.getState().startShuffled(eligibleTracks, 'global');
       useToastStore.getState().showToast(t('home.shuffling_library') || "Reproduciendo biblioteca aleatoriamente", "shuffle");
     } catch (e) {
       console.error("[GlobalShuffleButton] Shuffle error:", e);

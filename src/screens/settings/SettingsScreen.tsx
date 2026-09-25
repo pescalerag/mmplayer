@@ -136,6 +136,26 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         <Ionicons name="chevron-forward" size={20} color={colors.accent} />
                     </TouchableOpacity>
 
+                    {/* REPRODUCCIÓN ALEATORIA */}
+                    <TouchableOpacity
+                        style={styles.menuRow}
+                        onPress={() => navigation.navigate('SettingsShuffle')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.menuRowLeft}>
+                            <View style={styles.iconContainer}>
+                                <Ionicons name="shuffle-outline" size={22} color={colors.accent} />
+                            </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.settingLabel}>{t('settings.shuffle_title', 'Reproducción aleatoria')}</Text>
+                                <Text style={styles.settingDescription}>
+                                    {t('settings.shuffle_desc', 'Exclusiones y opciones de reproducción aleatoria')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                    </TouchableOpacity>
+
                     <View style={styles.separator} />
 
                     {/* GESTOS */}

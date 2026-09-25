@@ -8,6 +8,7 @@ import Artist from '../../database/models/Artist';
 import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
 import { PlaylistService } from '../../services/PlaylistService';
 import { ScannerService } from '../../services/ScannerService';
+import { ShuffleService } from '../../services/ShuffleService';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -167,10 +168,12 @@ export default function TrackMenuSheet() {
   const [artistId, setArtistId] = useState<string | null>(null);
   const [artistsList, setArtistsList] = useState<Artist[]>([]);
   const [isFavorite, setIsFavorite] = useState(selectedTrack?.isFavorite ?? false);
+  const [isExcludedFromShuffle, setIsExcludedFromShuffle] = useState(selectedTrack?.isExcludedFromShuffle ?? false);
 
   useEffect(() => {
     if (selectedTrack) {
       setIsFavorite(selectedTrack.isFavorite);
+      setIsExcludedFromShuffle(!!selectedTrack.isExcludedFromShuffle);
     }
   }, [selectedTrack]);
 
@@ -241,6 +244,21 @@ export default function TrackMenuSheet() {
       );
     } catch (error) {
       console.error('Error al cambiar favorito:', error);
+    }
+  };
+
+  const handleToggleShuffleExclusion = async () => {
+    if (!selectedTrack) return;
+    try {
+      const wasExcluded = isExcludedFromShuffle;
+      closeMenu();
+      await ShuffleService.toggleTrackExclusion(selectedTrack);
+      useToastStore.getState().showToast(
+        wasExcluded ? t('toasts.included_in_shuffle') : t('toasts.excluded_from_shuffle'),
+        'shuffle'
+      );
+    } catch (error) {
+      console.error('Error al cambiar exclusión de aleatorio:', error);
     }
   };
 
@@ -453,6 +471,13 @@ export default function TrackMenuSheet() {
           }}
         />
       )}
+
+      {/* OPTION: Exclude from shuffle */}
+      <MenuOption
+        icon="shuffle-outline"
+        text={isExcludedFromShuffle ? t('actions.include_in_shuffle') : t('actions.exclude_from_shuffle')}
+        onPress={handleToggleShuffleExclusion}
+      />
 
       {/* OPTION: Exclude song */}
       <MenuOption

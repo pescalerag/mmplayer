@@ -179,5 +179,18 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 17,
+      steps: [
+        addColumns({
+          table: "tracks",
+          columns: [{ name: "is_excluded_from_shuffle", type: "boolean", isOptional: true, isIndexed: true }],
+        }),
+        addColumns({
+          table: "albums",
+          columns: [{ name: "is_excluded_from_shuffle", type: "boolean", isOptional: true, isIndexed: true }],
+        }),
+      ],
+    },
   ],
 });

@@ -11,6 +11,7 @@ import SettingsExclusionsScreen from '../screens/settings/SettingsExclusionsScre
 import SettingsDebugScreen from '../screens/settings/SettingsDebugScreen';
 import SettingsArtistImagesScreen from '../screens/settings/SettingsArtistImagesScreen';
 import SettingsStorageScreen from '../screens/settings/SettingsStorageScreen';
+import SettingsShuffleScreen from '../screens/settings/SettingsShuffleScreen';
 import SupportScreen from '../screens/support/SupportScreen';
 
 const Stack = createNativeStackNavigator();
@@ -29,6 +30,7 @@ export default function SettingsNavigator() {
             <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
             <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />
             <Stack.Screen name="SettingsAudio" component={SettingsAudioScreen} />
+            <Stack.Screen name="SettingsShuffle" component={SettingsShuffleScreen} />
             <Stack.Screen name="SettingsGestures" component={SettingsGesturesScreen} />
             <Stack.Screen name="SettingsExclusions" component={SettingsExclusionsScreen} />
             <Stack.Screen name="SettingsDebug" component={SettingsDebugScreen} />

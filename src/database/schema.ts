@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 16,
+    version: 17,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -22,6 +22,7 @@ export const mySchema = appSchema({
                 { name: 'bg_video', type: 'string', isOptional: true },
                 { name: 'rating', type: 'number', isOptional: true },
                 { name: 'genre', type: 'string', isOptional: true },
+                { name: 'is_excluded_from_shuffle', type: 'boolean', isOptional: true, isIndexed: true },
             ],
         }),
         tableSchema({
@@ -34,6 +35,7 @@ export const mySchema = appSchema({
                 { name: 'cd_art_url', type: 'string', isOptional: true },
                 { name: 'artist_id', type: 'string', isIndexed: true },
                 { name: 'is_pinned', type: 'boolean', isOptional: true },
+                { name: 'is_excluded_from_shuffle', type: 'boolean', isOptional: true, isIndexed: true },
             ],
         }),
         tableSchema({

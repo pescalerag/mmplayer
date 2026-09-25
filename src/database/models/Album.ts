@@ -22,6 +22,7 @@ export default class Album extends Model {
   @text("cover_url") coverUrl: string | null; // isOptional en schema
   @text("cd_art_url") cdArtUrl: string | null;
   @field("is_pinned") isPinned: boolean;
+  @field("is_excluded_from_shuffle") isExcludedFromShuffle: boolean;
 
   @relation("artists", "artist_id") artist: any;
   @children("tracks") tracks: any;
@@ -31,4 +32,20 @@ export default class Album extends Model {
     Q.on('album_tags', 'album_id', this.id),
     Q.sortBy('name', Q.asc)
   );
+
+  async toggleExcludeFromShuffle(): Promise<void> {
+    await this.database.write(async () => {
+      await this.update((a: any) => {
+        a.isExcludedFromShuffle = !a.isExcludedFromShuffle;
+      });
+    });
+  }
+
+  async setExcludeFromShuffle(excluded: boolean): Promise<void> {
+    await this.database.write(async () => {
+      await this.update((a: any) => {
+        a.isExcludedFromShuffle = excluded;
+      });
+    });
+  }
 }
