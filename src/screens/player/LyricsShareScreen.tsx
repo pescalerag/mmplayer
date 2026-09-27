@@ -376,30 +376,102 @@ export default function LyricsShareScreen() {
     [extractedHex]
   );
 
-  // Toggle selection for a line (max 5 lines)
+  // Toggle selection enforcing consecutive phrases (up to 5 consecutive lines, backward or forward)
   const handleToggleLine = (index: number) => {
     setSelectedIndices((prev) => {
-      if (prev.includes(index)) {
-        return prev.filter((i) => i !== index);
+      // If nothing was selected, select this line
+      if (prev.length === 0) {
+        return [index];
       }
-      if (prev.length >= 5) {
-        useToastStore.getState().showToast(
-          t('lyrics.max_phrases_reached', { defaultValue: 'Has alcanzado el límite de 5 frases' }),
-          'information-circle'
-        );
+
+      // When exactly 1 line is selected
+      if (prev.length === 1) {
+        const current = prev[0];
+        // Clicking the currently selected line deselects it
+        if (index === current) {
+          return [];
+        }
+        // Clicking forward
+        if (index > current) {
+          const span = index - current + 1;
+          if (span <= 5) {
+            return Array.from({ length: span }, (_, i) => current + i);
+          }
+          // Distance exceeds 5 lines: start new selection at tapped line
+          return [index];
+        }
+        // Clicking backward
+        const span = current - index + 1;
+        if (span <= 5) {
+          return Array.from({ length: span }, (_, i) => index + i);
+        }
+        // Distance exceeds 5 lines: start new selection at tapped line
+        return [index];
+      }
+
+      // When multiple lines (> 1) are selected
+      const min = prev[0];
+      const max = prev[prev.length - 1];
+
+      // If tapping an already selected line
+      if (prev.includes(index)) {
+        if (index === min) {
+          return prev.slice(1);
+        }
+        if (index === max) {
+          return prev.slice(0, -1);
+        }
+        // Tapping an interior line resets selection to just that line
+        return [index];
+      }
+
+      // If tapping forward (after max)
+      if (index > max) {
+        const newSpan = index - min + 1;
+        if (newSpan <= 5) {
+          return Array.from({ length: newSpan }, (_, i) => min + i);
+        }
+        if (prev.length >= 5) {
+          useToastStore.getState().showToast(
+            t('lyrics.max_phrases_reached', { defaultValue: 'Has alcanzado el límite de 5 frases' }),
+            'information-circle'
+          );
+        } else {
+          useToastStore.getState().showToast(
+            t('lyrics.consecutive_phrases_only', { defaultValue: 'Las frases deben ser consecutivas' }),
+            'information-circle'
+          );
+        }
         return prev;
       }
-      // Insert maintaining song order
-      const next = [...prev, index].sort((a, b) => a - b);
-      return next;
+
+      // If tapping backward (before min)
+      if (index < min) {
+        const newSpan = max - index + 1;
+        if (newSpan <= 5) {
+          return Array.from({ length: newSpan }, (_, i) => index + i);
+        }
+        if (prev.length >= 5) {
+          useToastStore.getState().showToast(
+            t('lyrics.max_phrases_reached', { defaultValue: 'Has alcanzado el límite de 5 frases' }),
+            'information-circle'
+          );
+        } else {
+          useToastStore.getState().showToast(
+            t('lyrics.consecutive_phrases_only', { defaultValue: 'Las frases deben ser consecutivas' }),
+            'information-circle'
+          );
+        }
+        return prev;
+      }
+
+      return prev;
     });
   };
 
   // Selected phrases in song order
   const selectedPhrases = useMemo(() => {
     return selectedIndices
-      .slice()
-      .sort((a, b) => a - b)
       .map((idx) => formattedLines[idx])
       .filter(Boolean);
   }, [selectedIndices, formattedLines]);
@@ -468,9 +540,24 @@ export default function LyricsShareScreen() {
         </Text>
 
         {step === 'select' ? (
-          <View style={[styles.counterBadge, { backgroundColor: colors.accentLight }]}>
-            <Text style={[styles.counterBadgeText, { color: colors.onAccentLight }]}>{selectedIndices.length}/5</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => setSelectedIndices([])}
+            disabled={selectedIndices.length === 0}
+            activeOpacity={0.7}
+            style={[
+              styles.counterBadge,
+              { backgroundColor: selectedIndices.length > 0 ? colors.accentLight : 'rgba(255, 255, 255, 0.1)' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.counterBadgeText,
+                { color: selectedIndices.length > 0 ? colors.onAccentLight : 'rgba(255, 255, 255, 0.4)' },
+              ]}
+            >
+              {selectedIndices.length}/5
+            </Text>
+          </TouchableOpacity>
         ) : (
           <View style={{ width: 40 }} />
         )}
@@ -501,7 +588,7 @@ export default function LyricsShareScreen() {
           {/* Instructions Hint */}
           <View style={styles.hintContainer}>
             <Text style={styles.hintText}>
-              {t('lyrics.select_phrases_hint', { defaultValue: 'Selecciona de 1 a 5 frases para tu tarjeta' })}
+              {t('lyrics.select_phrases_hint', { defaultValue: 'Selecciona de 1 a 5 frases consecutivas para tu tarjeta' })}
             </Text>
           </View>
 
@@ -511,9 +598,23 @@ export default function LyricsShareScreen() {
             keyExtractor={(_, index) => index.toString()}
             contentContainerStyle={styles.linesListContent}
             showsVerticalScrollIndicator={false}
+            extraData={selectedIndices}
             renderItem={({ item, index }) => {
               const isSelected = selectedIndices.includes(index);
-              const isLimitReached = selectedIndices.length >= 5 && !isSelected;
+              const isLimitReached = selectedIndices.length >= 5;
+              const isMultiSelected = selectedIndices.length > 1;
+              const minIndex = selectedIndices.length > 0 ? selectedIndices[0] : -1;
+              const maxIndex = selectedIndices.length > 0 ? selectedIndices[selectedIndices.length - 1] : -1;
+
+              let isDimmed = false;
+              if (isLimitReached) {
+                isDimmed = !isSelected;
+              } else if (isMultiSelected) {
+                const canExtend =
+                  (index > maxIndex && index - minIndex + 1 <= 5) ||
+                  (index < minIndex && maxIndex - index + 1 <= 5);
+                isDimmed = !isSelected && !canExtend;
+              }
 
               return (
                 <TouchableOpacity
@@ -525,7 +626,7 @@ export default function LyricsShareScreen() {
                       styles.lineItemSelected,
                       { borderColor: colors.accentLight },
                     ],
-                    isLimitReached && styles.lineItemDimmed,
+                    isDimmed && styles.lineItemDimmed,
                   ]}
                 >
                   <View
