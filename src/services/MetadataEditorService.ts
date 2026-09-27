@@ -136,8 +136,22 @@ export const MetadataEditorService = {
         }
         
         // After finishing all writes, run scanner service to update local WatermelonDB database
-        const editedFileUrls = new Set(tracks.map(t => t.fileUrl));
-        await ScannerService.syncLibrary(undefined, false, editedFileUrls);
+        const editedFileMetadataMap = new Map<string, EditableMetadata>();
+        for (const item of batchList) {
+            editedFileMetadataMap.set(item.filePath, item.metadata as any);
+            if (item.filePath.includes('#')) {
+                editedFileMetadataMap.set(item.filePath.replace(/#/g, '%23'), item.metadata as any);
+            }
+            if (item.filePath.includes('%23')) {
+                editedFileMetadataMap.set(item.filePath.replace(/%23/g, '#'), item.metadata as any);
+            }
+        }
+        for (const track of tracks) {
+            if (!editedFileMetadataMap.has(track.fileUrl)) {
+                editedFileMetadataMap.set(track.fileUrl, metadata);
+            }
+        }
+        await ScannerService.syncLibrary(undefined, true, editedFileMetadataMap);
 
         // Update playback queue and recents for edited tracks
         try {

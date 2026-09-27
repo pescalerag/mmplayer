@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { PermissionService } from './PermissionService';
 import { Platform, Image as RNImage } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGain } from '../../modules/native-audio-scanner';
+import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGain, readMetadata } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -772,9 +772,16 @@ export const ScannerService = {
     syncLibrary: async (
         onProgress?: (current: number, total: number, phase: string) => void,
         isSilent: boolean = false,
-        forcedFileUrls?: Set<string> | string[]
+        forcedFileUrls?: Set<string> | string[] | Map<string, any>
     ) => {
-        if (useSyncStore.getState().isScanning) return;
+        if (useSyncStore.getState().isScanning) {
+            let waitCount = 0;
+            while (useSyncStore.getState().isScanning && waitCount < 30) {
+                await new Promise(r => setTimeout(r, 200));
+                waitCount++;
+            }
+            if (useSyncStore.getState().isScanning) return;
+        }
         try {
             coverExistsCache.clear();
             useSyncStore.getState().setIsScanning(true, isSilent);
@@ -812,16 +819,41 @@ export const ScannerService = {
             };
 
             const devicePaths = new Set<string>();
-            let activeAudioFiles = audioFiles.filter(f => {
-                if (isExcluded(f.uri)) return false;
-                devicePaths.add(f.uri);
-                return true;
+            const isDevicePath = (uri: string) => {
+                if (!uri) return false;
+                if (devicePaths.has(uri)) return true;
+                if (uri.includes('%23') && devicePaths.has(uri.replace(/%23/g, '#'))) return true;
+                if (uri.includes('#') && devicePaths.has(uri.replace(/#/g, '%23'))) return true;
+                return false;
+            };
+
+            const populateActiveAudioFiles = (files: any[]) => {
+                devicePaths.clear();
+                return files.filter(f => {
+                    if (isExcluded(f.uri)) return false;
+                    devicePaths.add(f.uri);
+                    if (f.uri.includes('#')) {
+                        devicePaths.add(f.uri.replace(/#/g, '%23'));
+                    }
+                    return true;
+                });
+            };
+
+            let activeAudioFiles = populateActiveAudioFiles(audioFiles);
+
+            const dbPaths = new Set<string>();
+            allTracks.forEach(t => {
+                dbPaths.add(t.fileUrl);
+                if (t.fileUrl.includes('%23')) {
+                    dbPaths.add(t.fileUrl.replace(/%23/g, '#'));
+                }
+                if (t.fileUrl.includes('#')) {
+                    dbPaths.add(t.fileUrl.replace(/#/g, '%23'));
+                }
             });
 
-            const dbPaths = new Set(allTracks.map(t => t.fileUrl));
-
             // canciones_huerfanas: en la BD pero no en el móvil
-            let canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+            let canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
             let archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
 
             // --- Fase de Detección en Disco y Migración ---
@@ -845,13 +877,8 @@ export const ScannerService = {
                         const refreshedAudio = await getAudioFiles(false);
                         if (refreshedAudio && refreshedAudio.length > 0) {
                             audioFiles = refreshedAudio;
-                            devicePaths.clear();
-                            activeAudioFiles = audioFiles.filter(f => {
-                                if (isExcluded(f.uri)) return false;
-                                devicePaths.add(f.uri);
-                                return true;
-                            });
-                            canciones_huerfanas = allTracks.filter(t => !devicePaths.has(t.fileUrl));
+                            activeAudioFiles = populateActiveAudioFiles(audioFiles);
+                            canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
                             archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
                         }
                     }
@@ -862,29 +889,89 @@ export const ScannerService = {
 
             // archivos_modificados: en la BD y en el móvil, pero con lastModified mayor
             const trackMap = new Map<string, Track>();
-            allTracks.forEach(t => trackMap.set(t.fileUrl, t));
+            allTracks.forEach(t => {
+                trackMap.set(t.fileUrl, t);
+                if (t.fileUrl.includes('%23')) {
+                    trackMap.set(t.fileUrl.replace(/%23/g, '#'), t);
+                }
+            });
 
             const forcedUrlsSet = forcedFileUrls
-                ? (forcedFileUrls instanceof Set ? forcedFileUrls : new Set(forcedFileUrls))
+                ? (forcedFileUrls instanceof Set 
+                    ? forcedFileUrls 
+                    : (forcedFileUrls instanceof Map ? new Set(forcedFileUrls.keys()) : new Set(forcedFileUrls)))
                 : undefined;
+            const forcedMetaMap = forcedFileUrls instanceof Map ? forcedFileUrls : undefined;
 
-            const archivos_modificados: { track: Track; file: any }[] = [];
+            const archivos_modificados: { track: Track; file: any; isForced?: boolean }[] = [];
             for (const file of activeAudioFiles) {
-                const existing = trackMap.get(file.uri);
+                const existing = trackMap.get(file.uri) || (file.uri.includes('#') ? trackMap.get(file.uri.replace(/#/g, '%23')) : undefined);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
                     const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
-                    const isForced = forcedUrlsSet && (
+                    const isForced = !!(forcedUrlsSet && (
                         forcedUrlsSet.has(file.uri) ||
                         forcedUrlsSet.has(existing.fileUrl) ||
                         forcedUrlsSet.has(file.uri.replace(/#/g, '%23')) ||
                         forcedUrlsSet.has(existing.fileUrl.replace(/%23/g, '#'))
-                    );
+                    ));
                     if (file.lastModified > dbLastModified || needsGenreBackfill || isForced) {
                         if (isForced) {
                             file.lastModified = Date.now();
                         }
-                        archivos_modificados.push({ track: existing, file });
+                        archivos_modificados.push({ track: existing, file, isForced });
+                    }
+                }
+            }
+
+            // Para archivos editados/forzados, leer metadatos físicos reales del archivo para evitar
+            // que la latencia o caché desactualizada de Android MediaStore sobreescriba los cambios guardados.
+            if (forcedUrlsSet && archivos_modificados.some(a => a.isForced)) {
+                const parseNumOrNull = (val: any) => {
+                    if (val === null || val === undefined || val === '') return null;
+                    const parsed = parseInt(String(val), 10);
+                    return isNaN(parsed) ? null : parsed;
+                };
+
+                for (const item of archivos_modificados) {
+                    if (item.isForced) {
+                        const file = item.file;
+                        const existing = item.track;
+                        try {
+                            const physical = await readMetadata(file.uri);
+                            if (physical) {
+                                if (physical.title) file.title = physical.title;
+                                if (physical.artist) file.artist = physical.artist;
+                                if (physical.album) file.album = physical.album;
+                                if (physical.albumArtist) file.albumArtist = physical.albumArtist;
+                                if (physical.genre) file.genre = physical.genre;
+                                if (physical.year) file.year = parseInt(physical.year, 10) || file.year;
+                                if (physical.trackNumber) file.trackNumber = parseInt(physical.trackNumber, 10) || file.trackNumber;
+                                if (physical.discNumber) file.discNumber = parseInt(physical.discNumber, 10) || file.discNumber;
+                            }
+                        } catch (readErr) {
+                            console.warn('[ScannerService] No se pudo leer metadatos físicos directos para:', file.uri, readErr);
+                        }
+
+                        // Sobrescribir con cualquier metadato explícito pasado desde MetadataEditorService
+                        const explicitMeta = forcedMetaMap?.get(file.uri) ||
+                            forcedMetaMap?.get(existing.fileUrl) ||
+                            (file.uri.includes('#') ? forcedMetaMap?.get(file.uri.replace(/#/g, '%23')) : undefined) ||
+                            (existing.fileUrl.includes('%23') ? forcedMetaMap?.get(existing.fileUrl.replace(/%23/g, '#')) : undefined);
+
+                        if (explicitMeta) {
+                            if (explicitMeta.title !== undefined && explicitMeta.title !== null) file.title = explicitMeta.title;
+                            if (explicitMeta.artist !== undefined && explicitMeta.artist !== null) file.artist = explicitMeta.artist;
+                            if (explicitMeta.album !== undefined && explicitMeta.album !== null) file.album = explicitMeta.album;
+                            if (explicitMeta.albumArtist !== undefined) file.albumArtist = explicitMeta.albumArtist || null;
+                            if (explicitMeta.genre !== undefined) file.genre = explicitMeta.genre || null;
+                            if (explicitMeta.year !== undefined) file.year = parseNumOrNull(explicitMeta.year);
+                            if (explicitMeta.trackNumber !== undefined) file.trackNumber = parseNumOrNull(explicitMeta.trackNumber) || 0;
+                            if (explicitMeta.discNumber !== undefined) file.discNumber = parseNumOrNull(explicitMeta.discNumber) || 1;
+                            if (explicitMeta.coverArtPath !== undefined) {
+                                file.coverUrl = explicitMeta.coverArtPath || RNImage.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
+                            }
+                        }
                     }
                 }
             }
@@ -936,12 +1023,7 @@ export const ScannerService = {
                     const refreshedAudio = await getAudioFiles(false);
                     if (refreshedAudio && refreshedAudio.length > 0) {
                         audioFiles = refreshedAudio;
-                        devicePaths.clear();
-                        activeAudioFiles = audioFiles.filter(f => {
-                            if (isExcluded(f.uri)) return false;
-                            devicePaths.add(f.uri);
-                            return true;
-                        });
+                        activeAudioFiles = populateActiveAudioFiles(audioFiles);
                         newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUris.has(f.uri));
                         if (newCandidates.length > 0) {
                             const secondMatched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
@@ -980,12 +1062,7 @@ export const ScannerService = {
                             const refreshedAudio = await getAudioFiles(false);
                             if (refreshedAudio && refreshedAudio.length > 0) {
                                 audioFiles = refreshedAudio;
-                                devicePaths.clear();
-                                activeAudioFiles = audioFiles.filter(f => {
-                                    if (isExcluded(f.uri)) return false;
-                                    devicePaths.add(f.uri);
-                                    return true;
-                                });
+                                activeAudioFiles = populateActiveAudioFiles(audioFiles);
                             }
                         }
                     } catch (e) {
