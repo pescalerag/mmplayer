@@ -730,6 +730,9 @@
     "exclude_song": "Exclude song",
     "exclude_song_title": "Exclude song",
     "exclude_song_confirm": "Are you sure you want to exclude this song from scanning? It will be deleted from your library.",
+    "set_as_ringtone": "Set as ringtone",
+    "set_as_notification": "Set as notification sound",
+    "set_as_alarm": "Set as alarm sound",
     "exclude_from_shuffle": "Exclude from shuffle",
     "include_in_shuffle": "Include in shuffle",
     "exclude_album_from_shuffle": "Exclude album from shuffle",
@@ -1534,5 +1537,15 @@
     "update_all": "Update all",
     "update_only_without": "Only those without",
     "no_tracks_to_update": "No songs to update."
+  },
+  "ringtone": {
+    "permission_required_title": "Permission required",
+    "permission_required_desc": "To set ringtones, notification sounds, or alarms, you need to allow MMPlayer to modify system settings.",
+    "open_settings": "Open Settings",
+    "success_ringtone": "Ringtone set successfully",
+    "success_notification": "Notification sound set successfully",
+    "success_alarm": "Alarm sound set successfully",
+    "error_invalid_file": "Audio file is invalid or not available.",
+    "error_generic": "Could not set the selected sound."
   }
 }

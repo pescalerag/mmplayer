@@ -730,6 +730,9 @@
     "exclude_song": "Excluir canción",
     "exclude_song_title": "Excluir canción",
     "exclude_song_confirm": "¿Estás seguro de que deseas excluir esta canción del escaneo? Se borrará de la biblioteca.",
+    "set_as_ringtone": "Establecer como tono de llamada",
+    "set_as_notification": "Establecer como tono de notificación",
+    "set_as_alarm": "Establecer como alarma",
     "exclude_from_shuffle": "Excluir de reproducción aleatoria",
     "include_in_shuffle": "Incluir en reproducción aleatoria",
     "exclude_album_from_shuffle": "Excluir álbum del aleatorio",
@@ -1534,5 +1537,15 @@
     "update_all": "Actualizar todas",
     "update_only_without": "Solo las que no tienen",
     "no_tracks_to_update": "No hay canciones para actualizar."
+  },
+  "ringtone": {
+    "permission_required_title": "Permiso necesario",
+    "permission_required_desc": "Para establecer tonos de llamada, notificaciones o alarmas, debes permitir que MMPlayer modifique los ajustes del sistema.",
+    "open_settings": "Abrir ajustes",
+    "success_ringtone": "Tono de llamada establecido",
+    "success_notification": "Tono de notificación establecido",
+    "success_alarm": "Tono de alarma establecido",
+    "error_invalid_file": "El archivo de audio no es válido o no está disponible.",
+    "error_generic": "No se pudo establecer el tono seleccionado."
   }
 }

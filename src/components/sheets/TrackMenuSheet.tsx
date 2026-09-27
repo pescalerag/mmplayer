@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, View, Text, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, TouchableOpacity, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import Album from '../../database/models/Album';
@@ -9,6 +9,7 @@ import { getActiveTabName, navigationRef } from '../../navigation/navigationRef'
 import { PlaylistService } from '../../services/PlaylistService';
 import { ScannerService } from '../../services/ScannerService';
 import { ShuffleService } from '../../services/ShuffleService';
+import { RingtoneService, RingtoneType } from '../../services/RingtoneService';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -487,6 +488,42 @@ export default function TrackMenuSheet() {
         textStyle={{ color: colors.heartIcon }}
         onPress={handleExclude}
       />
+
+      {/* RINGTONE OPTIONS (Android) */}
+      {Platform.OS === 'android' && (
+        <>
+          <MenuSeparator />
+          {/* OPTION: Set as ringtone */}
+          <MenuOption
+            icon="call-outline"
+            text={t('actions.set_as_ringtone') || 'Establecer como tono de llamada'}
+            onPress={async () => {
+              closeMenu();
+              await RingtoneService.applyRingtone(selectedTrack, RingtoneType.RINGTONE);
+            }}
+          />
+
+          {/* OPTION: Set as notification */}
+          <MenuOption
+            icon="notifications-outline"
+            text={t('actions.set_as_notification') || 'Establecer como tono de notificación'}
+            onPress={async () => {
+              closeMenu();
+              await RingtoneService.applyRingtone(selectedTrack, RingtoneType.NOTIFICATION);
+            }}
+          />
+
+          {/* OPTION: Set as alarm */}
+          <MenuOption
+            icon="alarm-outline"
+            text={t('actions.set_as_alarm') || 'Establecer como alarma'}
+            onPress={async () => {
+              closeMenu();
+              await RingtoneService.applyRingtone(selectedTrack, RingtoneType.ALARM);
+            }}
+          />
+        </>
+      )}
 
       {/* OPTION: Properties */}
       <MenuSeparator />

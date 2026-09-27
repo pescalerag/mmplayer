@@ -3,6 +3,8 @@ package expo.modules.nativeaudioscanner
 import android.content.Context
 import android.content.Intent
 import android.content.ContentUris
+import android.content.ContentValues
+import android.media.RingtoneManager
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.PowerManager
@@ -174,6 +176,95 @@ class NativeAudioScannerModule : Module() {
         }
       }
     }
+    return null
+  }
+
+  private fun updateRingtoneFlags(context: Context, uri: Uri, ringtoneType: Int) {
+    try {
+      val values = ContentValues().apply {
+        when (ringtoneType) {
+          RingtoneManager.TYPE_RINGTONE -> put(MediaStore.Audio.Media.IS_RINGTONE, true)
+          RingtoneManager.TYPE_NOTIFICATION -> put(MediaStore.Audio.Media.IS_NOTIFICATION, true)
+          RingtoneManager.TYPE_ALARM -> put(MediaStore.Audio.Media.IS_ALARM, true)
+        }
+      }
+      context.contentResolver.update(uri, values, null, null)
+    } catch (_: Exception) {}
+  }
+
+  private fun resolveRingtoneUri(context: Context, filePathOrUri: String, ringtoneType: Int): Uri? {
+    if (filePathOrUri.startsWith("content://")) {
+      val uri = Uri.parse(filePathOrUri)
+      updateRingtoneFlags(context, uri, ringtoneType)
+      return uri
+    }
+
+    val rawPath = if (filePathOrUri.startsWith("file://")) filePathOrUri.substring(7) else filePathOrUri
+    val cleanPath = Uri.decode(rawPath)
+    val candidates = listOf(
+      cleanPath,
+      rawPath,
+      cleanPath.replace("%23", "#"),
+      cleanPath.replace("#", "%23")
+    ).distinct()
+
+    for (candidate in candidates) {
+      val existingUri = getUriForPath(candidate)
+      if (existingUri != null) {
+        updateRingtoneFlags(context, existingUri, ringtoneType)
+        return existingUri
+      }
+    }
+
+    for (candidate in candidates) {
+      val file = File(candidate)
+      if (file.exists()) {
+        var scannedUri: Uri? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        MediaScannerConnection.scanFile(
+          context,
+          arrayOf(file.absolutePath),
+          null
+        ) { _, uri ->
+          scannedUri = uri
+          latch.countDown()
+        }
+        latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+
+        if (scannedUri != null) {
+          updateRingtoneFlags(context, scannedUri!!, ringtoneType)
+          return scannedUri
+        }
+      }
+    }
+
+    for (candidate in candidates) {
+      val file = File(candidate)
+      if (file.exists()) {
+        try {
+          val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DATA, file.absolutePath)
+            put(MediaStore.Audio.Media.TITLE, file.nameWithoutExtension)
+            put(MediaStore.Audio.Media.MIME_TYPE, "audio/*")
+            when (ringtoneType) {
+              RingtoneManager.TYPE_RINGTONE -> put(MediaStore.Audio.Media.IS_RINGTONE, true)
+              RingtoneManager.TYPE_NOTIFICATION -> put(MediaStore.Audio.Media.IS_NOTIFICATION, true)
+              RingtoneManager.TYPE_ALARM -> put(MediaStore.Audio.Media.IS_ALARM, true)
+            }
+          }
+          val inserted = context.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+          if (inserted != null) return inserted
+        } catch (_: Exception) {}
+      }
+    }
+
+    for (candidate in candidates) {
+      val file = File(candidate)
+      if (file.exists()) {
+        return Uri.fromFile(file)
+      }
+    }
+
     return null
   }
 
@@ -464,6 +555,61 @@ class NativeAudioScannerModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("NativeAudioScanner")
+
+    Function("canWriteSettings") {
+      val context = appContext.reactContext ?: return@Function false
+      return@Function if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        Settings.System.canWrite(context)
+      } else {
+        true
+      }
+    }
+
+    Function("openWriteSettingsPermission") {
+      val context = appContext.reactContext ?: return@Function false
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+          data = Uri.parse("package:" + context.packageName)
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        true
+      } else {
+        true
+      }
+    }
+
+    AsyncFunction("setRingtone") { filePathOrUri: String, ringtoneType: Int ->
+      val context = appContext.reactContext ?: return@AsyncFunction mapOf(
+        "success" to false,
+        "error" to "NO_CONTEXT"
+      )
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(context)) {
+        return@AsyncFunction mapOf(
+          "success" to false,
+          "error" to "PERMISSION_DENIED"
+        )
+      }
+
+      try {
+        val targetUri = resolveRingtoneUri(context, filePathOrUri, ringtoneType)
+          ?: return@AsyncFunction mapOf(
+            "success" to false,
+            "error" to "URI_NOT_FOUND"
+          )
+
+        RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, targetUri)
+
+        mapOf("success" to true)
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error setting ringtone: ${e.message}", e)
+        mapOf(
+          "success" to false,
+          "error" to (e.message ?: "UNKNOWN_ERROR")
+        )
+      }
+    }
 
     AsyncFunction("updateWidget") { title: String, artist: String, coverUri: String?, isPlaying: Boolean ->
       val context = appContext.reactContext ?: return@AsyncFunction

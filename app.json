@@ -29,6 +29,7 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.WAKE_LOCK",
         "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.WRITE_SETTINGS",
         "com.android.vending.BILLING"
       ],
       "adaptiveIcon": {

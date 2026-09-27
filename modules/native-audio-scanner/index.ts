@@ -195,4 +195,38 @@ export async function generateVideoThumbnail(videoUri: string, destPath: string)
   }
   return null;
 }
+
+export enum RingtoneType {
+  RINGTONE = 1,
+  NOTIFICATION = 2,
+  ALARM = 4,
+}
+
+export function canWriteSettings(): boolean {
+  try {
+    return NativeAudioScannerModule.canWriteSettings();
+  } catch {
+    return false;
+  }
+}
+
+export function openWriteSettingsPermission(): void {
+  try {
+    NativeAudioScannerModule.openWriteSettingsPermission();
+  } catch (e) {
+    console.warn('[NativeAudioScanner] openWriteSettingsPermission error:', e);
+  }
+}
+
+export async function setRingtone(
+  filePathOrUri: string,
+  ringtoneType: RingtoneType
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    return await NativeAudioScannerModule.setRingtone(filePathOrUri, ringtoneType);
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'UNKNOWN_ERROR' };
+  }
+}
+
 
