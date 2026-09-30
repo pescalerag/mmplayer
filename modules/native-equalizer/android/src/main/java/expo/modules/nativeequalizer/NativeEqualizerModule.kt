@@ -36,6 +36,49 @@ class NativeEqualizerModule : Module() {
         }
 
         fun getAudioSessionId(appContext: AppContext): Int {
+            // Strategy 1: Direct static invocation from MusicService (fast, reliable, new architecture safe)
+            try {
+                val musicServiceClass = Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                val method = musicServiceClass.getMethod("getCurrentAudioSessionId")
+                val sessionId = method.invoke(null) as? Int ?: 0
+                if (sessionId != 0) {
+                    return sessionId
+                }
+            } catch (t: Throwable) {
+                Log.d(TAG, "MusicService.getCurrentAudioSessionId failed: ${t.message}")
+            }
+
+            // Strategy 2: MusicService.instance static field
+            try {
+                val musicServiceClass = Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                val instanceField = musicServiceClass.getDeclaredField("instance").apply { isAccessible = true }
+                val serviceInstance = instanceField.get(null)
+                if (serviceInstance != null) {
+                    val playerField = serviceInstance.javaClass.getDeclaredField("player").apply { isAccessible = true }
+                    val queuedAudioPlayer = playerField.get(serviceInstance)
+                    if (queuedAudioPlayer != null) {
+                        var currentClass: Class<*>? = queuedAudioPlayer.javaClass
+                        while (currentClass != null) {
+                            try {
+                                val exoField = currentClass.getDeclaredField("exoPlayer").apply { isAccessible = true }
+                                val exo = exoField.get(queuedAudioPlayer)
+                                if (exo != null) {
+                                    val sessionMethod = exo.javaClass.getMethod("getAudioSessionId")
+                                    val id = sessionMethod.invoke(exo) as? Int ?: 0
+                                    if (id != 0) return id
+                                }
+                                break
+                            } catch (_: NoSuchFieldException) {
+                                currentClass = currentClass.superclass
+                            }
+                        }
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.d(TAG, "MusicService.instance reflection failed: ${t.message}")
+            }
+
+            // Strategy 3: Legacy ReactContext reflection (if not Bridgeless)
             return try {
                 val reactContext = appContext.reactContext ?: return 0
                 val trackPlayerClass = Class.forName("com.doublesymmetry.trackplayer.module.MusicModule")
@@ -53,7 +96,7 @@ class NativeEqualizerModule : Module() {
                 val audioSessionIdMethod = exoPlayer.javaClass.getMethod("getAudioSessionId")
                 audioSessionIdMethod.invoke(exoPlayer) as? Int ?: 0
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to get audioSessionId via reflection: ${e.message}")
+                Log.e(TAG, "Failed to get audioSessionId via legacy reflection: ${e.message}")
                 0
             }
         }
@@ -61,12 +104,6 @@ class NativeEqualizerModule : Module() {
         fun initSharedVisualizer(audioSessionId: Int) {
             if (audioSessionId == 0) return
             if (sharedVisualizer != null && currentSessionId == audioSessionId) {
-                Log.d(TAG, "sharedVisualizer already exists for sessionId=$audioSessionId, skipping creation")
-                try {
-                    if (sharedVisualizer?.enabled == false) {
-                        sharedVisualizer?.enabled = true
-                    }
-                } catch (_: Exception) {}
                 return
             }
 
@@ -75,7 +112,6 @@ class NativeEqualizerModule : Module() {
                 currentSessionId = audioSessionId
                 sharedVisualizer = Visualizer(audioSessionId).apply {
                     captureSize = Visualizer.getCaptureSizeRange()[1]
-                    enabled = true
                     Log.d(TAG, "sharedVisualizer created successfully for sessionId=$audioSessionId")
                 }
             } catch (e: Exception) {
@@ -110,13 +146,19 @@ class NativeEqualizerModule : Module() {
                 audioSessionId
             }
 
-            equalizer = Equalizer(0, resolvedSessionId).apply {
-                enabled = isEnabled
+            try {
+                if (resolvedSessionId != 0) {
+                    equalizer = Equalizer(0, resolvedSessionId).apply {
+                        enabled = isEnabled
+                    }
+                    bassBoost = BassBoost(0, resolvedSessionId).apply {
+                        enabled = isEnabled
+                    }
+                    initSharedVisualizer(resolvedSessionId)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize Equalizer/BassBoost with sessionId $resolvedSessionId: ${e.message}")
             }
-            bassBoost = BassBoost(0, resolvedSessionId).apply {
-                enabled = isEnabled
-            }
-            initSharedVisualizer(resolvedSessionId)
         }
 
         AsyncFunction("setEnabled") { enabled: Boolean ->
