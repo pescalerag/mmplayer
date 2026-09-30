@@ -1,5 +1,6 @@
 {
   "home": {
+    "notifications": "Notificaciones",
     "recent_elements": "Elementos Recientes",
     "recent_playlists": "Playlists Recientes",
     "your_favourites": "Tus Favoritos",
@@ -595,7 +596,6 @@
     "drag_to_reorder_tabs": "Orden de la barra (Mantén presionado para mover)",
     "confirm_restart": "Confirmar y Reiniciar",
     "restarting": "Reiniciando...",
-    "audio_section": "Audio y reproducción",
     "normalization": "Normalización de volumen",
     "normalization_desc": "Evita cambios bruscos de volumen entre canciones (ReplayGain)",
     "preamp": "Pre-amplificación",
@@ -768,7 +768,6 @@
     "rating_label": "VALORACIÓN",
     "rating_none": "Sin valorar",
     "share_as_zip": "Compartir selección como ZIP",
-    "error": "Error",
     "selected_count": "{{count}} seleccionadas",
     "longPressCoverToCustomize": "Mantén pulsado para personalizar",
     "customize_cd": "Personalizar imagen de CD"

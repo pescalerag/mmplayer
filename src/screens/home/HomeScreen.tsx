@@ -1,6 +1,6 @@
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
+import { openAlbumMenu, openArtistMenu, openHomeSections, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -38,7 +38,6 @@ import { MediaCard } from '@/components/cards/MediaCard';
 import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
 import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
 import { StatsWidget } from '@/components/cards/StatsWidget';
-import MarqueeText from '@/components/common/MarqueeText';
 import { useStatsStore } from '../../store/useStatsStore';
 import { shuffleArray } from '../../utils/shuffle';
 
@@ -137,12 +136,6 @@ const UserTierBadge = React.memo(({ userTier, onPress, styles }: UserTierBadgePr
 });
 UserTierBadge.displayName = 'UserTierBadge';
 
-const getGreetingKey = () => {
-    const hour = new Date().getHours();
-    if (hour >= 6 && hour < 13) return 'home.welcome_morning';
-    if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
-    return 'home.welcome_evening';
-};
 
 const getCacheBustedAvatarUri = (uri: string) => {
     if (uri.startsWith('file://') && !uri.includes('?t=')) {
@@ -515,8 +508,7 @@ export default function HomeScreen() {
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
-
-            {/* CAPA DE LA INTERFAZ (GREETING HEADER) */}
+            {/* CAPA DE LA INTERFAZ (HEADER) */}
             <View
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
                 style={{
@@ -530,62 +522,138 @@ export default function HomeScreen() {
                     zIndex: 10,
                 }}
             >
-                <View style={[styles.headerRow, isProfileRight && { flexDirection: 'row-reverse' }]}>
-                    <View style={[styles.profileCluster, isProfileRight && { flexDirection: 'row-reverse' }]}>
-                        <TouchableOpacity
-                            style={styles.settingsButton}
-                            onPress={() => navigation.navigate('Settings')}
-                            activeOpacity={0.7}
-                            accessibilityLabel={t('settings.title') || 'Configuración'}
-                        >
-                            <Ionicons name="settings-outline" size={20} color={colors.text} />
-                        </TouchableOpacity>
+                <View style={styles.headerRow}>
+                    {isProfileRight ? (
+                        <>
+                            <View style={styles.headerActionsCluster}>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={openHomeSections}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.home_sections') || 'Personalizar'}
+                                >
+                                    <Ionicons name="color-palette-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.profileBadge}
-                            onPress={() => navigation.navigate('UserProfile')}
-                            activeOpacity={0.7}
-                        >
-                            {userAvatarUri ? (
-                                <Image
-                                    source={{ uri: getCacheBustedAvatarUri(userAvatarUri) }}
-                                    style={styles.profileAvatar}
-                                    contentFit="cover"
-                                    cachePolicy="memory-disk"
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => {}}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('home.notifications') || 'Notificaciones'}
+                                >
+                                    <Ionicons name="notifications-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.profileCluster}>
+                                <UserTierBadge
+                                    userTier={userTier}
+                                    onPress={() => navigation.navigate('Support')}
+                                    styles={styles}
                                 />
-                            ) : (
-                                <View style={styles.profileAvatarPlaceholder}>
-                                    <Ionicons name="person" size={18} color={colors.onAccent} />
-                                </View>
-                            )}
-                            <Text
-                                style={styles.profileAliasText}
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                            >
-                                {userAlias || t('profile.default_user', 'Usuario')}
-                            </Text>
-                        </TouchableOpacity>
 
-                        <UserTierBadge
-                            userTier={userTier}
-                            onPress={() => navigation.navigate('Support')}
-                            styles={styles}
-                        />
-                    </View>
+                                <TouchableOpacity
+                                    style={styles.profileBadge}
+                                    onPress={() => navigation.navigate('UserProfile')}
+                                    activeOpacity={0.7}
+                                >
+                                    {userAvatarUri ? (
+                                        <Image
+                                            source={{ uri: getCacheBustedAvatarUri(userAvatarUri) }}
+                                            style={styles.profileAvatar}
+                                            contentFit="cover"
+                                            cachePolicy="memory-disk"
+                                        />
+                                    ) : (
+                                        <View style={styles.profileAvatarPlaceholder}>
+                                            <Ionicons name="person" size={18} color={colors.onAccent} />
+                                        </View>
+                                    )}
+                                    <Text
+                                        style={styles.profileAliasText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {userAlias || t('profile.default_user', 'Usuario')}
+                                    </Text>
+                                </TouchableOpacity>
 
-                    <View style={[
-                        styles.welcomeTextWrapper,
-                        isProfileRight && { alignItems: 'flex-start', marginLeft: 0, marginRight: 4 }
-                    ]}>
-                        <MarqueeText
-                            text={t(getGreetingKey())}
-                            style={[styles.welcomeText, isProfileRight && { textAlign: 'left' }]}
-                            speed={25}
-                            pauseDuration={2000}
-                            spacing={40}
-                        />
-                    </View>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => navigation.navigate('Settings')}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.title') || 'Configuración'}
+                                >
+                                    <Ionicons name="settings-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            <View style={styles.profileCluster}>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => navigation.navigate('Settings')}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.title') || 'Configuración'}
+                                >
+                                    <Ionicons name="settings-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.profileBadge}
+                                    onPress={() => navigation.navigate('UserProfile')}
+                                    activeOpacity={0.7}
+                                >
+                                    {userAvatarUri ? (
+                                        <Image
+                                            source={{ uri: getCacheBustedAvatarUri(userAvatarUri) }}
+                                            style={styles.profileAvatar}
+                                            contentFit="cover"
+                                            cachePolicy="memory-disk"
+                                        />
+                                    ) : (
+                                        <View style={styles.profileAvatarPlaceholder}>
+                                            <Ionicons name="person" size={18} color={colors.onAccent} />
+                                        </View>
+                                    )}
+                                    <Text
+                                        style={styles.profileAliasText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {userAlias || t('profile.default_user', 'Usuario')}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <UserTierBadge
+                                    userTier={userTier}
+                                    onPress={() => navigation.navigate('Support')}
+                                    styles={styles}
+                                />
+                            </View>
+
+                            <View style={styles.headerActionsCluster}>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => {}}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('home.notifications') || 'Notificaciones'}
+                                >
+                                    <Ionicons name="notifications-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={openHomeSections}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.home_sections') || 'Personalizar'}
+                                >
+                                    <Ionicons name="color-palette-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
                 </View>
             </View>
 
@@ -597,7 +665,7 @@ export default function HomeScreen() {
             ) : (
                 <ScrollView
                     style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingTop: headerHeight + 20, paddingBottom: 200 }}
+                    contentContainerStyle={{ paddingTop: headerHeight + 16, paddingBottom: 200 }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                     refreshControl={
@@ -791,7 +859,12 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             alignItems: 'center',
             gap: 8,
             flexShrink: 1,
-            maxWidth: '65%',
+        },
+        headerActionsCluster: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
         },
         settingsButton: {
             width: 38,
@@ -816,7 +889,6 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             borderColor: 'rgba(255, 255, 255, 0.14)',
             gap: 8,
             flexShrink: 1,
-            maxWidth: '50%',
         },
         profileAvatar: {
             width: 34,
@@ -870,20 +942,6 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
         },
         userTierBadgeTextVip: {
             color: '#FBBF24',
-        },
-        welcomeTextWrapper: {
-            flex: 1,
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            marginLeft: 4,
-        },
-        welcomeText: {
-            color: colors.text,
-            fontSize: 20,
-            fontFamily: fonts.regular,
-            fontWeight: '800',
-            letterSpacing: -0.4,
-            textAlign: 'right',
         },
         sectionTitle: {
             color: colors.text,

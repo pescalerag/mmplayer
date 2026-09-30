@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   StyleSheet,
@@ -44,36 +44,40 @@ export default function HomeSectionsSheet() {
     setShowGlobalShuffle,
   } = useSettingsStore();
 
-  const [data, setData] = useState<SectionItem[]>(ALL_SECTIONS);
-
-  // Sincronizar orden inicial
-  useEffect(() => {
+  const [data, setData] = useState<SectionItem[]>(() => {
     const currentOrder = homeSectionsOrder || [];
     const ordered = currentOrder
       .map((id) => ALL_SECTIONS.find((s) => s.id === id)!)
       .filter(Boolean);
     const missing = ALL_SECTIONS.filter((s) => !currentOrder.includes(s.id));
-    setData([...ordered, ...missing]);
-  }, [homeSectionsOrder]);
+    return [...ordered, ...missing];
+  });
+  const [localVisibility, setLocalVisibility] = useState<Record<HomeSection, boolean>>(() => ({
+    ...(homeSectionsVisibility || ({} as Record<HomeSection, boolean>)),
+  }));
 
   const onDragEnd = ({ data }: { data: SectionItem[] }) => {
     setData(data);
-    setHomeSectionsOrder(data.map((item) => item.id));
   };
 
   const handleToggle = (sectionId: HomeSection, value: boolean) => {
-    const updated = {
-      ...homeSectionsVisibility,
+    setLocalVisibility((prev) => ({
+      ...prev,
       [sectionId]: value,
-    };
-    setHomeSectionsVisibility(updated);
-    if (sectionId === 'shuffle_button') {
-      setShowGlobalShuffle(value);
+    }));
+  };
+
+  const handleDone = () => {
+    setHomeSectionsOrder(data.map((item) => item.id));
+    setHomeSectionsVisibility(localVisibility);
+    if (localVisibility.shuffle_button !== undefined) {
+      setShowGlobalShuffle(localVisibility.shuffle_button);
     }
+    closeSheet();
   };
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<SectionItem>) => {
-    const isEnabled = homeSectionsVisibility[item.id] ?? true;
+    const isEnabled = localVisibility[item.id] ?? true;
 
     return (
       <ScaleDecorator>
@@ -142,7 +146,7 @@ export default function HomeSectionsSheet() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.confirmButton, { backgroundColor: colors.accent }]}
-          onPress={() => closeSheet()}
+          onPress={handleDone}
           activeOpacity={0.8}
         >
           <Text style={[styles.confirmButtonText, { color: colors.onAccent || '#FFFFFF' }]}>

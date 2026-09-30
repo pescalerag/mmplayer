@@ -30,34 +30,6 @@ type Metric = 'duration' | 'plays';
 
 const PERIODS: ('day' | 'week' | 'month' | 'year' | 'all')[] = ['day', 'week', 'month', 'year', 'all'];
 
-function formatDateRange(period: Period, t: any, locale: string): string {
-  const now = new Date();
-
-  const fmt = (d: Date) =>
-    d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
-  const fmtYear = (d: Date) =>
-    d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
-
-  if (period === 'day') {
-    return now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
-  }
-  if (period === 'week') {
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const from = new Date(now.getFullYear(), now.getMonth(), diff);
-    const to = new Date(from);
-    to.setDate(from.getDate() + 6);
-    return `${fmt(from)} – ${fmt(to)}`;
-  }
-  if (period === 'month') {
-    return now.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-  }
-  if (period === 'year') {
-    return now.getFullYear().toString();
-  }
-  return t('activity.all_activity');
-}
-
 function formatDuration(seconds: number, t: any): string {
   if (!seconds || seconds <= 0) return `0 ${t('activity.min_suffix')}`;
   const minutes = Math.round(seconds / 60);
@@ -65,48 +37,6 @@ function formatDuration(seconds: number, t: any): string {
   const hours = (seconds / 3600).toFixed(1);
   return `${hours} ${t('activity.hour_suffix')}`;
 }
-
-interface StatsResult {
-  totalHours: number;
-  totalPlays: number;
-  topArtist: string;
-  topArtistId: string;
-  topArtistImg: string | null;
-  topArtistDuration: number;
-  topArtistPlays: number;
-  topAlbum: string;
-  topAlbumId: string;
-  topAlbumImg: string | null;
-  topAlbumDuration: number;
-  topAlbumPlays: number;
-  topSong: string;
-  topSongId: string;
-  topSongImg: string | null;
-  topSongArtist: string;
-  topSongDuration: number;
-  topSongPlays: number;
-}
-
-const EMPTY_STATS: StatsResult = {
-  totalHours: 0,
-  totalPlays: 0,
-  topArtist: '',
-  topArtistId: '',
-  topArtistImg: null,
-  topArtistDuration: 0,
-  topArtistPlays: 0,
-  topAlbum: '',
-  topAlbumId: '',
-  topAlbumImg: null,
-  topAlbumDuration: 0,
-  topAlbumPlays: 0,
-  topSong: '',
-  topSongId: '',
-  topSongImg: null,
-  topSongArtist: '',
-  topSongDuration: 0,
-  topSongPlays: 0,
-};
 
 export default function ActivityMainScreen() {
   const insets = useSafeAreaInsets();
@@ -602,7 +532,7 @@ export default function ActivityMainScreen() {
         <View style={styles.headerRightActions}>
           <TouchableOpacity
             onPress={() => setIsTutorialVisible(true)}
-            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+            style={styles.headerIconBtn}
             activeOpacity={0.7}
             accessibilityLabel={t('activity_tutorial.help_btn')}
           >
@@ -610,7 +540,7 @@ export default function ActivityMainScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('ActivityHistory')}
-            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+            style={styles.headerIconBtn}
             activeOpacity={0.7}
             accessibilityLabel={t('activity.history_title') || 'Historial'}
           >
@@ -631,7 +561,7 @@ export default function ActivityMainScreen() {
                 topSongs: detailedStats.topSongs,
               })
             }
-            style={[styles.headerIconBtn, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}
+            style={styles.headerIconBtn}
             activeOpacity={0.7}
           >
             <Ionicons name="share-social-outline" size={20} color={colors.text} />
@@ -1238,6 +1168,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     justifyContent: 'center',
     alignItems: 'center',
   },

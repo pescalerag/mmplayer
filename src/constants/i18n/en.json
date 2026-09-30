@@ -1,5 +1,6 @@
 {
   "home": {
+    "notifications": "Notifications",
     "recent_elements": "Recent Items",
     "recent_playlists": "Recent Playlists",
     "your_favourites": "Your Favorites",
@@ -595,7 +596,6 @@
     "drag_to_reorder_tabs": "Bar order (Hold to move)",
     "confirm_restart": "Confirm and Restart",
     "restarting": "Restarting...",
-    "audio_section": "Audio & Playback",
     "normalization": "Volume Normalization",
     "normalization_desc": "Avoid sudden changes in volume between tracks (ReplayGain)",
     "preamp": "Pre-amplification",
@@ -700,7 +700,6 @@
     "loading_content": "Loading content...",
     "success": "Success!",
     "artist_photo_updated": "Artist photo updated.",
-    "error": "Error",
     "save_photo_error": "Could not save photo.",
     "pick_photo_error": "There was a problem opening the explorer.",
     "artist_photo_options": "What would you like to do with the artist image?",

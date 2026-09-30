@@ -118,9 +118,8 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                             style={styles.helpButton}
                             accessibilityLabel={t('tags_tutorial.help_btn')}
                             activeOpacity={0.7}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+                            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
                         </TouchableOpacity>
                     </View>
                 }
@@ -271,11 +270,13 @@ const styles = StyleSheet.create({
         marginTop: 50,
     },
     helpButton: {
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.14)',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
     },
 });

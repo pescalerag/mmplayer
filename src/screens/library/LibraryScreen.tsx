@@ -1,4 +1,4 @@
-import { openSortModal } from '@/store/useUIStore';
+import { openSortModal, openLibraryTabsOrder } from '@/store/useUIStore';
 import { openAlbumMenu, openArtistMenu, openFolderMenu, openPlaylistMenu, openPlaylistSelectorCreate } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -1253,28 +1253,30 @@ export default function LibraryScreen() {
                     <View
                         ref={headerToolsRef}
                         collapsable={false}
-                        style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}
+                        style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
                     >
                         <TouchableOpacity
                             onPress={() => setIsTutorialVisible(true)}
                             style={styles.filterButton}
+                            activeOpacity={0.7}
                             accessibilityLabel={t('library_tutorial.help_btn')}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Ionicons
                                 name="help-circle-outline"
-                                size={22}
+                                size={20}
                                 color={colors.text}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={() => ScannerService.syncLibrary()}
                             style={styles.filterButton}
+                            activeOpacity={0.7}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Ionicons
                                 name="refresh"
-                                size={22}
+                                size={20}
                                 color={colors.text}
                             />
                         </TouchableOpacity>
@@ -1282,15 +1284,29 @@ export default function LibraryScreen() {
                             <TouchableOpacity
                                 onPress={() => openSortModal({ activeTab, activeSort: getActiveSortOption() })}
                                 style={styles.filterButton}
+                                activeOpacity={0.7}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
                                 <Ionicons
                                     name="filter"
-                                    size={22}
+                                    size={20}
                                     color={colors.text}
                                 />
                             </TouchableOpacity>
                         )}
+                        <TouchableOpacity
+                            onPress={openLibraryTabsOrder}
+                            style={styles.filterButton}
+                            activeOpacity={0.7}
+                            accessibilityLabel={t('settings.library_tabs_title') || 'Personalizar pestañas'}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <Ionicons
+                                name="color-palette-outline"
+                                size={20}
+                                color={colors.text}
+                            />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -1364,12 +1380,15 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     filterButton: {
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.14)',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 20,
+        flexShrink: 0,
     },
     title: {
         fontSize: 28,
