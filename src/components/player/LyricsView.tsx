@@ -251,6 +251,18 @@ export default function LyricsView() {
 
     if (!isVisible || !activeTrackModel) return null;
 
+    if ((activeTrackModel as any).isExternal) {
+        return (
+            <LyricsViewUI
+                track={activeTrackModel}
+                artist={(activeTrackModel as any).artistObj || null}
+                artists={(activeTrackModel as any).artistsList || []}
+                isVisible={isVisible}
+                setVisible={setVisible}
+            />
+        );
+    }
+
     return (
         <ObservableLyricsViewUI
             trackModel={activeTrackModel}

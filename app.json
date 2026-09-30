@@ -5,7 +5,7 @@
     "icon": "./src/assets/images/icon.png",
     "version": "2.3.0",
     "orientation": "portrait",
-    "scheme": "mmplayer",
+    "scheme": ["mmplayer", "trackplayer"],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "backgroundColor": "#000000",
@@ -48,7 +48,41 @@
         "barStyle": "light-content",
         "backgroundColor": "#00000000"
       },
-      "backgroundColor": "#000000"
+      "backgroundColor": "#000000",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "audio/*" },
+            { "scheme": "file", "mimeType": "audio/*" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "application/ogg" },
+            { "scheme": "file", "mimeType": "application/ogg" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "application/x-ogg" },
+            { "scheme": "file", "mimeType": "application/x-ogg" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "application/opus" },
+            { "scheme": "file", "mimeType": "application/opus" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ]
     },
     "plugins": [
       [

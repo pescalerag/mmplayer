@@ -198,6 +198,33 @@ export default function TrackMenuSheet() {
 
   if (!selectedTrack) return null;
 
+  const isExternalTrack = Boolean((selectedTrack as any)?.isExternal || selectedTrack?.id?.startsWith('ext_'));
+
+  if (isExternalTrack) {
+    const displayArtist = artistName !== t('actions.unknown') ? artistName : ((selectedTrack as any).artistName || artistName);
+    const displayCover = imageUrl || (selectedTrack as any).coverUrl || null;
+
+    return (
+      <BaseMenuSheet
+        title={selectedTrack.title}
+        subtitle={displayArtist}
+        coverUrl={displayCover}
+        placeholderIcon="musical-notes"
+      >
+        <MenuSeparator />
+        {/* OPTION: Properties */}
+        <MenuOption
+          icon="information-circle-outline"
+          text={t('track_details.open_button')}
+          onPress={() => {
+            closeMenu();
+            openTrackDetails(selectedTrack);
+          }}
+        />
+      </BaseMenuSheet>
+    );
+  }
+
   const handleExclude = () => {
     Alert.alert(
       t('actions.exclude_song_title'),

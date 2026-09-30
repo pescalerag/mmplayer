@@ -35,21 +35,21 @@ import { navigationRef } from "./src/navigation/navigationRef";
 import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
-import { useSettingsStore } from "./src/store/useSettingsStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { PurchasesService } from "./src/services/PurchasesService";
+import { ExternalAudioService } from "./src/services/ExternalAudioService";
+import { getLaunchAudioUri, clearLaunchAudioUri } from "./modules/native-audio-scanner";
 import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
+
+const WIDGET_ACTION_REGEX = /[?&]action=([^&]+)/;
+
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
-  const userTier = useSettingsStore(state => state.userTier);
-  const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
-  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
-  // const isLegendaryTheme = activeAppTheme === 'legendary' && isSupporterOrVIP;
+  // Deshabilitado temporalmente: el tema legendario de la aplicación vendrá en una futura versión
   const isLegendaryTheme = false;
   const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
 
@@ -127,10 +127,12 @@ export default function App() {
   useEffect(() => {
     if (!fontsLoaded) return;
 
+    let lastHandledNotificationTimestamp = 0;
+
     const handleWidgetUrl = async (url: string | null) => {
-      if (!url || !url.includes('widget')) return;
+      if (!url?.includes('widget')) return;
       try {
-        const match = url.match(/[?&]action=([^&]+)/);
+        const match = WIDGET_ACTION_REGEX.exec(url);
         const action = match ? match[1] : null;
 
         if (action === 'play') {
@@ -155,16 +157,112 @@ export default function App() {
       }
     };
 
+    const handleNotificationClickUrl = async () => {
+      try {
+        clearLaunchAudioUri();
+
+        const now = Date.now();
+        if (now - lastHandledNotificationTimestamp < 1500) {
+          return;
+        }
+        lastHandledNotificationTimestamp = now;
+
+        // Esperar a que el contenedor de navegación esté listo
+        const startTime = Date.now();
+        while (!navigationRef.isReady() && Date.now() - startTime < 8000) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        if (!navigationRef.isReady()) return;
+
+        // Esperar si es necesario a que el store tenga la canción activa sincronizada
+        let activeTrack = usePlayerStore.getState().activeTrack;
+        if (!activeTrack) {
+          await usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
+          activeTrack = usePlayerStore.getState().activeTrack;
+        }
+
+        if (!activeTrack) {
+          const syncStartTime = Date.now();
+          while (!usePlayerStore.getState().activeTrack && Date.now() - syncStartTime < 1500) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          activeTrack = usePlayerStore.getState().activeTrack;
+        }
+
+        if (!activeTrack) {
+          return;
+        }
+
+        // Si ya estamos en PlayerScreen o una de sus subpantallas, no duplicar navegación
+        const currentRoute = navigationRef.getCurrentRoute()?.name;
+        if (
+          currentRoute === 'PlayerHome' ||
+          currentRoute === 'Player' ||
+          currentRoute === 'Lyrics' ||
+          currentRoute === 'LyricsEditor' ||
+          currentRoute === 'LyricsSync' ||
+          currentRoute === 'ShareSong' ||
+          currentRoute === 'ShareLyrics'
+        ) {
+          return;
+        }
+
+        navigationRef.navigate('Player');
+      } catch (e) {
+        console.error('[App] Error al abrir PlayerScreen desde la notificación:', e);
+      }
+    };
+
+    const handleIncomingUrl = async (url: string | null) => {
+      if (!url) return;
+      if (url.includes('widget')) {
+        await handleWidgetUrl(url);
+        return;
+      }
+      if (url.includes('notification.click') || url.startsWith('trackplayer://')) {
+        await handleNotificationClickUrl();
+        return;
+      }
+      if (ExternalAudioService.isAudioUrl(url)) {
+        await ExternalAudioService.handleOpenedAudioUrl(url);
+      }
+    };
+
+    // 1. Initial URL via React Native Linking
     Linking.getInitialURL().then(url => {
-      handleWidgetUrl(url);
+      handleIncomingUrl(url);
     });
 
-    const subscription = Linking.addEventListener('url', event => {
-      handleWidgetUrl(event.url);
+    // 2. Initial URL via native launch intent (Android Intent.ACTION_VIEW)
+    const nativeUri = getLaunchAudioUri();
+    if (nativeUri) {
+      handleIncomingUrl(nativeUri);
+    }
+
+    // 3. Listen for Linking events (warm start)
+    const subLinking = Linking.addEventListener('url', event => {
+      handleIncomingUrl(event.url);
+    });
+
+    // 4. Listen for native audio file opened events (warm start / onNewIntent)
+    const subNative = ExternalAudioService.subscribeToAudioFileOpened(uri => {
+      handleIncomingUrl(uri);
+    });
+
+    // 5. Escuchar cambios de estado de la app para capturar intents al volver a primer plano
+    const subAppState = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const uri = getLaunchAudioUri();
+        if (uri && (uri.includes('notification.click') || uri.startsWith('trackplayer://'))) {
+          handleIncomingUrl(uri);
+        }
+      }
     });
 
     return () => {
-      subscription.remove();
+      subLinking.remove();
+      subNative.remove();
+      subAppState.remove();
     };
   }, [fontsLoaded]);
 

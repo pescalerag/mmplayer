@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Dimensions,
-    InteractionManager,
     Platform,
     RefreshControl,
     ScrollView,
@@ -33,7 +32,7 @@ import { SmartListService } from '../../services/SmartListService';
 
 import { usePlayerStore } from '../../store/usePlayerStore';
 
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSettingsStore, HomeSection } from '../../store/useSettingsStore';
 
 import { MediaCard } from '@/components/cards/MediaCard';
 import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
@@ -94,6 +93,211 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
 });
 RecentMediaCard.displayName = 'RecentMediaCard';
 
+interface UserTierBadgeProps {
+    userTier: string;
+    onPress: () => void;
+    styles: any;
+}
+
+const UserTierBadge = React.memo(({ userTier, onPress, styles }: UserTierBadgeProps) => {
+    const isVip = userTier === 'VIP';
+    const isSupporter = userTier === 'SUPPORTER';
+
+    let tierLabel = 'USER';
+    if (isVip) {
+        tierLabel = 'VIP';
+    } else if (isSupporter) {
+        tierLabel = 'SUPPORTER';
+    }
+
+    return (
+        <TouchableOpacity
+            style={[
+                styles.userTierBadge,
+                isVip && styles.userTierBadgeVip,
+                isSupporter && styles.userTierBadgeSupporter,
+            ]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            {isVip && <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />}
+            {isSupporter && <Ionicons name="heart" size={11} color="#2DD4BF" />}
+            <Text
+                style={[
+                    styles.userTierBadgeText,
+                    isVip && styles.userTierBadgeTextVip,
+                    isSupporter && styles.userTierBadgeTextSupporter,
+                ]}
+            >
+                {tierLabel}
+            </Text>
+        </TouchableOpacity>
+    );
+});
+UserTierBadge.displayName = 'UserTierBadge';
+
+const getGreetingKey = () => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 13) return 'home.welcome_morning';
+    if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
+    return 'home.welcome_evening';
+};
+
+const getCacheBustedAvatarUri = (uri: string) => {
+    if (uri.startsWith('file://') && !uri.includes('?t=')) {
+        return `${uri}?t=${Date.now()}`;
+    }
+    return uri;
+};
+
+const insertSectionAfterFirstMatch = (order: HomeSection[], item: HomeSection, targetKeys: HomeSection[]) => {
+    if (order.includes(item)) return;
+    for (const key of targetKeys) {
+        const idx = order.indexOf(key);
+        if (idx !== -1) {
+            order.splice(idx + 1, 0, item);
+            return;
+        }
+    }
+    order.unshift(item);
+};
+
+const computeHomeSectionsOrder = (homeSectionsOrderRaw?: HomeSection[] | null): HomeSection[] => {
+    const order = [...(homeSectionsOrderRaw || [])];
+    insertSectionAfterFirstMatch(order, 'smart_playlists', ['recent_media', 'recent_playlists']);
+    insertSectionAfterFirstMatch(order, 'stats', ['recent_media']);
+    if (!order.includes('shuffle_button')) {
+        order.push('shuffle_button');
+    }
+    return order;
+};
+
+const fetchSmartListData = async (t: (key: string) => string) => {
+    const lists = SmartListService.getSmartLists();
+    const loadedSmart = await Promise.all(
+        lists.map(async (list) => {
+            const tracks = await list.getTracks();
+            const subtitle = `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`;
+            return {
+                id: `smart-list-${list.id}`,
+                type: 'playlist' as const,
+                title: list.name,
+                subtitle,
+                trackCount: tracks.length,
+            };
+        })
+    );
+    return loadedSmart.filter(item => item.trackCount > 0);
+};
+
+const mapAlbumToMediaItem = async (album: Album) => {
+    const artist = await album.artist.fetch();
+    return {
+        id: album.id,
+        type: 'album' as const,
+        title: album.title,
+        subtitle: artist?.name || 'Artista desconocido',
+        imageUrl: album.coverUrl || '',
+    };
+};
+
+const mapTrackToMediaItem = async (track: Track) => {
+    const artist = await track.artist.fetch();
+    const album = await track.album.fetch();
+    return {
+        id: track.id,
+        type: 'track' as const,
+        title: track.title,
+        subtitle: artist?.name || 'Artista desconocido',
+        imageUrl: album?.coverUrl || '',
+    };
+};
+
+const fetchRecentlyAddedViaSql = async (): Promise<Album[]> => {
+    if (Platform.OS === 'web') return [];
+    try {
+        return await database.collections
+            .get<Album>('albums')
+            .query(
+                Q.unsafeSqlQuery(
+                    `SELECT "albums".* FROM "albums"
+                     INNER JOIN "tracks" ON "tracks"."album_id" = "albums"."id"
+                     WHERE "albums"."_status" is not 'deleted' AND "tracks"."_status" is not 'deleted'
+                     GROUP BY "albums"."id"
+                     ORDER BY MAX(COALESCE("tracks"."last_modified", 0)) DESC, "albums"."title" ASC
+                     LIMIT 10`
+                ),
+                Q.experimentalJoinTables(['tracks'])
+            )
+            .fetch();
+    } catch (e) {
+        console.warn('[HomeScreen] Error fetching recently added albums via unsafeSqlQuery:', e);
+        return [];
+    }
+};
+
+const fetchRecentlyAddedViaFallback = async (): Promise<Album[]> => {
+    try {
+        const recentTracks = await database.collections
+            .get<Track>('tracks')
+            .query(
+                Q.where('album_id', Q.notEq(null)),
+                Q.sortBy('last_modified', Q.desc),
+                Q.take(150)
+            )
+            .fetch();
+
+        const seenAlbumIds = new Set<string>();
+        const albumIds: string[] = [];
+        for (const track of recentTracks) {
+            const aId = (track as any).albumId || (track._raw as any).album_id || track.album?.id;
+            if (aId && !seenAlbumIds.has(aId)) {
+                seenAlbumIds.add(aId);
+                albumIds.push(aId);
+                if (albumIds.length >= 10) break;
+            }
+        }
+
+        if (albumIds.length === 0) return [];
+
+        const fetched = await database.collections
+            .get<Album>('albums')
+            .query(Q.where('id', Q.oneOf(albumIds)))
+            .fetch();
+        const map = new Map(fetched.map(a => [a.id, a]));
+        return albumIds.map(id => map.get(id)).filter((a): a is Album => Boolean(a));
+    } catch (e) {
+        console.warn('[HomeScreen] Fallback for recently added albums failed:', e);
+        return [];
+    }
+};
+
+const fetchRecentlyAddedAlbums = async (): Promise<Album[]> => {
+    let addedAlbums = await fetchRecentlyAddedViaSql();
+    if (!addedAlbums || addedAlbums.length === 0) {
+        addedAlbums = await fetchRecentlyAddedViaFallback();
+    }
+    if (!addedAlbums || addedAlbums.length === 0) {
+        addedAlbums = await database.collections
+            .get<Album>('albums')
+            .query(Q.take(10))
+            .fetch();
+    }
+    return addedAlbums;
+};
+
+const fetchExploreAlbums = async (): Promise<Album[]> => {
+    const allAlbumIds = await database.collections.get<Album>('albums').query().fetchIds();
+    if (allAlbumIds.length === 0) return [];
+
+    const shuffled = [...allAlbumIds].sort(() => Math.random() - 0.5);
+    const randomIds = shuffled.slice(0, 6);
+    return database.collections
+        .get<Album>('albums')
+        .query(Q.where('id', Q.oneOf(randomIds)))
+        .fetch();
+};
+
 export default function HomeScreen() {
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
@@ -101,13 +305,6 @@ export default function HomeScreen() {
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
     const [headerHeight, setHeaderHeight] = React.useState(100);
-
-    const getGreetingKey = () => {
-        const hour = new Date().getHours();
-        if (hour >= 6 && hour < 13) return 'home.welcome_morning';
-        if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
-        return 'home.welcome_evening';
-    };
 
     const recentMediaRaw = usePlayerStore(state => state.recentMedia);
     const recentMedia = React.useMemo(() => recentMediaRaw || [], [recentMediaRaw]);
@@ -122,34 +319,10 @@ export default function HomeScreen() {
     const homeSectionsOrderRaw = useSettingsStore(state => state.homeSectionsOrder);
     const homeSectionsVisibilityRaw = useSettingsStore(state => state.homeSectionsVisibility);
 
-    const homeSectionsOrder = React.useMemo(() => {
-        const order = [...(homeSectionsOrderRaw || [])];
-        if (!order.includes('smart_playlists')) {
-            const mediaIndex = order.indexOf('recent_media');
-            if (mediaIndex !== -1) {
-                order.splice(mediaIndex + 1, 0, 'smart_playlists');
-            } else {
-                const playlistIndex = order.indexOf('recent_playlists');
-                if (playlistIndex !== -1) {
-                    order.splice(playlistIndex, 0, 'smart_playlists');
-                } else {
-                    order.unshift('smart_playlists');
-                }
-            }
-        }
-        if (!order.includes('stats')) {
-            const recentIdx = order.indexOf('recent_media');
-            if (recentIdx !== -1) {
-                order.splice(recentIdx + 1, 0, 'stats');
-            } else {
-                order.unshift('stats');
-            }
-        }
-        if (!order.includes('shuffle_button')) {
-            order.push('shuffle_button');
-        }
-        return order;
-    }, [homeSectionsOrderRaw]);
+    const homeSectionsOrder = React.useMemo(
+        () => computeHomeSectionsOrder(homeSectionsOrderRaw),
+        [homeSectionsOrderRaw]
+    );
 
     const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
 
@@ -171,143 +344,26 @@ export default function HomeScreen() {
     const [explore, setExplore] = React.useState<any[]>([]);
     const [smartLists, setSmartLists] = React.useState<any[]>([]);
 
-    const fetchHomeData = async () => {
+    const fetchHomeData = React.useCallback(async () => {
         try {
-            // Fetch smart lists
-            const lists = SmartListService.getSmartLists();
-            const loadedSmart = await Promise.all(
-                lists.map(async (list) => {
-                    const tracks = await list.getTracks();
-                    return {
-                        id: `smart-list-${list.id}`,
-                        type: 'playlist' as const,
-                        title: list.name,
-                        subtitle: `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
-                        trackCount: tracks.length,
-                    };
-                })
-            );
-            setSmartLists(loadedSmart.filter(item => item.trackCount > 0));
+            const smartListsData = await fetchSmartListData(t);
+            setSmartLists(smartListsData);
 
-            // Fetch recently added albums (ordered by newest track's last_modified date)
-            let addedAlbums: Album[] = [];
-            if (Platform.OS !== 'web') {
-                try {
-                    addedAlbums = await database.collections
-                        .get<Album>('albums')
-                        .query(
-                            Q.unsafeSqlQuery(
-                                `SELECT "albums".* FROM "albums"
-                                 INNER JOIN "tracks" ON "tracks"."album_id" = "albums"."id"
-                                 WHERE "albums"."_status" is not 'deleted' AND "tracks"."_status" is not 'deleted'
-                                 GROUP BY "albums"."id"
-                                 ORDER BY MAX(COALESCE("tracks"."last_modified", 0)) DESC, "albums"."title" ASC
-                                 LIMIT 10`
-                            ),
-                            Q.experimentalJoinTables(['tracks'])
-                        )
-                        .fetch();
-                } catch (e) {
-                    console.warn('[HomeScreen] Error fetching recently added albums via unsafeSqlQuery:', e);
-                }
-            }
-
-            if (!addedAlbums || addedAlbums.length === 0) {
-                try {
-                    // Fallback: Query recent tracks and collect distinct album IDs in order
-                    const recentTracks = await database.collections
-                        .get<Track>('tracks')
-                        .query(
-                            Q.where('album_id', Q.notEq(null)),
-                            Q.sortBy('last_modified', Q.desc),
-                            Q.take(150)
-                        )
-                        .fetch();
-
-                    const seenAlbumIds = new Set<string>();
-                    const albumIds: string[] = [];
-                    for (const track of recentTracks) {
-                        const aId = (track as any).albumId || (track._raw as any).album_id || track.album?.id;
-                        if (aId && !seenAlbumIds.has(aId)) {
-                            seenAlbumIds.add(aId);
-                            albumIds.push(aId);
-                            if (albumIds.length >= 10) break;
-                        }
-                    }
-
-                    if (albumIds.length > 0) {
-                        const fetched = await database.collections
-                            .get<Album>('albums')
-                            .query(Q.where('id', Q.oneOf(albumIds)))
-                            .fetch();
-                        const map = new Map(fetched.map(a => [a.id, a]));
-                        addedAlbums = albumIds.map(id => map.get(id)).filter((a): a is Album => !!a);
-                    }
-                } catch (e) {
-                    console.warn('[HomeScreen] Fallback for recently added albums failed:', e);
-                }
-            }
-
-            if (!addedAlbums || addedAlbums.length === 0) {
-                addedAlbums = await database.collections
-                    .get<Album>('albums')
-                    .query(Q.take(10))
-                    .fetch();
-            }
-
-            const mappedAdded = await Promise.all(addedAlbums.map(async (album) => {
-                const artist = await album.artist.fetch();
-                return {
-                    id: album.id,
-                    type: 'album' as const,
-                    title: album.title,
-                    subtitle: artist?.name || 'Artista desconocido',
-                    imageUrl: album.coverUrl || '',
-                };
-            }));
+            const addedAlbums = await fetchRecentlyAddedAlbums();
+            const mappedAdded = await Promise.all(addedAlbums.map(mapAlbumToMediaItem));
             setRecentlyAdded(mappedAdded);
 
-            // Fetch most played tracks
             const popularTracks = await HistoryService.getMostPlayedTracks(10);
-            const mappedPopular = await Promise.all(popularTracks.map(async (track) => {
-                const artist = await track.artist.fetch();
-                const album = await track.album.fetch();
-                return {
-                    id: track.id,
-                    type: 'track' as const,
-                    title: track.title,
-                    subtitle: artist?.name || 'Artista desconocido',
-                    imageUrl: album?.coverUrl || '',
-                };
-            }));
+            const mappedPopular = await Promise.all(popularTracks.map(mapTrackToMediaItem));
             setMostPlayed(mappedPopular);
 
-            // Fetch explore albums (Random)
-            const allAlbumIds = await database.collections.get<Album>('albums').query().fetchIds();
-            if (allAlbumIds.length > 0) {
-                const shuffled = [...allAlbumIds].sort(() => Math.random() - 0.5);
-                const randomIds = shuffled.slice(0, 6);
-                const randomAlbums = await database.collections
-                    .get<Album>('albums')
-                    .query(Q.where('id', Q.oneOf(randomIds)))
-                    .fetch();
-
-                const mappedExplore = await Promise.all(randomAlbums.map(async (album) => {
-                    const artist = await album.artist.fetch();
-                    return {
-                        id: album.id,
-                        type: 'album' as const,
-                        title: album.title,
-                        subtitle: artist?.name || 'Artista desconocido',
-                        imageUrl: album.coverUrl || '',
-                    };
-                }));
-                setExplore(mappedExplore);
-            }
+            const randomAlbums = await fetchExploreAlbums();
+            const mappedExplore = await Promise.all(randomAlbums.map(mapAlbumToMediaItem));
+            setExplore(mappedExplore);
         } catch (e) {
             console.error("Error loading modular home data:", e);
         }
-    };
+    }, [t]);
 
     const [isLoading, setIsLoading] = React.useState(true);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -327,15 +383,13 @@ export default function HomeScreen() {
             console.error('[HomeScreen] Error loading home data:', e);
         } finally {
             if (showFullLoader) {
-                InteractionManager.runAfterInteractions(() => {
-                    requestAnimationFrame(() => {
-                        setIsLoading(false);
-                        isInitialLoadDone.current = true;
-                    });
+                requestAnimationFrame(() => {
+                    setIsLoading(false);
+                    isInitialLoadDone.current = true;
                 });
             }
         }
-    }, []);
+    }, [fetchHomeData]);
 
     const handleRefresh = React.useCallback(async () => {
         setIsRefreshing(true);
@@ -350,7 +404,7 @@ export default function HomeScreen() {
         } finally {
             setIsRefreshing(false);
         }
-    }, []);
+    }, [fetchHomeData]);
 
     useEffect(() => {
         HistoryService.initializeDefaultsIfNeeded();
@@ -493,7 +547,7 @@ export default function HomeScreen() {
                         >
                             {userAvatarUri ? (
                                 <Image
-                                    source={{ uri: userAvatarUri.startsWith('file://') && !userAvatarUri.includes('?t=') ? `${userAvatarUri}?t=${Date.now()}` : userAvatarUri }}
+                                    source={{ uri: getCacheBustedAvatarUri(userAvatarUri) }}
                                     style={styles.profileAvatar}
                                     contentFit="cover"
                                     cachePolicy="memory-disk"
@@ -512,29 +566,11 @@ export default function HomeScreen() {
                             </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[
-                                styles.userTierBadge,
-                                userTier === 'VIP' && styles.userTierBadgeVip,
-                                userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
-                            ]}
+                        <UserTierBadge
+                            userTier={userTier}
                             onPress={() => navigation.navigate('Support')}
-                            activeOpacity={0.7}
-                        >
-                            {userTier === 'VIP' && (
-                                <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />
-                            )}
-                            {userTier === 'SUPPORTER' && (
-                                <Ionicons name="heart" size={11} color="#2DD4BF" />
-                            )}
-                            <Text style={[
-                                styles.userTierBadgeText,
-                                userTier === 'VIP' && styles.userTierBadgeTextVip,
-                                userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
-                            ]}>
-                                {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
-                            </Text>
-                        </TouchableOpacity>
+                            styles={styles}
+                        />
                     </View>
 
                     <View style={[

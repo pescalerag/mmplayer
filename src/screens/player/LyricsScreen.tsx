@@ -1,5 +1,4 @@
-import { openQueueSheet, openSpeedPitch, openSleepTimer, openLyricsMenu, openArtistsList, openPlaylistSelector } from '@/store/useUIStore';
-
+import { openQueueSheet, openSpeedPitch, openSleepTimer, openLyricsMenu } from '@/store/useUIStore';
 
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -20,14 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, { RepeatMode, useProgress } from 'react-native-track-player';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 
-
-
-
 import { usePlayerStore } from '../../store/usePlayerStore';
-
-
 import { useSleepTimerStore } from '../../store/useSleepTimerStore';
-import { useToastStore } from '../../store/useToastStore';
 import { useCastStore } from '../../store/useCastStore';
 
 import { useAppTheme } from "@/hooks/useAppTheme";
@@ -35,9 +28,7 @@ import withObservables from '@nozbe/with-observables';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Sharing from 'expo-sharing';
 import { useTranslation } from 'react-i18next';
-import { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import Album from '../../database/models/Album';
@@ -47,7 +38,7 @@ import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { LyricsService } from '../../services/LyricsService';
 import { formatTrackTime } from '../../utils/time';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
-import ABRepeatIcon from '@/components/player/ABRepeatIcon';
+import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -57,22 +48,18 @@ const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
 const LYRIC_ITEM_HEIGHT = 80; // Height of each lyric line item including its vertical margins
 
-const performToggleShuffle = async () => {
-    await usePlayerStore.getState().toggleShuffle();
-};
-
 // Helper functions for hex color conversions and dark background/gradient generation
 const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
     let r = 0, g = 0, b = 0;
     hex = hex.replace(/^#/, '');
     if (hex.length === 3) {
-        r = parseInt(hex[0] + hex[0], 16);
-        g = parseInt(hex[1] + hex[1], 16);
-        b = parseInt(hex[2] + hex[2], 16);
+        r = Number.parseInt(hex[0] + hex[0], 16);
+        g = Number.parseInt(hex[1] + hex[1], 16);
+        b = Number.parseInt(hex[2] + hex[2], 16);
     } else if (hex.length === 6) {
-        r = parseInt(hex.substring(0, 2), 16);
-        g = parseInt(hex.substring(2, 4), 16);
-        b = parseInt(hex.substring(4, 6), 16);
+        r = Number.parseInt(hex.substring(0, 2), 16);
+        g = Number.parseInt(hex.substring(2, 4), 16);
+        b = Number.parseInt(hex.substring(4, 6), 16);
     }
     r /= 255;
     g /= 255;
@@ -105,21 +92,6 @@ const hslToHex = (h: number, s: number, l: number): string => {
     return `#${f(0)}${f(8)}${f(4)}`;
 };
 
-const hexToRgba = (hex: string, alpha: number): string => {
-    hex = hex.replace(/^#/, '');
-    let r = 0, g = 0, b = 0;
-    if (hex.length === 3) {
-        r = parseInt(hex[0] + hex[0], 16);
-        g = parseInt(hex[1] + hex[1], 16);
-        b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length === 6) {
-        r = parseInt(hex.substring(0, 2), 16);
-        g = parseInt(hex.substring(2, 4), 16);
-        b = parseInt(hex.substring(4, 6), 16);
-    }
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
 const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
     try {
         const hsl = hexToHsl(extractedHex);
@@ -132,7 +104,7 @@ const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
             topGradient: topColor,
             bottomGradient: baseColor
         };
-    } catch (e) {
+    } catch {
         return {
             backgroundSolid: defaultBg,
             topGradient: '#121212',
@@ -170,29 +142,36 @@ const LyricLine = React.memo(({ item, isActive, onPress, styles }: LyricLineProp
 });
 LyricLine.displayName = 'LyricLine';
 
-interface LyricsScreenUIProps {
-    track: Track;
-    album: Album | null;
-    artist: Artist | null;
-    artists: Artist[];
-}
+const NEXT_REPEAT_MODE: Record<RepeatMode, RepeatMode> = {
+    [RepeatMode.Off]: RepeatMode.Queue,
+    [RepeatMode.Queue]: RepeatMode.Track,
+    [RepeatMode.Track]: RepeatMode.Off,
+};
 
-const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) => {
-    const navigation = useNavigation<any>();
-    const insets = useSafeAreaInsets();
-    const { t } = useTranslation();
-    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
+const getArtistDisplayName = (artists: Artist[] | undefined, artist: Artist | null | undefined): string => {
+    if (artists && artists.length > 0) {
+        return artists.map(a => a.name).join(', ');
+    }
+    return artist?.name || '';
+};
 
-    const [extractedColor, setExtractedColor] = React.useState<string | null>(null);
+const getActionIconColor = (isDisabled: boolean, isActive: boolean, colors: any): string => {
+    if (isDisabled) return colors.disabled;
+    if (isActive) return colors.accentLight;
+    return colors.textSecondary;
+};
 
-    React.useEffect(() => {
+const useCoverColorGradients = (coverUrl: string | undefined | null, defaultBg: string) => {
+    const [extractedColor, setExtractedColor] = useState<string | null>(null);
+
+    useEffect(() => {
         let isMounted = true;
-        if (!album?.coverUrl) {
+        if (!coverUrl) {
             setExtractedColor(null);
             return;
         }
 
-        extractColorFromImage(album.coverUrl)
+        extractColorFromImage(coverUrl)
             .then(color => {
                 if (isMounted) {
                     setExtractedColor(color);
@@ -208,11 +187,11 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         return () => {
             isMounted = false;
         };
-    }, [album?.coverUrl]);
+    }, [coverUrl]);
 
-    const { finalBgColor, topGradientColor, bottomGradientColor } = React.useMemo(() => {
+    const gradients = React.useMemo(() => {
         if (extractedColor) {
-            const grads = generateDarkGradients(extractedColor, colors.background);
+            const grads = generateDarkGradients(extractedColor, defaultBg);
             return {
                 finalBgColor: grads.backgroundSolid,
                 topGradientColor: grads.topGradient,
@@ -220,11 +199,162 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
             };
         }
         return {
-            finalBgColor: colors.background,
-            topGradientColor: colors.background,
-            bottomGradientColor: colors.background,
+            finalBgColor: defaultBg,
+            topGradientColor: defaultBg,
+            bottomGradientColor: defaultBg,
         };
-    }, [extractedColor, colors.background]);
+    }, [extractedColor, defaultBg]);
+
+    return {
+        extractedColor,
+        ...gradients,
+    };
+};
+
+interface LyricsContentProps {
+    isLoading: boolean;
+    lyricsText: string | null;
+    isSynced: boolean;
+    parsedLyrics: any[];
+    activeIndex: number;
+    flatListRef: React.RefObject<any>;
+    scrollViewRef: React.RefObject<any>;
+    paddingTop: number;
+    paddingBottom: number;
+    insets: { top: number; bottom: number };
+    bottomControlsHeight: number;
+    styles: any;
+    colors: any;
+    t: (key: string) => string;
+    onImportLRC: () => void;
+    onRetrySearch: () => void;
+}
+
+const LyricsContent = ({
+    isLoading,
+    lyricsText,
+    isSynced,
+    parsedLyrics,
+    activeIndex,
+    flatListRef,
+    scrollViewRef,
+    paddingTop,
+    paddingBottom,
+    insets,
+    bottomControlsHeight,
+    styles,
+    colors,
+    t,
+    onImportLRC,
+    onRetrySearch,
+}: LyricsContentProps) => {
+    const emptyContainerStyle = [
+        styles.centered,
+        {
+            position: 'absolute' as const,
+            top: insets.top + 60,
+            bottom: bottomControlsHeight > 0 ? bottomControlsHeight : (insets.bottom + 240),
+            left: 0,
+            right: 0,
+        },
+    ];
+
+    if (isLoading) {
+        return (
+            <View style={emptyContainerStyle}>
+                <ActivityIndicator size="large" color={colors.accent} />
+                <Text style={styles.stateText}>{t('audio_effects.lyrics_searching') || 'Buscando letras...'}</Text>
+            </View>
+        );
+    }
+
+    if (!lyricsText) {
+        return (
+            <View style={emptyContainerStyle}>
+                <Ionicons name="mic-off-outline" size={72} color={colors.textSecondary} style={{ marginBottom: 20 }} />
+                <Text style={styles.stateText}>{t('audio_effects.lyrics_not_found') || 'No se encontraron letras'}</Text>
+                <TouchableOpacity onPress={onImportLRC} style={styles.importButton} activeOpacity={0.8}>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.importButtonText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={onRetrySearch}
+                    disabled={isLoading}
+                    style={[styles.importButton, { marginTop: 12 }]}
+                    activeOpacity={0.8}
+                >
+                    <Ionicons name="search-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.importButtonText}>{t('lyrics.retry_search') || 'Reintentar búsqueda en internet'}</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (isSynced) {
+        return (
+            <FlatList
+                ref={flatListRef}
+                data={parsedLyrics}
+                keyExtractor={(_, i) => i.toString()}
+                renderItem={({ item, index }) => (
+                    <LyricLine
+                        item={item}
+                        isActive={index === activeIndex}
+                        onPress={() => TrackPlayer.seekTo(item.time)}
+                        styles={styles}
+                    />
+                )}
+                contentContainerStyle={[styles.listContent, { paddingTop, paddingBottom }]}
+                getItemLayout={(_, index) => ({ length: LYRIC_ITEM_HEIGHT, offset: LYRIC_ITEM_HEIGHT * index, index })}
+                initialScrollIndex={activeIndex >= 0 && activeIndex < parsedLyrics.length ? activeIndex : undefined}
+                onScrollToIndexFailed={info => {
+                    const targetIndex = typeof info.index === 'number' ? info.index : info.highestMeasuredFrameIndex;
+                    flatListRef.current?.scrollToOffset({
+                        offset: targetIndex * LYRIC_ITEM_HEIGHT,
+                        animated: false,
+                    });
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToOffset({
+                            offset: targetIndex * LYRIC_ITEM_HEIGHT,
+                            animated: false,
+                        });
+                    }, 50);
+                }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            />
+        );
+    }
+
+    return (
+        <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={[styles.plainContainer, { paddingTop: insets.top + 200, paddingBottom: insets.bottom + 320 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+        >
+            <Text style={styles.plainText}>{lyricsText}</Text>
+        </ScrollView>
+    );
+};
+
+interface LyricsScreenUIProps {
+    track: Track;
+    album: Album | null;
+    artist: Artist | null;
+    artists: Artist[];
+}
+
+const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) => {
+    const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
+    const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
+
+    const { extractedColor, finalBgColor, topGradientColor, bottomGradientColor } = useCoverColorGradients(
+        album?.coverUrl,
+        colors.background
+    );
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
 
     // Calculate layout metrics for perfect lyrics centering in the gap
@@ -261,8 +391,6 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const isServerRunning = useCastStore(state => state.isServerRunning);
 
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
-    const shuffleOriginalQueue = usePlayerStore(state => state.shuffleOriginalQueue);
-    const setShuffleState = usePlayerStore(state => state.setShuffleState);
 
     const [isSeeking, setIsSeeking] = useState(false);
     const [seekValue, setSeekValue] = useState(0);
@@ -270,10 +398,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     const [repeatMode, setRepeatMode] = useState<RepeatMode>(RepeatMode.Off);
     const [bottomControlsHeight, setBottomControlsHeight] = useState(0);
-    const heartScale = useSharedValue(1);
     const isLocalCastActive = useCastStore(state => state.isLocalCastActive);
-    const isChromecastConnected = useCastStore(state => state.isChromecastConnected);
-    const isCasting = isLocalCastActive || isChromecastConnected;
 
     const flatListRef = useRef<FlatList>(null);
     const scrollViewRef = useRef<ScrollView>(null);
@@ -364,34 +489,11 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         }
     };
 
-    // UI actions (from PlayerScreen)
-    const handleLikePress = async () => {
-        heartScale.value = withSequence(
-            withSpring(1.2, { damping: 15, stiffness: 300 }),
-            withSpring(1.0, { damping: 15, stiffness: 300 })
-        );
-        try {
-            await track.toggleLike();
-            if (track.isFavorite) {
-                useToastStore.getState().showToast(t('toasts.added_to_favourites'), 'heart');
-            }
-        } catch (e) {
-            console.error('Error al dar me gusta:', e);
-        }
-    };
-
     const toggleShuffle = () => usePlayerStore.getState().toggleShuffle();
 
     const cycleRepeatMode = async () => {
         try {
-            let next: RepeatMode;
-            if (repeatMode === RepeatMode.Off) {
-                next = RepeatMode.Queue;
-            } else if (repeatMode === RepeatMode.Queue) {
-                next = RepeatMode.Track;
-            } else {
-                next = RepeatMode.Off;
-            }
+            const next = NEXT_REPEAT_MODE[repeatMode] ?? RepeatMode.Off;
             await TrackPlayer.setRepeatMode(next);
             setRepeatMode(next);
             await usePlayerStore.getState().updateQueueStatus();
@@ -405,25 +507,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
             navigation.navigate('AlbumDetail', { albumId: album.id });
         }
     };
-    const handleArtistPress = () => {
-        if (artists && artists.length > 1) {
-            openArtistsList(artists);
-        } else {
-            const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
-            if (!targetArtistId) return;
-            navigation.navigate('ArtistDetail', { artistId: targetArtistId });
-        }
-    };
-    const handleOpenPlaylistSelector = React.useCallback(() => {
-        openPlaylistSelector(track);
-    }, [track]);
 
-    const artistName = React.useMemo(() => {
-        if (artists && artists.length > 0) {
-            return artists.map(a => a.name).join(', ');
-        }
-        return artist?.name || '';
-    }, [artist, artists]);
+    const artistName = React.useMemo(() => getArtistDisplayName(artists, artist), [artist, artists]);
 
     const handleShare = React.useCallback(() => {
         const hasParsed = parsedLyrics && parsedLyrics.length > 0;
@@ -444,7 +529,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                 album: album?.title || '',
                 coverUrl: album?.coverUrl || null,
                 lyricsLines: lines,
-                initialIndex: activeIndex >= 0 ? activeIndex : 0,
+                initialIndex: Math.max(0, activeIndex),
             });
             return;
         }
@@ -461,98 +546,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         });
     }, [track, artistName, album, navigation, parsedLyrics, lyricsText, activeIndex]);
 
-    const heartAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
-
-    const renderContent = () => {
-        const emptyContainerStyle = [
-            styles.centered,
-            {
-                position: 'absolute' as const,
-                top: insets.top + 60,
-                bottom: bottomControlsHeight > 0 ? bottomControlsHeight : (insets.bottom + 240),
-                left: 0,
-                right: 0,
-            }
-        ];
-
-        if (isLoading) {
-            return (
-                <View style={emptyContainerStyle}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                    <Text style={styles.stateText}>{t('audio_effects.lyrics_searching') || 'Buscando letras...'}</Text>
-                </View>
-            );
-        }
-
-        if (!lyricsText) {
-            return (
-                <View style={emptyContainerStyle}>
-                    <Ionicons name="mic-off-outline" size={72} color={colors.textSecondary} style={{ marginBottom: 20 }} />
-                    <Text style={styles.stateText}>{t('audio_effects.lyrics_not_found') || 'No se encontraron letras'}</Text>
-                    <TouchableOpacity onPress={handleImportLRC} style={styles.importButton} activeOpacity={0.8}>
-                        <Ionicons name="cloud-upload-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.importButtonText}>{t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={handleRetrySearch}
-                        disabled={isLoading}
-                        style={[styles.importButton, { marginTop: 12 }]}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons name="search-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.importButtonText}>{t('lyrics.retry_search') || 'Reintentar búsqueda en internet'}</Text>
-                    </TouchableOpacity>
-                </View>
-            );
-        }
-
-        if (isSynced) {
-            return (
-                <FlatList
-                    ref={flatListRef}
-                    data={parsedLyrics}
-                    keyExtractor={(_, i) => i.toString()}
-                    renderItem={({ item, index }) => (
-                        <LyricLine
-                            item={item}
-                            isActive={index === activeIndex}
-                            onPress={() => TrackPlayer.seekTo(item.time)}
-                            styles={styles}
-                        />
-                    )}
-                    contentContainerStyle={[styles.listContent, { paddingTop, paddingBottom }]}
-                    getItemLayout={(_, index) => ({ length: LYRIC_ITEM_HEIGHT, offset: LYRIC_ITEM_HEIGHT * index, index })}
-                    initialScrollIndex={activeIndex >= 0 && activeIndex < parsedLyrics.length ? activeIndex : undefined}
-                    onScrollToIndexFailed={info => {
-                        const targetIndex = typeof info.index === 'number' ? info.index : info.highestMeasuredFrameIndex;
-                        flatListRef.current?.scrollToOffset({
-                            offset: targetIndex * LYRIC_ITEM_HEIGHT,
-                            animated: false,
-                        });
-                        setTimeout(() => {
-                            flatListRef.current?.scrollToOffset({
-                                offset: targetIndex * LYRIC_ITEM_HEIGHT,
-                                animated: false,
-                            });
-                        }, 50);
-                    }}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                />
-            );
-        }
-
-        return (
-            <ScrollView
-                ref={scrollViewRef}
-                contentContainerStyle={[styles.plainContainer, { paddingTop: insets.top + 200, paddingBottom: insets.bottom + 320 }]}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-            >
-                <Text style={styles.plainText}>{lyricsText}</Text>
-            </ScrollView>
-        );
-    };
+    const timerColor = getActionIconColor(isServerRunning, isSleepTimerActive, colors);
+    const speedColor = getActionIconColor(isServerRunning, isSpeedPitchActive, colors);
 
     return (
         <View style={[styles.root, { backgroundColor: finalBgColor }]}>
@@ -574,7 +569,24 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
             {/* Lyrics Content (Absolute Full to scroll behind) */}
             <View style={StyleSheet.absoluteFill}>
-                {renderContent()}
+                <LyricsContent
+                    isLoading={isLoading}
+                    lyricsText={lyricsText}
+                    isSynced={isSynced}
+                    parsedLyrics={parsedLyrics}
+                    activeIndex={activeIndex}
+                    flatListRef={flatListRef}
+                    scrollViewRef={scrollViewRef}
+                    paddingTop={paddingTop}
+                    paddingBottom={paddingBottom}
+                    insets={insets}
+                    bottomControlsHeight={bottomControlsHeight}
+                    styles={styles}
+                    colors={colors}
+                    t={t}
+                    onImportLRC={handleImportLRC}
+                    onRetrySearch={handleRetrySearch}
+                />
             </View>
 
             {/* Gradient Masks */}
@@ -706,7 +718,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                             <Ionicons
                                 name="timer-outline"
                                 size={24}
-                                color={isServerRunning ? colors.disabled : (isSleepTimerActive ? colors.accentLight : colors.textSecondary)}
+                                color={timerColor}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -718,7 +730,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                             <Ionicons
                                 name="speedometer-outline"
                                 size={24}
-                                color={isServerRunning ? colors.disabled : (isSpeedPitchActive ? colors.accentLight : colors.textSecondary)}
+                                color={speedColor}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -794,6 +806,20 @@ export default function LyricsScreen() {
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
 
     if (!activeTrackModel) return null;
+
+    if ((activeTrackModel as any).isExternal) {
+        return (
+            <>
+                {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
+                <LyricsScreenUI
+                    track={activeTrackModel}
+                    album={(activeTrackModel as any).albumObj || null}
+                    artist={(activeTrackModel as any).artistObj || null}
+                    artists={(activeTrackModel as any).artistsList || []}
+                />
+            </>
+        );
+    }
 
     return (
         <>

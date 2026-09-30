@@ -39,6 +39,60 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="trackplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
+      </intent-filter>
     </activity>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitydark" android:enabled="false" android:exported="true" android:icon="@mipmap/dark" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/dark_round">
       <intent-filter>
@@ -50,6 +104,54 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
       </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitysupporter" android:enabled="false" android:exported="true" android:icon="@mipmap/supporter" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/supporter_round">
@@ -63,6 +165,54 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
+      </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivityretro" android:enabled="false" android:exported="true" android:icon="@mipmap/retro" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/retro_round">
       <intent-filter>
@@ -74,6 +224,54 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
       </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitydarkblue" android:enabled="false" android:exported="true" android:icon="@mipmap/darkblue" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/darkblue_round">
@@ -87,6 +285,54 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
+      </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitydevelpink" android:enabled="false" android:exported="true" android:icon="@mipmap/develpink" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/develpink_round">
       <intent-filter>
@@ -98,6 +344,54 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
       </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitylabgreen" android:enabled="false" android:exported="true" android:icon="@mipmap/labgreen" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/labgreen_round">
@@ -111,6 +405,54 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
+      </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivityorange" android:enabled="false" android:exported="true" android:icon="@mipmap/orange" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/orange_round">
       <intent-filter>
@@ -122,6 +464,54 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
       </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitypink" android:enabled="false" android:exported="true" android:icon="@mipmap/pink" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/pink_round">
@@ -135,6 +525,54 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
+      </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivityred" android:enabled="false" android:exported="true" android:icon="@mipmap/red" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/red_round">
       <intent-filter>
@@ -146,6 +584,54 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
       </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitywhite" android:enabled="false" android:exported="true" android:icon="@mipmap/white" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/white_round">
@@ -159,6 +645,54 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
+      </intent-filter>
     </activity-alias>
     <activity-alias android:name="com.pescalerag.mmplayer.MainActivitylegend" android:enabled="false" android:exported="true" android:icon="@mipmap/legend" android:label="@string/app_name" android:targetActivity=".MainActivity" android:roundIcon="@mipmap/legend_round">
       <intent-filter>
@@ -170,6 +704,54 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mmplayer"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="audio/*"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/x-ogg"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="application/opus"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content"/>
+        <data android:scheme="file"/>
+        <data android:mimeType="*/*"/>
+        <data android:pathPattern=".*\\.mp3"/>
+        <data android:pathPattern=".*\\.flac"/>
+        <data android:pathPattern=".*\\.wav"/>
+        <data android:pathPattern=".*\\.m4a"/>
+        <data android:pathPattern=".*\\.aac"/>
+        <data android:pathPattern=".*\\.ogg"/>
+        <data android:pathPattern=".*\\.opus"/>
+        <data android:pathPattern=".*\\.wma"/>
       </intent-filter>
     </activity-alias>
   </application>
