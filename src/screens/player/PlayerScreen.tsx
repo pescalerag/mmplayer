@@ -1018,8 +1018,6 @@ const PlayerBackground = React.memo(({
         []
     );
 
-    const isCurrentActive = isFocused && !isTransitioning;
-
     return (
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
             <Animated.View style={[bgSwipeAnimatedStyle, { width: bgWidth, height: '100%' }]}>
@@ -1041,10 +1039,10 @@ const PlayerBackground = React.memo(({
                     style={{ width: bgWidth, height: '100%', overflow: 'hidden' }}
                     trackModel={track}
                     coverUrl={currentCoverUrl}
-                    bgVideo={isCurrentActive ? track.bgVideo : null}
+                    bgVideo={track.bgVideo}
                     showCanvas={showCanvas}
                     isImmersive={isImmersive}
-                    gradientColors={isCurrentActive && track.bgVideo && showCanvas ? canvasGrad : currGrad}
+                    gradientColors={track.bgVideo && showCanvas ? canvasGrad : currGrad}
                 />
 
                 {/* Slot +1: Next */}
@@ -2501,13 +2499,13 @@ const PlayerScreenUI = ({
 
     const isPrevBgIdentical = useMemo(() => {
         if (!prevTrackModel) return true;
-        if (currBgVideo !== prevBgVideo) return false;
+        if (currBgVideo || prevBgVideo) return false;
         return currentCoverUrl === prevCoverUrl;
     }, [prevTrackModel, currBgVideo, prevBgVideo, currentCoverUrl, prevCoverUrl]);
 
     const isNextBgIdentical = useMemo(() => {
         if (!nextTrackModel) return true;
-        if (currBgVideo !== nextBgVideo) return false;
+        if (currBgVideo || nextBgVideo) return false;
         return currentCoverUrl === nextCoverUrl;
     }, [nextTrackModel, currBgVideo, nextBgVideo, currentCoverUrl, nextCoverUrl]);
 

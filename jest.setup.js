@@ -97,6 +97,7 @@ jest.mock('./src/database', () => ({
       get: jest.fn(() => mockTable),
     },
     write: jest.fn((cb) => cb()),
+    batch: jest.fn((updates) => Promise.resolve(updates)),
   },
 }));
 
@@ -114,14 +115,17 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
 // Mock expo-file-system
-jest.mock('expo-file-system', () => ({
+const mockFileSystem = {
   documentDirectory: 'file:///data/user/0/com.mmplayer/files/',
   cacheDirectory: 'file:///data/user/0/com.mmplayer/cache/',
-}));
-jest.mock('expo-file-system/legacy', () => ({
-  documentDirectory: 'file:///data/user/0/com.mmplayer/files/',
-  cacheDirectory: 'file:///data/user/0/com.mmplayer/cache/',
-}));
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024, md5: 'mock-md5' }),
+  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  copyAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+  readDirectoryAsync: jest.fn().mockResolvedValue([]),
+};
+jest.mock('expo-file-system', () => mockFileSystem);
+jest.mock('expo-file-system/legacy', () => mockFileSystem);
 
 // Mock react-native-http-bridge-refurbished
 jest.mock('react-native-http-bridge-refurbished', () => ({
@@ -160,6 +164,7 @@ jest.mock('./src/store/useToastStore', () => ({
 }));
 jest.mock('./modules/native-audio-scanner', () => ({
   readFileChunk: jest.fn().mockResolvedValue(''),
+  generateVideoThumbnail: jest.fn().mockResolvedValue('file:///thumbnail.jpg'),
 }));
 
 // Mock i18next
