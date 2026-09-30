@@ -86,6 +86,15 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'es' }],
 }));
 
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(),
+  notificationAsync: jest.fn(),
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
+}));
+
 // Mock expo-file-system
 jest.mock('expo-file-system', () => ({
   documentDirectory: 'file:///data/user/0/com.mmplayer/files/',
