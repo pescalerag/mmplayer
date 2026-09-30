@@ -40,6 +40,7 @@ import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
 import { StatsWidget } from '@/components/cards/StatsWidget';
 import MarqueeText from '@/components/common/MarqueeText';
 import { useStatsStore } from '../../store/useStatsStore';
+import { shuffleArray } from '../../utils/shuffle';
 
 const { width } = Dimensions.get('window');
 
@@ -290,7 +291,7 @@ const fetchExploreAlbums = async (): Promise<Album[]> => {
     const allAlbumIds = await database.collections.get<Album>('albums').query().fetchIds();
     if (allAlbumIds.length === 0) return [];
 
-    const shuffled = [...allAlbumIds].sort(() => Math.random() - 0.5);
+    const shuffled = shuffleArray(allAlbumIds);
     const randomIds = shuffled.slice(0, 6);
     return database.collections
         .get<Album>('albums')

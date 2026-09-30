@@ -42,6 +42,17 @@ const mockTrackPlayer = {
   play: jest.fn().mockResolvedValue(undefined),
   pause: jest.fn().mockResolvedValue(undefined),
   stop: jest.fn().mockResolvedValue(undefined),
+  add: jest.fn().mockResolvedValue(undefined),
+  remove: jest.fn().mockResolvedValue(undefined),
+  removeUpcomingTracks: jest.fn().mockResolvedValue(undefined),
+  skip: jest.fn().mockResolvedValue(undefined),
+  skipToNext: jest.fn().mockResolvedValue(undefined),
+  skipToPrevious: jest.fn().mockResolvedValue(undefined),
+  getRepeatMode: jest.fn().mockResolvedValue(0),
+  setRepeatMode: jest.fn().mockResolvedValue(undefined),
+  getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 180, buffered: 180 }),
+  seekTo: jest.fn().mockResolvedValue(undefined),
+  updateMetadataForTrack: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('react-native-track-player', () => ({
@@ -71,12 +82,20 @@ jest.mock('expo-modules-core', () => ({
 }));
 
 // Mock database
+const mockTable = {
+  find: jest.fn().mockResolvedValue(null),
+  query: jest.fn(() => ({
+    fetch: jest.fn().mockResolvedValue([]),
+    observe: jest.fn(() => ({ subscribe: jest.fn() })),
+  })),
+};
+
 jest.mock('./src/database', () => ({
   database: {
-    get: jest.fn(() => ({
-      find: jest.fn(),
-      query: jest.fn(() => ({ fetch: jest.fn().mockResolvedValue([]) })),
-    })),
+    get: jest.fn(() => mockTable),
+    collections: {
+      get: jest.fn(() => mockTable),
+    },
     write: jest.fn((cb) => cb()),
   },
 }));
@@ -122,17 +141,21 @@ jest.mock('./src/services/LocalCastService', () => ({
     isServerRunning: jest.fn().mockReturnValue(false),
   },
 }));
+const mockCastStoreState = { isCasting: false, castDevice: null, isServerRunning: false };
 jest.mock('./src/store/useCastStore', () => ({
   useCastStore: {
-    getState: () => ({ isCasting: false, castDevice: null }),
+    getState: () => mockCastStoreState,
+    setState: jest.fn((newState) => Object.assign(mockCastStoreState, newState)),
   },
 }));
 jest.mock('./src/navigation/navigationRef', () => ({
   navigationRef: { isReady: () => false, navigate: jest.fn() },
 }));
+const mockToastState = { showToast: jest.fn() };
 jest.mock('./src/store/useToastStore', () => ({
   useToastStore: {
-    getState: () => ({ showToast: jest.fn() }),
+    getState: () => mockToastState,
+    setState: jest.fn((newState) => Object.assign(mockToastState, newState)),
   },
 }));
 jest.mock('./modules/native-audio-scanner', () => ({

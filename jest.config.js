@@ -21,6 +21,7 @@ module.exports = {
   },
   collectCoverageFrom: [
     'src/services/EqualizerService.ts',
+    'src/services/ShuffleService.ts',
     'src/store/usePlayerStore.ts',
     'modules/native-equalizer/index.ts',
   ],

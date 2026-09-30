@@ -15,11 +15,13 @@ import i18n from "../constants/i18n";
 import { ShuffleService } from "../services/ShuffleService";
 import { HistoryService } from "../services/HistoryService";
 import { PlaybackTimeTracker } from "../services/PlaybackService";
+import { shuffleArray } from "../utils/shuffle";
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
 let isHandlingQueueEnded = false;
+let instanceCounter = 0;
 
 let isApplyingSpeedAndPitch = false;
 let hasPendingSpeedPitchUpdate = false;
@@ -37,6 +39,7 @@ function scheduleDebouncedSavePlaybackState() {
       console.error("[usePlayerStore] Error en savePlaybackState diferido:", e);
     });
   }, 800);
+  saveStateDebounceTimeout?.unref?.();
 }
 
 function resolveTargetSpeedAndPitch(state: { playbackSpeed: number; isVinylModeEnabled: boolean; playbackPitch: number }) {
@@ -183,7 +186,7 @@ async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack>
     artistNames = primaryArtist?.name || (track as any)?.artistName || "Artista desconocido";
   }
 
-  const uniqueSuffix = instanceId || `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const uniqueSuffix = instanceId || `${Date.now()}-${++instanceCounter}`;
 
   return {
     id: `${track.id}-${uniqueSuffix}`,
@@ -795,8 +798,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const CHUNK_SIZE = 15;
 
       const indices = Array.from({ length: tracks.length }, (_, i) => i);
-      indices.sort(() => Math.random() - 0.5);
-      const shuffledIndices = indices;
+      const shuffledIndices = shuffleArray(indices);
       const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
       const shuffledInstances = instanceIds ? shuffledIndices.map((i) => instanceIds[i]) : undefined;
 
@@ -868,9 +870,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch (e) {
       console.error('[usePlayerStore] Error in playRandomQueueOnEnd:', e);
     } finally {
-      setTimeout(() => {
+      const resetTimer = setTimeout(() => {
         isHandlingQueueEnded = false;
       }, 2000);
+      (resetTimer as any)?.unref?.();
     }
   },
 
@@ -1155,7 +1158,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
         // Get all other tracks (excluding current track)
         const otherTracks = currentQueue.filter((_, idx) => idx !== currentIndex);
-        const shuffledOthers = [...otherTracks].sort(() => Math.random() - 0.5);
+        const shuffledOthers = shuffleArray(otherTracks);
 
         // 1. Clear upcoming tracks
         await TrackPlayer.removeUpcomingTracks();
