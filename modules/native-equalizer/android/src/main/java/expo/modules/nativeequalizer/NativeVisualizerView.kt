@@ -154,13 +154,22 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     fun setActive(value: Boolean) {
         Log.d(TAG, "setActive($value)")
         active = value
-        if (value) attachToSharedVisualizer() else detachFromSharedVisualizer()
+        if (value) {
+            startRenderLoop()
+            attachToSharedVisualizer()
+        } else {
+            detachFromSharedVisualizer()
+            stopRenderLoop()
+        }
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         Log.d(TAG, "onAttachedToWindow — active=$active")
-        if (active) attachToSharedVisualizer()
+        if (active) {
+            startRenderLoop()
+            attachToSharedVisualizer()
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -185,14 +194,20 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     private val targetFps = 30
     private val frameIntervalNs = 1_000_000_000L / targetFps // 33.3ms en nanosegundos
     private var lastFrameTimeNs = 0L
+    private var lastRetryTimeNs = 0L
 
     private fun startRenderLoop() {
         if (isRenderLoopRunning) return
         isRenderLoopRunning = true
         lastFrameTimeNs = 0L
+        lastRetryTimeNs = 0L
         val cb = object : Choreographer.FrameCallback {
             override fun doFrame(frameTimeNanos: Long) {
                 if (!isRenderLoopRunning) return
+                if (captureListener == null && active && frameTimeNanos - lastRetryTimeNs >= 500_000_000L) {
+                    lastRetryTimeNs = frameTimeNanos
+                    attachToSharedVisualizer()
+                }
                 if (frameTimeNanos - lastFrameTimeNs >= frameIntervalNs) {
                     lastFrameTimeNs = frameTimeNanos
                     invalidate()
@@ -215,56 +230,54 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     // --- Visualizer attachment ---
 
     private fun attachToSharedVisualizer() {
-        detachFromSharedVisualizer()
+        if (!active) return
         if (!hasAudioPermission()) {
-            Log.w(TAG, "attachToSharedVisualizer: RECORD_AUDIO permission NOT granted. Aborting.")
+            Log.w(TAG, "attachToSharedVisualizer: RECORD_AUDIO permission NOT granted.")
             return
         }
 
-        var viz = NativeEqualizerModule.sharedVisualizer
-        if (viz == null) {
-            Log.d(TAG, "attachToSharedVisualizer: sharedVisualizer null, resolving session...")
-            val sessionId = NativeEqualizerModule.getAudioSessionId(appContext)
-            if (sessionId != 0) {
-                NativeEqualizerModule.initSharedVisualizer(sessionId)
-                viz = NativeEqualizerModule.sharedVisualizer
-            }
+        val sessionId = NativeEqualizerModule.getAudioSessionId(appContext)
+        if (sessionId == 0) {
+            return
         }
 
+        NativeEqualizerModule.initSharedVisualizer(sessionId)
+        val viz = NativeEqualizerModule.sharedVisualizer
         if (viz == null) {
             Log.e(TAG, "attachToSharedVisualizer: sharedVisualizer unavailable")
             return
         }
 
-        captureListener = object : Visualizer.OnDataCaptureListener {
-            override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
-                waveBytes = waveform?.clone()
+        if (captureListener == null) {
+            val listener = object : Visualizer.OnDataCaptureListener {
+                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                    waveBytes = waveform?.clone()
+                }
+                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
+                    fftBytes = fft?.clone()
+                }
             }
-            override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
-                fftBytes = fft?.clone()
+
+            try {
+                viz.enabled = false
+                val result = viz.setDataCaptureListener(
+                    listener,
+                    Visualizer.getMaxCaptureRate(), // max 20Hz audio data refresh
+                    true,
+                    true
+                )
+                viz.enabled = true
+                captureListener = listener
+                Log.d(TAG, "attachToSharedVisualizer: listener attached result=$result, enabled=${viz.enabled}")
+            } catch (e: Exception) {
+                Log.e(TAG, "attachToSharedVisualizer: EXCEPTION: ${e.message}", e)
+                captureListener = null
+                return
             }
         }
-
-        try {
-            viz.enabled = false
-            val result = viz.setDataCaptureListener(
-                captureListener,
-                Visualizer.getMaxCaptureRate(), // max 20Hz audio data refresh
-                true,
-                true
-            )
-            viz.enabled = true
-            Log.d(TAG, "attachToSharedVisualizer: listener attached result=$result, enabled=${viz.enabled}")
-        } catch (e: Exception) {
-            Log.e(TAG, "attachToSharedVisualizer: EXCEPTION: ${e.message}", e)
-            return
-        }
-
-        startRenderLoop()
     }
 
     private fun detachFromSharedVisualizer() {
-        stopRenderLoop()
         try {
             val viz = NativeEqualizerModule.sharedVisualizer
             if (viz != null && captureListener != null) {
@@ -422,7 +435,13 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     }
 
     private fun drawWave(canvas: Canvas, w: Float, h: Float) {
-        val wave = waveBytes ?: return
+        val wave = waveBytes ?: run {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 3f
+            canvas.drawLine(0f, h / 2f, w, h / 2f, paint)
+            paint.style = Paint.Style.FILL
+            return
+        }
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 4f
         val path = Path()
@@ -440,7 +459,13 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     }
 
     private fun drawSpectrum(canvas: Canvas, w: Float, h: Float) {
-        val fft = fftBytes ?: return
+        val fft = fftBytes ?: run {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 3f
+            canvas.drawLine(0f, h - 3f, w, h - 3f, paint)
+            paint.style = Paint.Style.FILL
+            return
+        }
         val points = 60
         val numBins = fft.size / 2
         val path = Path()

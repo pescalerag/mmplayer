@@ -10,6 +10,39 @@ index 0000000..bbe97e5
 +	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
 +	<classpathentry kind="output" path="bin/default"/>
 +</classpath>
+diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock b/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock
+new file mode 100644
+index 0000000..c0b8adb
+Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock differ
+diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/dependencies-accessors/gc.properties b/node_modules/react-native-track-player/android/.gradle/8.9/dependencies-accessors/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin b/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin
+new file mode 100644
+index 0000000..f76dd23
+Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin differ
+diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock b/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock
+new file mode 100644
+index 0000000..b1ddc5b
+Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock differ
+diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/gc.properties b/node_modules/react-native-track-player/android/.gradle/8.9/gc.properties
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+new file mode 100644
+index 0000000..a0ca4b9
+Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
+diff --git a/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties
+new file mode 100644
+index 0000000..ecdab01
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties
+@@ -0,0 +1,2 @@
++#Wed Sep 30 15:52:47 CEST 2026
++gradle.version=8.9
+diff --git a/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties b/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties
+new file mode 100644
+index 0000000..e69de29
 diff --git a/node_modules/react-native-track-player/android/.project b/node_modules/react-native-track-player/android/.project
 new file mode 100644
 index 0000000..52e8720
@@ -118,86 +151,30 @@ index 60b6871..e1bb0a1 100644
      }
  
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-index 13a6c60..6a6862b 100644
+index 13a6c60..13ed2e7 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-@@ -446,13 +446,73 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
-         callback.resolve(musicService.getVolume())
-     }
- 
-+    private var currentRate: Float = 1.0f
-+    private var currentPitch: Float = 1.0f
-+
-     override fun setRate(rate: Double, callback: Promise) = launchInScope {
-         if (verifyServiceBoundOrReject(callback)) return@launchInScope
- 
--        musicService.setRate(rate.toFloat())
-+        currentRate = rate.toFloat()
-+        applySpeedAndPitch(currentRate, currentPitch)
-+        callback.resolve(null)
-+    }
-+
-+    override fun setPitch(pitch: Double, callback: Promise) = launchInScope {
-+        if (verifyServiceBoundOrReject(callback)) return@launchInScope
-+
-+        currentPitch = pitch.toFloat()
-+        applySpeedAndPitch(currentRate, currentPitch)
+@@ -453,10 +453,17 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
          callback.resolve(null)
      }
  
-+    private fun applySpeedAndPitch(rate: Float, pitch: Float) {
-+        try {
-+            val safeRate = if (rate.isFinite() && rate > 0f) rate.coerceIn(0.25f, 4.0f) else 1.0f
-+            val safePitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
++    override fun setPitch(pitch: Double, callback: Promise) = launchInScope {
++        if (verifyServiceBoundOrReject(callback)) return@launchInScope
 +
-+            var playerClass: Class<*>? = musicService.javaClass
-+            var playerField: java.lang.reflect.Field? = null
-+            while (playerClass != null) {
-+                try {
-+                    playerField = playerClass.getDeclaredField("player")
-+                    break
-+                } catch (e: NoSuchFieldException) {
-+                    playerClass = playerClass.superclass
-+                }
-+            }
-+            if (playerField == null) return
-+            playerField.isAccessible = true
-+            val queuedAudioPlayer = playerField.get(musicService) ?: return
-+            
-+            var audioPlayerClass: Class<*>? = queuedAudioPlayer.javaClass
-+            var exoPlayerField: java.lang.reflect.Field? = null
-+            while (audioPlayerClass != null) {
-+                try {
-+                    exoPlayerField = audioPlayerClass.getDeclaredField("exoPlayer")
-+                    break
-+                } catch (e: NoSuchFieldException) {
-+                    audioPlayerClass = audioPlayerClass.superclass
-+                }
-+            }
-+            if (exoPlayerField == null) return
-+            exoPlayerField.isAccessible = true
-+            val exoPlayer = exoPlayerField.get(queuedAudioPlayer) as? androidx.media3.common.Player ?: return
-+
-+            val currentParams = exoPlayer.playbackParameters
-+            if (currentParams.speed == safeRate && currentParams.pitch == safePitch) {
-+                return
-+            }
-+
-+            if (exoPlayer.playerError != null) {
-+                exoPlayer.prepare()
-+            }
-+
-+            exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(safeRate, safePitch)
-+        } catch (e: Exception) {
-+            timber.log.Timber.e(e, "Failed to apply Pitch Master Hack")
-+        }
++        musicService.setPitch(pitch.toFloat())
++        callback.resolve(null)
 +    }
 +
      override fun getRate(callback: Promise) = launchInScope {
          if (verifyServiceBoundOrReject(callback)) return@launchInScope
  
+-        callback.resolve(musicService.getRate())
++        callback.resolve(musicService.getRate().toDouble())
+     }
+ 
+     override fun setRepeatMode(mode: Double, callback: Promise) = launchInScope {
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..d748317 100644
+index b495b5a..9b75d3f 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture
@@ -208,7 +185,13 @@ index b495b5a..d748317 100644
  import java.util.concurrent.TimeUnit
  import kotlin.system.exitProcess
  
-@@ -97,6 +98,23 @@ class MusicService : HeadlessJsMediaService() {
+@@ -92,11 +93,29 @@ class MusicService : HeadlessJsMediaService() {
+ 
+     @ExperimentalCoroutinesApi
+     override fun onCreate() {
++        instance = this
+         Timber.plant(object : Timber.DebugTree() {
+             override fun createStackElementTag(element: StackTraceElement): String? {
                  return "RNTP-${element.className}:${element.methodName}"
              }
          })
@@ -232,7 +215,7 @@ index b495b5a..d748317 100644
          fakePlayer = ExoPlayer.Builder(this).build()
          val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
              flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-@@ -104,9 +122,11 @@ class MusicService : HeadlessJsMediaService() {
+@@ -104,9 +123,11 @@ class MusicService : HeadlessJsMediaService() {
              data = Uri.parse("trackplayer://notification.click")
              action = Intent.ACTION_VIEW
          }
@@ -244,7 +227,15 @@ index b495b5a..d748317 100644
              .setBitmapLoader(CacheBitmapLoader(CoilBitmapLoader(this)))
              // https://github.com/androidx/media/issues/1218
              .setSessionActivity(
-@@ -174,6 +194,8 @@ class MusicService : HeadlessJsMediaService() {
+@@ -119,6 +140,7 @@ class MusicService : HeadlessJsMediaService() {
+             )
+             .build()
+         super.onCreate()
++        instance = this
+     }
+ 
+     enum class AppKilledPlaybackBehavior(val string: String) {
+@@ -174,6 +196,8 @@ class MusicService : HeadlessJsMediaService() {
          if (!commandStarted) {
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
@@ -253,7 +244,17 @@ index b495b5a..d748317 100644
          }
          return START_STICKY
      }
-@@ -290,10 +312,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +235,9 @@ class MusicService : HeadlessJsMediaService() {
+         player = QueuedAudioPlayer(this@MusicService, options)
+         fakePlayer.release()
+         mediaSession.player = player.forwardingPlayer
++        if (lastSpeed != 1.0f || lastPitch != 1.0f) {
++            applyPlaybackParameters(lastSpeed, lastPitch)
++        }
+         observeEvents()
+     }
+ 
+@@ -290,10 +317,21 @@ class MusicService : HeadlessJsMediaService() {
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -275,7 +276,56 @@ index b495b5a..d748317 100644
              .filter { notificationCapabilities.contains(it.capability) }
              .map { c -> c.commandButton }
          val sessionCommandsBuilder =
-@@ -792,10 +825,28 @@ class MusicService : HeadlessJsMediaService() {
+@@ -443,12 +481,36 @@ class MusicService : HeadlessJsMediaService() {
+     @MainThread
+     fun getCurrentTrackIndex(): Int = player.currentIndex
+ 
++    private var lastSpeed: Float = 1.0f
++    private var lastPitch: Float = 1.0f
++
++    @MainThread
++    fun applyPlaybackParameters(speed: Float, pitch: Float) {
++        lastSpeed = if (speed.isFinite() && speed > 0f) speed.coerceIn(0.25f, 4.0f) else 1.0f
++        lastPitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
++        try {
++            if (::player.isInitialized) {
++                player.exoPlayer.playbackParameters = androidx.media3.common.PlaybackParameters(lastSpeed, lastPitch)
++            }
++        } catch (t: Throwable) {
++            Timber.e(t, "Failed to apply playback parameters")
++        }
++    }
++
+     @MainThread
+-    fun getRate(): Float = player.playbackSpeed
++    fun getRate(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.speed else lastSpeed
+ 
+     @MainThread
+     fun setRate(value: Float) {
+-        player.playbackSpeed = value
++        applyPlaybackParameters(value, lastPitch)
++    }
++
++    @MainThread
++    fun getPitch(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.pitch else lastPitch
++
++    @MainThread
++    fun setPitch(value: Float) {
++        applyPlaybackParameters(lastSpeed, value)
+     }
+ 
+     @MainThread
+@@ -544,6 +606,9 @@ class MusicService : HeadlessJsMediaService() {
+                         (it?.oldPosition ?: 0).toSeconds()
+                     )
+                 }
++                if (lastSpeed != 1.0f || lastPitch != 1.0f) {
++                    applyPlaybackParameters(lastSpeed, lastPitch)
++                }
+             }
+         }
+ 
+@@ -792,12 +857,33 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onDestroy() {
@@ -306,8 +356,13 @@ index b495b5a..d748317 100644
 +            }
          }
  
++        if (instance === this) {
++            instance = null
++        }
          progressUpdateJob?.cancel()
-@@ -905,24 +956,16 @@ class MusicService : HeadlessJsMediaService() {
+         super.onDestroy()
+     }
+@@ -905,24 +991,16 @@ class MusicService : HeadlessJsMediaService() {
                      onStartCommand(null, 0, 0)
                  }
              }
@@ -342,6 +397,29 @@ index b495b5a..d748317 100644
          }
  
          override fun onCustomCommand(
+@@ -983,6 +1061,22 @@ class MusicService : HeadlessJsMediaService() {
+     }
+ 
+     companion object {
++        @Volatile
++        @JvmStatic
++        var instance: MusicService? = null
++
++        @JvmStatic
++        val currentAudioSessionId: Int
++            get() = try {
++                val inst = instance ?: return 0
++                inst.player.exoPlayer.audioSessionId
++            } catch (_: Throwable) { 0 }
++
++        @JvmStatic
++        fun setPlaybackParameters(speed: Float, pitch: Float) {
++            instance?.applyPlaybackParameters(speed, pitch)
++        }
++
+         const val EMPTY_NOTIFICATION_ID = 1
+         const val STATE_KEY = "state"
+         const val ERROR_KEY = "error"
 diff --git a/node_modules/react-native-track-player/lib/module/trackPlayer.js b/node_modules/react-native-track-player/lib/module/trackPlayer.js
 index d748072..b549a5d 100644
 --- a/node_modules/react-native-track-player/lib/module/trackPlayer.js
