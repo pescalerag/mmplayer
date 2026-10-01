@@ -80,6 +80,8 @@ interface SettingsState {
     setHomeSectionsOrder: (order: HomeSection[]) => void;
     homeSectionsVisibility: Record<HomeSection, boolean>;
     setHomeSectionsVisibility: (visibility: Record<HomeSection, boolean>) => void;
+    showHomeGreeting: boolean;
+    setShowHomeGreeting: (value: boolean) => void;
     showGlobalShuffle: boolean;
     setShowGlobalShuffle: (value: boolean) => void;
     isCompactTags: boolean;
@@ -224,6 +226,7 @@ function ensureHomeSections(state: SettingsState): void {
 }
 
 function initHomeSections(state: SettingsState): void {
+    state.showHomeGreeting ??= true;
     if (state.homeSectionsVersion !== 2) {
         migrateHomeSectionsV2(state);
     } else {
@@ -280,6 +283,8 @@ export const useSettingsStore = create<SettingsState>()(
                 shuffle_button: true,
             },
             setHomeSectionsVisibility: (visibility) => set({ homeSectionsVisibility: visibility }),
+            showHomeGreeting: true,
+            setShowHomeGreeting: (value) => set({ showHomeGreeting: value }),
             showGlobalShuffle: true,
             setShowGlobalShuffle: (value) => set((state) => ({
                 showGlobalShuffle: value,

@@ -589,6 +589,8 @@
     "home_sections_desc": "Personaliza el orden y visibilidad de las secciones de inicio",
     "home_sections_title": "Secciones de inicio",
     "home_sections_subtitle": "Personaliza el orden y visibilidad de las secciones",
+    "home_greeting": "Saludo de bienvenida",
+    "home_greeting_desc": "Mostrar saludo al inicio de la pantalla",
     "home_section_stats": "Widget de estadísticas",
     "home_section_shuffle": "Botón de reproducción aleatoria",
     "drag_to_reorder_home_sections": "Orden de las secciones (Mantén presionado para mover)",

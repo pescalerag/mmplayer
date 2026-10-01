@@ -139,6 +139,13 @@ const UserTierBadge = React.memo(({ userTier, onPress, styles }: UserTierBadgePr
 UserTierBadge.displayName = 'UserTierBadge';
 
 
+const getGreetingKey = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 13) return 'home.welcome_morning';
+    if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
+    return 'home.welcome_evening';
+};
+
 const getCacheBustedAvatarUri = (uri: string) => {
     if (uri.startsWith('file://') && !uri.includes('?t=')) {
         return `${uri}?t=${Date.now()}`;
@@ -320,6 +327,7 @@ export default function HomeScreen() {
         [homeSectionsOrderRaw]
     );
 
+    const showHomeGreeting = useSettingsStore(state => state.showHomeGreeting ?? true);
     const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
 
     const homeSectionsVisibility = React.useMemo(() => {
@@ -687,6 +695,15 @@ export default function HomeScreen() {
                         />
                     }
                 >
+                    {/* Saludo Principal Fijo */}
+                    {showHomeGreeting && (
+                        <View style={styles.greetingContainer}>
+                            <Text style={styles.welcomeText}>
+                                {t(getGreetingKey())}
+                            </Text>
+                        </View>
+                    )}
+
                     {/* Modular Sections Render */}
                     {homeSectionsOrder.map((section) => {
                         if (!homeSectionsVisibility[section]) return null;
@@ -963,6 +980,18 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
         },
         userTierBadgeTextVip: {
             color: '#FBBF24',
+        },
+        greetingContainer: {
+            paddingHorizontal: horizPadding,
+            marginBottom: 16,
+            marginTop: 4,
+        },
+        welcomeText: {
+            color: colors.text,
+            fontSize: 26,
+            fontFamily: fonts.regular,
+            fontWeight: '800',
+            letterSpacing: -0.5,
         },
         sectionTitle: {
             color: colors.text,

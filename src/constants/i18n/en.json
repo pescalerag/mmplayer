@@ -589,6 +589,8 @@
     "home_sections_desc": "Customize the order and visibility of home sections",
     "home_sections_title": "Home Screen Sections",
     "home_sections_subtitle": "Customize the order and visibility of sections",
+    "home_greeting": "Welcome greeting",
+    "home_greeting_desc": "Show greeting at the top of the home screen",
     "home_section_stats": "Statistics widget",
     "home_section_shuffle": "Shuffle playback button",
     "drag_to_reorder_home_sections": "Section order (Hold to drag)",
