@@ -8,6 +8,9 @@ jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
   StyleSheet: { create: (s) => s },
+  Linking: {
+    openURL: jest.fn().mockResolvedValue(true),
+  },
 }));
 
 // Mock react-native-mmkv
@@ -127,6 +130,16 @@ const mockFileSystem = {
 jest.mock('expo-file-system', () => mockFileSystem);
 jest.mock('expo-file-system/legacy', () => mockFileSystem);
 
+// Mock expo-constants
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      version: '2.3.2',
+    },
+  },
+}));
+
 // Mock react-native-http-bridge-refurbished
 jest.mock('react-native-http-bridge-refurbished', () => ({
   BridgeServer: jest.fn().mockImplementation(() => ({
@@ -152,9 +165,14 @@ jest.mock('./src/store/useCastStore', () => ({
     setState: jest.fn((newState) => Object.assign(mockCastStoreState, newState)),
   },
 }));
-jest.mock('./src/navigation/navigationRef', () => ({
-  navigationRef: { isReady: () => false, navigate: jest.fn() },
-}));
+jest.mock('./src/navigation/navigationRef', () => {
+  const navigationRef = { isReady: () => false, navigate: jest.fn() };
+  return {
+    navigationRef,
+    waitForNavigationReady: jest.fn(async () => navigationRef.isReady()),
+    getActiveTabName: jest.fn(() => 'Biblioteca'),
+  };
+});
 const mockToastState = { showToast: jest.fn() };
 jest.mock('./src/store/useToastStore', () => ({
   useToastStore: {
@@ -174,4 +192,30 @@ jest.mock('react-i18next', () => ({
     type: '3rdParty',
     init: () => {},
   },
+}));
+
+// Mock @notifee/react-native
+jest.mock('@notifee/react-native', () => ({
+  __esModule: true,
+  default: {
+    requestPermission: jest.fn().mockResolvedValue({ authorizationStatus: 1 }),
+    createChannel: jest.fn().mockResolvedValue('mmplayer_summaries'),
+    createTriggerNotification: jest.fn().mockResolvedValue('notif-id'),
+    displayNotification: jest.fn().mockResolvedValue('notif-id'),
+    getTriggerNotificationIds: jest.fn().mockResolvedValue([]),
+    cancelNotification: jest.fn().mockResolvedValue(undefined),
+    getInitialNotification: jest.fn().mockResolvedValue(null),
+    onForegroundEvent: jest.fn(() => jest.fn()),
+    onBackgroundEvent: jest.fn(),
+  },
+  AndroidImportance: { DEFAULT: 3, HIGH: 4 },
+  TriggerType: { TIMESTAMP: 0, INTERVAL: 1 },
+  RepeatFrequency: { DAILY: 0, WEEKLY: 1 },
+  AuthorizationStatus: { AUTHORIZED: 1, DENIED: 0 },
+  EventType: { PRESS: 1, DELIVERED: 0 },
+}));
+
+// Mock react-native-worklets
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn, ...args) => fn(...args),
 }));

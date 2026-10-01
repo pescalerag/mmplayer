@@ -39,6 +39,8 @@ import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
 import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
 import { StatsWidget } from '@/components/cards/StatsWidget';
 import { useStatsStore } from '../../store/useStatsStore';
+import { useNotificationStore } from '../../store/useNotificationStore';
+import { NotificationService } from '../../services/NotificationService';
 import { shuffleArray } from '../../utils/shuffle';
 
 const { width } = Dimensions.get('window');
@@ -332,6 +334,7 @@ export default function HomeScreen() {
     const activeTrack = usePlayerStore(state => state.activeTrack);
     const playbackStateRN = usePlaybackState();
     const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
+    const unreadNotificationsCount = useNotificationStore((state) => state.unreadCount);
 
     const [recentlyAdded, setRecentlyAdded] = React.useState<any[]>([]);
     const [mostPlayed, setMostPlayed] = React.useState<any[]>([]);
@@ -401,12 +404,13 @@ export default function HomeScreen() {
     }, [fetchHomeData]);
 
     useEffect(() => {
-        HistoryService.initializeDefaultsIfNeeded();
+        void HistoryService.initializeDefaultsIfNeeded();
     }, []);
 
     useFocusEffect(
         React.useCallback(() => {
-            loadAllHomeData(!isInitialLoadDone.current);
+            void loadAllHomeData(!isInitialLoadDone.current);
+            void NotificationService.getUnreadCount();
         }, [loadAllHomeData])
     );
 
@@ -418,7 +422,7 @@ export default function HomeScreen() {
         } else if (item.type === 'track') {
             try {
                 const track = await database.get<Track>('tracks').find(item.id);
-                usePlayerStore.getState().playSingleTrack(track, 'home-recents');
+                await usePlayerStore.getState().playSingleTrack(track, 'home-recents');
             } catch (error) {
                 console.error('Error al reproducir track reciente:', error);
             }
@@ -468,7 +472,7 @@ export default function HomeScreen() {
         if (type === 'playlist') {
             handlePlaylistPress(id);
         } else {
-            handleMediaPress({ id, type });
+            void handleMediaPress({ id, type });
         }
     }, [handlePlaylistPress, handleMediaPress]);
 
@@ -476,7 +480,7 @@ export default function HomeScreen() {
         if (type === 'playlist') {
             handlePlaylistLongPress(id);
         } else {
-            handleMediaLongPress({ id, type });
+            void handleMediaLongPress({ id, type });
         }
     }, [handlePlaylistLongPress, handleMediaLongPress]);
 
@@ -537,11 +541,14 @@ export default function HomeScreen() {
 
                                 <TouchableOpacity
                                     style={styles.settingsButton}
-                                    onPress={() => {}}
+                                    onPress={() => navigation.navigate('Notifications')}
                                     activeOpacity={0.7}
                                     accessibilityLabel={t('home.notifications') || 'Notificaciones'}
                                 >
-                                    <Ionicons name="notifications-outline" size={20} color={colors.text} />
+                                    <Ionicons name={unreadNotificationsCount > 0 ? "notifications" : "notifications-outline"} size={20} color={colors.text} />
+                                    {unreadNotificationsCount > 0 && (
+                                        <View style={styles.notificationBadgeDot} />
+                                    )}
                                 </TouchableOpacity>
                             </View>
 
@@ -636,11 +643,14 @@ export default function HomeScreen() {
                             <View style={styles.headerActionsCluster}>
                                 <TouchableOpacity
                                     style={styles.settingsButton}
-                                    onPress={() => {}}
+                                    onPress={() => navigation.navigate('Notifications')}
                                     activeOpacity={0.7}
                                     accessibilityLabel={t('home.notifications') || 'Notificaciones'}
                                 >
-                                    <Ionicons name="notifications-outline" size={20} color={colors.text} />
+                                    <Ionicons name={unreadNotificationsCount > 0 ? "notifications" : "notifications-outline"} size={20} color={colors.text} />
+                                    {unreadNotificationsCount > 0 && (
+                                        <View style={styles.notificationBadgeDot} />
+                                    )}
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
@@ -876,6 +886,17 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             justifyContent: 'center',
             alignItems: 'center',
             flexShrink: 0,
+        },
+        notificationBadgeDot: {
+            position: 'absolute',
+            top: 5,
+            right: 5,
+            width: 9,
+            height: 9,
+            borderRadius: 4.5,
+            backgroundColor: colors.heartIcon || '#EF4444',
+            borderWidth: 1.5,
+            borderColor: colors.background || '#121212',
         },
         profileBadge: {
             flexDirection: 'row',

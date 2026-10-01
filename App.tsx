@@ -38,7 +38,9 @@ import { usePlayerStore } from "./src/store/usePlayerStore";
 import { MediaAssetService } from "./src/services/MediaAssetService";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { PurchasesService } from "./src/services/PurchasesService";
+import { NotificationService } from "./src/services/NotificationService";
 import { ExternalAudioService } from "./src/services/ExternalAudioService";
+import notifee, { EventType } from '@notifee/react-native';
 import { getLaunchAudioUri, clearLaunchAudioUri } from "./modules/native-audio-scanner";
 import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
 
@@ -83,6 +85,7 @@ export default function App() {
         await setupPlayer();
         ChromecastService.init();
         PurchasesService.init().catch(err => console.warn('PurchasesService init warning:', err));
+        NotificationService.init().catch(err => console.warn('NotificationService init warning:', err));
         // Restaurar cola persistida del último cierre de la app
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
@@ -111,16 +114,33 @@ export default function App() {
     });
   }, []);
 
-  // Escuchador en vivo para resincronizar RevenueCat al volver a primer plano (reembolsos, compras)
+  // Escuchador en vivo para resincronizar RevenueCat y Notificaciones al volver a primer plano
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         PurchasesService.syncCustomerInfo().catch(() => {});
+        NotificationService.checkAndGenerateSummaries().catch(() => {});
+        NotificationService.getUnreadCount().catch(() => {});
       }
     });
 
+    const notifeeSub = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS && detail?.notification) {
+        NotificationService.checkAndGenerateSummaries().catch(() => {});
+        NotificationService.handleNotificationPressEvent(detail.notification).catch(() => {});
+      }
+    });
+
+    notifee.getInitialNotification().then((initial) => {
+      if (initial?.notification) {
+        NotificationService.checkAndGenerateSummaries().catch(() => {});
+        NotificationService.handleNotificationPressEvent(initial.notification).catch(() => {});
+      }
+    }).catch(() => {});
+
     return () => {
       subscription.remove();
+      notifeeSub();
     };
   }, []);
 

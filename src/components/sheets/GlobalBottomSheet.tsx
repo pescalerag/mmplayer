@@ -12,7 +12,8 @@ import {
   View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetType, useUIStore } from '../../store/useUIStore';
 import { useTagFormStore } from '@/store/useTagFormStore';
@@ -44,6 +45,7 @@ import EditAliasSheet from '@/components/sheets/EditAliasSheet';
 import QueueManageSheet from '@/components/sheets/QueueManageSheet';
 import CanvasManagerSheet from '@/components/sheets/CanvasManagerSheet';
 import TrackDetailsSheet from '@/components/sheets/TrackDetailsSheet';
+import NotificationSettingsSheet from '@/components/sheets/NotificationSettingsSheet';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -73,8 +75,10 @@ export default function GlobalBottomSheet() {
     closeSheet();
   }, [closeSheet]);
 
+  const isNonDraggable = renderedSheet === 'notification-settings';
+
   const handlePanGesture = Gesture.Pan()
-    .enabled(!isTagFormOpen)
+    .enabled(!isTagFormOpen && !isNonDraggable)
     .activeOffsetY(5)
     .onUpdate((event) => {
       if (event.translationY > 0) {
@@ -88,7 +92,7 @@ export default function GlobalBottomSheet() {
       if (event.translationY > DISMISS_THRESHOLD || event.velocityY > 500) {
         dragTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 180 }, (finished) => {
           if (finished) {
-            runOnJS(performCloseSheet)();
+            scheduleOnRN(performCloseSheet);
           }
         });
       } else {
@@ -122,7 +126,7 @@ export default function GlobalBottomSheet() {
       }).start();
       slideTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, (finished) => {
         if (finished) {
-          runOnJS(setRenderedSheet)(null);
+          scheduleOnRN(setRenderedSheet, null);
         }
       });
     }
@@ -222,6 +226,8 @@ export default function GlobalBottomSheet() {
         return <CanvasManagerSheet />;
       case 'track-details':
         return <TrackDetailsSheet />;
+      case 'notification-settings':
+        return <NotificationSettingsSheet />;
       default:
         return null;
     }
@@ -231,6 +237,7 @@ export default function GlobalBottomSheet() {
     if (renderedSheet === 'queue') return SCREEN_HEIGHT * 0.90;
     if (renderedSheet === 'metadata-editor') return SCREEN_HEIGHT * 0.92;
     if (renderedSheet === 'home-sections') return SCREEN_HEIGHT * 0.88;
+    if (renderedSheet === 'notification-settings') return SCREEN_HEIGHT * 0.88;
     if (renderedSheet === 'playlist-selector') return SCREEN_HEIGHT * 0.85;
     if (renderedSheet === 'canvas-manager') return SCREEN_HEIGHT * 0.88;
     if (renderedSheet === 'track-details') return SCREEN_HEIGHT * 0.85;
@@ -264,16 +271,19 @@ export default function GlobalBottomSheet() {
             styles.sheetContainer,
             {
               maxHeight: getContainerMaxHeight(),
+              paddingTop: isNonDraggable ? 24 : 14,
               paddingBottom: Math.max(insets.bottom, 12),
             },
             sheetAnimatedStyle,
           ]}
         >
-          <GestureDetector gesture={handlePanGesture}>
-            <View style={styles.handleContainer}>
-              <View style={styles.dragIndicator} />
-            </View>
-          </GestureDetector>
+          {!isNonDraggable && (
+            <GestureDetector gesture={handlePanGesture}>
+              <View style={styles.handleContainer}>
+                <View style={styles.dragIndicator} />
+              </View>
+            </GestureDetector>
+          )}
           {renderContent()}
         </AnimatedReanimated.View>
       </Animated.View>

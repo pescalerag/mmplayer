@@ -28,7 +28,8 @@ export type SheetType =
   | 'edit-alias'
   | 'clear-queue'
   | 'canvas-manager'
-  | 'track-details';
+  | 'track-details'
+  | 'notification-settings';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -164,4 +165,7 @@ export const openCanvasManager = (tracks: any = []) =>
 
 export const openTrackDetails = (track: any) =>
   useUIStore.getState().openSheet('track-details', { track });
+
+export const openNotificationSettings = () =>
+  useUIStore.getState().openSheet('notification-settings');
 

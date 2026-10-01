@@ -192,5 +192,22 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 18,
+      steps: [
+        createTable({
+          name: "notifications",
+          columns: [
+            { name: "type", type: "string" },
+            { name: "title", type: "string" },
+            { name: "description", type: "string", isOptional: true },
+            { name: "created_at", type: "number", isIndexed: true },
+            { name: "is_read", type: "boolean", isIndexed: true },
+            { name: "action_type", type: "string", isOptional: true },
+            { name: "action_payload", type: "string", isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

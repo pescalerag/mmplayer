@@ -18,6 +18,7 @@ import TrackCollaborator from './models/TrackCollaborator'; // Nueva tabla pivot
 import SearchHistory from './models/SearchHistory';
 import AlbumTag from './models/AlbumTag';
 import PlaybackHistory from './models/PlaybackHistory';
+import AppNotification from './models/AppNotification';
 
 // 1. Elegimos el Adaptador correcto dependiendo de la Plataforma
 const adapter = Platform.OS === 'web'
@@ -54,5 +55,6 @@ export const database = new Database({
         SearchHistory,
         AlbumTag,
         PlaybackHistory,
+        AppNotification,
     ],
 });

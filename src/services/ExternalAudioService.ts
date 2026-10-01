@@ -2,7 +2,7 @@ import { database } from '../database';
 import Track from '../database/models/Track';
 import { Q } from '@nozbe/watermelondb';
 import { of } from 'rxjs';
-import { navigationRef } from '../navigation/navigationRef';
+import { navigationRef, waitForNavigationReady } from '../navigation/navigationRef';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
 import {
@@ -25,13 +25,6 @@ let lastHandledUrl: string | null = null;
 let lastHandledTimestamp = 0;
 let isHandlingAudio = false;
 
-async function waitForNavigationReady(maxWaitMs: number = 8000): Promise<boolean> {
-  const startTime = Date.now();
-  while (!navigationRef.isReady() && Date.now() - startTime < maxWaitMs) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  return navigationRef.isReady();
-}
 
 export const EXTERNAL_AUDIO_UNSAVED_MSG = 'Archivo externo no guardado en la biblioteca';
 
@@ -55,7 +48,7 @@ export function createExternalTrack(info: ResolvedAudioInfo): Track {
     year: info.year || null,
     isPinned: false,
     isExcludedFromShuffle: false,
-    fetch: async () => albumObj,
+    fetch: () => Promise.resolve(albumObj),
     observe: () => of(albumObj),
   };
 
@@ -65,7 +58,7 @@ export function createExternalTrack(info: ResolvedAudioInfo): Track {
     normalizedName: normalizeText(artistName),
     imageUrl: null,
     isPinned: false,
-    fetch: async () => artistObj,
+    fetch: () => Promise.resolve(artistObj),
     observe: () => of(artistObj),
   };
 
@@ -101,25 +94,25 @@ export function createExternalTrack(info: ResolvedAudioInfo): Track {
 
     // WatermelonDB relation-like properties
     album: {
-      fetch: async () => albumObj,
+      fetch: () => Promise.resolve(albumObj),
       observe: () => of(albumObj),
       set: () => {
         /* In-memory external track relation no-op */
       },
     },
     artist: {
-      fetch: async () => artistObj,
+      fetch: () => Promise.resolve(artistObj),
       observe: () => of(artistObj),
       set: () => {
         /* In-memory external track relation no-op */
       },
     },
     queryCollaborators: {
-      fetch: async () => artistsList,
+      fetch: () => Promise.resolve(artistsList),
       observe: () => of(artistsList),
     },
     queryTags: {
-      fetch: async () => [],
+      fetch: () => Promise.resolve([]),
       observe: () => of([]),
     },
 
@@ -127,21 +120,14 @@ export function createExternalTrack(info: ResolvedAudioInfo): Track {
     observe: () => of(externalTrack as unknown as Track),
 
     // In-memory dummy implementations of Track methods
-    toggleLike: async () => {
+    toggleLike: () => {
       useToastStore.getState().showToast(EXTERNAL_AUDIO_UNSAVED_MSG, 'information-circle');
+      return Promise.resolve();
     },
-    updateRating: async () => {
-      /* In-memory external track no-op */
-    },
-    updateBgVideo: async () => {
-      /* In-memory external track no-op */
-    },
-    toggleExcludeFromShuffle: async () => {
-      /* In-memory external track no-op */
-    },
-    setExcludeFromShuffle: async () => {
-      /* In-memory external track no-op */
-    },
+    updateRating: () => Promise.resolve(),
+    updateBgVideo: () => Promise.resolve(),
+    toggleExcludeFromShuffle: () => Promise.resolve(),
+    setExcludeFromShuffle: () => Promise.resolve(),
   };
 
   return externalTrack as unknown as Track;

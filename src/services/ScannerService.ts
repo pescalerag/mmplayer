@@ -19,6 +19,7 @@ import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
 import { MediaAssetService } from './MediaAssetService';
+import { NotificationService } from './NotificationService';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -568,6 +569,16 @@ const performDeleteTracks = async (tracks: Track[]) => {
 };
 
 const showToastNotification = (created: number, deleted: number, reconciled: number, modified: number = 0, isSilent = false) => {
+    if (created > 0) {
+        NotificationService.addSongsAddedNotification(created).catch(() => {});
+    }
+    if (reconciled > 0) {
+        NotificationService.addSongsMovedNotification(reconciled).catch(() => {});
+    }
+    if (deleted > 0) {
+        NotificationService.addSongsDeletedNotification(deleted).catch(() => {});
+    }
+
     if (reconciled > 0) {
         const message = reconciled === 1
             ? i18n.t('toasts.library_reconciled', { count: reconciled })
