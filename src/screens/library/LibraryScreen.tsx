@@ -8,7 +8,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BackHandler, Dimensions, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, BackHandler, Dimensions, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State } from 'react-native-track-player';
@@ -28,6 +28,8 @@ import PlaybackHistory from '../../database/models/PlaybackHistory';
 import { LibraryNavigationProp } from '../../navigation/types';
 import { ScannerService } from '../../services/ScannerService';
 import { SmartListService, SmartList } from '../../services/SmartListService';
+import { useDelayedLoader } from '@/hooks/useDelayedLoader';
+import { SkeletonLibraryList, SkeletonLibraryGrid } from '@/components/common/Skeleton';
 
 
 
@@ -146,6 +148,16 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
         );
     };
 
+    const [isReady, setIsReady] = useState(false);
+    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
+
     const renderItem = React.useCallback((info: { item: Track }) => {
         const { item } = info;
         return (
@@ -154,6 +166,13 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
             </View>
         );
     }, []);
+
+    if (!isReady) {
+        if (showLoader) {
+            return <SkeletonLibraryList topOffset={topOffset} />;
+        }
+        return null;
+    }
 
     return (
         <FlashList
@@ -219,6 +238,16 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
+    const [isReady, setIsReady] = useState(false);
+    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
 
     const sortedAlbums = React.useMemo(() => {
         if (sortOption === 'year_asc' || sortOption === 'year_desc') {
@@ -235,6 +264,13 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             return isDesc ? -cmp : cmp;
         });
     }, [albums, sortOption]);
+
+    if (!isReady) {
+        if (showLoader) {
+            return <SkeletonLibraryGrid topOffset={topOffset} type="album" />;
+        }
+        return null;
+    }
 
     return (
         <FlashList
@@ -318,6 +354,15 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
     const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
     const setArtistFilter = useLibraryStore(state => state.setArtistFilter);
+    const [isReady, setIsReady] = useState(false);
+    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
 
     const sortedArtists = React.useMemo(() => {
         const isDesc = sortOption === 'name_desc';
@@ -331,6 +376,13 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
             return isDesc ? -cmp : cmp;
         });
     }, [artists, sortOption]);
+
+    if (!isReady) {
+        if (showLoader) {
+            return <SkeletonLibraryGrid topOffset={topOffset} type="artist" />;
+        }
+        return null;
+    }
 
     return (
         <FlashList
@@ -674,6 +726,15 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
     const navigation = useNavigation<LibraryNavigationProp>();
     const playlistFilter = useLibraryStore(state => state.playlistFilter);
     const setPlaylistFilter = useLibraryStore(state => state.setPlaylistFilter);
+    const [isReady, setIsReady] = useState(false);
+    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleCreatePlaylist = React.useCallback(() => {
         openPlaylistSelectorCreate();
@@ -799,6 +860,13 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             ...sortedPlaylists
         ];
     }, [playlistFilter, sortedPlaylists, genreLists, t]);
+
+    if (!isReady) {
+        if (showLoader) {
+            return <SkeletonLibraryGrid topOffset={topOffset} type="playlist" />;
+        }
+        return null;
+    }
 
     return (
         <FlashList
@@ -1019,7 +1087,17 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
+    const { colors } = useAppTheme();
     const navigation = useNavigation<any>();
+    const [isReady, setIsReady] = useState(false);
+    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Get unique leaf folders that directly contain tracks
     const folders = React.useMemo(() => {
@@ -1047,6 +1125,13 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
     const handleOpenFolder = React.useCallback((folder: Folder) => {
         navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name });
     }, [navigation]);
+
+    if (!isReady) {
+        if (showLoader) {
+            return <SkeletonLibraryGrid topOffset={topOffset} type="folder" />;
+        }
+        return null;
+    }
 
     return (
         <FlashList
@@ -1578,5 +1663,11 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '800',
+    },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 280,
     },
 });

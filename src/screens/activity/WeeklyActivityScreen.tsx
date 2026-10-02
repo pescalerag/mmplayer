@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -11,14 +11,225 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { database } from '../../database';
 import Track from '../../database/models/Track';
+import { useDelayedLoader } from '@/hooks/useDelayedLoader';
+import { SkeletonActivityScreen } from '@/components/common/Skeleton';
+import { formatDuration } from './utils/activityStatUtils';
 
-const { width } = Dimensions.get('window');
+interface WeeklyHeroCardProps {
+  readonly totalHours: number;
+}
+
+function WeeklyHeroCard({ totalHours }: WeeklyHeroCardProps) {
+  const { colors, fonts, radii } = useAppTheme();
+  const { t } = useTranslation();
+
+  return (
+    <View style={[styles.heroCard, { backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: radii.lg || 12 }]}>
+      <View style={styles.heroRow}>
+        <Ionicons name="time-outline" size={28} color={colors.accentLight} />
+        <Text style={[styles.heroValue, { fontFamily: fonts.bold, color: colors.text }]}>
+          {totalHours.toFixed(1)}{' '}
+          <Text style={styles.heroSuffix}>{t('activity.hour_suffix')}</Text>
+        </Text>
+      </View>
+      <Text style={[styles.heroLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+        {t('home.weekly_stats_hours_desc')}
+      </Text>
+    </View>
+  );
+}
+
+interface WeeklyHighlightCardProps {
+  readonly label: string;
+  readonly title: string;
+  readonly stat: string;
+  readonly imageUrl?: string | null;
+  readonly placeholderIcon: keyof typeof Ionicons.glyphMap;
+  readonly isAvatar?: boolean;
+  readonly actionIcon?: keyof typeof Ionicons.glyphMap;
+  readonly actionIconColor?: string;
+  readonly hasId: boolean;
+  readonly onPress: () => void;
+}
+
+function WeeklyHighlightCard({
+  label,
+  title,
+  stat,
+  imageUrl,
+  placeholderIcon,
+  isAvatar = false,
+  actionIcon,
+  actionIconColor,
+  hasId,
+  onPress,
+}: WeeklyHighlightCardProps) {
+  const { colors, fonts, radii } = useAppTheme();
+  const cardBorderRadius = radii.md || 8;
+  const imageBorderRadius = isAvatar ? 32 : (radii.sm || 4);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={!hasId}
+      activeOpacity={0.8}
+      style={[styles.highlightCard, { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: cardBorderRadius }]}
+    >
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={[isAvatar ? styles.avatar : styles.cover, { borderRadius: imageBorderRadius }]}
+        />
+      ) : (
+        <View
+          style={[
+            isAvatar ? styles.avatarPlaceholder : styles.coverPlaceholder,
+            { borderRadius: imageBorderRadius, backgroundColor: colors.accentAlpha30 },
+          ]}
+        >
+          <Ionicons name={placeholderIcon} size={28} color={colors.accentLight} />
+        </View>
+      )}
+      <View style={styles.cardInfo}>
+        <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
+          {label}
+        </Text>
+        <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
+          {stat}
+        </Text>
+      </View>
+      {hasId && (
+        <Ionicons
+          name={actionIcon ?? 'chevron-forward'}
+          size={20}
+          color={actionIconColor ?? colors.textSecondary}
+          style={styles.arrow}
+        />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function WeeklyEmptyState() {
+  const { colors, fonts } = useAppTheme();
+  const { t } = useTranslation();
+
+  return (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="bar-chart-outline" size={64} color={colors.textSecondary} style={styles.emptyIcon} />
+      <Text style={[styles.emptyText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+        {t('home.weekly_stats_empty')}
+      </Text>
+    </View>
+  );
+}
+
+interface WeeklyHighlightsSectionProps {
+  readonly totalHours: number;
+  readonly topArtist: string;
+  readonly topArtistId: string;
+  readonly topArtistImg: string | null;
+  readonly topArtistDuration: number;
+  readonly topAlbum: string;
+  readonly topAlbumId: string;
+  readonly topAlbumImg: string | null;
+  readonly topAlbumDuration: number;
+  readonly topSong: string;
+  readonly topSongId: string;
+  readonly topSongImg: string | null;
+  readonly topSongArtist: string;
+  readonly topSongDuration: number;
+  readonly onArtistPress: () => void;
+  readonly onAlbumPress: () => void;
+  readonly onSongPress: () => void;
+}
+
+function WeeklyHighlightsSection({
+  totalHours,
+  topArtist,
+  topArtistId,
+  topArtistImg,
+  topArtistDuration,
+  topAlbum,
+  topAlbumId,
+  topAlbumImg,
+  topAlbumDuration,
+  topSong,
+  topSongId,
+  topSongImg,
+  topSongArtist,
+  topSongDuration,
+  onArtistPress,
+  onAlbumPress,
+  onSongPress,
+}: WeeklyHighlightsSectionProps) {
+  const { fonts, colors } = useAppTheme();
+  const { t } = useTranslation();
+
+  const artistStat = t('home.weekly_stats_play_time', {
+    time: formatDuration(topArtistDuration, t),
+  });
+  const albumStat = t('home.weekly_stats_play_time', {
+    time: formatDuration(topAlbumDuration, t),
+  });
+  const songArtistText = topSongArtist || t('activity.unknown_artist');
+  const songStat = `${songArtistText} · ${formatDuration(topSongDuration, t)}`;
+  const noneText = t('activity.none');
+
+  return (
+    <>
+      <WeeklyHeroCard totalHours={totalHours} />
+
+      <Text style={[styles.sectionHeading, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
+        {t('home.weekly_highlights')}
+      </Text>
+
+      <WeeklyHighlightCard
+        label={t('home.weekly_stats_artist')}
+        title={topArtist || noneText}
+        stat={artistStat}
+        imageUrl={topArtistImg}
+        placeholderIcon="person"
+        isAvatar
+        actionIcon="chevron-forward"
+        hasId={Boolean(topArtistId)}
+        onPress={onArtistPress}
+      />
+
+      <WeeklyHighlightCard
+        label={t('home.weekly_stats_album')}
+        title={topAlbum || noneText}
+        stat={albumStat}
+        imageUrl={topAlbumImg}
+        placeholderIcon="albums"
+        actionIcon="chevron-forward"
+        hasId={Boolean(topAlbumId)}
+        onPress={onAlbumPress}
+      />
+
+      <WeeklyHighlightCard
+        label={t('home.weekly_stats_song')}
+        title={topSong || noneText}
+        stat={songStat}
+        imageUrl={topSongImg}
+        placeholderIcon="musical-note"
+        actionIcon="play"
+        actionIconColor={colors.accentLight}
+        hasId={Boolean(topSongId)}
+        onPress={onSongPress}
+      />
+    </>
+  );
+}
 
 export default function WeeklyActivityScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
-  const { colors, fonts, spacing, radii } = useAppTheme();
+  const { colors, fonts } = useAppTheme();
 
   const {
     totalHours,
@@ -38,44 +249,35 @@ export default function WeeklyActivityScreen() {
     isLoading,
   } = useStatsStore();
 
+  const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 500 });
+
   useFocusEffect(
-    React.useCallback(() => {
-      useStatsStore.getState().fetchStats();
+    useCallback(() => {
+      void useStatsStore.getState().fetchStats();
     }, [])
   );
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds || seconds <= 0) return `0 ${t('activity.min_suffix')}`;
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) {
-      return `${minutes} ${t('activity.min_suffix')}`;
-    }
-    const hours = (seconds / 3600).toFixed(1);
-    return `${hours} ${t('activity.hour_suffix')}`;
-  };
-
-  const handleArtistPress = () => {
+  const handleArtistPress = useCallback(() => {
     if (topArtistId) {
       navigation.navigate('ArtistDetail', { artistId: topArtistId });
     }
-  };
+  }, [navigation, topArtistId]);
 
-  const handleAlbumPress = () => {
+  const handleAlbumPress = useCallback(() => {
     if (topAlbumId) {
       navigation.navigate('AlbumDetail', { albumId: topAlbumId });
     }
-  };
+  }, [navigation, topAlbumId]);
 
-  const handleSongPress = async () => {
-    if (topSongId) {
-      try {
-        const track = await database.get<Track>('tracks').find(topSongId);
-        usePlayerStore.getState().playSingleTrack(track, 'weekly-activity');
-      } catch (err) {
-        console.warn("[WeeklyActivityScreen] Failed to play top track:", err);
-      }
+  const handleSongPress = useCallback(async () => {
+    if (!topSongId) return;
+    try {
+      const track = await database.get<Track>('tracks').find(topSongId);
+      await usePlayerStore.getState().playSingleTrack(track, 'weekly-activity');
+    } catch (err) {
+      console.warn('[WeeklyActivityScreen] Failed to play top track:', err);
     }
-  };
+  }, [topSongId]);
 
   const hasActivity = totalHours > 0;
 
@@ -104,134 +306,38 @@ export default function WeeklyActivityScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.accentLight || colors.accent} size="large" />
-        </View>
-      ) : (
+      {showLoader && <SkeletonActivityScreen topOffset={12} />}
+
+      {!showLoader && !isLoading && (
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-        {hasActivity ? (
-          <>
-            {/* TOTAL HOURS HERO CARD */}
-            <View style={[styles.heroCard, { backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: radii.lg || 12 }]}>
-              <View style={styles.heroRow}>
-                <Ionicons name="time-outline" size={28} color={colors.accentLight} />
-                <Text style={[styles.heroValue, { fontFamily: fonts.bold, color: colors.text }]}>
-                  {totalHours.toFixed(1)} <Text style={{ fontSize: 16, fontWeight: '500' }}>{t('activity.hour_suffix')}</Text>
-                </Text>
-              </View>
-              <Text style={[styles.heroLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                {t('home.weekly_stats_hours_desc')}
-              </Text>
-            </View>
-
-            <Text style={[styles.sectionHeading, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
-              {t('home.weekly_highlights')}
-            </Text>
-
-            {/* TOP ARTIST CARD */}
-            <TouchableOpacity
-              onPress={handleArtistPress}
-              disabled={!topArtistId}
-              activeOpacity={0.8}
-              style={[styles.highlightCard, { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: radii.md || 8 }]}
-            >
-              {topArtistImg ? (
-                <Image source={{ uri: topArtistImg }} style={[styles.avatar, { borderRadius: 32 }]} />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { borderRadius: 32, backgroundColor: colors.accentAlpha30 }]}>
-                  <Ionicons name="person" size={28} color={colors.accentLight} />
-                </View>
-              )}
-              <View style={styles.cardInfo}>
-                <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_artist')}
-                </Text>
-                <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                  {topArtist || t('activity.none')}
-                </Text>
-                <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_play_time', { time: formatDuration(topArtistDuration) })}
-                </Text>
-              </View>
-              {topArtistId ? (
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={styles.arrow} />
-              ) : null}
-            </TouchableOpacity>
-
-            {/* TOP ALBUM CARD */}
-            <TouchableOpacity
-              onPress={handleAlbumPress}
-              disabled={!topAlbumId}
-              activeOpacity={0.8}
-              style={[styles.highlightCard, { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: radii.md || 8 }]}
-            >
-              {topAlbumImg ? (
-                <Image source={{ uri: topAlbumImg }} style={[styles.cover, { borderRadius: radii.sm || 4 }]} />
-              ) : (
-                <View style={[styles.coverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
-                  <Ionicons name="albums" size={28} color={colors.accentLight} />
-                </View>
-              )}
-              <View style={styles.cardInfo}>
-                <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_album')}
-                </Text>
-                <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                  {topAlbum || t('activity.none')}
-                </Text>
-                <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_play_time', { time: formatDuration(topAlbumDuration) })}
-                </Text>
-              </View>
-              {topAlbumId ? (
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={styles.arrow} />
-              ) : null}
-            </TouchableOpacity>
-
-            {/* TOP SONG CARD */}
-            <TouchableOpacity
-              onPress={handleSongPress}
-              disabled={!topSongId}
-              activeOpacity={0.8}
-              style={[styles.highlightCard, { backgroundColor: 'rgba(255, 255, 255, 0.04)', borderRadius: radii.md || 8 }]}
-            >
-              {topSongImg ? (
-                <Image source={{ uri: topSongImg }} style={[styles.cover, { borderRadius: radii.sm || 4 }]} />
-              ) : (
-                <View style={[styles.coverPlaceholder, { borderRadius: radii.sm || 4, backgroundColor: colors.accentAlpha30 }]}>
-                  <Ionicons name="musical-note" size={28} color={colors.accentLight} />
-                </View>
-              )}
-              <View style={styles.cardInfo}>
-                <Text style={[styles.cardLabel, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
-                  {t('home.weekly_stats_song')}
-                </Text>
-                <Text style={[styles.cardTitle, { fontFamily: fonts.bold, color: colors.text }]} numberOfLines={1}>
-                  {topSong || t('activity.none')}
-                </Text>
-                <Text style={[styles.cardStat, { fontFamily: fonts.regular, color: colors.textSecondary }]} numberOfLines={1}>
-                  {topSongArtist || t('activity.unknown_artist')} · {formatDuration(topSongDuration)}
-                </Text>
-              </View>
-              {topSongId ? (
-                <Ionicons name="play" size={20} color={colors.accentLight} style={styles.arrow} />
-              ) : null}
-            </TouchableOpacity>
-          </>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="bar-chart-outline" size={64} color={colors.textSecondary} style={{ marginBottom: 16, opacity: 0.5 }} />
-            <Text style={[styles.emptyText, { fontFamily: fonts.bold, color: colors.textSecondary }]}>
-              {t('home.weekly_stats_empty')}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          {hasActivity ? (
+            <WeeklyHighlightsSection
+              totalHours={totalHours}
+              topArtist={topArtist}
+              topArtistId={topArtistId}
+              topArtistImg={topArtistImg}
+              topArtistDuration={topArtistDuration}
+              topAlbum={topAlbum}
+              topAlbumId={topAlbumId}
+              topAlbumImg={topAlbumImg}
+              topAlbumDuration={topAlbumDuration}
+              topSong={topSong}
+              topSongId={topSongId}
+              topSongImg={topSongImg}
+              topSongArtist={topSongArtist}
+              topSongDuration={topSongDuration}
+              onArtistPress={handleArtistPress}
+              onAlbumPress={handleAlbumPress}
+              onSongPress={handleSongPress}
+            />
+          ) : (
+            <WeeklyEmptyState />
+          )}
+        </ScrollView>
       )}
     </View>
   );
@@ -283,6 +389,10 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 28,
     fontWeight: '900',
+  },
+  heroSuffix: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   heroLabel: {
     fontSize: 11,
@@ -346,17 +456,15 @@ const styles = StyleSheet.create({
   arrow: {
     marginLeft: 12,
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 280,
-  },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 80,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+    opacity: 0.5,
   },
   emptyText: {
     fontSize: 15,

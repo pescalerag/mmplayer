@@ -52,6 +52,8 @@ import { getDynamicTagTextColor } from '../../utils/color';
 
 import { useTranslation } from "react-i18next";
 import { HistoryService } from "../../services/HistoryService";
+import { useDelayedLoader } from "@/hooks/useDelayedLoader";
+import { SkeletonSearchScreen } from "@/components/common/Skeleton";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -343,6 +345,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [isReady, setIsReady] = useState(false);
+  const showInitialLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
 
   useEffect(() => {
     // A brief delay to allow WatermelonDB query to settle and populate tags
@@ -534,6 +537,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const isSearching = isTextSearching;
   const isCurrentlySearching = isSearching || isAdvancedSearching;
   const isLoading = isTextSearchLoading || isAdvancedLoading;
+  const showSearchLoader = useDelayedLoader(isLoading, { delay: 200, minDisplayTime: 400 });
 
   // Clear advanced search if query text changes
   useEffect(() => {
@@ -1109,7 +1113,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               </TouchableOpacity>
             )}
           </View>
-          {isLoading && (
+          {showSearchLoader && (
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="small" color={colors.accent} />
             </View>
@@ -1240,11 +1244,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         />
-      ) : (
-        <View style={{ flex: 1, paddingTop: headerHeight + 60, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      )}
+      ) : showInitialLoader ? (
+        <SkeletonSearchScreen topOffset={headerHeight + 10} />
+      ) : null}
 
       {/* Tutorial Contextual Spotlight de Búsqueda */}
       <SearchSpotlightTutorial
