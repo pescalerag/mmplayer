@@ -12,7 +12,7 @@ import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
     AppState,
     AppStateStatus,
@@ -249,22 +249,34 @@ const PlayerArtwork = ({
     cardBackgroundColor,
     textSecondaryColor,
 }: PlayerArtworkProps) => {
-    const [hasError, setHasError] = React.useState(false);
-
-    React.useEffect(() => {
-        setHasError(false);
-    }, [coverUrl]);
+    const [hasError, setHasError] = useState(false);
+    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
     // Mirror BlurredBackground: keep lastValidUriRef so null intermediates
     // (during track change while observable resolves) never flash a placeholder.
-    const lastValidUriRef = React.useRef<string | null>(coverUrl || null);
+    const lastValidUriRef = useRef<string | null>(coverUrl || null);
+
+    useEffect(() => {
+        setHasError(false);
+        if (coverUrl) {
+            lastValidUriRef.current = coverUrl;
+        } else {
+            // If coverUrl stays null (genuine no-cover track), clear previous image after short grace period
+            const timer = setTimeout(() => {
+                lastValidUriRef.current = null;
+                forceUpdate();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [coverUrl]);
+
     if (coverUrl) {
         lastValidUriRef.current = coverUrl;
     }
     const effectiveUri = coverUrl || lastValidUriRef.current;
     const showPlaceholder = !effectiveUri || hasError;
 
-    const imageSource = React.useMemo(
+    const imageSource = useMemo(
         () => (effectiveUri ? { uri: effectiveUri } : null),
         [effectiveUri]
     );
@@ -295,8 +307,7 @@ const PlayerArtwork = ({
                     source={imageSource}
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
-                    transition={0}
-                    recyclingKey={imageSource?.uri}
+                    transition={250}
                     cachePolicy="memory-disk"
                     onError={() => setHasError(true)}
                 />
@@ -331,16 +342,30 @@ const fetchAlbumCover = (
 
 const resolveAdjacentTrackPair = async (queue: any[], activeIndex: number | null | undefined) => {
     if (activeIndex === undefined || activeIndex === null || queue.length === 0) {
-        return { prevM: null, nextM: null };
+        return { prevM: null, nextM: null, prevArtwork: null, nextArtwork: null };
     }
-    const prevM = activeIndex > 0 ? await getCleanTrackModel(queue[activeIndex - 1]) : null;
-    const nextM = activeIndex < queue.length - 1 ? await getCleanTrackModel(queue[activeIndex + 1]) : null;
-    return { prevM, nextM };
+    const repeatMode = await TrackPlayer.getRepeatMode().catch(() => RepeatMode.Off);
+    const isLooping = repeatMode !== RepeatMode.Off;
+
+    let prevItem = activeIndex > 0 ? queue[activeIndex - 1] : null;
+    let nextItem = activeIndex < queue.length - 1 ? queue[activeIndex + 1] : null;
+
+    if (isLooping && queue.length > 1) {
+        if (!prevItem) prevItem = queue.at(-1);
+        if (!nextItem) nextItem = queue[0];
+    }
+
+    const prevM = prevItem ? await getCleanTrackModel(prevItem) : null;
+    const nextM = nextItem ? await getCleanTrackModel(nextItem) : null;
+    const prevArtwork = (prevItem?.artwork as string) || null;
+    const nextArtwork = (nextItem?.artwork as string) || null;
+
+    return { prevM, nextM, prevArtwork, nextArtwork };
 };
 
 const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion: number) => {
-    const [prevTrackModel, setPrevTrackModel] = useState<Track | null>(null);
-    const [nextTrackModel, setNextTrackModel] = useState<Track | null>(null);
+    const [prevTrackModel, setPrevTrackModel] = useState<Track | null>(() => usePlayerStore.getState().prevTrack);
+    const [nextTrackModel, setNextTrackModel] = useState<Track | null>(() => usePlayerStore.getState().nextTrack);
     const [prevCoverUrl, setPrevCoverUrl] = useState<string | null>(null);
     const [nextCoverUrl, setNextCoverUrl] = useState<string | null>(null);
 
@@ -355,24 +380,35 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
             try {
                 const queue = await TrackPlayer.getQueue();
                 const activeIndex = await TrackPlayer.getActiveTrackIndex();
-                const { prevM, nextM } = await resolveAdjacentTrackPair(queue, activeIndex);
+                const { prevM, nextM, prevArtwork, nextArtwork } = await resolveAdjacentTrackPair(queue, activeIndex);
                 if (isMounted) {
                     setPrevTrackModel(prevM);
                     setNextTrackModel(nextM);
+                    if (prevArtwork) {
+                        setPrevCoverUrl(prevArtwork);
+                        getOrExtractColor(prevArtwork).catch(() => {});
+                    }
+                    if (nextArtwork) {
+                        setNextCoverUrl(nextArtwork);
+                        getOrExtractColor(nextArtwork).catch(() => {});
+                    }
                 }
             } catch (e) {
                 console.error("Error sincronizando canciones adyacentes en PlayerScreen:", e);
             }
         };
 
-        syncAdjacent();
+        void syncAdjacent();
         return () => { isMounted = false; };
     }, [trackId, queueVersion, windowVersion]);
 
     useEffect(() => {
         let isMounted = true;
         fetchAlbumCover(prevTrackModel, (url) => {
-            if (isMounted) setPrevCoverUrl(url);
+            if (isMounted && url) {
+                setPrevCoverUrl(url);
+                getOrExtractColor(url).catch(() => {});
+            }
         });
         return () => { isMounted = false; };
     }, [prevTrackModel]);
@@ -380,7 +416,10 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
     useEffect(() => {
         let isMounted = true;
         fetchAlbumCover(nextTrackModel, (url) => {
-            if (isMounted) setNextCoverUrl(url);
+            if (isMounted && url) {
+                setNextCoverUrl(url);
+                getOrExtractColor(url).catch(() => {});
+            }
         });
         return () => { isMounted = false; };
     }, [nextTrackModel]);
@@ -391,7 +430,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         nextCoverUrlRef.current = nextCoverUrl;
-        if (nextCoverUrl) Image.prefetch(nextCoverUrl);
+        if (nextCoverUrl) void Image.prefetch(nextCoverUrl);
     }, [nextCoverUrl]);
 
     useEffect(() => {
@@ -400,7 +439,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         prevCoverUrlRef.current = prevCoverUrl;
-        if (prevCoverUrl) Image.prefetch(prevCoverUrl);
+        if (prevCoverUrl) void Image.prefetch(prevCoverUrl);
     }, [prevCoverUrl]);
 
     return {
@@ -427,6 +466,54 @@ const resolveAdjacentCoverFallback = (
     return null;
 };
 
+const playerCoverColorCache = new Map<string, string>();
+
+const getCleanUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    return url.split('?')[0];
+};
+
+const getCachedCoverColor = (url: string | null, localExtracted?: Record<string, string>): string | null => {
+    if (!url) return null;
+    const cleanUrl = getCleanUrl(url);
+
+    const memoryColor = playerCoverColorCache.get(url) || (cleanUrl ? playerCoverColorCache.get(cleanUrl) : undefined);
+    if (memoryColor) return memoryColor;
+
+    if (localExtracted) {
+        const extractedColor = localExtracted[url] || (cleanUrl ? localExtracted[cleanUrl] : undefined);
+        if (extractedColor) return extractedColor;
+    }
+
+    return null;
+};
+
+const getOrExtractColor = async (url: string | null): Promise<string | null> => {
+    if (!url) return null;
+    const cleanUrl = getCleanUrl(url);
+    if (!cleanUrl) return null;
+
+    if (playerCoverColorCache.has(url)) return playerCoverColorCache.get(url)!;
+    if (playerCoverColorCache.has(cleanUrl)) {
+        const cached = playerCoverColorCache.get(cleanUrl)!;
+        playerCoverColorCache.set(url, cached);
+        return cached;
+    }
+
+    try {
+        const color = await extractColorFromImage(cleanUrl);
+        if (color) {
+            playerCoverColorCache.set(url, color);
+            playerCoverColorCache.set(cleanUrl, color);
+            return color;
+        }
+        return null;
+    } catch (e) {
+        console.error("Error extracting color from image in PlayerScreen:", e);
+        return null;
+    }
+};
+
 const usePlayerCover = (
     track: Track,
     album: Album | null,
@@ -442,23 +529,28 @@ const usePlayerCover = (
         let isMounted = true;
         setAsyncCoverUrl(null);
 
-        track.album.fetch().then((alb: any) => {
-            if (isMounted && alb?.coverUrl) {
-                setAsyncCoverUrl(alb.coverUrl);
-                return;
+        const loadCover = async () => {
+            try {
+                const alb: any = await track.album.fetch();
+                if (isMounted && alb?.coverUrl) {
+                    setAsyncCoverUrl(alb.coverUrl);
+                    return;
+                }
+            } catch {
+                // Ignore album fetch error and proceed to TrackPlayer fallback
             }
-            TrackPlayer.getActiveTrack().then((tp: any) => {
+
+            try {
+                const tp: any = await TrackPlayer.getActiveTrack();
                 if (isMounted && tp?.artwork) {
                     setAsyncCoverUrl(tp.artwork);
                 }
-            }).catch(() => { });
-        }).catch(() => {
-            TrackPlayer.getActiveTrack().then((tp: any) => {
-                if (isMounted && tp?.artwork) {
-                    setAsyncCoverUrl(tp.artwork);
-                }
-            }).catch(() => { });
-        });
+            } catch {
+                // Ignore active track fetch error
+            }
+        };
+
+        void loadCover();
 
         return () => { isMounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -486,27 +578,49 @@ const usePlayerCover = (
 
     const currentCoverUrl: string | null = stableCoverRef.current.url;
 
-    const [coverColor, setCoverColor] = useState<string | null>(null);
+    const [extractedColors, setExtractedColors] = useState<Record<string, string>>({});
+
+    const rawCoverColor = getCachedCoverColor(currentCoverUrl, extractedColors);
+    const rawPrevCoverColor = getCachedCoverColor(prevCoverUrl, extractedColors);
+    const rawNextCoverColor = getCachedCoverColor(nextCoverUrl, extractedColors);
+
+    // If adjacent track shares cover with current track, immediately reuse coverColor
+    const prevCoverColor = rawPrevCoverColor || (
+        prevCoverUrl && currentCoverUrl && getCleanUrl(prevCoverUrl) === getCleanUrl(currentCoverUrl)
+            ? rawCoverColor
+            : null
+    );
+
+    const nextCoverColor = rawNextCoverColor || (
+        nextCoverUrl && currentCoverUrl && getCleanUrl(nextCoverUrl) === getCleanUrl(currentCoverUrl)
+            ? rawCoverColor
+            : null
+    );
+
+    const coverColor = rawCoverColor;
 
     useEffect(() => {
         let isMounted = true;
-        if (!currentCoverUrl) {
-            setCoverColor(null);
-            return () => { isMounted = false; };
-        }
+        const urlsToExtract = [currentCoverUrl, prevCoverUrl, nextCoverUrl].filter(
+            (url): url is string => Boolean(url && !getCachedCoverColor(url, extractedColors))
+        );
 
-        extractColorFromImage(currentCoverUrl)
-            .then(color => {
-                if (isMounted && color) {
-                    setCoverColor(color);
-                }
-            })
-            .catch(err => {
-                console.error("Error extracting cover color in PlayerScreen:", err);
-            });
+        urlsToExtract.forEach(url => {
+            void getOrExtractColor(url)
+                .then(color => {
+                    if (isMounted && color) {
+                        setExtractedColors(prev => ({ ...prev, [url]: color }));
+                    }
+                })
+                .catch(() => {
+                    // Ignore extraction errors
+                });
+        });
 
-        return () => { isMounted = false; };
-    }, [currentCoverUrl]);
+        return () => {
+            isMounted = false;
+        };
+    }, [currentCoverUrl, prevCoverUrl, nextCoverUrl, extractedColors]);
 
     const { finalBgColor, topGradientColor, bottomGradientColor } = useMemo(() => {
         if (!coverColor) {
@@ -524,12 +638,46 @@ const usePlayerCover = (
         };
     }, [coverColor, defaultBackground]);
 
+    const { prevTopGradientColor, prevBottomGradientColor } = useMemo(() => {
+        if (!prevCoverColor) {
+            return {
+                prevTopGradientColor: defaultBackground,
+                prevBottomGradientColor: defaultBackground,
+            };
+        }
+        const grads = generateDarkGradients(prevCoverColor, defaultBackground);
+        return {
+            prevTopGradientColor: grads.topGradient,
+            prevBottomGradientColor: grads.bottomGradient,
+        };
+    }, [prevCoverColor, defaultBackground]);
+
+    const { nextTopGradientColor, nextBottomGradientColor } = useMemo(() => {
+        if (!nextCoverColor) {
+            return {
+                nextTopGradientColor: defaultBackground,
+                nextBottomGradientColor: defaultBackground,
+            };
+        }
+        const grads = generateDarkGradients(nextCoverColor, defaultBackground);
+        return {
+            nextTopGradientColor: grads.topGradient,
+            nextBottomGradientColor: grads.bottomGradient,
+        };
+    }, [nextCoverColor, defaultBackground]);
+
     return {
         currentCoverUrl,
         coverColor,
         finalBgColor,
         topGradientColor,
         bottomGradientColor,
+        prevCoverColor,
+        prevTopGradientColor,
+        prevBottomGradientColor,
+        nextCoverColor,
+        nextTopGradientColor,
+        nextBottomGradientColor,
     };
 };
 
@@ -759,7 +907,7 @@ interface UsePlayerGesturesParams {
 }
 
 const triggerHaptic = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 };
 
 const usePlayerGestures = ({
@@ -926,6 +1074,7 @@ interface PlayerBackgroundSlotProps {
     showCanvas: boolean;
     isImmersive?: boolean;
     slotKey: string;
+    showImage?: boolean;
 }
 
 const PlayerBackgroundSlot = React.memo(({
@@ -937,6 +1086,7 @@ const PlayerBackgroundSlot = React.memo(({
     showCanvas,
     isImmersive = false,
     slotKey,
+    showImage = true,
 }: PlayerBackgroundSlotProps) => {
     const hasVideo = showCanvas && !!bgVideo;
 
@@ -951,10 +1101,11 @@ const PlayerBackgroundSlot = React.memo(({
                 />
             ) : (
                 <BlurredBackground
-                    key={`blur-${slotKey}-${trackModel?.id || 'curr'}`}
-                    imageUrl={coverUrl}
+                    key={`blur-${slotKey}`}
+                    imageUrl={showImage ? coverUrl : null}
                     blurIntensity={10}
                     gradientColors={gradientColors}
+                    showImage={showImage}
                 />
             )}
         </View>
@@ -979,6 +1130,12 @@ interface PlayerBackgroundProps {
     coverColor: string | null;
     topGradientColor: string;
     bottomGradientColor: string;
+    prevCoverColor?: string | null;
+    prevTopGradientColor?: string;
+    prevBottomGradientColor?: string;
+    nextCoverColor?: string | null;
+    nextTopGradientColor?: string;
+    nextBottomGradientColor?: string;
     backgroundColor: string;
 }
 
@@ -999,19 +1156,60 @@ const PlayerBackground = React.memo(({
     coverColor,
     topGradientColor,
     bottomGradientColor,
+    prevCoverColor,
+    prevTopGradientColor,
+    prevBottomGradientColor,
+    nextCoverColor,
+    nextTopGradientColor,
+    nextBottomGradientColor,
     backgroundColor,
 }: PlayerBackgroundProps) => {
+    const isGradientMode = playerBackgroundStyle === 'gradient';
+
     const defaultGrad = useMemo(
         () => ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', backgroundColor],
         [backgroundColor]
     );
 
+    const lastValidCurrGradRef = useRef<string[] | null>(null);
+
     const currGrad = useMemo(() => {
-        if (playerBackgroundStyle === 'gradient' && coverColor) {
-            return [topGradientColor, bottomGradientColor, bottomGradientColor];
+        if (isGradientMode) {
+            if (coverColor) {
+                const grad = [topGradientColor, bottomGradientColor, bottomGradientColor];
+                lastValidCurrGradRef.current = grad;
+                return grad;
+            }
+            return lastValidCurrGradRef.current || ['#121212', backgroundColor, backgroundColor];
         }
         return defaultGrad;
-    }, [playerBackgroundStyle, coverColor, topGradientColor, bottomGradientColor, defaultGrad]);
+    }, [isGradientMode, coverColor, topGradientColor, bottomGradientColor, defaultGrad, backgroundColor]);
+
+    const prevGrad = useMemo(() => {
+        if (isGradientMode) {
+            if (prevCoverColor && prevTopGradientColor && prevBottomGradientColor) {
+                return [prevTopGradientColor, prevBottomGradientColor, prevBottomGradientColor];
+            }
+            if (coverColor) {
+                return [topGradientColor, bottomGradientColor, bottomGradientColor];
+            }
+            return lastValidCurrGradRef.current || ['#121212', backgroundColor, backgroundColor];
+        }
+        return defaultGrad;
+    }, [isGradientMode, prevCoverColor, prevTopGradientColor, prevBottomGradientColor, coverColor, topGradientColor, bottomGradientColor, defaultGrad, backgroundColor]);
+
+    const nextGrad = useMemo(() => {
+        if (isGradientMode) {
+            if (nextCoverColor && nextTopGradientColor && nextBottomGradientColor) {
+                return [nextTopGradientColor, nextBottomGradientColor, nextBottomGradientColor];
+            }
+            if (coverColor) {
+                return [topGradientColor, bottomGradientColor, bottomGradientColor];
+            }
+            return lastValidCurrGradRef.current || ['#121212', backgroundColor, backgroundColor];
+        }
+        return defaultGrad;
+    }, [isGradientMode, nextCoverColor, nextTopGradientColor, nextBottomGradientColor, coverColor, topGradientColor, bottomGradientColor, defaultGrad, backgroundColor]);
 
     const canvasGrad = useMemo(
         () => ['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)'],
@@ -1030,7 +1228,8 @@ const PlayerBackground = React.memo(({
                     bgVideo={prevTrackModel?.bgVideo}
                     showCanvas={showCanvas}
                     isImmersive={false}
-                    gradientColors={prevTrackModel?.bgVideo && showCanvas ? canvasGrad : defaultGrad}
+                    gradientColors={prevTrackModel?.bgVideo && showCanvas ? canvasGrad : prevGrad}
+                    showImage={!isGradientMode}
                 />
 
                 {/* Slot 0: Current */}
@@ -1043,6 +1242,7 @@ const PlayerBackground = React.memo(({
                     showCanvas={showCanvas}
                     isImmersive={isImmersive}
                     gradientColors={track.bgVideo && showCanvas ? canvasGrad : currGrad}
+                    showImage={!isGradientMode}
                 />
 
                 {/* Slot +1: Next */}
@@ -1054,7 +1254,8 @@ const PlayerBackground = React.memo(({
                     bgVideo={nextTrackModel?.bgVideo}
                     showCanvas={showCanvas}
                     isImmersive={false}
-                    gradientColors={nextTrackModel?.bgVideo && showCanvas ? canvasGrad : defaultGrad}
+                    gradientColors={nextTrackModel?.bgVideo && showCanvas ? canvasGrad : nextGrad}
+                    showImage={!isGradientMode}
                 />
             </Animated.View>
         </View>
@@ -2290,7 +2491,7 @@ const usePlayerActions = (track: Track, t: any) => {
     }, [repeatMode]);
 
     const toggleShuffle = useCallback(() => {
-        usePlayerStore.getState().toggleShuffle();
+        void usePlayerStore.getState().toggleShuffle();
     }, []);
 
     const heartScale = useSharedValue(1);
@@ -2393,10 +2594,6 @@ const PlayerScreenUI = ({
         nextTrackModel,
         prevCoverUrl,
         nextCoverUrl,
-        nextTrackModelRef,
-        nextCoverUrlRef,
-        prevTrackModelRef,
-        prevCoverUrlRef,
     } = useAdjacentTracks(track.id, queueVersion, windowVersion);
 
     // Cover & background colors
@@ -2406,13 +2603,19 @@ const PlayerScreenUI = ({
         finalBgColor,
         topGradientColor,
         bottomGradientColor,
+        prevCoverColor,
+        prevTopGradientColor,
+        prevBottomGradientColor,
+        nextCoverColor,
+        nextTopGradientColor,
+        nextBottomGradientColor,
     } = usePlayerCover(
         track,
         album,
-        nextTrackModelRef.current,
-        prevTrackModelRef.current,
-        nextCoverUrlRef.current,
-        prevCoverUrlRef.current,
+        nextTrackModel,
+        prevTrackModel,
+        nextCoverUrl,
+        prevCoverUrl,
         colors.background
     );
 
@@ -2580,6 +2783,12 @@ const PlayerScreenUI = ({
                     coverColor={coverColor}
                     topGradientColor={topGradientColor}
                     bottomGradientColor={bottomGradientColor}
+                    prevCoverColor={prevCoverColor}
+                    prevTopGradientColor={prevTopGradientColor}
+                    prevBottomGradientColor={prevBottomGradientColor}
+                    nextCoverColor={nextCoverColor}
+                    nextTopGradientColor={nextTopGradientColor}
+                    nextBottomGradientColor={nextBottomGradientColor}
                     backgroundColor={colors.background}
                 />
 

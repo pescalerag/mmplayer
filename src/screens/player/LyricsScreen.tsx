@@ -553,7 +553,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
         <View style={[styles.root, { backgroundColor: finalBgColor }]}>
             {/* Blurred Background */}
             <BlurredBackground
-                key={`blur-${track.id}`}
+                key="blur-lyrics"
                 imageUrl={album?.coverUrl || undefined}
                 blurIntensity={100}
                 gradientColors={

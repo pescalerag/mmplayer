@@ -199,24 +199,26 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     // Se considera en pausa cuando no se está reproduciendo activamente (Playing o Buffering)
     // y no hay una carga de cola en curso.
     const isPaused = !isQueueLoading && !isPlaybackLoading && playbackState.state !== State.Playing;
+    const isCasting = useCastStore(state => state.isLocalCastActive || state.isChromecastConnected);
+    const shouldShowClose = isPaused && !isCasting;
 
-    const closeButtonProgress = useSharedValue(isPaused ? 1 : 0);
+    const closeButtonProgress = useSharedValue(shouldShowClose ? 1 : 0);
 
-    // Cuando cambia la pista, si no está en pausa reseteamos el botón para evitar parpadeos;
-    // si está en pausa (ej. al montar o restaurar), se sincroniza con el estado actual
+    // Cuando cambia la pista, si no debe mostrarse reseteamos el botón para evitar parpadeos;
+    // si debe mostrarse (ej. al montar o pausar sin castear), se sincroniza con el estado actual
     const prevTrackIdRef = React.useRef(track.id);
     React.useEffect(() => {
         if (prevTrackIdRef.current !== track.id) {
             prevTrackIdRef.current = track.id;
-            closeButtonProgress.value = isPaused ? 1 : 0;
+            closeButtonProgress.value = shouldShowClose ? 1 : 0;
         }
-    }, [track.id, isPaused, closeButtonProgress]);
+    }, [track.id, shouldShowClose, closeButtonProgress]);
 
     React.useEffect(() => {
-        closeButtonProgress.value = withTiming(isPaused ? 1 : 0, {
+        closeButtonProgress.value = withTiming(shouldShowClose ? 1 : 0, {
             duration: 250,
         });
-    }, [isPaused, closeButtonProgress]);
+    }, [shouldShowClose, closeButtonProgress]);
 
     const animatedCloseButtonStyle = useAnimatedStyle(() => ({
         width: closeButtonProgress.value * 30,
@@ -226,7 +228,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     }));
 
     const handleOpenClearQueue = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         openClearQueueSheet();
     };
 
@@ -238,7 +240,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     const SWIPE_THRESHOLD = 60;
 
     const triggerHaptic = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
     const skipNext = () => usePlayerStore.getState().skipToNext().catch(() => { });
@@ -283,13 +285,14 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
                         <View style={styles.swipeableContent}>
                             <Animated.View
                                 style={[styles.closeButtonWrapper, animatedCloseButtonStyle]}
-                                pointerEvents={isPaused ? 'auto' : 'none'}
+                                pointerEvents={shouldShowClose ? 'auto' : 'none'}
                             >
                                 <TouchableOpacity
                                     style={styles.closeButton}
                                     onPress={handleOpenClearQueue}
                                     hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                                     activeOpacity={0.7}
+                                    disabled={!shouldShowClose}
                                 >
                                     <Ionicons name="close" size={17} color={colors.text} />
                                 </TouchableOpacity>
