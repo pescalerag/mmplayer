@@ -231,6 +231,17 @@ describe('Notification System Test Suite', () => {
   });
 
   describe('4. Notification Creation for All 7 Types', () => {
+    beforeEach(() => {
+      useSettingsStore.setState({
+        notificationPreferences: {
+          ...DEFAULT_NOTIFICATION_PREFERENCES,
+          songs_added: true,
+          songs_moved: true,
+          songs_deleted: true,
+        },
+      });
+    });
+
     it('debe crear notificación de canciones añadidas (songs_added) con navegación a biblioteca', async () => {
       await NotificationService.addSongsAddedNotification(5);
       const notifs = await NotificationService.getNotifications();
@@ -296,6 +307,17 @@ describe('Notification System Test Suite', () => {
   });
 
   describe('5. Reading, Unread Count & Deletion Lifecycle', () => {
+    beforeEach(() => {
+      useSettingsStore.setState({
+        notificationPreferences: {
+          ...DEFAULT_NOTIFICATION_PREFERENCES,
+          songs_added: true,
+          songs_moved: true,
+          songs_deleted: true,
+        },
+      });
+    });
+
     it('debe calcular el unreadCount y actualizar el store reactivo', async () => {
       await NotificationService.addSongsAddedNotification(10);
       await NotificationService.addSongsMovedNotification(2);
@@ -461,6 +483,16 @@ describe('Notification System Test Suite', () => {
       spy.mockRestore();
     });
 
+    it('las preferencias por defecto tienen la biblioteca desactivada y resúmenes/actualizaciones activados', () => {
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.songs_added).toBe(false);
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.songs_moved).toBe(false);
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.songs_deleted).toBe(false);
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.summary_weekly).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.summary_monthly).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.summary_yearly).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFERENCES.app_update).toBe(true);
+    });
+
     it('las preferencias se actualizan correctamente a través de useSettingsStore.setNotificationPreferences', () => {
       const setPrefs = useSettingsStore.getState().setNotificationPreferences;
       setPrefs({
@@ -472,14 +504,24 @@ describe('Notification System Test Suite', () => {
       const current = useSettingsStore.getState().notificationPreferences;
       expect(current.songs_deleted).toBe(false);
       expect(current.app_update).toBe(false);
-      expect(current.songs_added).toBe(true);
+      expect(current.songs_added).toBe(false);
     });
   });
 
   describe('8. Individual Disabled Notification Types', () => {
+    const ALL_ENABLED = {
+      songs_added: true,
+      songs_moved: true,
+      songs_deleted: true,
+      summary_weekly: true,
+      summary_monthly: true,
+      summary_yearly: true,
+      app_update: true,
+    };
+
     it('desactivar individualmente songs_added bloquea solo songs_added', async () => {
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, songs_added: false },
+        notificationPreferences: { ...ALL_ENABLED, songs_added: false },
       });
 
       await NotificationService.addSongsAddedNotification(1);
@@ -492,7 +534,7 @@ describe('Notification System Test Suite', () => {
 
     it('desactivar individualmente songs_moved bloquea solo songs_moved', async () => {
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, songs_moved: false },
+        notificationPreferences: { ...ALL_ENABLED, songs_moved: false },
       });
 
       await NotificationService.addSongsMovedNotification(1);
@@ -505,7 +547,7 @@ describe('Notification System Test Suite', () => {
 
     it('desactivar individualmente songs_deleted bloquea solo songs_deleted', async () => {
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, songs_deleted: false },
+        notificationPreferences: { ...ALL_ENABLED, songs_deleted: false },
       });
 
       await NotificationService.addSongsDeletedNotification(1);
@@ -519,7 +561,7 @@ describe('Notification System Test Suite', () => {
     it('desactivar individualmente summary_weekly bloquea solo el resumen semanal', async () => {
       const spy = jest.spyOn(HistoryService, 'hasHistoryInRange').mockResolvedValue(true);
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, summary_weekly: false },
+        notificationPreferences: { ...ALL_ENABLED, summary_weekly: false },
       });
 
       await NotificationService.checkAndGenerateSummaries();
@@ -534,7 +576,7 @@ describe('Notification System Test Suite', () => {
     it('desactivar individualmente summary_monthly bloquea solo el resumen mensual', async () => {
       const spy = jest.spyOn(HistoryService, 'hasHistoryInRange').mockResolvedValue(true);
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, summary_monthly: false },
+        notificationPreferences: { ...ALL_ENABLED, summary_monthly: false },
       });
 
       await NotificationService.checkAndGenerateSummaries();
@@ -549,7 +591,7 @@ describe('Notification System Test Suite', () => {
     it('desactivar individualmente summary_yearly bloquea solo el resumen anual', async () => {
       const spy = jest.spyOn(HistoryService, 'hasHistoryInRange').mockResolvedValue(true);
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, summary_yearly: false },
+        notificationPreferences: { ...ALL_ENABLED, summary_yearly: false },
       });
 
       await NotificationService.checkAndGenerateSummaries();
@@ -563,7 +605,7 @@ describe('Notification System Test Suite', () => {
 
     it('desactivar individualmente app_update bloquea solo las notificaciones de actualización', async () => {
       useSettingsStore.setState({
-        notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, app_update: false },
+        notificationPreferences: { ...ALL_ENABLED, app_update: false },
       });
 
       await NotificationService.addAppUpdateNotification('3.0.0');
@@ -633,10 +675,13 @@ describe('Notification System Test Suite', () => {
       const spy = jest.spyOn(HistoryService, 'hasHistoryInRange').mockResolvedValue(true);
       useSettingsStore.setState({
         notificationPreferences: {
-          ...DEFAULT_NOTIFICATION_PREFERENCES,
+          songs_added: true,
+          songs_moved: true,
+          songs_deleted: true,
           summary_weekly: false,
           summary_monthly: false,
           summary_yearly: false,
+          app_update: true,
         },
       });
 
@@ -652,12 +697,12 @@ describe('Notification System Test Suite', () => {
       spy.mockRestore();
     });
 
-    it('restablecer las preferencias a los valores por defecto reactiva todos los tipos', async () => {
+    it('restablecer las preferencias a los valores por defecto desactiva biblioteca y mantiene activos resúmenes y actualizaciones', async () => {
       useSettingsStore.setState({
         notificationPreferences: {
-          songs_added: false,
-          songs_moved: false,
-          songs_deleted: false,
+          songs_added: true,
+          songs_moved: true,
+          songs_deleted: true,
           summary_weekly: false,
           summary_monthly: false,
           summary_yearly: false,
@@ -672,7 +717,8 @@ describe('Notification System Test Suite', () => {
       await NotificationService.addAppUpdateNotification('3.0.0');
 
       const notifs = await NotificationService.getNotifications();
-      expect(notifs).toHaveLength(2);
+      expect(notifs).toHaveLength(1);
+      expect(notifs[0].type).toBe('app_update');
     });
   });
 

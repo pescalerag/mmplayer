@@ -137,9 +137,9 @@ export type NotificationType =
 export type NotificationPreferences = Record<NotificationType, boolean>;
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  songs_added: true,
-  songs_moved: true,
-  songs_deleted: true,
+  songs_added: false,
+  songs_moved: false,
+  songs_deleted: false,
   summary_weekly: true,
   summary_monthly: true,
   summary_yearly: true,

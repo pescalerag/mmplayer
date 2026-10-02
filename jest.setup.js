@@ -194,27 +194,6 @@ jest.mock('react-i18next', () => ({
   },
 }));
 
-// Mock @notifee/react-native
-jest.mock('@notifee/react-native', () => ({
-  __esModule: true,
-  default: {
-    requestPermission: jest.fn().mockResolvedValue({ authorizationStatus: 1 }),
-    createChannel: jest.fn().mockResolvedValue('mmplayer_summaries'),
-    createTriggerNotification: jest.fn().mockResolvedValue('notif-id'),
-    displayNotification: jest.fn().mockResolvedValue('notif-id'),
-    getTriggerNotificationIds: jest.fn().mockResolvedValue([]),
-    cancelNotification: jest.fn().mockResolvedValue(undefined),
-    getInitialNotification: jest.fn().mockResolvedValue(null),
-    onForegroundEvent: jest.fn(() => jest.fn()),
-    onBackgroundEvent: jest.fn(),
-  },
-  AndroidImportance: { DEFAULT: 3, HIGH: 4 },
-  TriggerType: { TIMESTAMP: 0, INTERVAL: 1 },
-  RepeatFrequency: { DAILY: 0, WEEKLY: 1 },
-  AuthorizationStatus: { AUTHORIZED: 1, DENIED: 0 },
-  EventType: { PRESS: 1, DELIVERED: 0 },
-}));
-
 // Mock react-native-worklets
 jest.mock('react-native-worklets', () => ({
   scheduleOnRN: (fn, ...args) => fn(...args),

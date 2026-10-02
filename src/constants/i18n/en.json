@@ -1580,7 +1580,7 @@
     "channel_summaries": "Summaries & Updates",
     "settings_button": "Notification settings",
     "settings_title": "Notification settings",
-    "settings_subtitle": "Customize which notifications you want to receive",
+    "settings_subtitle": "Notifications will appear exclusively in the in-app inbox, without system alerts",
     "settings_section_library": "Library",
     "settings_section_summaries": "Summaries & Activity",
     "settings_section_system": "System",

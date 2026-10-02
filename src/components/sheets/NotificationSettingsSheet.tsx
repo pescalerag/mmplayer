@@ -15,7 +15,6 @@ import {
   NotificationPreferences,
   useSettingsStore,
 } from '@/store/useSettingsStore';
-import { NotificationService } from '@/services/NotificationService';
 
 interface NotificationSettingItem {
   id: NotificationType;
@@ -120,13 +119,8 @@ export default function NotificationSettingsSheet() {
     }));
   }, []);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => {
     setNotificationPreferences(draftPreferences);
-    try {
-      await NotificationService.scheduleSummaryTriggers();
-    } catch (e) {
-      console.warn('[NotificationSettingsSheet] Error refreshing triggers:', e);
-    }
     closeSheet();
   }, [draftPreferences, setNotificationPreferences, closeSheet]);
 
@@ -182,7 +176,7 @@ export default function NotificationSettingsSheet() {
           {t('notifications.settings_title') || 'Ajustes de notificaciones'}
         </Text>
         <Text style={styles.subtitle}>
-          {t('notifications.settings_subtitle') || 'Personaliza qué notificaciones deseas recibir'}
+          {t('notifications.settings_subtitle') || 'Las notificaciones se mostrarán exclusivamente en el buzón de la app, sin avisos del sistema'}
         </Text>
       </View>
 

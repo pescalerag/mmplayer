@@ -1,5 +1,4 @@
-import { Platform, Linking } from 'react-native';
-import notifee, { TriggerType, AndroidImportance } from '@notifee/react-native';
+import { Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { database } from '../database';
 import AppNotification, { NotificationType } from '../database/models/AppNotification';
@@ -11,9 +10,6 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useNotificationStore } from '../store/useNotificationStore';
 import {
   PeriodRange,
-  getNextMonday9AM,
-  getNextMonthFirst9AM,
-  getNextYearFirst9AM,
   getPreviousWeekRange,
   getPreviousMonthRange,
   getPreviousYearRange,
@@ -115,32 +111,6 @@ class NotificationServiceImpl {
       });
 
       await this.getUnreadCount();
-
-      if (Platform.OS === 'android' && createdNotification && !params.isRead) {
-        if (params.type.startsWith('summary_') || params.type === 'app_update') {
-          try {
-            await notifee.displayNotification({
-              id: (createdNotification as any).id,
-              title: (createdNotification as any).title,
-              body: (createdNotification as any).description || undefined,
-              android: {
-                channelId: 'mmplayer_summaries',
-                smallIcon: 'ic_notification',
-                largeIcon: 'ic_launcher',
-                color: '#9C27B0',
-                pressAction: { id: 'default' },
-              },
-              data: {
-                type: (createdNotification as any).type,
-                actionType: (createdNotification as any).actionType || '',
-                actionPayload: (createdNotification as any).actionPayload || '',
-              },
-            });
-          } catch (notifErr) {
-            console.warn('[NotificationService] Error displaying notifee notification:', notifErr);
-          }
-        }
-      }
 
       return createdNotification;
     } catch (e) {
@@ -462,138 +432,6 @@ class NotificationServiceImpl {
     return this.fetchJsonFromUrl(FALLBACK_UPDATE_URL);
   }
 
-  // --- ANDROID NOTIFEE NOTIFICATIONS & SCHEDULER ---
-
-  public async requestPermissionIfNeeded(): Promise<boolean> {
-    if (Platform.OS !== 'android') return false;
-
-    const { hasAskedNotificationPermission, setHasAskedNotificationPermission } = useSettingsStore.getState();
-    if (hasAskedNotificationPermission) {
-      return false;
-    }
-
-    try {
-      const settings = await notifee.requestPermission();
-      setHasAskedNotificationPermission(true);
-      return settings.authorizationStatus >= 1;
-    } catch (e) {
-      console.warn('[NotificationService] Notifee permission request warning:', e);
-      setHasAskedNotificationPermission(true);
-      return false;
-    }
-  }
-
-  public async scheduleSummaryTriggers(): Promise<void> {
-    if (Platform.OS !== 'android') return;
-
-    try {
-      await notifee.createChannel({
-        id: 'mmplayer_summaries',
-        name: i18n.t('notifications.channel_summaries') || 'Resúmenes y Novedades',
-        importance: AndroidImportance.DEFAULT,
-        vibration: true,
-      });
-
-      if (this.isNotificationTypeEnabled('summary_weekly')) {
-        await this.scheduleWeeklyTrigger();
-      } else {
-        await notifee.cancelNotification('summary_weekly');
-      }
-
-      if (this.isNotificationTypeEnabled('summary_monthly')) {
-        await this.scheduleMonthlyTrigger();
-      } else {
-        await notifee.cancelNotification('summary_monthly');
-      }
-
-      if (this.isNotificationTypeEnabled('summary_yearly')) {
-        await this.scheduleYearlyTrigger();
-      } else {
-        await notifee.cancelNotification('summary_yearly');
-      }
-    } catch (e) {
-      console.warn('[NotificationService] Trigger scheduling warning:', e);
-    }
-  }
-
-  private async scheduleWeeklyTrigger(): Promise<void> {
-    const nextMonday = getNextMonday9AM();
-    await notifee.createTriggerNotification(
-      {
-        id: 'summary_weekly',
-        title: i18n.t('notifications.summary_weekly_title') || 'Tu resumen semanal ya está aquí.',
-        body: i18n.t('notifications.summary_weekly_body') || 'Descubre tus canciones y artistas más escuchados de la semana.',
-        android: {
-          channelId: 'mmplayer_summaries',
-          smallIcon: 'ic_notification',
-          largeIcon: 'ic_launcher',
-          color: '#9C27B0',
-          pressAction: { id: 'default' },
-        },
-        data: { type: 'summary_weekly' },
-      },
-      {
-        type: TriggerType.TIMESTAMP,
-        timestamp: nextMonday.getTime(),
-        alarmManager: {
-          allowWhileIdle: true,
-        },
-      }
-    );
-  }
-
-  private async scheduleMonthlyTrigger(): Promise<void> {
-    const nextMonth = getNextMonthFirst9AM();
-    await notifee.createTriggerNotification(
-      {
-        id: 'summary_monthly',
-        title: i18n.t('notifications.summary_monthly_title') || 'Tu resumen mensual ya está aquí.',
-        body: i18n.t('notifications.summary_monthly_body') || 'Repasa tu música más escuchada del mes anterior.',
-        android: {
-          channelId: 'mmplayer_summaries',
-          smallIcon: 'ic_notification',
-          largeIcon: 'ic_launcher',
-          color: '#9C27B0',
-          pressAction: { id: 'default' },
-        },
-        data: { type: 'summary_monthly' },
-      },
-      {
-        type: TriggerType.TIMESTAMP,
-        timestamp: nextMonth.getTime(),
-        alarmManager: {
-          allowWhileIdle: true,
-        },
-      }
-    );
-  }
-
-  private async scheduleYearlyTrigger(): Promise<void> {
-    const nextYear = getNextYearFirst9AM();
-    await notifee.createTriggerNotification(
-      {
-        id: 'summary_yearly',
-        title: i18n.t('notifications.summary_yearly_title') || 'Tu resumen del año ya está aquí.',
-        body: i18n.t('notifications.summary_yearly_body') || 'Mira cómo ha sido tu año musical en MMPlayer.',
-        android: {
-          channelId: 'mmplayer_summaries',
-          smallIcon: 'ic_notification',
-          largeIcon: 'ic_launcher',
-          color: '#9C27B0',
-          pressAction: { id: 'default' },
-        },
-        data: { type: 'summary_yearly' },
-      },
-      {
-        type: TriggerType.TIMESTAMP,
-        timestamp: nextYear.getTime(),
-        alarmManager: {
-          allowWhileIdle: true,
-        },
-      }
-    );
-  }
-
   public async handleNotificationPressEvent(notification: any): Promise<void> {
     if (!notification) return;
     try {
@@ -628,8 +466,6 @@ class NotificationServiceImpl {
       await this.getUnreadCount();
       await this.checkAndGenerateSummaries();
       await this.checkForAppUpdates();
-      await this.requestPermissionIfNeeded();
-      await this.scheduleSummaryTriggers();
     } catch (e) {
       console.warn('[NotificationService] Init error:', e);
     }

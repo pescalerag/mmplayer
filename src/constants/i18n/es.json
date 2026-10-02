@@ -1580,7 +1580,7 @@
     "channel_summaries": "Resúmenes y Novedades",
     "settings_button": "Ajustes de notificaciones",
     "settings_title": "Ajustes de notificaciones",
-    "settings_subtitle": "Personaliza qué notificaciones deseas recibir",
+    "settings_subtitle": "Las notificaciones se mostrarán exclusivamente en el buzón de la app, sin avisos del sistema",
     "settings_section_library": "Biblioteca",
     "settings_section_summaries": "Resúmenes y actividad",
     "settings_section_system": "Sistema",

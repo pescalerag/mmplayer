@@ -40,7 +40,6 @@ import { ChromecastService } from "./src/services/ChromecastService";
 import { PurchasesService } from "./src/services/PurchasesService";
 import { NotificationService } from "./src/services/NotificationService";
 import { ExternalAudioService } from "./src/services/ExternalAudioService";
-import notifee, { EventType } from '@notifee/react-native';
 import { getLaunchAudioUri, clearLaunchAudioUri } from "./modules/native-audio-scanner";
 import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
 
@@ -124,23 +123,8 @@ export default function App() {
       }
     });
 
-    const notifeeSub = notifee.onForegroundEvent(({ type, detail }) => {
-      if (type === EventType.PRESS && detail?.notification) {
-        NotificationService.checkAndGenerateSummaries().catch(() => {});
-        NotificationService.handleNotificationPressEvent(detail.notification).catch(() => {});
-      }
-    });
-
-    notifee.getInitialNotification().then((initial) => {
-      if (initial?.notification) {
-        NotificationService.checkAndGenerateSummaries().catch(() => {});
-        NotificationService.handleNotificationPressEvent(initial.notification).catch(() => {});
-      }
-    }).catch(() => {});
-
     return () => {
       subscription.remove();
-      notifeeSub();
     };
   }, []);
 
