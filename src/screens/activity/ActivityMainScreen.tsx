@@ -12,6 +12,8 @@ import Track from '../../database/models/Track';
 import { openCustomDateModal } from '../../store/useCustomDateModalStore';
 import { SkeletonActivityScreen } from '@/components/common/Skeleton';
 import ActivitySpotlightTutorial from '../../components/modals/ActivitySpotlightTutorial';
+import Animated from 'react-native-reanimated';
+import { getSectionFadeIn } from '@/utils/cascadeAnimations';
 
 // Activity components
 import { ActivityHeader } from '../../components/activity/ActivityHeader';
@@ -280,42 +282,51 @@ export default function ActivityMainScreen() {
           >
             {hasActivity ? (
               <>
-                <ActivityHeroCard
-                  metric={metric}
-                  totalHours={stats.totalHours}
-                  totalPlays={stats.totalPlays}
-                  formattedPeriodText={dateRangeInfo.label}
-                  heroCardRef={refs.heroCardRef}
-                  heroCardLayout={layouts.heroCardLayout}
-                />
+                <Animated.View entering={getSectionFadeIn(0)}>
+                  <ActivityHeroCard
+                    metric={metric}
+                    totalHours={stats.totalHours}
+                    totalPlays={stats.totalPlays}
+                    formattedPeriodText={dateRangeInfo.label}
+                    heroCardRef={refs.heroCardRef}
+                    heroCardLayout={layouts.heroCardLayout}
+                  />
+                </Animated.View>
 
-                <ActivityOptionTabs
-                  activeOption={activeOption}
-                  onSelectOption={setActiveOption}
-                  highlightsCardRef={refs.highlightsCardRef}
-                  highlightsCardLayout={layouts.highlightsCardLayout}
-                />
+                <Animated.View entering={getSectionFadeIn(1)}>
+                  <ActivityOptionTabs
+                    activeOption={activeOption}
+                    onSelectOption={setActiveOption}
+                    highlightsCardRef={refs.highlightsCardRef}
+                    highlightsCardLayout={layouts.highlightsCardLayout}
+                  />
+                </Animated.View>
 
-                <ActivityTabContent
-                  activeOption={activeOption}
-                  sectionLabel={sectionLabel}
-                  stats={stats}
-                  artistStatLabel={artistStatLabel}
-                  albumStatLabel={albumStatLabel}
-                  songStatLabel={songStatLabel}
-                  onArtistPress={handleArtistPress}
-                  onAlbumPress={handleAlbumPress}
-                  onSongPress={handleSongPress}
-                  visibleSmartLists={visibleSmartLists}
-                  onSmartListPress={handleSmartListPress}
-                  smartListsRef={refs.smartListsRef}
-                  smartListsLayout={layouts.smartListsLayout}
-                  detailedStats={detailedStats}
-                  metric={metric}
-                  playTrackById={playTrackById}
-                  onAlbumSelect={handleAlbumSelect}
-                  onArtistSelect={handleArtistSelect}
-                />
+                <Animated.View
+                  key={`activity-tab-${activeOption}-${period}-${dateRangeInfo.label}-${metric}`}
+                  entering={getSectionFadeIn(2)}
+                >
+                  <ActivityTabContent
+                    activeOption={activeOption}
+                    sectionLabel={sectionLabel}
+                    stats={stats}
+                    artistStatLabel={artistStatLabel}
+                    albumStatLabel={albumStatLabel}
+                    songStatLabel={songStatLabel}
+                    onArtistPress={handleArtistPress}
+                    onAlbumPress={handleAlbumPress}
+                    onSongPress={handleSongPress}
+                    visibleSmartLists={visibleSmartLists}
+                    onSmartListPress={handleSmartListPress}
+                    smartListsRef={refs.smartListsRef}
+                    smartListsLayout={layouts.smartListsLayout}
+                    detailedStats={detailedStats}
+                    metric={metric}
+                    playTrackById={playTrackById}
+                    onAlbumSelect={handleAlbumSelect}
+                    onArtistSelect={handleArtistSelect}
+                  />
+                </Animated.View>
               </>
             ) : (
               <ActivityEmptyState />

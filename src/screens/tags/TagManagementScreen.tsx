@@ -13,6 +13,8 @@ import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { getItemFadeIn } from '@/utils/cascadeAnimations';
 import { database } from '../../database';
 import Tag from '../../database/models/Tag';
 
@@ -86,7 +88,10 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
 
     const renderItem = ({ item, index }: { item: Tag; index: number }) => {
         return (
-            <View style={{ marginBottom: 12 }}>
+            <Animated.View
+                entering={getItemFadeIn(index)}
+                style={{ marginBottom: 12 }}
+            >
                 <View
                     ref={index === 0 ? firstTagRef : undefined}
                     collapsable={false}
@@ -114,7 +119,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                         </TouchableOpacity>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </Animated.View>
         );
     };
 

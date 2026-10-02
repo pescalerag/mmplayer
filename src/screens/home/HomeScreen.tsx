@@ -43,6 +43,8 @@ import { NotificationService } from '../../services/NotificationService';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { shuffleArray } from '../../utils/shuffle';
+import Animated from 'react-native-reanimated';
+import { getSectionFadeIn } from '@/utils/cascadeAnimations';
 
 const { width } = Dimensions.get('window');
 
@@ -494,6 +496,172 @@ export default function HomeScreen() {
         }
     }, [handlePlaylistLongPress, handleMediaLongPress]);
 
+    const renderSectionContent = React.useCallback((section: HomeSection) => {
+        switch (section) {
+            case 'stats':
+                return <StatsWidget />;
+
+            case 'recent_media':
+                return (
+                    <View style={{ marginVertical: 12 }}>
+                        <Text style={styles.sectionTitle}>
+                            {t('home.recently_played') || "Escuchado recientemente"}
+                        </Text>
+                        {recentMedia.length > 0 ? (
+                            <View style={styles.gridContainer}>
+                                {recentMedia.map((item) => (
+                                    <RecentMediaCard
+                                        key={`${item.id}-${item.type}`}
+                                        item={item}
+                                        isActuallyPlaying={isActuallyPlaying}
+                                        activeTrack={activeTrack}
+                                        onPress={handleMediaPress}
+                                        onLongPress={handleMediaLongPress}
+                                    />
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
+                            </View>
+                        )}
+                    </View>
+                );
+
+            case 'smart_playlists':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.smart_playlists_title') || "Listas inteligentes"}
+                        data={smartLists}
+                        emptyText={t('home.empty_smart_playlists')}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="playlist"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `home-smart-list-${item.id}`}
+                    />
+                );
+
+            case 'recent_playlists':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.my_playlists') || "Mis listas de reproducción"}
+                        data={recentPlaylists}
+                        emptyText={t('home.empty_playlists')}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="playlist"
+                                title={item.id === 'favorites' ? t('home.your_favourites') : item.name}
+                                subtitle={item.id === 'favorites' ? t('home.most_liked_songs') : (item.description || '')}
+                                customCoverUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `recent-playlist-${item.id}`}
+                    />
+                );
+
+            case 'recently_added':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.recently_added_albums') || "Álbumes añadidos recientemente"}
+                        data={recentlyAdded}
+                        emptyText={t('home.empty_added') || "No hay álbumes añadidos"}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="album"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                imageUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `added-album-${item.id}`}
+                    />
+                );
+
+            case 'most_played':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.most_played_songs') || "Tus más escuchadas"}
+                        data={mostPlayed}
+                        emptyText={t('home.empty_most_played') || "Escucha música para ver tus canciones más escuchadas"}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="track"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                imageUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `most-played-${item.id}`}
+                    />
+                );
+
+            case 'explore':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.explore_albums') || "Explorar álbumes aleatorios"}
+                        data={explore}
+                        emptyText={t('home.empty_explore') || "No hay álbumes para explorar"}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="album"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                imageUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `explore-album-${item.id}`}
+                    />
+                );
+
+            case 'shuffle_button':
+                return <GlobalShuffleButton />;
+
+            default:
+                return null;
+        }
+    }, [
+        t,
+        styles.sectionTitle,
+        styles.gridContainer,
+        styles.emptyState,
+        styles.emptyText,
+        recentMedia,
+        isActuallyPlaying,
+        activeTrack,
+        handleMediaPress,
+        handleMediaLongPress,
+        smartLists,
+        recentPlaylists,
+        recentlyAdded,
+        mostPlayed,
+        explore,
+        handleCardPress,
+        handleCardLongPress,
+    ]);
+
+    const visibleSections = React.useMemo(() => {
+        return homeSectionsOrder.filter((section) => homeSectionsVisibility[section]);
+    }, [homeSectionsOrder, homeSectionsVisibility]);
+
     return (
         <View style={styles.container}>
             {/* CAPA DEL HUMO */}
@@ -711,155 +879,18 @@ export default function HomeScreen() {
                         )}
 
                         {/* Modular Sections Render */}
-                        {homeSectionsOrder.map((section) => {
-                            if (!homeSectionsVisibility[section]) return null;
+                        {visibleSections.map((section, sectionIndex) => {
+                            const content = renderSectionContent(section);
+                            if (!content) return null;
 
-                            switch (section) {
-                                case 'stats':
-                                    return <StatsWidget key="home-stats-widget" />;
-
-                                case 'recent_media':
-                                    return (
-                                        <View key="recent_media" style={{ marginVertical: 12 }}>
-                                            <Text style={styles.sectionTitle}>
-                                                {t('home.recently_played') || "Escuchado recientemente"}
-                                            </Text>
-                                            {recentMedia.length > 0 ? (
-                                                <View style={styles.gridContainer}>
-                                                    {recentMedia.map((item) => (
-                                                        <RecentMediaCard
-                                                            key={`${item.id}-${item.type}`}
-                                                            item={item}
-                                                            isActuallyPlaying={isActuallyPlaying}
-                                                            activeTrack={activeTrack}
-                                                            onPress={handleMediaPress}
-                                                            onLongPress={handleMediaLongPress}
-                                                        />
-                                                    ))}
-                                                </View>
-                                            ) : (
-                                                <View style={styles.emptyState}>
-                                                    <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    );
-
-                                case 'smart_playlists':
-                                    return (
-                                        <HorizontalCarousel
-                                            key="smart_playlists"
-                                            title={t('home.smart_playlists_title') || "Listas inteligentes"}
-                                            data={smartLists}
-                                            emptyText={t('home.empty_smart_playlists')}
-                                            renderItem={({ item }) => (
-                                                <MediaCard
-                                                    id={item.id}
-                                                    type="playlist"
-                                                    title={item.title}
-                                                    subtitle={item.subtitle}
-                                                    onPress={handleCardPress}
-                                                    onLongPress={handleCardLongPress}
-                                                />
-                                            )}
-                                            keyExtractor={(item) => `home-smart-list-${item.id}`}
-                                        />
-                                    );
-
-                                case 'recent_playlists':
-                                    return (
-                                        <HorizontalCarousel
-                                            key="recent_playlists"
-                                            title={t('home.my_playlists') || "Mis listas de reproducción"}
-                                            data={recentPlaylists}
-                                            emptyText={t('home.empty_playlists')}
-                                            renderItem={({ item }) => (
-                                                <MediaCard
-                                                    id={item.id}
-                                                    type="playlist"
-                                                    title={item.id === 'favorites' ? t('home.your_favourites') : item.name}
-                                                    subtitle={item.id === 'favorites' ? t('home.most_liked_songs') : (item.description || '')}
-                                                    customCoverUrl={item.imageUrl}
-                                                    onPress={handleCardPress}
-                                                    onLongPress={handleCardLongPress}
-                                                />
-                                            )}
-                                            keyExtractor={(item) => `recent-playlist-${item.id}`}
-                                        />
-                                    );
-
-                                case 'recently_added':
-                                    return (
-                                        <HorizontalCarousel
-                                            key="recently_added"
-                                            title={t('home.recently_added_albums') || "Álbumes añadidos recientemente"}
-                                            data={recentlyAdded}
-                                            emptyText={t('home.empty_added') || "No hay álbumes añadidos"}
-                                            renderItem={({ item }) => (
-                                                <MediaCard
-                                                    id={item.id}
-                                                    type="album"
-                                                    title={item.title}
-                                                    subtitle={item.subtitle}
-                                                    imageUrl={item.imageUrl}
-                                                    onPress={handleCardPress}
-                                                    onLongPress={handleCardLongPress}
-                                                />
-                                            )}
-                                            keyExtractor={(item) => `added-album-${item.id}`}
-                                        />
-                                    );
-
-                                case 'most_played':
-                                    return (
-                                        <HorizontalCarousel
-                                            key="most_played"
-                                            title={t('home.most_played_songs') || "Tus más escuchadas"}
-                                            data={mostPlayed}
-                                            emptyText={t('home.empty_most_played') || "Escucha música para ver tus canciones más escuchadas"}
-                                            renderItem={({ item }) => (
-                                                <MediaCard
-                                                    id={item.id}
-                                                    type="track"
-                                                    title={item.title}
-                                                    subtitle={item.subtitle}
-                                                    imageUrl={item.imageUrl}
-                                                    onPress={handleCardPress}
-                                                    onLongPress={handleCardLongPress}
-                                                />
-                                            )}
-                                            keyExtractor={(item) => `most-played-${item.id}`}
-                                        />
-                                    );
-
-                                case 'explore':
-                                    return (
-                                        <HorizontalCarousel
-                                            key="explore"
-                                            title={t('home.explore_albums') || "Explorar álbumes aleatorios"}
-                                            data={explore}
-                                            emptyText={t('home.empty_explore') || "No hay álbumes para explorar"}
-                                            renderItem={({ item }) => (
-                                                <MediaCard
-                                                    id={item.id}
-                                                    type="album"
-                                                    title={item.title}
-                                                    subtitle={item.subtitle}
-                                                    imageUrl={item.imageUrl}
-                                                    onPress={handleCardPress}
-                                                    onLongPress={handleCardLongPress}
-                                                />
-                                            )}
-                                            keyExtractor={(item) => `explore-album-${item.id}`}
-                                        />
-                                    );
-
-                                case 'shuffle_button':
-                                    return <GlobalShuffleButton key="home-shuffle-button" />;
-
-                                default:
-                                    return null;
-                            }
+                            return (
+                                <Animated.View
+                                    key={`home-section-${section}`}
+                                    entering={getSectionFadeIn(sectionIndex)}
+                                >
+                                    {content}
+                                </Animated.View>
+                            );
                         })}
                     </ScrollView>
                 );

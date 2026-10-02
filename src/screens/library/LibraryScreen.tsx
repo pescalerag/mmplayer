@@ -1,5 +1,12 @@
-import { openSortModal, openLibraryTabsOrder } from '@/store/useUIStore';
-import { openAlbumMenu, openArtistMenu, openFolderMenu, openPlaylistMenu, openPlaylistSelectorCreate } from '@/store/useUIStore';
+import { openAlbumMenu, openArtistMenu, openFolderMenu, openLibraryTabsOrder, openPlaylistMenu, openPlaylistSelectorCreate, openSortModal } from '@/store/useUIStore';
+
+import LibraryCard from '@/components/cards/LibraryCard';
+import { SkeletonLibraryGrid, SkeletonLibraryList } from '@/components/common/Skeleton';
+import ContextualSpotlightTutorial from '@/components/modals/ContextualSpotlightTutorial';
+import PlaylistCover from '@/components/player/PlaylistCover';
+import TrackRow from '@/components/player/TrackRow';
+import { useDelayedLoader } from '@/hooks/useDelayedLoader';
+import { getItemFadeIn, getRowFadeIn } from '@/utils/cascadeAnimations';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -8,28 +15,23 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, BackHandler, Dimensions, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import LibraryCard from '@/components/cards/LibraryCard';
-import PlaylistCover from '@/components/player/PlaylistCover';
-import TrackRow from '@/components/player/TrackRow';
-import ContextualSpotlightTutorial from '@/components/modals/ContextualSpotlightTutorial';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
+import PlaybackHistory from '../../database/models/PlaybackHistory';
 import Playlist from '../../database/models/Playlist';
 import Track from '../../database/models/Track';
-import PlaybackHistory from '../../database/models/PlaybackHistory';
+import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { LibraryNavigationProp } from '../../navigation/types';
 import { ScannerService } from '../../services/ScannerService';
-import { SmartListService, SmartList } from '../../services/SmartListService';
-import { useDelayedLoader } from '@/hooks/useDelayedLoader';
-import { SkeletonLibraryList, SkeletonLibraryGrid } from '@/components/common/Skeleton';
+import { SmartList, SmartListService } from '../../services/SmartListService';
 
 
 
@@ -39,10 +41,10 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { Colors, Layout } from '../../theme/theme';
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { Layout } from '../../theme/theme';
 
-import { getSafeFileName, safeDecodeURIComponent } from '../../utils/safeDecode';
+import { safeDecodeURIComponent } from '../../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
@@ -68,7 +70,7 @@ const TrackCard = ({ track, album, artists }: { track: Track, album: Album | nul
 
     // Movemos la lógica aquí para evitar pasar funciones anidadas desde la FlatList
     const handlePress = () => {
-        usePlayerStore.getState().playSingleTrack(track, 'library-songs');
+        void usePlayerStore.getState().playSingleTrack(track, 'library-songs');
     };
 
     return (
@@ -123,13 +125,13 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
                 await TrackPlayer.play();
             }
         } else {
-            usePlayerStore.getState().loadQueue(sortedTracks, 0, contextId);
+            void usePlayerStore.getState().loadQueue(sortedTracks, 0, contextId);
         }
     };
 
     const handleShufflePress = () => {
         if (sortedTracks.length === 0) return;
-        usePlayerStore.getState().startShuffled(sortedTracks, contextId);
+        void usePlayerStore.getState().startShuffled(sortedTracks, contextId);
     };
 
     const renderHeader = () => {
@@ -158,12 +160,15 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
         return () => clearTimeout(timer);
     }, []);
 
-    const renderItem = React.useCallback((info: { item: Track }) => {
-        const { item } = info;
+    const renderItem = React.useCallback((info: { item: Track; index: number }) => {
+        const { item, index } = info;
         return (
-            <View style={{ minHeight: 64, width: '100%' }}>
+            <Animated.View
+                entering={getItemFadeIn(index)}
+                style={{ minHeight: 64, width: '100%' }}
+            >
                 <EnhancedTrackCard track={item} />
-            </View>
+            </Animated.View>
         );
     }, []);
 
@@ -238,7 +243,6 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
-    const { colors } = useAppTheme();
     const [isReady, setIsReady] = useState(false);
     const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
 
@@ -286,11 +290,14 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
                     alignItems = 'center';
                 }
                 return (
-                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+                    <Animated.View
+                        entering={getRowFadeIn(index, 3)}
+                        style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
+                    >
                         <EnhancedAlbumCard
                             album={item}
                         />
-                    </View>
+                    </Animated.View>
                 );
             }}
             numColumns={3}
@@ -386,8 +393,10 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
 
     return (
         <FlashList
+            key={`artist-list-${artistFilter}`}
             ref={scrollRef}
             data={sortedArtists}
+            extraData={artistFilter}
             keyExtractor={a => a.id}
             renderItem={({ item, index }) => {
                 let alignItems: GridAlignment = 'flex-end';
@@ -398,11 +407,14 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
                     alignItems = 'center';
                 }
                 return (
-                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+                    <Animated.View
+                        entering={getRowFadeIn(index, 3)}
+                        style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
+                    >
                         <EnhancedArtistCard
                             artist={item}
                         />
-                    </View>
+                    </Animated.View>
                 );
             }}
             numColumns={3}
@@ -704,9 +716,11 @@ const HistorySmartListCard = withObservables(
 
     useEffect(() => {
         let isMounted = true;
-        smartList.getTracks().then(resolved => {
-            if (isMounted) setTracks(resolved);
-        });
+        void smartList.getTracks()
+            .then(resolved => {
+                if (isMounted) setTracks(resolved);
+            })
+            .catch(() => { });
         return () => { isMounted = false; };
     }, [smartList, history]);
 
@@ -720,7 +734,7 @@ const HistorySmartListCard = withObservables(
     );
 });
 
-const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { playlists: Playlist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
+const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { playlists: Playlist[], genreTracks?: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const navigation = useNavigation<LibraryNavigationProp>();
@@ -744,45 +758,31 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
         navigation.navigate('FavoritesDetail');
     }, [navigation]);
 
-    const [genreLists, setGenreLists] = React.useState<SmartList[]>([]);
-
-    React.useEffect(() => {
-        if (playlistFilter !== 'smart') return;
-        const sub = database.collections.get<Track>('tracks')
-            .query(
-                Q.where('genre', Q.notEq(null)),
-                Q.where('genre', Q.notEq(''))
-            )
-            .observe()
-            .pipe(catchError(() => of([])))
-            .subscribe((tracks) => {
-                const genreSet = new Set<string>();
-                for (const t of tracks) {
-                    const g = t.genre?.trim();
-                    if (g) {
-                        genreSet.add(g);
-                    }
-                }
-                const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
-                const lists: SmartList[] = sortedGenres.map(genre => ({
-                    id: `genre_${encodeURIComponent(genre)}`,
-                    name: genre,
-                    description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
-                    placeholderIcon: 'disc-outline',
-                    group: 'genre' as const,
-                    genre,
-                    getTracks: async () => {
-                        return database.collections.get<Track>('tracks').query(
-                            Q.where('genre', genre),
-                            Q.sortBy('title', Q.asc)
-                        ).fetch();
-                    }
-                }));
-                setGenreLists(lists);
-            });
-
-        return () => sub.unsubscribe();
-    }, [playlistFilter, t]);
+    const genreLists = React.useMemo<SmartList[]>(() => {
+        if (!genreTracks || genreTracks.length === 0) return [];
+        const genreSet = new Set<string>();
+        for (const trk of genreTracks) {
+            const g = trk.genre?.trim();
+            if (g) {
+                genreSet.add(g);
+            }
+        }
+        const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+        return sortedGenres.map(genre => ({
+            id: `genre_${encodeURIComponent(genre)}`,
+            name: genre,
+            description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
+            placeholderIcon: 'disc-outline',
+            group: 'genre' as const,
+            genre,
+            getTracks: async () => {
+                return database.collections.get<Track>('tracks').query(
+                    Q.where('genre', genre),
+                    Q.sortBy('title', Q.asc)
+                ).fetch();
+            }
+        }));
+    }, [genreTracks, t]);
 
     const sortedPlaylists = React.useMemo(() => {
         if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
@@ -807,51 +807,33 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             const ratingLists = allSmartLists.filter(l => l.group === 'rating');
 
             const smartItems: any[] = [];
-            if (listeningLists.length > 0) {
+            let currentRow = 0;
+
+            const appendSmartGroup = (headerId: string, headerTitle: string, lists: SmartList[]) => {
+                if (lists.length === 0) return;
                 smartItems.push({
-                    id: 'header_listening',
+                    id: headerId,
                     isHeader: true,
-                    title: t('library.smart_listening_title')
+                    title: headerTitle,
+                    rowIndex: currentRow++,
                 });
-                listeningLists.forEach((list, idx) => {
+                lists.forEach((list, idx) => {
+                    const groupRow = Math.floor(idx / 3);
                     smartItems.push({
                         id: `smart_${list.id}`,
                         smartList: list,
-                        colIndex: idx,
-                        isSmart: true
+                        colIndex: idx % 3,
+                        isSmart: true,
+                        rowIndex: currentRow + groupRow,
                     });
                 });
-            }
-            if (ratingLists.length > 0) {
-                smartItems.push({
-                    id: 'header_rating',
-                    isHeader: true,
-                    title: t('library.smart_rating_title')
-                });
-                ratingLists.forEach((list, idx) => {
-                    smartItems.push({
-                        id: `smart_${list.id}`,
-                        smartList: list,
-                        colIndex: idx,
-                        isSmart: true
-                    });
-                });
-            }
-            if (genreLists.length > 0) {
-                smartItems.push({
-                    id: 'header_genre',
-                    isHeader: true,
-                    title: t('library.smart_genre_title') || "Playlists por género"
-                });
-                genreLists.forEach((list, idx) => {
-                    smartItems.push({
-                        id: `smart_${list.id}`,
-                        smartList: list,
-                        colIndex: idx,
-                        isSmart: true
-                    });
-                });
-            }
+                currentRow += Math.ceil(lists.length / 3);
+            };
+
+            appendSmartGroup('header_listening', t('library.smart_listening_title'), listeningLists);
+            appendSmartGroup('header_rating', t('library.smart_rating_title'), ratingLists);
+            appendSmartGroup('header_genre', t('library.smart_genre_title') || "Playlists por género", genreLists);
+
             return smartItems;
         }
         return [
@@ -868,8 +850,90 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
         return null;
     }
 
+    const renderSmartCard = (list: SmartList, colIndex: number) => {
+        const handlePress = () => navigation.navigate('SmartListDetail', { smartListId: list.id });
+        if (list.id.startsWith('rating_')) {
+            return (
+                <RatingSmartListCard
+                    smartListId={list.id}
+                    smartList={list}
+                    colIndex={colIndex}
+                    onPress={handlePress}
+                />
+            );
+        }
+        if (list.id.startsWith('genre_')) {
+            return (
+                <GenreSmartListCard
+                    genre={list.genre || decodeURIComponent(list.id.replace('genre_', ''))}
+                    smartList={list}
+                    colIndex={colIndex}
+                    onPress={handlePress}
+                />
+            );
+        }
+        return (
+            <HistorySmartListCard
+                smartListId={list.id}
+                smartList={list}
+                colIndex={colIndex}
+                onPress={handlePress}
+            />
+        );
+    };
+
+    const renderPlaylistContent = (item: any) => {
+        if ('isCreateNew' in item) {
+            return (
+                <TouchableOpacity
+                    style={styles.playlistCard}
+                    onPress={handleCreatePlaylist}
+                    activeOpacity={0.7}
+                >
+                    <View style={[styles.playlistImageContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+                        <Ionicons name="add" size={48} color="#7d7d7dff" />
+                    </View>
+                    <Text style={styles.playlistTitle} numberOfLines={1}>{item.name}</Text>
+                </TouchableOpacity>
+            );
+        }
+
+        if ('isFavorites' in item && !!item.isFavorites) {
+            return (
+                <PlaylistCard
+                    playlistId="favorites"
+                    isFavorites={true}
+                    title={item.name}
+                    subtitle={t('actions.special')}
+                    onPress={handleNavFavorites}
+                    onLongPress={() => {
+                        openPlaylistMenu(item as any);
+                    }}
+                />
+            );
+        }
+
+        if (item && typeof (item as any).observe === 'function') {
+            return (
+                <EnhancedPlaylistCard
+                    playlist={item as Playlist}
+                />
+            );
+        }
+
+        return null;
+    };
+
+    const getAlignment = (index: number): GridAlignment => {
+        const rem = index % 3;
+        if (rem === 0) return 'flex-start';
+        if (rem === 1) return 'center';
+        return 'flex-end';
+    };
+
     return (
         <FlashList
+            key={`playlist-list-${playlistFilter}`}
             ref={scrollRef}
             data={data}
             extraData={playlistFilter}
@@ -888,7 +952,7 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
             }}
             overrideItemLayout={(layout: any, item: any) => {
                 if (!layout) return;
-                if (item && item.isHeader) {
+                if (item?.isHeader) {
                     layout.span = 3;
                 } else {
                     layout.span = 1;
@@ -898,102 +962,33 @@ const PlaylistsList = ({ playlists, bottomOffset, topOffset, scrollRef, sortOpti
                 if (!item) return null;
 
                 if ('isHeader' in item && item.isHeader) {
+                    const rowIndex = item.rowIndex ?? Math.floor(index / 3);
                     return (
-                        <View style={styles.smartSectionHeaderContainer}>
+                        <Animated.View
+                            entering={getRowFadeIn(rowIndex, 1)}
+                            style={styles.smartSectionHeaderContainer}
+                        >
                             <Text style={styles.smartSectionHeaderTitle}>{item.title}</Text>
-                        </View>
+                        </Animated.View>
                     );
                 }
 
                 if ('isSmart' in item && item.isSmart) {
-                    const list: SmartList = item.smartList;
-                    const isRating = list.id.startsWith('rating_');
-                    const isGenre = list.id.startsWith('genre_');
-                    const handlePress = () => navigation.navigate('SmartListDetail', { smartListId: list.id });
-
-                    if (isRating) {
-                        return (
-                            <RatingSmartListCard
-                                smartListId={list.id}
-                                smartList={list}
-                                colIndex={item.colIndex}
-                                onPress={handlePress}
-                            />
-                        );
-                    }
-
-                    if (isGenre) {
-                        return (
-                            <GenreSmartListCard
-                                genre={list.genre || decodeURIComponent(list.id.replace('genre_', ''))}
-                                smartList={list}
-                                colIndex={item.colIndex}
-                                onPress={handlePress}
-                            />
-                        );
-                    }
-
+                    const rowIndex = item.rowIndex ?? Math.floor(index / 3);
                     return (
-                        <HistorySmartListCard
-                            smartListId={list.id}
-                            smartList={list}
-                            colIndex={item.colIndex}
-                            onPress={handlePress}
-                        />
+                        <Animated.View entering={getRowFadeIn(rowIndex, 1)}>
+                            {renderSmartCard(item.smartList, item.colIndex)}
+                        </Animated.View>
                     );
                 }
 
-                let content;
-                if ('isCreateNew' in item) {
-                    content = (
-                        <TouchableOpacity
-                            style={styles.playlistCard}
-                            onPress={handleCreatePlaylist}
-                            activeOpacity={0.7}
-                        >
-                            <View style={[styles.playlistImageContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-                                <Ionicons name="add" size={48} color="#7d7d7dff" />
-                            </View>
-                            <Text style={styles.playlistTitle} numberOfLines={1}>{item.name}</Text>
-                        </TouchableOpacity>
-                    );
-                } else {
-                    const isFav = 'isFavorites' in item && !!(item as any).isFavorites;
-                    if (isFav) {
-                        content = (
-                            <PlaylistCard
-                                playlistId="favorites"
-                                isFavorites={true}
-                                title={item.name}
-                                subtitle={t('actions.special')}
-                                onPress={handleNavFavorites}
-                                onLongPress={() => {
-                                    openPlaylistMenu(item as any);
-                                }}
-                            />
-                        );
-                    } else if (item && typeof (item as any).observe === 'function') {
-                        content = (
-                            <EnhancedPlaylistCard
-                                playlist={item as Playlist}
-                            />
-                        );
-                    } else {
-                        content = null;
-                    }
-                }
-
-                let alignItems: GridAlignment = 'flex-end';
-                const rem = index % 3;
-                if (rem === 0) {
-                    alignItems = 'flex-start';
-                } else if (rem === 1) {
-                    alignItems = 'center';
-                }
                 return (
-                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
-                        {content}
-                    </View>
+                    <Animated.View
+                        entering={getRowFadeIn(index, 3)}
+                        style={{ minHeight: cardWidth + 45, width: '100%', alignItems: getAlignment(index) }}
+                    >
+                        {renderPlaylistContent(item)}
+                    </Animated.View>
                 );
             }}
             numColumns={3}
@@ -1063,6 +1058,10 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
             Q.sortBy('is_pinned', Q.desc),
             Q.sortBy(orderCol, orderDir)
         ).observe(),
+        genreTracks: database.collections.get<Track>('tracks').query(
+            Q.where('genre', Q.notEq(null)),
+            Q.where('genre', Q.notEq(''))
+        ).observe().pipe(catchError(() => of([]))),
     };
 })(PlaylistsList);
 
@@ -1087,7 +1086,6 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
-    const { colors } = useAppTheme();
     const navigation = useNavigation<any>();
     const [isReady, setIsReady] = useState(false);
     const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
@@ -1148,13 +1146,16 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                     alignItems = 'center';
                 }
                 return (
-                    <View style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}>
+                    <Animated.View
+                        entering={getRowFadeIn(index, 3)}
+                        style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
+                    >
                         <FolderCard
                             folder={item}
                             onOpen={handleOpenFolder}
                             onMenu={(path, name) => openFolderMenu(path, name)}
                         />
-                    </View>
+                    </Animated.View>
                 );
             }}
             numColumns={3}

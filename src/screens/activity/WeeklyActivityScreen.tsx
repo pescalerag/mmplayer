@@ -14,6 +14,8 @@ import Track from '../../database/models/Track';
 import { useDelayedLoader } from '@/hooks/useDelayedLoader';
 import { SkeletonActivityScreen } from '@/components/common/Skeleton';
 import { formatDuration } from './utils/activityStatUtils';
+import Animated from 'react-native-reanimated';
+import { getSectionFadeIn } from '@/utils/cascadeAnimations';
 
 interface WeeklyHeroCardProps {
   readonly totalHours: number;
@@ -315,25 +317,27 @@ export default function WeeklyActivityScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {hasActivity ? (
-            <WeeklyHighlightsSection
-              totalHours={totalHours}
-              topArtist={topArtist}
-              topArtistId={topArtistId}
-              topArtistImg={topArtistImg}
-              topArtistDuration={topArtistDuration}
-              topAlbum={topAlbum}
-              topAlbumId={topAlbumId}
-              topAlbumImg={topAlbumImg}
-              topAlbumDuration={topAlbumDuration}
-              topSong={topSong}
-              topSongId={topSongId}
-              topSongImg={topSongImg}
-              topSongArtist={topSongArtist}
-              topSongDuration={topSongDuration}
-              onArtistPress={handleArtistPress}
-              onAlbumPress={handleAlbumPress}
-              onSongPress={handleSongPress}
-            />
+            <Animated.View entering={getSectionFadeIn(0)}>
+              <WeeklyHighlightsSection
+                totalHours={totalHours}
+                topArtist={topArtist}
+                topArtistId={topArtistId}
+                topArtistImg={topArtistImg}
+                topArtistDuration={topArtistDuration}
+                topAlbum={topAlbum}
+                topAlbumId={topAlbumId}
+                topAlbumImg={topAlbumImg}
+                topAlbumDuration={topAlbumDuration}
+                topSong={topSong}
+                topSongId={topSongId}
+                topSongImg={topSongImg}
+                topSongArtist={topSongArtist}
+                topSongDuration={topSongDuration}
+                onArtistPress={handleArtistPress}
+                onAlbumPress={handleAlbumPress}
+                onSongPress={handleSongPress}
+              />
+            </Animated.View>
           ) : (
             <WeeklyEmptyState />
           )}

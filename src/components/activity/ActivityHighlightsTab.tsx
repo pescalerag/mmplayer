@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { DisplayStats, SmartListItem } from '../../screens/activity/utils/activityStatUtils';
 import LibraryCard from '../cards/LibraryCard';
+import Animated from 'react-native-reanimated';
+import { getItemFadeIn } from '@/utils/cascadeAnimations';
 
 interface HighlightItemCardProps {
   readonly label: string;
@@ -130,75 +132,83 @@ export function ActivityHighlightsTab({
         {sectionLabel}
       </Text>
 
-      <HighlightItemCard
-        label={t('home.weekly_stats_artist')}
-        title={stats.topArtist || noneText}
-        stat={artistStatLabel}
-        imageUrl={stats.topArtistImg}
-        placeholderIcon="person"
-        isAvatar
-        actionIcon="chevron-forward"
-        hasId={Boolean(stats.topArtistId)}
-        onPress={onArtistPress}
-      />
+      <Animated.View entering={getItemFadeIn(0)}>
+        <HighlightItemCard
+          label={t('home.weekly_stats_artist')}
+          title={stats.topArtist || noneText}
+          stat={artistStatLabel}
+          imageUrl={stats.topArtistImg}
+          placeholderIcon="person"
+          isAvatar
+          actionIcon="chevron-forward"
+          hasId={Boolean(stats.topArtistId)}
+          onPress={onArtistPress}
+        />
+      </Animated.View>
 
-      <HighlightItemCard
-        label={t('home.weekly_stats_album')}
-        title={stats.topAlbum || noneText}
-        stat={albumStatLabel}
-        imageUrl={stats.topAlbumImg}
-        placeholderIcon="albums"
-        actionIcon="chevron-forward"
-        hasId={Boolean(stats.topAlbumId)}
-        onPress={onAlbumPress}
-      />
+      <Animated.View entering={getItemFadeIn(1)}>
+        <HighlightItemCard
+          label={t('home.weekly_stats_album')}
+          title={stats.topAlbum || noneText}
+          stat={albumStatLabel}
+          imageUrl={stats.topAlbumImg}
+          placeholderIcon="albums"
+          actionIcon="chevron-forward"
+          hasId={Boolean(stats.topAlbumId)}
+          onPress={onAlbumPress}
+        />
+      </Animated.View>
 
-      <HighlightItemCard
-        label={t('home.weekly_stats_song')}
-        title={stats.topSong || noneText}
-        stat={songStatLabel}
-        imageUrl={stats.topSongImg}
-        placeholderIcon="musical-note"
-        actionIcon="play"
-        actionIconColor={colors.accentLight}
-        hasId={Boolean(stats.topSongId)}
-        onPress={onSongPress}
-      />
+      <Animated.View entering={getItemFadeIn(2)}>
+        <HighlightItemCard
+          label={t('home.weekly_stats_song')}
+          title={stats.topSong || noneText}
+          stat={songStatLabel}
+          imageUrl={stats.topSongImg}
+          placeholderIcon="musical-note"
+          actionIcon="play"
+          actionIconColor={colors.accentLight}
+          hasId={Boolean(stats.topSongId)}
+          onPress={onSongPress}
+        />
+      </Animated.View>
 
       {visibleSmartLists.length > 0 && (
-        <View ref={smartListsRef} onLayout={handleSmartListsLayout} style={styles.smartListsSection}>
-          <Text
-            style={[
-              styles.sectionHeading,
-              { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 24, marginBottom: 12 },
-            ]}
-          >
-            Playlists para ti
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalScroll}
-            keyboardShouldPersistTaps="handled"
-          >
-            {visibleSmartLists.map((list) => {
-              const countText = `${list.trackCount} ${
-                list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')
-              }`;
-              return (
-                <View key={list.id} style={{ marginRight: 15 }}>
-                  <LibraryCard
-                    title={list.name}
-                    subtitle={countText}
-                    placeholderIcon={list.placeholderIcon as any}
-                    smartListId={list.id}
-                    onPress={() => onSmartListPress(list.id)}
-                  />
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
+        <Animated.View entering={getItemFadeIn(3)}>
+          <View ref={smartListsRef} onLayout={handleSmartListsLayout} style={styles.smartListsSection}>
+            <Text
+              style={[
+                styles.sectionHeading,
+                { fontFamily: fonts.bold, color: colors.textSecondary, marginTop: 24, marginBottom: 12 },
+              ]}
+            >
+              Playlists para ti
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {visibleSmartLists.map((list) => {
+                const countText = `${list.trackCount} ${
+                  list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')
+                }`;
+                return (
+                  <View key={list.id} style={{ marginRight: 15 }}>
+                    <LibraryCard
+                      title={list.name}
+                      subtitle={countText}
+                      placeholderIcon={list.placeholderIcon as any}
+                      smartListId={list.id}
+                      onPress={() => onSmartListPress(list.id)}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Animated.View>
       )}
     </>
   );

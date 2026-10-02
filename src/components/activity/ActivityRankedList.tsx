@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { Metric, getItemStatLabel } from '../../screens/activity/utils/activityStatUtils';
+import Animated from 'react-native-reanimated';
+import { getItemFadeIn } from '@/utils/cascadeAnimations';
 
 interface ActivityRankedItemProps {
   readonly rank: number;
@@ -86,10 +88,10 @@ export function ActivityRankedList({
         const statLabel = getItemStatLabel(metric, item.duration, item.plays, t);
         const rank = index + 1;
 
+        let content = null;
         if (type === 'songs') {
-          return (
+          content = (
             <ActivityRankedItem
-              key={item.id}
               rank={rank}
               title={item.title}
               subtitle={item.artistName}
@@ -99,12 +101,9 @@ export function ActivityRankedList({
               onPress={() => onItemPress(item.id)}
             />
           );
-        }
-
-        if (type === 'albums') {
-          return (
+        } else if (type === 'albums') {
+          content = (
             <ActivityRankedItem
-              key={item.id}
               rank={rank}
               title={item.title}
               subtitle={item.artistName || t('activity.unknown_artist')}
@@ -114,20 +113,24 @@ export function ActivityRankedList({
               onPress={() => onItemPress(item.id)}
             />
           );
+        } else {
+          content = (
+            <ActivityRankedItem
+              rank={rank}
+              title={item.name}
+              imageUrl={item.imageUrl}
+              isAvatar
+              placeholderIcon="person"
+              statLabel={statLabel}
+              onPress={() => onItemPress(item.id)}
+            />
+          );
         }
 
-        // type === 'artists'
         return (
-          <ActivityRankedItem
-            key={item.id}
-            rank={rank}
-            title={item.name}
-            imageUrl={item.imageUrl}
-            isAvatar
-            placeholderIcon="person"
-            statLabel={statLabel}
-            onPress={() => onItemPress(item.id)}
-          />
+          <Animated.View key={item.id} entering={getItemFadeIn(index)}>
+            {content}
+          </Animated.View>
         );
       })}
     </View>
