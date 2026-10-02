@@ -11,6 +11,7 @@ import SettingsExclusionsScreen from '../screens/settings/SettingsExclusionsScre
 import SettingsDebugScreen from '../screens/settings/SettingsDebugScreen';
 import SettingsArtistImagesScreen from '../screens/settings/SettingsArtistImagesScreen';
 import SettingsStorageScreen from '../screens/settings/SettingsStorageScreen';
+import SettingsCanvasScreen from '../screens/settings/SettingsCanvasScreen';
 import SettingsShuffleScreen from '../screens/settings/SettingsShuffleScreen';
 import SupportScreen from '../screens/support/SupportScreen';
 
@@ -26,6 +27,7 @@ export default function SettingsNavigator() {
         }}>
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="SettingsStorage" component={SettingsStorageScreen} />
+            <Stack.Screen name="SettingsCanvas" component={SettingsCanvasScreen} />
             <Stack.Screen name="ExcludedMedia" component={ExcludedMediaScreen} />
             <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
             <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />

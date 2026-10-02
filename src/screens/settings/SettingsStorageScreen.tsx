@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,9 +12,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
 import { formatBytes, StorageBreakdown, StorageService } from '../../services/StorageService';
 import { useToastStore } from '../../store/useToastStore';
-import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function SettingsStorageScreen() {
   const { t } = useTranslation();
@@ -24,7 +24,7 @@ export default function SettingsStorageScreen() {
   const [clearingItem, setClearingItem] = useState<string | null>(null);
   const [data, setData] = useState<StorageBreakdown | null>(null);
 
-  const loadData = async (isInitial: boolean = false) => {
+  const loadData = useCallback(async (isInitial: boolean = false) => {
     if (isInitial && !data) setLoading(true);
     try {
       const result = await StorageService.getStorageBreakdown();
@@ -34,12 +34,12 @@ export default function SettingsStorageScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [data]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData(true);
-    }, [])
+      void loadData(true);
+    }, [loadData])
   );
 
   const handleClearCache = async () => {
@@ -92,6 +92,253 @@ export default function SettingsStorageScreen() {
   const otherRatio = data && data.deviceTotalBytes > 0 ? (Math.max(0, data.deviceUsedBytes - data.mmplayerTotalBytes) / data.deviceTotalBytes) * 100 : 0;
   const otherFilesBytes = data ? Math.max(0, data.deviceUsedBytes - data.mmplayerTotalBytes) : 0;
 
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.loadingText}>
+            {t('settings.calculating_storage', 'Calculando espacio de almacenamiento...')}
+          </Text>
+        </View>
+      );
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return (
+      <>
+        {/* --- TARJETA 1: ALMACENAMIENTO DEL DISPOSITIVO --- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="hardware-chip-outline" size={22} color={colors.accent} />
+            <Text style={styles.cardTitle}>{t('settings.device_storage', 'Almacenamiento del móvil')}</Text>
+          </View>
+
+          <View style={styles.storageTextRow}>
+            <Text style={styles.usedText}>
+              {formatBytes(data.deviceUsedBytes)}
+            </Text>
+            <Text style={styles.totalText}>
+              / {formatBytes(data.deviceTotalBytes)}
+            </Text>
+          </View>
+          <Text style={styles.subtext}>
+            {formatBytes(data.deviceFreeBytes)} {t('settings.free_space', 'disponibles')}
+          </Text>
+
+          {/* BARRA SEGMENTADA */}
+          <View style={styles.progressBarBg}>
+            <View style={[styles.progressSegment, { width: `${Math.max(1, mmplayerRatio)}%`, backgroundColor: '#EC4899' }]} />
+            <View style={[styles.progressSegment, { width: `${Math.max(1, otherRatio)}%`, backgroundColor: '#6B7280' }]} />
+          </View>
+
+          {/* LEYENDA */}
+          <View style={styles.legendContainer}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#EC4899' }]} />
+              <Text style={styles.legendLabel}>{t('settings.mmplayer_storage', 'Peso de MMPlayer')}</Text>
+              <Text style={styles.legendValue}>{formatBytes(data.mmplayerTotalBytes)}</Text>
+            </View>
+
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#6B7280' }]} />
+              <Text style={styles.legendLabel}>{t('settings.other_files', 'Otros archivos')}</Text>
+              <Text style={styles.legendValue}>{formatBytes(otherFilesBytes)}</Text>
+            </View>
+
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#1F2937' }]} />
+              <Text style={styles.legendLabel}>{t('settings.free_space', 'Espacio libre')}</Text>
+              <Text style={styles.legendValue}>{formatBytes(data.deviceFreeBytes)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* --- TARJETA 2: DESGLOSE DE MMPLAYER --- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderBetween}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="musical-notes-outline" size={22} color="#EC4899" />
+              <Text style={styles.cardTitle}>{t('settings.mmplayer_storage', 'Peso de MMPlayer')}</Text>
+            </View>
+            <Text style={styles.totalMMPlayerValue}>{formatBytes(data.mmplayerTotalBytes)}</Text>
+          </View>
+
+          <View style={styles.breakdownList}>
+            {/* 1. Imágenes de Artistas */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: colors.accentAlpha15 }]}>
+                  <Ionicons name="person-outline" size={18} color={colors.accent} />
+                </View>
+                <Text style={styles.itemTitle}>{t('settings.custom_artist_images', 'Imágenes de artistas personalizadas')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.itemValue}>{formatBytes(data.artistImagesBytes)}</Text>
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={() => handleConfirmDelete(
+                    'artists',
+                    t('settings.delete_artist_images_title', '¿Eliminar imágenes de artistas?'),
+                    t('settings.delete_artist_images_msg', 'Se eliminarán las fotos personalizadas de todos los artistas y se restablecerán a la imagen predeterminada.'),
+                    StorageService.clearAllArtistImages,
+                    t('settings.artist_images_deleted', 'Imágenes de artistas eliminadas')
+                  )}
+                  disabled={clearingItem !== null}
+                  activeOpacity={0.7}
+                >
+                  {clearingItem === 'artists' ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.separator} />
+
+            {/* 2. Imágenes de Playlists */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
+                  <Ionicons name="albums-outline" size={18} color="#EC4899" />
+                </View>
+                <Text style={styles.itemTitle}>{t('settings.custom_playlist_images', 'Imágenes de Playlists personalizadas')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.itemValue}>{formatBytes(data.playlistCoversBytes)}</Text>
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={() => handleConfirmDelete(
+                    'playlists',
+                    t('settings.delete_playlist_covers_title', '¿Eliminar portadas de playlists?'),
+                    t('settings.delete_playlist_covers_msg', 'Se eliminarán las portadas personalizadas de todas las playlists.'),
+                    StorageService.clearAllPlaylistCovers,
+                    t('settings.playlist_covers_deleted', 'Portadas de playlists eliminadas')
+                  )}
+                  disabled={clearingItem !== null}
+                  activeOpacity={0.7}
+                >
+                  {clearingItem === 'playlists' ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.separator} />
+
+            {/* 3. Imágenes de CD */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                  <Ionicons name="disc-outline" size={18} color="#F59E0B" />
+                </View>
+                <Text style={styles.itemTitle}>{t('settings.custom_cd_images', 'Imágenes de CD personalizadas')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.itemValue}>{formatBytes(data.cdCoversBytes)}</Text>
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={() => handleConfirmDelete(
+                    'cd',
+                    t('settings.delete_cd_covers_title', '¿Eliminar diseños de CD?'),
+                    t('settings.delete_cd_covers_msg', 'Se eliminarán los diseños de CD personalizados de todos los álbumes.'),
+                    StorageService.clearAllCDCovers,
+                    t('settings.cd_covers_deleted', 'Diseños de CD eliminados')
+                  )}
+                  disabled={clearingItem !== null}
+                  activeOpacity={0.7}
+                >
+                  {clearingItem === 'cd' ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.separator} />
+
+            {/* 4. Videos Canva */}
+            <TouchableOpacity
+              style={styles.breakdownRow}
+              onPress={() => navigation.navigate('SettingsCanvas' as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Ionicons name="videocam-outline" size={18} color="#10B981" />
+                </View>
+                <Text style={styles.itemTitle}>{t('settings.custom_canva_videos', 'Videos Canva personalizados')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.itemValue}>{formatBytes(data.canvasVideosBytes)}</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.manageBtn,
+                    {
+                      backgroundColor: colors.accentAlpha15,
+                      borderColor: colors.accent,
+                    },
+                  ]}
+                  onPress={() => navigation.navigate('SettingsCanvas' as never)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.manageBtnText, { color: colors.accent }]}>
+                    {t('settings.manage', 'Gestionar')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.separator} />
+
+            {/* 5. Lyrics */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                  <Ionicons name="document-text-outline" size={18} color="#3B82F6" />
+                </View>
+                <Text style={styles.itemTitle}>{t('settings.lyrics_storage', 'Lyrics')}</Text>
+              </View>
+              <Text style={styles.itemValue}>{formatBytes(data.lyricsBytes)}</Text>
+            </View>
+            <View style={styles.separator} />
+
+            {/* 6. Caché */}
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                  <Ionicons name="trash-bin-outline" size={18} color="#EF4444" />
+                </View>
+                <Text style={styles.itemTitle}>{t('settings.cache_storage', 'Caché')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.itemValue}>{formatBytes(data.cacheBytes)}</Text>
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={handleClearCache}
+                  disabled={clearingItem !== null}
+                  activeOpacity={0.7}
+                >
+                  {clearingItem === 'cache' ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Text style={styles.clearBtnText}>{t('settings.clear_cache', 'Limpiar')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </>
+    );
+  };
+
   return (
     <ScreenHeaderLayout title={t('settings.storage_title', 'Almacenamiento')}>
       {({ headerHeight, bottomPadding }) => (
@@ -106,241 +353,7 @@ export default function SettingsStorageScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.accent} />
-              <Text style={styles.loadingText}>
-                {t('settings.calculating_storage', 'Calculando espacio de almacenamiento...')}
-              </Text>
-            </View>
-          ) : data ? (
-            <>
-              {/* --- TARJETA 1: ALMACENAMIENTO DEL DISPOSITIVO --- */}
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Ionicons name="hardware-chip-outline" size={22} color={colors.accent} />
-                  <Text style={styles.cardTitle}>{t('settings.device_storage', 'Almacenamiento del móvil')}</Text>
-                </View>
-
-                <View style={styles.storageTextRow}>
-                  <Text style={styles.usedText}>
-                    {formatBytes(data.deviceUsedBytes)}
-                  </Text>
-                  <Text style={styles.totalText}>
-                    / {formatBytes(data.deviceTotalBytes)}
-                  </Text>
-                </View>
-                <Text style={styles.subtext}>
-                  {formatBytes(data.deviceFreeBytes)} {t('settings.free_space', 'disponibles')}
-                </Text>
-
-                {/* BARRA SEGMENTADA */}
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressSegment, { width: `${Math.max(1, mmplayerRatio)}%`, backgroundColor: '#EC4899' }]} />
-                  <View style={[styles.progressSegment, { width: `${Math.max(1, otherRatio)}%`, backgroundColor: '#6B7280' }]} />
-                </View>
-
-                {/* LEYENDA */}
-                <View style={styles.legendContainer}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: '#EC4899' }]} />
-                    <Text style={styles.legendLabel}>{t('settings.mmplayer_storage', 'Peso de MMPlayer')}</Text>
-                    <Text style={styles.legendValue}>{formatBytes(data.mmplayerTotalBytes)}</Text>
-                  </View>
-
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: '#6B7280' }]} />
-                    <Text style={styles.legendLabel}>{t('settings.other_files', 'Otros archivos')}</Text>
-                    <Text style={styles.legendValue}>{formatBytes(otherFilesBytes)}</Text>
-                  </View>
-
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: '#1F2937' }]} />
-                    <Text style={styles.legendLabel}>{t('settings.free_space', 'Espacio libre')}</Text>
-                    <Text style={styles.legendValue}>{formatBytes(data.deviceFreeBytes)}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* --- TARJETA 2: DESGLOSE DE MMPLAYER --- */}
-              <View style={styles.card}>
-                <View style={styles.cardHeaderBetween}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name="musical-notes-outline" size={22} color="#EC4899" />
-                    <Text style={styles.cardTitle}>{t('settings.mmplayer_storage', 'Peso de MMPlayer')}</Text>
-                  </View>
-                  <Text style={styles.totalMMPlayerValue}>{formatBytes(data.mmplayerTotalBytes)}</Text>
-                </View>
-
-                <View style={styles.breakdownList}>
-                  {/* 1. Imágenes de Artistas */}
-                  <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: colors.accentAlpha15 }]}>
-                        <Ionicons name="person-outline" size={18} color={colors.accent} />
-                      </View>
-                      <Text style={styles.itemTitle}>{t('settings.custom_artist_images', 'Imágenes de artistas personalizadas')}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Text style={styles.itemValue}>{formatBytes(data.artistImagesBytes)}</Text>
-                      <TouchableOpacity
-                        style={styles.clearBtn}
-                        onPress={() => handleConfirmDelete(
-                          'artists',
-                          t('settings.delete_artist_images_title', '¿Eliminar imágenes de artistas?'),
-                          t('settings.delete_artist_images_msg', 'Se eliminarán las fotos personalizadas de todos los artistas y se restablecerán a la imagen predeterminada.'),
-                          StorageService.clearAllArtistImages,
-                          t('settings.artist_images_deleted', 'Imágenes de artistas eliminadas')
-                        )}
-                        disabled={clearingItem !== null}
-                        activeOpacity={0.7}
-                      >
-                        {clearingItem === 'artists' ? (
-                          <ActivityIndicator size="small" color="#EF4444" />
-                        ) : (
-                          <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={styles.separator} />
-
-                  {/* 2. Imágenes de Playlists */}
-                  <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
-                        <Ionicons name="albums-outline" size={18} color="#EC4899" />
-                      </View>
-                      <Text style={styles.itemTitle}>{t('settings.custom_playlist_images', 'Imágenes de Playlists personalizadas')}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Text style={styles.itemValue}>{formatBytes(data.playlistCoversBytes)}</Text>
-                      <TouchableOpacity
-                        style={styles.clearBtn}
-                        onPress={() => handleConfirmDelete(
-                          'playlists',
-                          t('settings.delete_playlist_covers_title', '¿Eliminar portadas de playlists?'),
-                          t('settings.delete_playlist_covers_msg', 'Se eliminarán las portadas personalizadas de todas las playlists.'),
-                          StorageService.clearAllPlaylistCovers,
-                          t('settings.playlist_covers_deleted', 'Portadas de playlists eliminadas')
-                        )}
-                        disabled={clearingItem !== null}
-                        activeOpacity={0.7}
-                      >
-                        {clearingItem === 'playlists' ? (
-                          <ActivityIndicator size="small" color="#EF4444" />
-                        ) : (
-                          <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={styles.separator} />
-
-                  {/* 3. Imágenes de CD */}
-                  <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                        <Ionicons name="disc-outline" size={18} color="#F59E0B" />
-                      </View>
-                      <Text style={styles.itemTitle}>{t('settings.custom_cd_images', 'Imágenes de CD personalizadas')}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Text style={styles.itemValue}>{formatBytes(data.cdCoversBytes)}</Text>
-                      <TouchableOpacity
-                        style={styles.clearBtn}
-                        onPress={() => handleConfirmDelete(
-                          'cd',
-                          t('settings.delete_cd_covers_title', '¿Eliminar diseños de CD?'),
-                          t('settings.delete_cd_covers_msg', 'Se eliminarán los diseños de CD personalizados de todos los álbumes.'),
-                          StorageService.clearAllCDCovers,
-                          t('settings.cd_covers_deleted', 'Diseños de CD eliminados')
-                        )}
-                        disabled={clearingItem !== null}
-                        activeOpacity={0.7}
-                      >
-                        {clearingItem === 'cd' ? (
-                          <ActivityIndicator size="small" color="#EF4444" />
-                        ) : (
-                          <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={styles.separator} />
-
-                  {/* 4. Videos Canva */}
-                  <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                        <Ionicons name="videocam-outline" size={18} color="#10B981" />
-                      </View>
-                      <Text style={styles.itemTitle}>{t('settings.custom_canva_videos', 'Videos Canva personalizados')}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Text style={styles.itemValue}>{formatBytes(data.canvasVideosBytes)}</Text>
-                      <TouchableOpacity
-                        style={styles.clearBtn}
-                        onPress={() => handleConfirmDelete(
-                          'canvas',
-                          t('settings.delete_canvas_videos_title', '¿Eliminar vídeos Canva?'),
-                          t('settings.delete_canvas_videos_msg', 'Se eliminarán todos los vídeos de fondo Canva asociados a las canciones.'),
-                          StorageService.clearAllCanvasVideos,
-                          t('settings.canvas_videos_deleted', 'Vídeos Canva eliminados')
-                        )}
-                        disabled={clearingItem !== null}
-                        activeOpacity={0.7}
-                      >
-                        {clearingItem === 'canvas' ? (
-                          <ActivityIndicator size="small" color="#EF4444" />
-                        ) : (
-                          <Text style={styles.clearBtnText}>{t('common.delete', 'Eliminar')}</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={styles.separator} />
-
-                  {/* 5. Lyrics */}
-                  <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                        <Ionicons name="document-text-outline" size={18} color="#3B82F6" />
-                      </View>
-                      <Text style={styles.itemTitle}>{t('settings.lyrics_storage', 'Lyrics')}</Text>
-                    </View>
-                    <Text style={styles.itemValue}>{formatBytes(data.lyricsBytes)}</Text>
-                  </View>
-                  <View style={styles.separator} />
-
-                  {/* 6. Caché */}
-                  <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownLeft}>
-                      <View style={[styles.itemIconBg, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                        <Ionicons name="trash-bin-outline" size={18} color="#EF4444" />
-                      </View>
-                      <Text style={styles.itemTitle}>{t('settings.cache_storage', 'Caché')}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Text style={styles.itemValue}>{formatBytes(data.cacheBytes)}</Text>
-                      <TouchableOpacity
-                        style={styles.clearBtn}
-                        onPress={handleClearCache}
-                        disabled={clearingItem !== null}
-                        activeOpacity={0.7}
-                      >
-                        {clearingItem === 'cache' ? (
-                          <ActivityIndicator size="small" color="#EF4444" />
-                        ) : (
-                          <Text style={styles.clearBtnText}>{t('settings.clear_cache', 'Limpiar')}</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </>
-          ) : null}
+          {renderContent()}
         </ScrollView>
       )}
     </ScreenHeaderLayout>
@@ -505,6 +518,17 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     color: '#EF4444',
+    fontSize: 11,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+  },
+  manageBtn: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  manageBtnText: {
     fontSize: 11,
     fontFamily: 'Montserrat',
     fontWeight: '700',
