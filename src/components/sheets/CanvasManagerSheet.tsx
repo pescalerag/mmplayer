@@ -133,7 +133,7 @@ export default function CanvasManagerSheet() {
 
   useEffect(() => {
     if (isVisible) {
-      loadVideos();
+      void loadVideos();
     }
   }, [isVisible, loadVideos]);
 
@@ -189,7 +189,7 @@ export default function CanvasManagerSheet() {
   // Selección directa desde la grilla
   const handleSelectVideo = useCallback(
     (item: CanvasVideoItem) => {
-      applyVideoUri(item.uri);
+      void applyVideoUri(item.uri);
     },
     [applyVideoUri]
   );
@@ -209,7 +209,7 @@ export default function CanvasManagerSheet() {
               try {
                 await MediaAssetService.deleteCanvasVideo(item.uri);
                 useToastStore.getState().showToast(t('actions.canvas_removed') || 'Vídeo de fondo eliminado', 'trash');
-                loadVideos();
+                void loadVideos();
               } catch (e) {
                 console.error('[CanvasManagerSheet] Error borrando vídeo:', e);
               }
@@ -250,7 +250,7 @@ export default function CanvasManagerSheet() {
               text: t('actions.cancel') || 'Cancelar',
               style: 'cancel',
               onPress: () => {
-                MediaAssetService.cleanupTempSource(asset.uri);
+                void MediaAssetService.cleanupTempSource(asset.uri);
               },
             },
             {
@@ -320,6 +320,33 @@ export default function CanvasManagerSheet() {
     [assignedUris, itemWidth, itemHeight, handleSelectVideo, handleLongPressVideo, colors, fonts, styles]
   );
 
+  const gridContent =
+    videos.length === 0 ? (
+      <View style={styles.emptyContainer}>
+        <View style={[styles.emptyIconCircle, { backgroundColor: colors.cardBackground || '#1E1E1E' }]}>
+          <Ionicons name="videocam-outline" size={40} color={colors.textSecondary || '#777'} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: fonts.regular }]}>
+          {t('canvas.empty_title') || 'No hay vídeos subidos'}
+        </Text>
+        <Text style={[styles.emptyDesc, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+          {t('canvas.empty_desc') || 'Sube un vídeo de fondo para poder asignarlo a tus canciones y reutilizarlo cuando quieras.'}
+        </Text>
+      </View>
+    ) : (
+      <View style={[styles.listContainer, { height: listHeight }]}>
+        <FlashList
+          data={videos}
+          keyExtractor={keyExtractor}
+          numColumns={3}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          renderItem={renderItem}
+        />
+      </View>
+    );
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -356,30 +383,8 @@ export default function CanvasManagerSheet() {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
-      ) : videos.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIconCircle, { backgroundColor: colors.cardBackground || '#1E1E1E' }]}>
-            <Ionicons name="videocam-outline" size={40} color={colors.textSecondary || '#777'} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: fonts.regular }]}>
-            {t('canvas.empty_title') || 'No hay vídeos subidos'}
-          </Text>
-          <Text style={[styles.emptyDesc, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
-            {t('canvas.empty_desc') || 'Sube un vídeo de fondo para poder asignarlo a tus canciones y reutilizarlo cuando quieras.'}
-          </Text>
-        </View>
       ) : (
-        <View style={[styles.listContainer, { height: listHeight }]}>
-          <FlashList
-            data={videos}
-            keyExtractor={keyExtractor}
-            numColumns={3}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            renderItem={renderItem}
-          />
-        </View>
+        gridContent
       )}
     </View>
   );

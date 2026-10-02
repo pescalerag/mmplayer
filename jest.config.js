@@ -25,6 +25,7 @@ module.exports = {
     'src/services/MediaAssetService.ts',
     'src/store/usePlayerStore.ts',
     'modules/native-equalizer/index.ts',
+    'src/screens/activity/utils/activityStatUtils.ts',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['lcov', 'text', 'html'],

@@ -69,7 +69,7 @@ const DetailRow = React.memo(({ label, value, copyable, onCopy, colors, fonts }:
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.value} selectable numberOfLines={3}>{value || '-'}</Text>
       </View>
-      {copyable && value && value !== '-' && (
+      {!!(copyable && value && value !== '-') && (
         <TouchableOpacity onPress={onCopy} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
           <Ionicons name="copy-outline" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -140,7 +140,7 @@ export default function TrackDetailsSheet() {
       setAlbumYear(album?.year ?? null);
       setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : '-');
     };
-    load();
+    void load();
   }, [track]);
 
   const copy = (text: string) => {
