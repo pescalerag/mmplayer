@@ -33,7 +33,7 @@ import QueueSheet from "./src/components/sheets/QueueSheet";
 import "./src/constants/i18n";
 import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
 import MainNavigator from "./src/navigation/MainNavigator";
-import { navigationRef } from "./src/navigation/navigationRef";
+import { navigationRef, waitForNavigationReady } from "./src/navigation/navigationRef";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { ExternalAudioService } from "./src/services/ExternalAudioService";
 import { MediaAssetService } from "./src/services/MediaAssetService";
@@ -172,11 +172,8 @@ export default function App() {
         lastHandledNotificationTimestamp = now;
 
         // Esperar a que el contenedor de navegación esté listo
-        const startTime = Date.now();
-        while (!navigationRef.isReady() && Date.now() - startTime < 8000) {
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-        if (!navigationRef.isReady()) return;
+        const isReady = await waitForNavigationReady(8000);
+        if (!isReady || !navigationRef.isReady()) return;
 
         // Esperar si es necesario a que el store tenga la canción activa sincronizada
         let activeTrack = usePlayerStore.getState().activeTrack;
@@ -185,13 +182,19 @@ export default function App() {
           activeTrack = usePlayerStore.getState().activeTrack;
         }
 
-        if (!activeTrack) {
+        activeTrack ??= await new Promise<ReturnType<typeof usePlayerStore.getState>['activeTrack']>((resolve) => {
           const syncStartTime = Date.now();
-          while (!usePlayerStore.getState().activeTrack && Date.now() - syncStartTime < 1500) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
-          activeTrack = usePlayerStore.getState().activeTrack;
-        }
+          const interval = setInterval(() => {
+            const currentTrack = usePlayerStore.getState().activeTrack;
+            if (currentTrack) {
+              clearInterval(interval);
+              resolve(currentTrack);
+            } else if (Date.now() - syncStartTime >= 1500) {
+              clearInterval(interval);
+              resolve(null);
+            }
+          }, 100);
+        });
 
         if (!activeTrack) {
           return;

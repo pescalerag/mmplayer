@@ -858,6 +858,22 @@ describe('Notification System Test Suite', () => {
       expect(notifs.some((n) => n.type === 'app_update')).toBe(false);
     });
   });
+
+  describe('useNotificationStore', () => {
+    it('decrementa el conteo de notificaciones no leidas', () => {
+      useNotificationStore.getState().setUnreadCount(5);
+      expect(useNotificationStore.getState().unreadCount).toBe(5);
+
+      useNotificationStore.getState().decrementUnreadCount();
+      expect(useNotificationStore.getState().unreadCount).toBe(4);
+
+      useNotificationStore.getState().decrementUnreadCount(2);
+      expect(useNotificationStore.getState().unreadCount).toBe(2);
+
+      useNotificationStore.getState().decrementUnreadCount(10);
+      expect(useNotificationStore.getState().unreadCount).toBe(0);
+    });
+  });
 });
 
 

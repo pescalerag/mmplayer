@@ -1,14 +1,12 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
-import { useAppTheme } from '../../hooks/useAppTheme';
-import { usePlayerStore } from '../../store/usePlayerStore';
-import { database } from '../../database';
-import Track from '../../database/models/Track';
-import { ShuffleService } from '../../services/ShuffleService';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useToastStore } from '../../store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
+import { ShuffleService } from '../../services/ShuffleService';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { useToastStore } from '../../store/useToastStore';
 
 export const GlobalShuffleButton: React.FC = () => {
   const { colors, fonts, spacing, radii } = useAppTheme();

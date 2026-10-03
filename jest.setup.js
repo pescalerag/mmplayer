@@ -8,20 +8,58 @@ jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
   StyleSheet: { create: (s) => s },
+  Alert: { alert: jest.fn() },
   Linking: {
     openURL: jest.fn().mockResolvedValue(true),
   },
 }));
 
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => ({
+  FadeIn: {
+    duration: jest.fn(() => ({
+      delay: jest.fn(() => ({})),
+    })),
+    delay: jest.fn(() => ({
+      duration: jest.fn(() => ({})),
+    })),
+  },
+  default: {},
+}));
+
+// Mock expo-document-picker & expo-sharing
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(),
+}));
+
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock watermelondb decorators
+jest.mock('@nozbe/watermelondb/decorators', () => ({
+  field: () => () => {},
+  text: () => () => {},
+  relation: () => () => {},
+  children: () => () => {},
+  lazy: () => () => {},
+  date: () => () => {},
+  readonly: () => () => {},
+  json: () => () => {},
+}));
+
 // Mock react-native-mmkv
+const mockMMKVStorageInstance = {
+  getString: jest.fn(),
+  set: jest.fn(),
+  remove: jest.fn(),
+  delete: jest.fn(),
+  contains: jest.fn(),
+  getNumber: jest.fn(),
+};
 jest.mock('react-native-mmkv', () => ({
-  createMMKV: () => ({
-    getString: jest.fn(),
-    set: jest.fn(),
-    remove: jest.fn(),
-    delete: jest.fn(),
-    contains: jest.fn(),
-  }),
+  createMMKV: () => mockMMKVStorageInstance,
 }));
 
 // Mock @react-native-async-storage/async-storage
@@ -89,6 +127,7 @@ const mockTable = {
   find: jest.fn().mockResolvedValue(null),
   query: jest.fn(() => ({
     fetch: jest.fn().mockResolvedValue([]),
+    fetchCount: jest.fn().mockResolvedValue(0),
     observe: jest.fn(() => ({ subscribe: jest.fn() })),
   })),
 };
@@ -126,6 +165,8 @@ const mockFileSystem = {
   copyAsync: jest.fn().mockResolvedValue(undefined),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
   readDirectoryAsync: jest.fn().mockResolvedValue([]),
+  writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
+  EncodingType: { UTF8: 'utf8' },
 };
 jest.mock('expo-file-system', () => mockFileSystem);
 jest.mock('expo-file-system/legacy', () => mockFileSystem);

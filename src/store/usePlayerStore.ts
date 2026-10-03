@@ -1,21 +1,21 @@
+import { Collection } from "@nozbe/watermelondb";
 import { createMMKV } from "react-native-mmkv";
 import TrackPlayer, { RepeatMode, Track as TPTrack } from "react-native-track-player";
-import { useCastStore } from "./useCastStore";
-import { useSettingsStore } from "./useSettingsStore";
-import { LocalCastService } from "../services/LocalCastService";
 import { create } from "zustand";
+import i18n from "../constants/i18n";
 import { database } from "../database";
-import { Collection } from "@nozbe/watermelondb";
-import Artist from "../database/models/Artist";
 import Album from "../database/models/Album";
+import Artist from "../database/models/Artist";
 import Track from "../database/models/Track";
 import { navigationRef } from '../navigation/navigationRef';
-import { useToastStore } from "./useToastStore";
-import i18n from "../constants/i18n";
-import { ShuffleService } from "../services/ShuffleService";
 import { HistoryService } from "../services/HistoryService";
+import { LocalCastService } from "../services/LocalCastService";
 import { PlaybackTimeTracker } from "../services/PlaybackService";
+import { ShuffleService } from "../services/ShuffleService";
 import { shuffleArray } from "../utils/shuffle";
+import { useCastStore } from "./useCastStore";
+import { useSettingsStore } from "./useSettingsStore";
+import { useToastStore } from "./useToastStore";
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
@@ -90,15 +90,15 @@ async function restorePlaybackPosition(position: number): Promise<void> {
   if (position <= 0) return;
 
   // Wait for metadata/duration to load (up to 3 seconds)
-  let loaded = false;
-  for (let i = 0; i < 30; i++) {
+  const pollDuration = async (attemptsLeft: number): Promise<boolean> => {
+    if (attemptsLeft <= 0) return false;
     const progress = await TrackPlayer.getProgress();
-    if (progress.duration > 0) {
-      loaded = true;
-      break;
-    }
+    if (progress.duration > 0) return true;
     await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+    return pollDuration(attemptsLeft - 1);
+  };
+
+  const loaded = await pollDuration(30);
 
   if (loaded) {
     await TrackPlayer.seekTo(position);
@@ -138,18 +138,32 @@ async function restoreActiveTrackModel(
 }
 
 async function updateRelocatedQueueTracks(queue: TPTrack[], relocatedIndices: number[]): Promise<void> {
-  // Actualizar en orden inverso para preservar índices
-  for (let i = relocatedIndices.length - 1; i >= 0; i--) {
-    const index = relocatedIndices[i];
-    const item = queue[index];
-    const originalId = (item.id as string).split('-')[0];
-    const updatedModel = await database.get<Track>("tracks").find(originalId).catch(() => null);
-    if (updatedModel) {
+  const updates = await Promise.all(
+    relocatedIndices.map(async (index) => {
+      const item = queue[index];
+      if (!item?.id) return null;
+      const originalId = (item.id as string).split('-')[0];
+      const updatedModel = await database.get<Track>("tracks").find(originalId).catch(() => null);
+      if (!updatedModel) return null;
       const newTPTrack = await mapToTPTrack(updatedModel, (item as any).instanceId);
-      await TrackPlayer.remove(index);
-      await TrackPlayer.add(newTPTrack, index);
-    }
-  }
+      return { index, newTPTrack };
+    })
+  );
+
+  // Actualizar en orden inverso para preservar índices
+  const sortedUpdates = updates
+    .filter((u): u is { index: number; newTPTrack: TPTrack } => u !== null)
+    .sort((a, b) => b.index - a.index);
+
+  const applyUpdates = async (i: number): Promise<void> => {
+    if (i >= sortedUpdates.length) return;
+    const { index, newTPTrack } = sortedUpdates[i];
+    await TrackPlayer.remove(index);
+    await TrackPlayer.add(newTPTrack, index);
+    return applyUpdates(i + 1);
+  };
+
+  await applyUpdates(0);
 }
 
 async function updateRelocatedShuffleQueue(
@@ -342,6 +356,18 @@ async function addTracksSafely(tpTracks: TPTrack[], insertIndex?: number) {
   }
 }
 
+async function removeIndicesInChunks(indices: number[]): Promise<void> {
+  const CHUNK_SIZE = 50;
+  const processChunk = async (i: number): Promise<void> => {
+    if (i >= indices.length) return;
+    const chunk = indices.slice(i, i + CHUNK_SIZE);
+    await TrackPlayer.remove(chunk);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    return processChunk(i + CHUNK_SIZE);
+  };
+  await processChunk(0);
+}
+
 async function setupShuffledPlayback(
   initialTpTracks: TPTrack[],
   context: string,
@@ -367,10 +393,10 @@ async function setupShuffledPlayback(
 
     if (existingLength > 0) {
       const oldIndices = Array.from({ length: existingLength }, (_, i) => i);
-      await TrackPlayer.remove(oldIndices).catch(() => {});
+      await TrackPlayer.remove(oldIndices).catch(() => { });
     }
   } else {
-    await TrackPlayer.stop().catch(() => {});
+    await TrackPlayer.stop().catch(() => { });
     await TrackPlayer.reset();
     lastAppliedSpeed = null;
     lastAppliedPitch = null;
@@ -394,7 +420,7 @@ function loadShuffledOriginalQueueInBackground(
   set: (state: Partial<PlayerState>) => void,
   savePlaybackState: () => Promise<void>
 ) {
-  (async () => {
+  void (async () => {
     try {
       const originalTpTracks = await Promise.all(
         tracks.map((t, idx) => mapToTPTrack(t, instanceIds?.[idx]))
@@ -407,6 +433,38 @@ function loadShuffledOriginalQueueInBackground(
       console.error("Background original queue mapping error:", bgError);
     }
   })();
+}
+
+async function loadChunkBatch(
+  trackList: Track[],
+  instanceList: string[] | undefined,
+  chunkSize: number,
+  loadId: number,
+  insertAtStart: boolean,
+  updateQueueStatus: () => Promise<void>
+) {
+  const processChunk = async (i: number, insertIndex: number): Promise<void> => {
+    if (i >= trackList.length || currentLoadId !== loadId) return;
+
+    const chunk = trackList.slice(i, i + chunkSize);
+    const instChunk = instanceList ? instanceList.slice(i, i + chunkSize) : undefined;
+    const tpChunk = await Promise.all(chunk.map((t, cIdx) => mapToTPTrack(t, instChunk?.[cIdx])));
+    if (currentLoadId !== loadId) return;
+
+    if (insertAtStart) {
+      await addTracksSafely(tpChunk, insertIndex);
+    } else {
+      await addTracksSafely(tpChunk);
+    }
+
+    if (currentLoadId !== loadId) return;
+    await updateQueueStatus();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    return processChunk(i + chunkSize, insertIndex + chunk.length);
+  };
+
+  await processChunk(0, 0);
 }
 
 function loadShuffledRemainingChunksInBackground(
@@ -423,20 +481,16 @@ function loadShuffledRemainingChunksInBackground(
     return;
   }
 
-  (async () => {
+  void (async () => {
     try {
-      for (let i = 0; i < remainingTracks.length; i += chunkSize) {
-        if (currentLoadId !== loadId) break;
-        const chunk = remainingTracks.slice(i, i + chunkSize);
-        const instChunk = remainingInstances ? remainingInstances.slice(i, i + chunkSize) : undefined;
-        const tpChunk = await Promise.all(chunk.map((t, cIdx) => mapToTPTrack(t, instChunk?.[cIdx])));
-        if (currentLoadId !== loadId) break;
-        await addTracksSafely(tpChunk);
-        if (currentLoadId !== loadId) break;
-
-        await updateQueueStatus();
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+      await loadChunkBatch(
+        remainingTracks,
+        remainingInstances,
+        chunkSize,
+        loadId,
+        false,
+        updateQueueStatus
+      );
       if (currentLoadId === loadId) {
         await savePlaybackState();
       }
@@ -448,35 +502,6 @@ function loadShuffledRemainingChunksInBackground(
       }
     }
   })();
-}
-
-async function loadChunkBatch(
-  trackList: Track[],
-  instanceList: string[] | undefined,
-  chunkSize: number,
-  loadId: number,
-  insertAtStart: boolean,
-  updateQueueStatus: () => Promise<void>
-) {
-  let insertIndex = 0;
-  for (let i = 0; i < trackList.length; i += chunkSize) {
-    if (currentLoadId !== loadId) break;
-    const chunk = trackList.slice(i, i + chunkSize);
-    const instChunk = instanceList ? instanceList.slice(i, i + chunkSize) : undefined;
-    const tpChunk = await Promise.all(chunk.map((t, cIdx) => mapToTPTrack(t, instChunk?.[cIdx])));
-    if (currentLoadId !== loadId) break;
-
-    if (insertAtStart) {
-      await addTracksSafely(tpChunk, insertIndex);
-      insertIndex += chunk.length;
-    } else {
-      await addTracksSafely(tpChunk);
-    }
-
-    if (currentLoadId !== loadId) break;
-    await updateQueueStatus();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
 }
 
 interface QueueRemainingChunksOptions {
@@ -502,7 +527,7 @@ function loadQueueRemainingChunksInBackground({
   updateQueueStatus,
   savePlaybackState,
 }: QueueRemainingChunksOptions) {
-  (async () => {
+  void (async () => {
     try {
       if (previousTracks.length > 0) {
         await loadChunkBatch(previousTracks, previousInstances, chunkSize, loadId, true, updateQueueStatus);
@@ -718,7 +743,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (activeBatchPromise) {
       try {
         await activeBatchPromise;
-      } catch {}
+      } catch { }
     }
   },
 
@@ -738,7 +763,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentLoadId !== loadId) return;
 
       await flushCurrentTrackToHistory();
-      await TrackPlayer.stop().catch(() => {});
+      await TrackPlayer.stop().catch(() => { });
       await TrackPlayer.reset();
       lastAppliedSpeed = null;
       lastAppliedPitch = null;
@@ -907,7 +932,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const tpTrack = await mapToTPTrack(track);
       if (currentLoadId !== loadId) return;
       await flushCurrentTrackToHistory();
-      await TrackPlayer.stop().catch(() => {});
+      await TrackPlayer.stop().catch(() => { });
       await TrackPlayer.reset();
       lastAppliedSpeed = null;
       lastAppliedPitch = null;
@@ -1222,11 +1247,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     isApplyingSpeedAndPitch = true;
     try {
-      do {
+      const applyUpdates = async (): Promise<void> => {
         hasPendingSpeedPitchUpdate = false;
         const { speed, pitch } = resolveTargetSpeedAndPitch(get());
         await applyTargetSpeedAndPitch(speed, pitch);
-      } while (hasPendingSpeedPitchUpdate);
+        if (hasPendingSpeedPitchUpdate) {
+          await applyUpdates();
+        }
+      };
+      await applyUpdates();
     } catch (e) {
       console.error("Error applying speed and pitch:", e);
     } finally {
@@ -1289,14 +1318,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         // Ordenamos los índices de mayor a menor para que al borrar desde el final
         // no afecte a los índices de las posiciones anteriores.
         indicesToRemove.sort((a, b) => b - a);
-
-        const CHUNK_SIZE = 50;
-        for (let i = 0; i < indicesToRemove.length; i += CHUNK_SIZE) {
-          const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
-          await TrackPlayer.remove(chunk);
-          // Pausa corta para liberar el hilo de UI
-          await new Promise((resolve) => setTimeout(resolve, 30));
-        }
+        await removeIndicesInChunks(indicesToRemove);
       }
 
       set({ userQueueSize: 0 });
@@ -1322,13 +1344,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (indicesToRemove.length === 0) return;
 
       indicesToRemove.sort((a, b) => b - a);
-
-      const CHUNK_SIZE = 50;
-      for (let i = 0; i < indicesToRemove.length; i += CHUNK_SIZE) {
-        const chunk = indicesToRemove.slice(i, i + CHUNK_SIZE);
-        await TrackPlayer.remove(chunk);
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      }
+      await removeIndicesInChunks(indicesToRemove);
 
       await get().updateQueueStatus();
       await get().savePlaybackState();
@@ -1512,7 +1528,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       console.error("❌ [Store] Error actualizando status de la cola:", error);
     }
   },
-  saveRecentsState: async () => {
+  saveRecentsState: () => {
     try {
       const { recentMedia, recentPlaylists } = get();
       const payload = JSON.stringify({ recentMedia, recentPlaylists });
@@ -1520,12 +1536,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch (error) {
       console.error("Error guardando recientes:", error);
     }
+    return Promise.resolve();
   },
 
-  restoreRecentsState: async () => {
+  restoreRecentsState: () => {
     try {
       const savedData = storage.getString(RECENTS_KEY);
-      if (!savedData) return;
+      if (!savedData) return Promise.resolve();
 
       const { recentMedia, recentPlaylists } = JSON.parse(savedData);
       set({
@@ -1535,6 +1552,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch (error) {
       console.error("Error restaurando recientes:", error);
     }
+    return Promise.resolve();
   },
 
   addMediaToRecents: (item) => {
@@ -1647,7 +1665,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (isActiveTrackDeleted || isAnyQueueTrackDeleted) {
         // Si alguna canción se ha eliminado y está en reproducción o en la cola, parar la reproducción
-        await TrackPlayer.pause().catch(() => {});
+        await TrackPlayer.pause().catch(() => { });
 
         if (isActiveTrackDeleted) {
           // Current track deleted -> clear queue and stop
@@ -1702,7 +1720,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
 
       // Si alguna canción se ha recolocado y está en reproducción o en la cola, parar la reproducción
-      await TrackPlayer.pause().catch(() => {});
+      await TrackPlayer.pause().catch(() => { });
 
       if (isActiveTrackRelocated) {
         // Si la pista activa ha sido reubicada, su archivo se ha movido: reseteamos el reproductor
@@ -1749,7 +1767,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       if (isActiveTrackTarget || isAnyQueueTarget) {
-        await TrackPlayer.pause().catch(() => {});
+        await TrackPlayer.pause().catch(() => { });
         return true;
       }
       return false;
@@ -1782,19 +1800,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
 
       const queue = await TrackPlayer.getQueue();
+      const metadataUpdates: Promise<void>[] = [];
       let updatedAny = false;
       for (let i = 0; i < queue.length; i++) {
         const tpTrack = queue[i];
         const tpTrackId = tpTrack.id.toString();
         if (tpTrackId.startsWith(`${trackId}-`) || tpTrack.url === track.fileUrl) {
-          await TrackPlayer.updateMetadataForTrack(i, {
-            title,
-            artist,
-            album: albumTitle,
-            artwork,
-          });
+          metadataUpdates.push(
+            TrackPlayer.updateMetadataForTrack(i, {
+              title,
+              artist,
+              album: albumTitle,
+              artwork,
+            })
+          );
           updatedAny = true;
         }
+      }
+      if (metadataUpdates.length > 0) {
+        await Promise.all(metadataUpdates);
       }
 
       const updatedShuffleQueue = get().shuffleOriginalQueue.map((tpTrack) => {
@@ -1863,11 +1887,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         artists: database.collections.get<Artist>("artists"),
       };
 
+      const results = await Promise.all(
+        state.recentMedia.map((item) => refreshRecentItem(item, collections))
+      );
+
       let modified = false;
       const updatedMedia: RecentItem[] = [];
 
-      for (const item of state.recentMedia) {
-        const { item: updatedItem, modified: isItemModified } = await refreshRecentItem(item, collections);
+      for (const { item: updatedItem, modified: isItemModified } of results) {
         if (isItemModified) {
           modified = true;
         }

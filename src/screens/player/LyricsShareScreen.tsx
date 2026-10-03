@@ -28,13 +28,13 @@ const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
   let r = 0, g = 0, b = 0;
   hex = hex.replace(/^#/, '');
   if (hex.length === 3) {
-    r = parseInt(hex[0] + hex[0], 16);
-    g = parseInt(hex[1] + hex[1], 16);
-    b = parseInt(hex[2] + hex[2], 16);
+    r = Number.parseInt(hex[0] + hex[0], 16);
+    g = Number.parseInt(hex[1] + hex[1], 16);
+    b = Number.parseInt(hex[2] + hex[2], 16);
   } else if (hex.length === 6) {
-    r = parseInt(hex.substring(0, 2), 16);
-    g = parseInt(hex.substring(2, 4), 16);
-    b = parseInt(hex.substring(4, 6), 16);
+    r = Number.parseInt(hex.substring(0, 2), 16);
+    g = Number.parseInt(hex.substring(2, 4), 16);
+    b = Number.parseInt(hex.substring(4, 6), 16);
   }
   r /= 255;
   g /= 255;
@@ -139,6 +139,80 @@ interface LyricsCardProps {
   t: any;
 }
 
+interface CardTypography {
+  fontSize: number;
+  lineHeight: number;
+  phraseGap: number;
+}
+
+interface TypographyPreset {
+  phraseGap: number;
+  totalCharsThreshold: number;
+  small: { fontSize: number; lineHeight: number };
+  medium: { fontSize: number; lineHeight: number };
+  large: { fontSize: number; lineHeight: number };
+}
+
+const LINE_COUNT_PRESETS: Record<number, TypographyPreset> = {
+  1: {
+    phraseGap: 0,
+    totalCharsThreshold: Infinity,
+    small: { fontSize: 20, lineHeight: 28 },
+    medium: { fontSize: 24, lineHeight: 33 },
+    large: { fontSize: 28, lineHeight: 38 },
+  },
+  2: {
+    phraseGap: 12,
+    totalCharsThreshold: 120,
+    small: { fontSize: 17, lineHeight: 24 },
+    medium: { fontSize: 20, lineHeight: 28 },
+    large: { fontSize: 23, lineHeight: 32 },
+  },
+  3: {
+    phraseGap: 10,
+    totalCharsThreshold: 160,
+    small: { fontSize: 15, lineHeight: 21 },
+    medium: { fontSize: 17, lineHeight: 24 },
+    large: { fontSize: 19, lineHeight: 27 },
+  },
+  4: {
+    phraseGap: 8,
+    totalCharsThreshold: 180,
+    small: { fontSize: 13, lineHeight: 18 },
+    medium: { fontSize: 15, lineHeight: 21 },
+    large: { fontSize: 17, lineHeight: 23 },
+  },
+};
+
+const DEFAULT_PRESET: TypographyPreset = {
+  phraseGap: 6,
+  totalCharsThreshold: 200,
+  small: { fontSize: 12, lineHeight: 16.5 },
+  medium: { fontSize: 13.5, lineHeight: 19 },
+  large: { fontSize: 15, lineHeight: 21 },
+};
+
+function getCardTypography(phrases: string[]): CardTypography {
+  const lineCount = Math.max(1, phrases.length);
+  const maxChars = phrases.reduce((max, line) => Math.max(max, line.length), 0);
+  const totalChars = phrases.reduce((sum, line) => sum + line.length, 0);
+
+  const preset = LINE_COUNT_PRESETS[lineCount] ?? DEFAULT_PRESET;
+
+  let textSizes = preset.large;
+  if (maxChars > 70 || totalChars > preset.totalCharsThreshold) {
+    textSizes = preset.small;
+  } else if (maxChars > 40) {
+    textSizes = preset.medium;
+  }
+
+  return {
+    fontSize: textSizes.fontSize,
+    lineHeight: textSizes.lineHeight,
+    phraseGap: preset.phraseGap,
+  };
+}
+
 const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
   (
     {
@@ -154,77 +228,7 @@ const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
     },
     ref
   ) => {
-    // Dynamic typography calculations based on line count and character length
-    const lineCount = Math.max(1, phrases.length);
-    const maxChars = phrases.reduce((max, line) => Math.max(max, line.length), 0);
-    const totalChars = phrases.reduce((sum, line) => sum + line.length, 0);
-
-    let fontSize = 24;
-    let lineHeight = 32;
-    let phraseGap = 12;
-
-    if (lineCount === 1) {
-      if (maxChars > 70) {
-        fontSize = 20;
-        lineHeight = 28;
-      } else if (maxChars > 40) {
-        fontSize = 24;
-        lineHeight = 33;
-      } else {
-        fontSize = 28;
-        lineHeight = 38;
-      }
-      phraseGap = 0;
-    } else if (lineCount === 2) {
-      if (maxChars > 70 || totalChars > 120) {
-        fontSize = 17;
-        lineHeight = 24;
-      } else if (maxChars > 40) {
-        fontSize = 20;
-        lineHeight = 28;
-      } else {
-        fontSize = 23;
-        lineHeight = 32;
-      }
-      phraseGap = 12;
-    } else if (lineCount === 3) {
-      if (maxChars > 70 || totalChars > 160) {
-        fontSize = 15;
-        lineHeight = 21;
-      } else if (maxChars > 40) {
-        fontSize = 17;
-        lineHeight = 24;
-      } else {
-        fontSize = 19;
-        lineHeight = 27;
-      }
-      phraseGap = 10;
-    } else if (lineCount === 4) {
-      if (maxChars > 70 || totalChars > 180) {
-        fontSize = 13;
-        lineHeight = 18;
-      } else if (maxChars > 40) {
-        fontSize = 15;
-        lineHeight = 21;
-      } else {
-        fontSize = 17;
-        lineHeight = 23;
-      }
-      phraseGap = 8;
-    } else {
-      // 5 lines
-      if (maxChars > 70 || totalChars > 200) {
-        fontSize = 12;
-        lineHeight = 16.5;
-      } else if (maxChars > 40) {
-        fontSize = 13.5;
-        lineHeight = 19;
-      } else {
-        fontSize = 15;
-        lineHeight = 21;
-      }
-      phraseGap = 6;
-    }
+    const { fontSize, lineHeight, phraseGap } = getCardTypography(phrases);
 
     return (
       <ViewShot
@@ -281,7 +285,7 @@ const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
             <View style={[cardStyles.lyricsBox, { gap: phraseGap }]}>
               {phrases.map((phrase, idx) => (
                 <Text
-                  key={idx}
+                  key={`${phrase}-${idx}`}
                   style={[
                     cardStyles.lyricPhraseText,
                     {
@@ -309,6 +313,330 @@ const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
 );
 
 LyricsShareCard.displayName = 'LyricsShareCard';
+
+function getSingleLineSpan(current: number, index: number): number[] {
+  if (index === current) return [];
+  const start = Math.min(current, index);
+  const end = Math.max(current, index);
+  const span = end - start + 1;
+  return span <= 5 ? Array.from({ length: span }, (_, i) => start + i) : [index];
+}
+
+function handleDeselectFromRange(prev: number[], index: number): number[] {
+  const min = prev[0];
+  const max = prev.at(-1);
+  if (index === min) return prev.slice(1);
+  if (index === max) return prev.slice(0, -1);
+  return [index];
+}
+
+function notifySelectionLimit(isLimit: boolean, t: any) {
+  const message = isLimit
+    ? t('lyrics.max_phrases_reached', { defaultValue: 'Has alcanzado el límite de 5 frases' })
+    : t('lyrics.consecutive_phrases_only', { defaultValue: 'Las frases deben ser consecutivas' });
+  useToastStore.getState().showToast(message, 'information-circle');
+}
+
+function extendSelectionRange(prev: number[], index: number, t: any): number[] {
+  const min = prev[0];
+  const max = prev.at(-1)!;
+  const newStart = Math.min(min, index);
+  const newEnd = Math.max(max, index);
+  const newSpan = newEnd - newStart + 1;
+
+  if (newSpan <= 5) {
+    return Array.from({ length: newSpan }, (_, i) => newStart + i);
+  }
+
+  notifySelectionLimit(prev.length >= 5, t);
+  return prev;
+}
+
+function getNextSelectedIndices(prev: number[], index: number, t: any): number[] {
+  if (prev.length === 0) return [index];
+  if (prev.length === 1) return getSingleLineSpan(prev[0], index);
+  if (prev.includes(index)) return handleDeselectFromRange(prev, index);
+  return extendSelectionRange(prev, index, t);
+}
+
+function checkIsLineDimmed(index: number, selectedIndices: number[]): boolean {
+  const isSelected = selectedIndices.includes(index);
+  if (isSelected) return false;
+
+  const count = selectedIndices.length;
+  if (count >= 5) return true;
+  if (count <= 1) return false;
+
+  const minIndex = selectedIndices[0];
+  const maxIndex = selectedIndices[count - 1];
+  const canExtend =
+    (index > maxIndex && index - minIndex + 1 <= 5) ||
+    (index < minIndex && maxIndex - index + 1 <= 5);
+
+  return !canExtend;
+}
+
+function getCardDimensions(insets: { top: number; bottom: number }) {
+  const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 170;
+  let cardHeight = Math.min(availableHeight, 540);
+  let cardWidth = cardHeight * (9 / 16);
+
+  if (cardWidth > SCREEN_WIDTH - 44) {
+    cardWidth = SCREEN_WIDTH - 44;
+    cardHeight = cardWidth * (16 / 9);
+  }
+
+  return { cardWidth, cardHeight };
+}
+
+interface LyricsLineItemProps {
+  item: string;
+  index: number;
+  isSelected: boolean;
+  isDimmed: boolean;
+  accentLight: string;
+  onAccentLight: string;
+  onToggle: (index: number) => void;
+}
+
+const LyricsLineItem = React.memo(function LyricsLineItem({
+  item,
+  index,
+  isSelected,
+  isDimmed,
+  accentLight,
+  onAccentLight,
+  onToggle,
+}: LyricsLineItemProps) {
+  return (
+    <TouchableOpacity
+      onPress={() => onToggle(index)}
+      activeOpacity={0.7}
+      style={[
+        styles.lineItem,
+        isSelected && [styles.lineItemSelected, { borderColor: accentLight }],
+        isDimmed && styles.lineItemDimmed,
+      ]}
+    >
+      <View
+        style={[
+          styles.checkboxCircle,
+          isSelected && {
+            backgroundColor: accentLight,
+            borderColor: accentLight,
+          },
+        ]}
+      >
+        {isSelected && <Ionicons name="checkmark" size={14} color={onAccentLight} />}
+      </View>
+      <Text
+        style={[
+          styles.lineText,
+          isSelected ? styles.lineTextSelected : styles.lineTextUnselected,
+        ]}
+      >
+        {item}
+      </Text>
+    </TouchableOpacity>
+  );
+});
+
+interface LyricsSelectStepProps {
+  readonly coverUrl: string | null;
+  readonly title: string;
+  readonly artist: string;
+  readonly formattedLines: string[];
+  readonly selectedIndices: number[];
+  readonly accentColor: string;
+  readonly onAccentColor: string;
+  readonly accentLight: string;
+  readonly onAccentLight: string;
+  readonly t: any;
+  readonly onToggleLine: (index: number) => void;
+  readonly onContinue: () => void;
+}
+
+function LyricsSelectStep({
+  coverUrl,
+  title,
+  artist,
+  formattedLines,
+  selectedIndices,
+  accentColor,
+  onAccentColor,
+  accentLight,
+  onAccentLight,
+  t,
+  onToggleLine,
+  onContinue,
+}: Readonly<LyricsSelectStepProps>) {
+  const isSelectedEmpty = selectedIndices.length === 0;
+
+  return (
+    <View style={styles.selectionContainer}>
+      <View style={styles.songInfoBar}>
+        {coverUrl ? (
+          <Image source={{ uri: coverUrl }} style={styles.infoCover} contentFit="cover" />
+        ) : (
+          <View style={[styles.infoCover, styles.infoCoverFallback]}>
+            <Ionicons name="musical-notes" size={16} color="rgba(255,255,255,0.5)" />
+          </View>
+        )}
+        <View style={styles.infoMeta}>
+          <Text style={styles.infoTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={styles.infoArtist} numberOfLines={1}>
+            {artist}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.hintContainer}>
+        <Text style={styles.hintText}>
+          {t('lyrics.select_phrases_hint', {
+            defaultValue: 'Selecciona de 1 a 5 frases consecutivas para tu tarjeta',
+          })}
+        </Text>
+      </View>
+
+      <FlatList
+        data={formattedLines}
+        keyExtractor={(_, index) => index.toString()}
+        contentContainerStyle={styles.linesListContent}
+        showsVerticalScrollIndicator={false}
+        extraData={selectedIndices}
+        renderItem={({ item, index }) => (
+          <LyricsLineItem
+            item={item}
+            index={index}
+            isSelected={selectedIndices.includes(index)}
+            isDimmed={checkIsLineDimmed(index, selectedIndices)}
+            accentLight={accentLight}
+            onAccentLight={onAccentLight}
+            onToggle={onToggleLine}
+          />
+        )}
+      />
+
+      <View style={styles.selectionBottomBar}>
+        <TouchableOpacity
+          onPress={onContinue}
+          disabled={isSelectedEmpty}
+          style={[
+            styles.continueBtn,
+            {
+              backgroundColor: isSelectedEmpty ? 'rgba(255,255,255,0.15)' : accentColor,
+            },
+          ]}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="sparkles"
+            size={18}
+            color={isSelectedEmpty ? 'rgba(255,255,255,0.4)' : onAccentColor}
+            style={{ marginRight: 8 }}
+          />
+          <Text
+            style={[
+              styles.continueBtnText,
+              { color: isSelectedEmpty ? 'rgba(255,255,255,0.4)' : onAccentColor },
+            ]}
+          >
+            {t('lyrics.create_card', { defaultValue: 'Ver tarjeta' })}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+interface LyricsPreviewStepProps {
+  readonly viewShotRef: React.RefObject<any>;
+  readonly title: string;
+  readonly artist: string;
+  readonly coverUrl: string | null;
+  readonly phrases: string[];
+  readonly cardWidth: number;
+  readonly cardHeight: number;
+  readonly gradientColors: [string, string, string, string];
+  readonly cardAccentColor: string;
+  readonly btnAccentColor: string;
+  readonly onAccentColor: string;
+  readonly isCapturing: boolean;
+  readonly t: any;
+  readonly onCaptureAndShare: () => void;
+  readonly onEdit: () => void;
+}
+
+function LyricsPreviewStep({
+  viewShotRef,
+  title,
+  artist,
+  coverUrl,
+  phrases,
+  cardWidth,
+  cardHeight,
+  gradientColors,
+  cardAccentColor,
+  btnAccentColor,
+  onAccentColor,
+  isCapturing,
+  t,
+  onCaptureAndShare,
+  onEdit,
+}: Readonly<LyricsPreviewStepProps>) {
+  return (
+    <View style={styles.previewStepWrapper}>
+      <View style={styles.previewContainer}>
+        <LyricsShareCard
+          ref={viewShotRef}
+          title={title}
+          artist={artist}
+          coverUrl={coverUrl}
+          phrases={phrases}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
+          gradientColors={gradientColors}
+          accentColor={cardAccentColor}
+          t={t}
+        />
+      </View>
+
+      <View style={[styles.actionsContainer, { width: Math.min(SCREEN_WIDTH - 40, cardWidth) }]}>
+        <TouchableOpacity
+          onPress={onCaptureAndShare}
+          disabled={isCapturing}
+          style={[styles.primaryShareBtn, { backgroundColor: btnAccentColor }]}
+          activeOpacity={0.8}
+        >
+          {isCapturing ? (
+            <ActivityIndicator size="small" color={onAccentColor} />
+          ) : (
+            <>
+              <Ionicons name="image-outline" size={19} color={onAccentColor} style={{ marginRight: 8 }} />
+              <Text style={[styles.primaryShareBtnText, { color: onAccentColor }]}>
+                {t('player.share_as_image', { defaultValue: 'Compartir imagen' })}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onEdit}
+          disabled={isCapturing}
+          style={styles.secondaryShareBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="create-outline" size={17} color="#E4E4E7" style={{ marginRight: 8 }} />
+          <Text style={styles.secondaryShareBtnText}>
+            {t('lyrics.edit_phrases', { defaultValue: 'Editar frases' })}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 export default function LyricsShareScreen() {
   const insets = useSafeAreaInsets();
@@ -371,102 +699,14 @@ export default function LyricsShareScreen() {
     };
   }, [coverUrl]);
 
-  const { colors: gradientColors, accent: accentColor } = useMemo(
+  const { colors: gradientColors, accent: gradientAccentColor } = useMemo(
     () => generateCoverGradients(extractedHex),
     [extractedHex]
   );
 
   // Toggle selection enforcing consecutive phrases (up to 5 consecutive lines, backward or forward)
   const handleToggleLine = (index: number) => {
-    setSelectedIndices((prev) => {
-      // If nothing was selected, select this line
-      if (prev.length === 0) {
-        return [index];
-      }
-
-      // When exactly 1 line is selected
-      if (prev.length === 1) {
-        const current = prev[0];
-        // Clicking the currently selected line deselects it
-        if (index === current) {
-          return [];
-        }
-        // Clicking forward
-        if (index > current) {
-          const span = index - current + 1;
-          if (span <= 5) {
-            return Array.from({ length: span }, (_, i) => current + i);
-          }
-          // Distance exceeds 5 lines: start new selection at tapped line
-          return [index];
-        }
-        // Clicking backward
-        const span = current - index + 1;
-        if (span <= 5) {
-          return Array.from({ length: span }, (_, i) => index + i);
-        }
-        // Distance exceeds 5 lines: start new selection at tapped line
-        return [index];
-      }
-
-      // When multiple lines (> 1) are selected
-      const min = prev[0];
-      const max = prev[prev.length - 1];
-
-      // If tapping an already selected line
-      if (prev.includes(index)) {
-        if (index === min) {
-          return prev.slice(1);
-        }
-        if (index === max) {
-          return prev.slice(0, -1);
-        }
-        // Tapping an interior line resets selection to just that line
-        return [index];
-      }
-
-      // If tapping forward (after max)
-      if (index > max) {
-        const newSpan = index - min + 1;
-        if (newSpan <= 5) {
-          return Array.from({ length: newSpan }, (_, i) => min + i);
-        }
-        if (prev.length >= 5) {
-          useToastStore.getState().showToast(
-            t('lyrics.max_phrases_reached', { defaultValue: 'Has alcanzado el límite de 5 frases' }),
-            'information-circle'
-          );
-        } else {
-          useToastStore.getState().showToast(
-            t('lyrics.consecutive_phrases_only', { defaultValue: 'Las frases deben ser consecutivas' }),
-            'information-circle'
-          );
-        }
-        return prev;
-      }
-
-      // If tapping backward (before min)
-      if (index < min) {
-        const newSpan = max - index + 1;
-        if (newSpan <= 5) {
-          return Array.from({ length: newSpan }, (_, i) => index + i);
-        }
-        if (prev.length >= 5) {
-          useToastStore.getState().showToast(
-            t('lyrics.max_phrases_reached', { defaultValue: 'Has alcanzado el límite de 5 frases' }),
-            'information-circle'
-          );
-        } else {
-          useToastStore.getState().showToast(
-            t('lyrics.consecutive_phrases_only', { defaultValue: 'Las frases deben ser consecutivas' }),
-            'information-circle'
-          );
-        }
-        return prev;
-      }
-
-      return prev;
-    });
+    setSelectedIndices((prev) => getNextSelectedIndices(prev, index, t));
   };
 
   // Selected phrases in song order
@@ -476,15 +716,10 @@ export default function LyricsShareScreen() {
       .filter(Boolean);
   }, [selectedIndices, formattedLines]);
 
-  // Calculate 9:16 card dimensions to fit inside screen without scrolling
-  const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 170;
-  let cardHeight = Math.min(availableHeight, 540);
-  let cardWidth = cardHeight * (9 / 16);
-
-  if (cardWidth > SCREEN_WIDTH - 44) {
-    cardWidth = SCREEN_WIDTH - 44;
-    cardHeight = cardWidth * (16 / 9);
-  }
+  const { cardWidth, cardHeight } = useMemo(
+    () => getCardDimensions(insets),
+    [insets]
+  );
 
   // Handle Share as Image
   const handleCaptureAndShareImage = async () => {
@@ -513,6 +748,14 @@ export default function LyricsShareScreen() {
     }
   };
 
+  const handleBackPress = () => {
+    if (step === 'preview') {
+      setStep('select');
+    } else {
+      navigation.goBack();
+    }
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 14) }]}>
       <StatusBar style="light" backgroundColor="#000000" />
@@ -520,13 +763,7 @@ export default function LyricsShareScreen() {
       {/* Screen Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => {
-            if (step === 'preview') {
-              setStep('select');
-            } else {
-              navigation.goBack();
-            }
-          }}
+          onPress={handleBackPress}
           style={styles.backBtn}
           activeOpacity={0.8}
         >
@@ -563,181 +800,39 @@ export default function LyricsShareScreen() {
         )}
       </View>
 
-      {/* STEP 1: Phrase Selection */}
       {step === 'select' ? (
-        <View style={styles.selectionContainer}>
-          {/* Song Info Bar */}
-          <View style={styles.songInfoBar}>
-            {coverUrl ? (
-              <Image source={{ uri: coverUrl }} style={styles.infoCover} contentFit="cover" />
-            ) : (
-              <View style={[styles.infoCover, styles.infoCoverFallback]}>
-                <Ionicons name="musical-notes" size={16} color="rgba(255,255,255,0.5)" />
-              </View>
-            )}
-            <View style={styles.infoMeta}>
-              <Text style={styles.infoTitle} numberOfLines={1}>
-                {title}
-              </Text>
-              <Text style={styles.infoArtist} numberOfLines={1}>
-                {artist}
-              </Text>
-            </View>
-          </View>
-
-          {/* Instructions Hint */}
-          <View style={styles.hintContainer}>
-            <Text style={styles.hintText}>
-              {t('lyrics.select_phrases_hint', { defaultValue: 'Selecciona de 1 a 5 frases consecutivas para tu tarjeta' })}
-            </Text>
-          </View>
-
-          {/* Lyrics Lines List */}
-          <FlatList
-            data={formattedLines}
-            keyExtractor={(_, index) => index.toString()}
-            contentContainerStyle={styles.linesListContent}
-            showsVerticalScrollIndicator={false}
-            extraData={selectedIndices}
-            renderItem={({ item, index }) => {
-              const isSelected = selectedIndices.includes(index);
-              const isLimitReached = selectedIndices.length >= 5;
-              const isMultiSelected = selectedIndices.length > 1;
-              const minIndex = selectedIndices.length > 0 ? selectedIndices[0] : -1;
-              const maxIndex = selectedIndices.length > 0 ? selectedIndices[selectedIndices.length - 1] : -1;
-
-              let isDimmed = false;
-              if (isLimitReached) {
-                isDimmed = !isSelected;
-              } else if (isMultiSelected) {
-                const canExtend =
-                  (index > maxIndex && index - minIndex + 1 <= 5) ||
-                  (index < minIndex && maxIndex - index + 1 <= 5);
-                isDimmed = !isSelected && !canExtend;
-              }
-
-              return (
-                <TouchableOpacity
-                  onPress={() => handleToggleLine(index)}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.lineItem,
-                    isSelected && [
-                      styles.lineItemSelected,
-                      { borderColor: colors.accentLight },
-                    ],
-                    isDimmed && styles.lineItemDimmed,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.checkboxCircle,
-                      isSelected && {
-                        backgroundColor: colors.accentLight,
-                        borderColor: colors.accentLight,
-                      },
-                    ]}
-                  >
-                    {isSelected && <Ionicons name="checkmark" size={14} color={colors.onAccentLight} />}
-                  </View>
-                  <Text
-                    style={[
-                      styles.lineText,
-                      isSelected ? styles.lineTextSelected : styles.lineTextUnselected,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-
-          {/* Continue Button */}
-          <View style={styles.selectionBottomBar}>
-            <TouchableOpacity
-              onPress={() => setStep('preview')}
-              disabled={selectedIndices.length === 0}
-              style={[
-                styles.continueBtn,
-                {
-                  backgroundColor:
-                    selectedIndices.length > 0 ? colors.accent : 'rgba(255,255,255,0.15)',
-                },
-              ]}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name="sparkles"
-                size={18}
-                color={selectedIndices.length > 0 ? colors.onAccent : 'rgba(255,255,255,0.4)'}
-                style={{ marginRight: 8 }}
-              />
-              <Text
-                style={[
-                  styles.continueBtnText,
-                  { color: selectedIndices.length > 0 ? colors.onAccent : 'rgba(255,255,255,0.4)' },
-                ]}
-              >
-                {t('lyrics.create_card', { defaultValue: 'Ver tarjeta' })}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <LyricsSelectStep
+          coverUrl={coverUrl}
+          title={title}
+          artist={artist}
+          formattedLines={formattedLines}
+          selectedIndices={selectedIndices}
+          accentColor={colors.accent}
+          onAccentColor={colors.onAccent}
+          accentLight={colors.accentLight}
+          onAccentLight={colors.onAccentLight}
+          t={t}
+          onToggleLine={handleToggleLine}
+          onContinue={() => setStep('preview')}
+        />
       ) : (
-        /* STEP 2: Card Preview & Share Actions */
-        <View style={styles.previewStepWrapper}>
-          {/* Card Preview Container */}
-          <View style={styles.previewContainer}>
-            <LyricsShareCard
-              ref={viewShotRef}
-              title={title}
-              artist={artist}
-              coverUrl={coverUrl}
-              phrases={selectedPhrases}
-              cardWidth={cardWidth}
-              cardHeight={cardHeight}
-              gradientColors={gradientColors}
-              accentColor={accentColor}
-              t={t}
-            />
-          </View>
-
-          {/* Action Buttons Container */}
-          <View style={[styles.actionsContainer, { width: Math.min(SCREEN_WIDTH - 40, cardWidth) }]}>
-            {/* Primary Button: Share Image */}
-            <TouchableOpacity
-              onPress={handleCaptureAndShareImage}
-              disabled={isCapturing}
-              style={[styles.primaryShareBtn, { backgroundColor: colors.accent }]}
-              activeOpacity={0.8}
-            >
-              {isCapturing ? (
-                <ActivityIndicator size="small" color={colors.onAccent} />
-              ) : (
-                <>
-                  <Ionicons name="image-outline" size={19} color={colors.onAccent} style={{ marginRight: 8 }} />
-                  <Text style={[styles.primaryShareBtnText, { color: colors.onAccent }]}>
-                    {t('player.share_as_image', { defaultValue: 'Compartir imagen' })}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Secondary Button: Edit Lines */}
-            <TouchableOpacity
-              onPress={() => setStep('select')}
-              disabled={isCapturing}
-              style={styles.secondaryShareBtn}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={17} color="#E4E4E7" style={{ marginRight: 8 }} />
-              <Text style={styles.secondaryShareBtnText}>
-                {t('lyrics.edit_phrases', { defaultValue: 'Editar frases' })}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <LyricsPreviewStep
+          viewShotRef={viewShotRef}
+          title={title}
+          artist={artist}
+          coverUrl={coverUrl}
+          phrases={selectedPhrases}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
+          gradientColors={gradientColors}
+          cardAccentColor={gradientAccentColor}
+          btnAccentColor={colors.accent}
+          onAccentColor={colors.onAccent}
+          isCapturing={isCapturing}
+          t={t}
+          onCaptureAndShare={handleCaptureAndShareImage}
+          onEdit={() => setStep('select')}
+        />
       )}
     </View>
   );

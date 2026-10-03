@@ -1,4 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
+import withObservables from '@nozbe/with-observables';
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
@@ -9,23 +14,18 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import withObservables from '@nozbe/with-observables';
-import { Q } from '@nozbe/watermelondb';
-import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
-import { FlashList } from '@shopify/flash-list';
+import { catchError } from 'rxjs/operators';
 
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
-import { useAppTheme } from '../../hooks/useAppTheme';
-import { useSettingsStore } from '../../store/useSettingsStore';
-import { useToastStore } from '../../store/useToastStore';
 import { database } from '../../database';
-import Track from '../../database/models/Track';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
+import Track from '../../database/models/Track';
+import { useAppTheme } from '../../hooks/useAppTheme';
 import { ShuffleService } from '../../services/ShuffleService';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useToastStore } from '../../store/useToastStore';
 
 const PAGE_SIZE = 30;
 
@@ -172,9 +172,7 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
                 {
                     text: t('settings.restore', 'Reincluir'),
                     onPress: async () => {
-                        for (const album of excludedAlbums) {
-                            await ShuffleService.includeAlbum(album);
-                        }
+                        await ShuffleService.batchSetAlbumsExclusion(excludedAlbums, false);
                         useToastStore.getState().showToast(t('toasts.album_included_in_shuffle'), 'shuffle');
                     },
                 },

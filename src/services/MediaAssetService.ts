@@ -1,12 +1,12 @@
+import { Model } from '@nozbe/watermelondb';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { Model } from '@nozbe/watermelondb';
+import { generateVideoThumbnail } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
 import Playlist from '../database/models/Playlist';
 import Track from '../database/models/Track';
-import { generateVideoThumbnail } from '../../modules/native-audio-scanner';
 
 const BASE_MEDIA_DIR = `${FileSystem.documentDirectory}media_assets/`;
 const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
@@ -44,12 +44,10 @@ const purgeEntityFiles = async (dirPath: string, filePrefix: string) => {
     try {
         await ensureDirectoryExists(dirPath);
         const files = await FileSystem.readDirectoryAsync(dirPath);
-        for (const file of files) {
-            if (file.startsWith(filePrefix)) {
-                const targetUri = `${dirPath}${file}`;
-                await FileSystem.deleteAsync(targetUri, { idempotent: true });
-            }
-        }
+        const filesToDelete = files
+            .filter(file => file.startsWith(filePrefix))
+            .map(file => FileSystem.deleteAsync(`${dirPath}${file}`, { idempotent: true }));
+        await Promise.all(filesToDelete);
     } catch (e) {
         console.warn(`[MediaAssetService] Error purgando archivos con prefijo ${filePrefix} en ${dirPath}:`, e);
     }
@@ -79,7 +77,7 @@ const ensureCanvasThumbnail = async (uri: string, thumbPath: string, fileName: s
     try {
         const thumbInfo = await FileSystem.getInfoAsync(thumbPath);
         if (thumbInfo.exists) return true;
-    } catch {}
+    } catch { }
 
     try {
         const genResult = await generateVideoThumbnail(uri, thumbPath);
@@ -129,7 +127,7 @@ const resolveVideoMd5 = async (sourceUri: string, knownMd5?: string): Promise<st
         if (info.exists && (info as any).md5) {
             return (info as any).md5;
         }
-    } catch {}
+    } catch { }
     return undefined;
 };
 
@@ -185,9 +183,11 @@ const migrateLegacyCollectionAssets = async <T extends Model>(
 ): Promise<void> => {
     const coll = database.collections.get<T>(collectionName);
     const records = await coll.query().fetch();
-    for (const record of records) {
-        await migrateSingleLegacyAsset(record, getUri(record), saveFn, updateField, label);
-    }
+    await Promise.all(
+        records.map(record =>
+            migrateSingleLegacyAsset(record, getUri(record), saveFn, updateField, label)
+        )
+    );
 };
 
 export const MediaAssetService = {
@@ -455,7 +455,7 @@ export const MediaAssetService = {
             if (info.exists && (info as any).md5) {
                 md5 = (info as any).md5;
             }
-        } catch {}
+        } catch { }
 
         if (md5) {
             const existingVideos = await MediaAssetService.getAllUploadedCanvasVideos();
@@ -491,7 +491,7 @@ export const MediaAssetService = {
     /**
      * Migración ligera en segundo plano para usuarios existentes con archivos en cacheDirectory o nombres antiguos.
      */
-    migrateLegacyCacheAssets: async (): Promise<void> => {
+    migrateLegacyCacheAssets: (): void => {
         if (Platform.OS === 'web') return;
         setTimeout(async () => {
             try {
@@ -541,7 +541,7 @@ export const MediaAssetService = {
     /**
      * Garbage Collector para eliminar archivos huérfanos que ya no existen en WatermelonDB.
      */
-    runGarbageCollector: async (): Promise<void> => {
+    runGarbageCollector: (): void => {
         if (Platform.OS === 'web') return;
         setTimeout(async () => {
             try {
@@ -553,12 +553,13 @@ export const MediaAssetService = {
                     validIds: Set<string>
                 ) => {
                     const files = await FileSystem.readDirectoryAsync(dir);
-                    for (const file of files) {
-                        const match = pattern.exec(file);
-                        if (match && !validIds.has(match[1])) {
-                            await FileSystem.deleteAsync(`${dir}${file}`, { idempotent: true });
-                        }
-                    }
+                    const filesToDelete = files
+                        .filter(file => {
+                            const match = pattern.exec(file);
+                            return Boolean(match && !validIds.has(match[1]));
+                        })
+                        .map(file => FileSystem.deleteAsync(`${dir}${file}`, { idempotent: true }));
+                    await Promise.all(filesToDelete);
                 };
 
                 // 1. Limpiar fotos de artistas huérfanas

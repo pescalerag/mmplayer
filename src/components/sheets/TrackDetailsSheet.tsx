@@ -5,8 +5,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Clipboard,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -35,21 +35,27 @@ function formatFileSize(bytes: number): string {
 
 function getFileExtension(filePath: string): string {
   if (!filePath) return '-';
-  const match = filePath.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+  const match = /\.([a-zA-Z0-9]+)(?:\?|$)/.exec(filePath);
   return match ? match[1].toUpperCase() : '-';
 }
 
 function getFileName(filePath: string): string {
   if (!filePath) return '-';
-  const parts = filePath.replace(/\\/g, '/').split('/');
-  return parts[parts.length - 1] || '-';
+  const parts = filePath.replaceAll('\\', '/').split('/');
+  return parts.at(-1) || '-';
 }
 
 function getFolderPath(filePath: string): string {
   if (!filePath) return '-';
-  const clean = filePath.replace(/\\/g, '/');
+  const clean = filePath.replaceAll('\\', '/');
   const idx = clean.lastIndexOf('/');
   return idx > 0 ? clean.substring(0, idx) : '-';
+}
+
+function formatChannels(channels: number | null): string {
+  if (channels === 1) return 'Mono';
+  if (channels === 2) return 'Estereo';
+  return channels !== null ? String(channels) : '-';
 }
 
 interface DetailRowProps {
@@ -144,7 +150,7 @@ export default function TrackDetailsSheet() {
   }, [track]);
 
   const copy = (text: string) => {
-    Clipboard.setString(text);
+    void Clipboard.setStringAsync(text);
     useToastStore.getState().showToast(t('track_details.copied'), 'copy');
   };
 
@@ -165,6 +171,11 @@ export default function TrackDetailsSheet() {
   const discNumber = track.discNumber ?? null;
   const genre = track.genre ?? null;
   const rating = track.rating ?? null;
+
+  let trackNumberText: string | null = null;
+  if (trackNumber !== null) {
+    trackNumberText = discNumber !== null ? `${discNumber}.${trackNumber}` : String(trackNumber);
+  }
 
   return (
     <View style={styles.container}>
@@ -190,7 +201,7 @@ export default function TrackDetailsSheet() {
         <DetailRow label={t('track_details.album')} value={albumTitle} copyable onCopy={() => copy(albumTitle)} colors={colors} fonts={fonts} />
         {albumYear !== null && (<DetailRow label={t('track_details.year')} value={String(albumYear)} colors={colors} fonts={fonts} />)}
         {genre !== null && (<DetailRow label={t('track_details.genre')} value={String(genre)} colors={colors} fonts={fonts} />)}
-        {trackNumber !== null && (<DetailRow label={t('track_details.track_number')} value={discNumber !== null ? `${discNumber}.${trackNumber}` : String(trackNumber)} colors={colors} fonts={fonts} />)}
+        {trackNumberText !== null && (<DetailRow label={t('track_details.track_number')} value={trackNumberText} colors={colors} fonts={fonts} />)}
         {rating !== null && (<DetailRow label={t('track_details.rating')} value={`${rating.toFixed(1)} / 5`} colors={colors} fonts={fonts} />)}
 
         {/* TECNICO */}
@@ -200,7 +211,7 @@ export default function TrackDetailsSheet() {
         {duration !== null && (<DetailRow label={t('track_details.duration')} value={formatDuration(duration)} colors={colors} fonts={fonts} />)}
         {bitrate !== null && bitrate > 0 && (<DetailRow label={t('track_details.bitrate')} value={`${Math.round(bitrate / 1000)} kbps`} colors={colors} fonts={fonts} />)}
         {sampleRate !== null && sampleRate > 0 && (<DetailRow label={t('track_details.sample_rate')} value={`${(sampleRate / 1000).toFixed(1)} kHz`} colors={colors} fonts={fonts} />)}
-        {channels !== null && channels > 0 && (<DetailRow label={t('track_details.channels')} value={channels === 1 ? 'Mono' : channels === 2 ? 'Estereo' : String(channels)} colors={colors} fonts={fonts} />)}
+        {channels !== null && channels > 0 && (<DetailRow label={t('track_details.channels')} value={formatChannels(channels)} colors={colors} fonts={fonts} />)}
         {replayGain !== null && (<DetailRow label={t('track_details.replay_gain')} value={`${replayGain.toFixed(2)} dB`} colors={colors} fonts={fonts} />)}
       </ScrollView>
     </View>

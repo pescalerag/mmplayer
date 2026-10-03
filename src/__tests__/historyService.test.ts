@@ -1,4 +1,5 @@
 import { HistoryService } from '../services/HistoryService';
+import { database } from '../database';
 
 describe('HistoryService - Stats Calculation', () => {
   beforeEach(() => {
@@ -64,6 +65,41 @@ describe('HistoryService - Stats Calculation', () => {
     });
   });
 
+  describe('hasHistoryInRange', () => {
+    it('returns true when records exist in range', async () => {
+      (database.collections.get as jest.Mock).mockReturnValue({
+        query: jest.fn().mockReturnValue({
+          fetchCount: jest.fn().mockResolvedValue(5),
+        }),
+      });
+
+      const result = await HistoryService.hasHistoryInRange(new Date(2026, 0, 1), new Date(2026, 0, 7));
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no records exist in range', async () => {
+      (database.collections.get as jest.Mock).mockReturnValue({
+        query: jest.fn().mockReturnValue({
+          fetchCount: jest.fn().mockResolvedValue(0),
+        }),
+      });
+
+      const result = await HistoryService.hasHistoryInRange(new Date(2026, 0, 1), new Date(2026, 0, 7));
+      expect(result).toBe(false);
+    });
+
+    it('returns false when an error occurs', async () => {
+      (database.collections.get as jest.Mock).mockReturnValue({
+        query: jest.fn().mockReturnValue({
+          fetchCount: jest.fn().mockRejectedValue(new Error('DB error')),
+        }),
+      });
+
+      const result = await HistoryService.hasHistoryInRange(new Date(2026, 0, 1), new Date(2026, 0, 7));
+      expect(result).toBe(false);
+    });
+  });
+
   describe('getPeriodRange', () => {
     it('calculates boundaries for day, week, month, year, and all', () => {
       const allRange = HistoryService.getPeriodRange('all');
@@ -88,8 +124,89 @@ describe('HistoryService - Stats Calculation', () => {
     });
   });
 
-  describe('getDetailedStatsForPeriod', () => {
+  describe('Stats calculations with history records', () => {
+    const mockHistoryRecords = [
+      { itemId: 'track-1', durationPlayed: 200 },
+      { itemId: 'track-1', durationPlayed: 100 },
+      { itemId: 'track-2', durationPlayed: 50 },
+    ];
+
+    const mockArtist = { id: 'artist-1', name: 'Rock Band', imageUrl: 'https://art.jpg' };
+    const mockAlbum = { id: 'album-1', title: 'Great Album', coverUrl: 'https://cover.jpg' };
+
+    const mockTracks = [
+      {
+        id: 'track-1',
+        title: 'Song One',
+        artist: { fetch: jest.fn().mockResolvedValue(mockArtist) },
+        album: { fetch: jest.fn().mockResolvedValue(mockAlbum) },
+      },
+      {
+        id: 'track-2',
+        title: 'Song Two',
+        artist: { fetch: jest.fn().mockResolvedValue(mockArtist) },
+        album: { fetch: jest.fn().mockResolvedValue(mockAlbum) },
+      },
+    ];
+
+    beforeEach(() => {
+      (database.collections.get as jest.Mock).mockImplementation((collectionName: string) => {
+        if (collectionName === 'playback_history') {
+          return {
+            query: jest.fn().mockReturnValue({
+              fetch: jest.fn().mockResolvedValue(mockHistoryRecords),
+            }),
+          };
+        }
+        if (collectionName === 'tracks') {
+          return {
+            query: jest.fn().mockReturnValue({
+              fetch: jest.fn().mockResolvedValue(mockTracks),
+            }),
+          };
+        }
+        return {
+          query: jest.fn().mockReturnValue({ fetch: jest.fn().mockResolvedValue([]) }),
+        };
+      });
+    });
+
+    it('getStatsForPeriod calculates top artist, album, and song by duration', async () => {
+      const stats = await HistoryService.getStatsForPeriod('week', 'duration');
+      expect(stats.totalHours).toBeCloseTo(350 / 3600);
+      expect(stats.totalPlays).toBe(3);
+      expect(stats.topSong).toBe('Song One');
+      expect(stats.topArtist).toBe('Rock Band');
+      expect(stats.topAlbum).toBe('Great Album');
+    });
+
+    it('getStatsForPeriod calculates top items by plays metric', async () => {
+      const stats = await HistoryService.getStatsForPeriod('month', 'plays');
+      expect(stats.totalPlays).toBe(3);
+      expect(stats.topSong).toBe('Song One');
+      expect(stats.topSongPlays).toBe(2);
+    });
+
+    it('getDetailedStatsForPeriod returns ranked lists of songs, albums, and artists', async () => {
+      const detailed = await HistoryService.getDetailedStatsForPeriod('week', 'duration');
+      expect(detailed.topSongs).toHaveLength(2);
+      expect(detailed.topSongs[0].title).toBe('Song One');
+      expect(detailed.topSongs[0].duration).toBe(300);
+      expect(detailed.topAlbums).toHaveLength(1);
+      expect(detailed.topAlbums[0].title).toBe('Great Album');
+      expect(detailed.topArtists).toHaveLength(1);
+      expect(detailed.topArtists[0].name).toBe('Rock Band');
+    });
+  });
+
+  describe('getDetailedStatsForPeriod edge cases', () => {
     it('returns empty lists and zero totals when no history records exist', async () => {
+      (database.collections.get as jest.Mock).mockReturnValue({
+        query: jest.fn().mockReturnValue({
+          fetch: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
       const stats = await HistoryService.getDetailedStatsForPeriod('week', 'duration');
       expect(stats).toEqual({
         totalHours: 0,
@@ -126,4 +243,3 @@ describe('HistoryService - Stats Calculation', () => {
     });
   });
 });
-

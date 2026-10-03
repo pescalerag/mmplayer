@@ -54,11 +54,26 @@ export class ShuffleService {
      */
     static async batchSetTracksExclusion(tracks: Track[], exclude: boolean): Promise<void> {
         await database.write(async () => {
-            for (const track of tracks) {
-                await track.update((t: any) => {
+            const updates = tracks.map(track =>
+                track.prepareUpdate((t: any) => {
                     t.isExcludedFromShuffle = exclude;
-                });
-            }
+                })
+            );
+            await database.batch(updates);
+        });
+    }
+
+    /**
+     * Sets shuffle exclusion for multiple albums at once.
+     */
+    static async batchSetAlbumsExclusion(albums: Album[], exclude: boolean): Promise<void> {
+        await database.write(async () => {
+            const updates = albums.map(album =>
+                album.prepareUpdate((a: any) => {
+                    a.isExcludedFromShuffle = exclude;
+                })
+            );
+            await database.batch(updates);
         });
     }
 
