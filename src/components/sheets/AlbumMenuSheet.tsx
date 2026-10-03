@@ -14,6 +14,7 @@ import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useToastStore } from '../../store/useToastStore';
 import { MediaAssetService } from '../../services/MediaAssetService';
+import { ShuffleService } from '../../services/ShuffleService';
 
 export default function AlbumMenuSheet() {
   const { t } = useTranslation();
@@ -158,6 +159,20 @@ export default function AlbumMenuSheet() {
             closeMenu();
             useMultiSelectStore.getState().selectMultipleTracks(tracks);
           }
+        }}
+      />
+      {/* OPTION: Exclude / Include from shuffle */}
+      <MenuOption
+        icon="shuffle-outline"
+        text={selectedAlbum.isExcludedFromShuffle ? t('actions.include_album_in_shuffle') : t('actions.exclude_album_from_shuffle')}
+        onPress={async () => {
+          const wasExcluded = !!selectedAlbum.isExcludedFromShuffle;
+          closeMenu();
+          await ShuffleService.toggleAlbumExclusion(selectedAlbum);
+          useToastStore.getState().showToast(
+            wasExcluded ? t('toasts.album_included_in_shuffle') : t('toasts.album_excluded_from_shuffle'),
+            'shuffle'
+          );
         }}
       />
       <MenuOption

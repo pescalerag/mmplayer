@@ -53,47 +53,28 @@ export async function readMetadata(filePath: string): Promise<PhysicalMetadata> 
   return await NativeAudioScannerModule.readMetadata(filePath);
 }
 
+export type UpdateMetadataPayload = {
+  title?: string | null;
+  artist?: string | null;
+  album?: string | null;
+  year?: number | null;
+  trackNumber?: number | null;
+  genre?: string | null;
+  coverArtPath?: string | null;
+  albumArtist?: string | null;
+  discNumber?: number | null;
+};
+
 export async function updateMetadata(
   filePath: string,
-  title: string | null,
-  artist: string | null,
-  album: string | null,
-  year: number | null,
-  trackNumber: number | null,
-  genre: string | null,
-  coverArtPath: string | null,
-  albumArtist?: string | null,
-  discNumber?: number | null
+  metadata: UpdateMetadataPayload
 ): Promise<boolean> {
-  return await NativeAudioScannerModule.updateMetadata(
-    filePath,
-    {
-      title,
-      artist,
-      album,
-      year,
-      trackNumber,
-      genre,
-      coverArtPath,
-      albumArtist,
-      discNumber
-    }
-  );
+  return await NativeAudioScannerModule.updateMetadata(filePath, metadata);
 }
 
 export type BatchMetadataItem = {
   filePath: string;
-  metadata: {
-    title: string | null;
-    artist: string | null;
-    album: string | null;
-    year: number | null;
-    trackNumber: number | null;
-    genre: string | null;
-    coverArtPath: string | null;
-    albumArtist: string | null;
-    discNumber: number | null;
-  };
+  metadata: UpdateMetadataPayload;
 };
 
 export async function updateMetadataBatch(metadataList: BatchMetadataItem[]): Promise<boolean> {
@@ -183,4 +164,98 @@ export async function checkFilesExistOnDisk(filePaths: string[]): Promise<boolea
     console.warn('[NativeAudioScanner] checkFilesExistOnDisk error:', e);
     return filePaths.map(() => false);
   }
-}
+}
+
+export async function generateVideoThumbnail(videoUri: string, destPath: string): Promise<string | null> {
+  try {
+    if (NativeAudioScannerModule && typeof NativeAudioScannerModule.generateVideoThumbnail === 'function') {
+      return await NativeAudioScannerModule.generateVideoThumbnail(videoUri, destPath);
+    }
+  } catch (e) {
+    console.warn('[NativeAudioScanner] generateVideoThumbnail error:', e);
+  }
+  return null;
+}
+
+export enum RingtoneType {
+  RINGTONE = 1,
+  NOTIFICATION = 2,
+  ALARM = 4,
+}
+
+export function canWriteSettings(): boolean {
+  try {
+    return NativeAudioScannerModule.canWriteSettings();
+  } catch {
+    return false;
+  }
+}
+
+export function openWriteSettingsPermission(): void {
+  try {
+    NativeAudioScannerModule.openWriteSettingsPermission();
+  } catch (e) {
+    console.warn('[NativeAudioScanner] openWriteSettingsPermission error:', e);
+  }
+}
+
+export async function setRingtone(
+  filePathOrUri: string,
+  ringtoneType: RingtoneType
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    return await NativeAudioScannerModule.setRingtone(filePathOrUri, ringtoneType);
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'UNKNOWN_ERROR' };
+  }
+}
+
+export type ResolvedAudioInfo = {
+  fileUrl: string;
+  resolvedPath: string;
+  originalUri: string;
+  title: string;
+  artist: string;
+  album: string;
+  albumArtist?: string | null;
+  duration: number;
+  coverUrl?: string | null;
+  genre?: string | null;
+  year?: number | null;
+  trackNumber: number;
+  discNumber: number;
+  lastModified: number;
+  size?: number;
+};
+
+export function getLaunchAudioUri(): string | null {
+  try {
+    return NativeAudioScannerModule.getLaunchAudioUri?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLaunchAudioUri(): boolean {
+  try {
+    return NativeAudioScannerModule.clearLaunchAudioUri?.() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveAudioUriInfo(uriString: string): Promise<ResolvedAudioInfo | null> {
+  try {
+    return await NativeAudioScannerModule.resolveAudioUriInfo(uriString);
+  } catch (e) {
+    console.warn('[NativeAudioScanner] resolveAudioUriInfo error:', e);
+    return null;
+  }
+}
+
+export function addAudioFileOpenedListener(listener: (event: { uri: string }) => void) {
+  return NativeAudioScannerModule.addListener('onAudioFileOpened', listener);
+}
+
+
+

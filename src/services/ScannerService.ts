@@ -19,6 +19,7 @@ import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
 import { MediaAssetService } from './MediaAssetService';
+import { NotificationService } from './NotificationService';
 
 const sanitizeArtistName = (name: string) => {
     return name
@@ -568,6 +569,16 @@ const performDeleteTracks = async (tracks: Track[]) => {
 };
 
 const showToastNotification = (created: number, deleted: number, reconciled: number, modified: number = 0, isSilent = false) => {
+    if (created > 0) {
+        NotificationService.addSongsAddedNotification(created).catch(() => {});
+    }
+    if (reconciled > 0) {
+        NotificationService.addSongsMovedNotification(reconciled).catch(() => {});
+    }
+    if (deleted > 0) {
+        NotificationService.addSongsDeletedNotification(deleted).catch(() => {});
+    }
+
     if (reconciled > 0) {
         const message = reconciled === 1
             ? i18n.t('toasts.library_reconciled', { count: reconciled })
@@ -856,6 +867,9 @@ export const ScannerService = {
             let canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
             let archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
 
+            const ORPHAN_MIGRATION_THRESHOLD = 30;
+            const isMigrationBatch = canciones_huerfanas.length >= ORPHAN_MIGRATION_THRESHOLD;
+
             // --- Fase de Detección en Disco y Migración ---
             // Si hay canciones en la BD que no aparecen en MediaStore, buscar en disco
             if (canciones_huerfanas.length > 0) {
@@ -864,26 +878,28 @@ export const ScannerService = {
                     canciones_huerfanas.map(t => t.id)
                 ).catch(() => {});
 
-                useMigrationStore.getState().startMigration(
-                    canciones_huerfanas.length,
-                    i18n.t('migration.searching_disk')
-                );
+                if (isMigrationBatch) {
+                    useMigrationStore.getState().startMigration(
+                        canciones_huerfanas.length,
+                        i18n.t('migration.searching_disk')
+                    );
 
-                try {
-                    const knownUris = Array.from(devicePaths);
-                    const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
-                    if (unindexedFiles.length > 0) {
-                        useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
-                        const refreshedAudio = await getAudioFiles(false);
-                        if (refreshedAudio && refreshedAudio.length > 0) {
-                            audioFiles = refreshedAudio;
-                            activeAudioFiles = populateActiveAudioFiles(audioFiles);
-                            canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
-                            archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
+                    try {
+                        const knownUris = Array.from(devicePaths);
+                        const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
+                        if (unindexedFiles.length > 0) {
+                            useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
+                            const refreshedAudio = await getAudioFiles(false);
+                            if (refreshedAudio && refreshedAudio.length > 0) {
+                                audioFiles = refreshedAudio;
+                                activeAudioFiles = populateActiveAudioFiles(audioFiles);
+                                canciones_huerfanas = allTracks.filter(t => !isDevicePath(t.fileUrl));
+                                archivos_nuevos = activeAudioFiles.filter(f => !dbPaths.has(f.uri));
+                            }
                         }
+                    } catch (diskScanErr) {
+                        console.warn('[ScannerService] Error buscando archivos no indexados en disco:', diskScanErr);
                     }
-                } catch (diskScanErr) {
-                    console.warn('[ScannerService] Error buscando archivos no indexados en disco:', diskScanErr);
                 }
             }
 
@@ -1017,8 +1033,8 @@ export const ScannerService = {
                     }
                 }
 
-                // Si aún quedan huérfanas, esperar brevemente y re-consultar MediaStore por si hubo latencia de escritura en disco
-                if (remainingOrphans.length > 0) {
+                // Si aún quedan huérfanas y es un lote masivo (>= 30), esperar brevemente y re-consultar MediaStore por si hubo latencia de escritura en disco
+                if (remainingOrphans.length > 0 && isMigrationBatch) {
                     await new Promise(resolve => setTimeout(resolve, 800));
                     const refreshedAudio = await getAudioFiles(false);
                     if (refreshedAudio && refreshedAudio.length > 0) {
@@ -1039,55 +1055,60 @@ export const ScannerService = {
 
             // Gestión de huérfanas no encontradas (3 opciones: Los he cambiado de sitio, Eliminar, Conservar y continuar)
             let shouldDeleteOrphans = false;
-            while (remainingOrphans.length > 0) {
-                const action = await useMigrationStore.getState().promptConfirmDelete(
-                    remainingOrphans.length
-                );
-
-                if (action === 'delete') {
-                    shouldDeleteOrphans = true;
-                    break;
-                } else if (action === 'keep') {
-                    shouldDeleteOrphans = false;
-                    break;
-                } else if (action === 'retry') {
-                    // "Los he cambiado de sitio": re-ejecuta la búsqueda de archivos en disco
-                    useMigrationStore.getState().setPhase('searching', i18n.t('migration.searching_disk'));
-                    try {
-                        const knownUris = Array.from(devicePaths);
-                        const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
-                        if (unindexedFiles.length > 0) {
-                            useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                            const refreshedAudio = await getAudioFiles(false);
-                            if (refreshedAudio && refreshedAudio.length > 0) {
-                                audioFiles = refreshedAudio;
-                                activeAudioFiles = populateActiveAudioFiles(audioFiles);
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('[ScannerService] Error al reintentar escaneo de disco:', e);
-                    }
-
-                    useMigrationStore.getState().setPhase(
-                        'reconciling',
-                        i18n.t('migration.reconciling_tracks', { count: remainingOrphans.length })
+            if (isMigrationBatch && remainingOrphans.length > 0) {
+                while (remainingOrphans.length > 0) {
+                    const action = await useMigrationStore.getState().promptConfirmDelete(
+                        remainingOrphans.length
                     );
 
-                    const alreadyRelocatedUris = new Set<string>(canciones_reubicadas.map(r => r.file.uri));
-                    const newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUris.has(f.uri));
-                    if (newCandidates.length > 0 && remainingOrphans.length > 0) {
-                        const matched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
-                        for (const m of matched) {
-                            canciones_reubicadas.push(m);
-                            alreadyRelocatedUris.add(m.file.uri);
+                    if (action === 'delete') {
+                        shouldDeleteOrphans = true;
+                        break;
+                    } else if (action === 'keep') {
+                        shouldDeleteOrphans = false;
+                        break;
+                    } else if (action === 'retry') {
+                        // "Los he cambiado de sitio": re-ejecuta la búsqueda de archivos en disco
+                        useMigrationStore.getState().setPhase('searching', i18n.t('migration.searching_disk'));
+                        try {
+                            const knownUris = Array.from(devicePaths);
+                            const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
+                            if (unindexedFiles.length > 0) {
+                                useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                const refreshedAudio = await getAudioFiles(false);
+                                if (refreshedAudio && refreshedAudio.length > 0) {
+                                    audioFiles = refreshedAudio;
+                                    activeAudioFiles = populateActiveAudioFiles(audioFiles);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[ScannerService] Error al reintentar escaneo de disco:', e);
+                        }
+
+                        useMigrationStore.getState().setPhase(
+                            'reconciling',
+                            i18n.t('migration.reconciling_tracks', { count: remainingOrphans.length })
+                        );
+
+                        const alreadyRelocatedUris = new Set<string>(canciones_reubicadas.map(r => r.file.uri));
+                        const newCandidates = activeAudioFiles.filter(f => !dbPaths.has(f.uri) && !alreadyRelocatedUris.has(f.uri));
+                        if (newCandidates.length > 0 && remainingOrphans.length > 0) {
+                            const matched = runMultiTierMatching(remainingOrphans, newCandidates, artistMap, albumMap);
+                            for (const m of matched) {
+                                canciones_reubicadas.push(m);
+                                alreadyRelocatedUris.add(m.file.uri);
+                            }
+                        }
+
+                        if (remainingOrphans.length === 0) {
+                            break;
                         }
                     }
-
-                    if (remainingOrphans.length === 0) {
-                        break;
-                    }
                 }
+            } else if (remainingOrphans.length > 0) {
+                // Menos de 30 huérfanas: se eliminan directamente sin mostrar modal ni esperar confirmación
+                shouldDeleteOrphans = true;
             }
 
             if (useMigrationStore.getState().isVisible) {
@@ -1291,7 +1312,9 @@ export const ScannerService = {
             }
         } finally {
             useSyncStore.getState().setIsScanning(false, false);
-            useMigrationStore.getState().close();
+            if (useMigrationStore.getState().phase !== 'done') {
+                useMigrationStore.getState().close();
+            }
         }
     },
     fullDataWipe: async (onProgress?: (current: number, total: number, phase: string) => void) => {

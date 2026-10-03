@@ -1,54 +1,60 @@
+import LibraryCard from '@/components/cards/LibraryCard';
+import TopMatchCard from '@/components/cards/TopMatchCard';
+import SectionHeader from '@/components/common/SectionHeader';
+import SearchSpotlightTutorial from '@/components/modals/SearchSpotlightTutorial';
+import PlaylistCover from '@/components/player/PlaylistCover';
+import TrackRow from '@/components/player/TrackRow';
 import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTagMenu, useUIStore } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
-import withObservables from "@nozbe/with-observables";
-import { of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import { Q } from '@nozbe/watermelondb';
-import { useNavigation, useScrollToTop, useFocusEffect } from "@react-navigation/native";
+import withObservables from "@nozbe/with-observables";
+import { useFocusEffect, useNavigation, useScrollToTop } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from "expo-linear-gradient";
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   Keyboard,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Switch,
-  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import LibraryCard from '@/components/cards/LibraryCard';
-import SectionHeader from '@/components/common/SectionHeader';
-import TopMatchCard from '@/components/cards/TopMatchCard';
-import TrackRow from '@/components/player/TrackRow';
-import SearchSpotlightTutorial from '@/components/modals/SearchSpotlightTutorial';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { database } from "../../database";
 import Album from "../../database/models/Album";
 import Artist from "../../database/models/Artist";
+import Playlist from "../../database/models/Playlist";
+import PlaylistTrack from "../../database/models/PlaylistTrack";
 import Tag from "../../database/models/Tag";
 import Track from "../../database/models/Track";
-import Playlist from "../../database/models/Playlist";
 import TrackTag from "../../database/models/TrackTag";
-import PlaylistTrack from "../../database/models/PlaylistTrack";
-import { TopMatch, useMusicSearch } from "../../hooks/useMusicSearch";
+import { SearchResults, TopMatch, useMusicSearch } from "../../hooks/useMusicSearch";
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { SearchStackParamList } from "../../navigation/types";
+import { SmartList } from "../../services/SmartListService";
 
 
 import { usePlayerStore } from "../../store/usePlayerStore";
 
 
+import { useAppTheme } from '../../hooks/useAppTheme';
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { Colors, Layout } from "../../theme/theme";
-import { useAppTheme } from '../../hooks/useAppTheme';
 import { getDynamicTagTextColor } from '../../utils/color';
 
+import { SkeletonSearchScreen } from "@/components/common/Skeleton";
+import { useDelayedLoader } from "@/hooks/useDelayedLoader";
+import { getRowFadeIn, getTagFadeIn } from '@/utils/cascadeAnimations';
 import { useTranslation } from "react-i18next";
+import Animated from 'react-native-reanimated';
 import { HistoryService } from "../../services/HistoryService";
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
@@ -110,7 +116,7 @@ const SearchTrackRowBase = ({
 
   const handlePress = () => {
     onPress?.();
-    usePlayerStore.getState().playSingleTrack(track, "search");
+    void usePlayerStore.getState().playSingleTrack(track, "search");
   };
 
   return (
@@ -279,15 +285,484 @@ SearchTagCard.displayName = "SearchTagCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const NORMAL_CARD_WIDTH = (SCREEN_WIDTH - 40 - 12) / 2;
+const GENRE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 40 - 24) / 3);
+
+const getGenreQuery = (genre: string) => {
+  return database.collections.get<Track>('tracks').query(
+    Q.where('genre', genre),
+    Q.sortBy('title', Q.asc)
+  );
+};
+
+const SearchGenreCard = withObservables(
+  ['genre'],
+  ({ genre }: { genre: string }) => ({
+    tracks: getGenreQuery(genre).observe().pipe(catchError(() => of([]))),
+  })
+)(function SearchGenreCardWrapper({
+  smartList,
+  tracks,
+  cardWidth,
+  onPress,
+}: {
+  smartList: SmartList;
+  tracks: Track[];
+  cardWidth: number;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation();
+  const count = tracks ? tracks.length : 0;
+  const subtitle = `${count} ${count === 1 ? t('library.song_singular') : t('library.song_plural')}`;
+
+  return (
+    <TouchableOpacity
+      style={[styles.genreCard, { width: cardWidth }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.genreImageContainer, { width: cardWidth, height: cardWidth }]}>
+        <PlaylistCover
+          playlistId={`smart-list-${smartList.id}`}
+          size={cardWidth}
+        />
+      </View>
+      <View style={styles.genreTitleContainer}>
+        <Text style={styles.genreTitle} numberOfLines={1}>
+          {smartList.name}
+        </Text>
+      </View>
+      <Text style={styles.genreSubtitle} numberOfLines={1}>
+        {subtitle}
+      </Text>
+    </TouchableOpacity>
+  );
+});
+SearchGenreCard.displayName = "SearchGenreCard";
+
+// --- ADVANCED TAG SEARCH HELPERS ---
+
+async function getExcludedTrackIds(excludes: string[], noPlaylists: boolean): Promise<Set<string>> {
+  const excluded = new Set<string>();
+
+  if (excludes.length > 0) {
+    const excludedRelations = await database.collections.get<TrackTag>('track_tags')
+      .query(Q.where('tag_id', Q.oneOf(excludes)))
+      .fetch();
+    for (const r of excludedRelations) {
+      excluded.add((r as any)._raw.track_id);
+    }
+  }
+
+  if (noPlaylists) {
+    const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks').query().fetch();
+    for (const pt of playlistTracks) {
+      excluded.add((pt as any)._raw.track_id);
+    }
+  }
+
+  return excluded;
+}
+
+async function getMatchAllTagTrackIds(includes: string[]): Promise<string[]> {
+  let tempIds: string[] | null = null;
+  for (const tagId of includes) {
+    const tagRelations = await database.collections.get<TrackTag>('track_tags')
+      .query(Q.where('tag_id', tagId))
+      .fetch();
+    const ids = new Set(tagRelations.map(r => (r as any)._raw.track_id));
+    tempIds = tempIds === null ? Array.from(ids) : tempIds.filter(id => ids.has(id));
+    if (tempIds.length === 0) {
+      return [];
+    }
+  }
+  return tempIds || [];
+}
+
+async function getMatchAnyTagTrackIds(includes: string[]): Promise<string[]> {
+  const tagRelations = await database.collections.get<TrackTag>('track_tags')
+    .query(Q.where('tag_id', Q.oneOf(includes)))
+    .fetch();
+  return Array.from(new Set(tagRelations.map(r => (r as any)._raw.track_id)));
+}
+
+async function getCandidateTrackIds(includes: string[], matchAll: boolean): Promise<string[]> {
+  if (includes.length === 0) {
+    const allTracks = await database.collections.get<Track>('tracks').query().fetch();
+    return allTracks.map(t => t.id);
+  }
+  if (matchAll) {
+    return getMatchAllTagTrackIds(includes);
+  }
+  return getMatchAnyTagTrackIds(includes);
+}
+
+async function fetchTracksByIds(trackIds: string[]): Promise<Track[]> {
+  if (trackIds.length === 0) {
+    return [];
+  }
+  return database.collections.get<Track>('tracks')
+    .query(Q.where('id', Q.oneOf(trackIds)))
+    .fetch();
+}
+
+interface SearchResultSectionsProps {
+  readonly isSearching: boolean;
+  readonly isOnlyTopMatch: boolean;
+  readonly activeFilter: FilterOption;
+  readonly results: any;
+  readonly currentTopMatch: TopMatch | null;
+  readonly handleArtistPress: (id: string) => void;
+  readonly handleAlbumPress: (id: string) => void;
+  readonly handlePlaylistPress: (id: string) => void;
+  readonly navigation: any;
+}
+
+const SearchArtistSection = ({
+  results,
+  currentTopMatch,
+  activeFilter,
+  handleArtistPress,
+}: {
+  readonly results: any;
+  readonly currentTopMatch: TopMatch | null;
+  readonly activeFilter: FilterOption;
+  readonly handleArtistPress: (id: string) => void;
+}) => {
+  const { t } = useTranslation();
+  if (activeFilter !== "all" && activeFilter !== "artists") return null;
+  const filteredArtists = results.artists.filter((artist: any) => artist.id !== currentTopMatch?.item.id);
+  if (filteredArtists.length === 0) return null;
+
+  return (
+    <>
+      <SectionHeader title={activeFilter === "all" ? t('library.artists') : t('search.other_artists')} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {filteredArtists.map((artist: any) => (
+          <SearchArtistCard key={artist.id} artist={artist} onPress={handleArtistPress} />
+        ))}
+      </ScrollView>
+    </>
+  );
+};
+
+const SearchAlbumSection = ({
+  results,
+  currentTopMatch,
+  activeFilter,
+  handleAlbumPress,
+}: {
+  readonly results: any;
+  readonly currentTopMatch: TopMatch | null;
+  readonly activeFilter: FilterOption;
+  readonly handleAlbumPress: (id: string) => void;
+}) => {
+  const { t } = useTranslation();
+  if (activeFilter !== "all" && activeFilter !== "albums") return null;
+  const filteredAlbums = results.albums.filter((album: any) => album.id !== currentTopMatch?.item.id);
+  if (filteredAlbums.length === 0) return null;
+
+  return (
+    <>
+      <SectionHeader title={activeFilter === "all" ? t('library.albums') : t('search.other_albums')} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {filteredAlbums.map((album: any) => (
+          <SearchAlbumCard key={album.id} album={album} onPress={handleAlbumPress} />
+        ))}
+      </ScrollView>
+    </>
+  );
+};
+
+const SearchPlaylistSection = ({
+  results,
+  currentTopMatch,
+  activeFilter,
+  handlePlaylistPress,
+}: {
+  readonly results: any;
+  readonly currentTopMatch: TopMatch | null;
+  readonly activeFilter: FilterOption;
+  readonly handlePlaylistPress: (id: string) => void;
+}) => {
+  const { t } = useTranslation();
+  if (activeFilter !== "all" && activeFilter !== "playlists") return null;
+  const filteredPlaylists = results.playlists.filter((playlist: any) => playlist.id !== currentTopMatch?.item.id);
+  if (filteredPlaylists.length === 0) return null;
+
+  return (
+    <>
+      <SectionHeader title={activeFilter === "all" ? t('library.playlists') : t('search.other_playlists')} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {filteredPlaylists.map((playlist: any) => (
+          <SearchPlaylistCard key={playlist.id} playlist={playlist} onPress={handlePlaylistPress} />
+        ))}
+      </ScrollView>
+    </>
+  );
+};
+
+const SearchTagSection = ({
+  results,
+  activeFilter,
+  navigation,
+}: {
+  readonly results: any;
+  readonly activeFilter: FilterOption;
+  readonly navigation: any;
+}) => {
+  const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  if (activeFilter !== "all" && activeFilter !== "tags") return null;
+  if (results.tags.length === 0) return null;
+
+  return (
+    <>
+      <SectionHeader title={t('navigation.tags')} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {results.tags.map((tag: any) => (
+          <View key={tag.id} style={{ marginRight: 10, alignSelf: 'center' }}>
+            <SearchTagCard
+              tag={tag}
+              isCompact={true}
+              onPress={() => {
+                navigation.navigate("TagDetail", {
+                  tagId: tag.id,
+                  tagName: tag.name,
+                  tagColor: tag.color || colors.accent
+                });
+              }}
+            />
+          </View>
+        ))}
+      </ScrollView>
+    </>
+  );
+};
+
+const shouldShowResultSections = (
+  isSearching: boolean,
+  isOnlyTopMatch: boolean,
+  activeFilter: FilterOption,
+  results: any,
+): boolean => {
+  if (!isSearching || isOnlyTopMatch) return false;
+  if (activeFilter === "all") return true;
+  if (activeFilter === "artists") return results.artists.length > 1;
+  if (activeFilter === "albums") return results.albums.length > 1;
+  if (activeFilter === "tracks") return results.tracks.length > 1;
+  if (activeFilter === "playlists") return results.playlists.length > 1;
+  if (activeFilter === "tags") return results.tags.length > 0;
+  return false;
+};
+
+const SearchResultSections = memo(function SearchResultSections({
+  isSearching,
+  isOnlyTopMatch,
+  activeFilter,
+  results,
+  currentTopMatch,
+  handleArtistPress,
+  handleAlbumPress,
+  handlePlaylistPress,
+  navigation,
+}: Readonly<SearchResultSectionsProps>) {
+  const { t } = useTranslation();
+
+  if (!shouldShowResultSections(isSearching, isOnlyTopMatch, activeFilter, results)) {
+    return null;
+  }
+
+  const hasRemainingTracks =
+    (activeFilter === "all" || activeFilter === "tracks") &&
+    results.tracks.some(
+      (track: any) =>
+        currentTopMatch?.type !== "track" || track.id !== currentTopMatch.item.id,
+    );
+
+  return (
+    <>
+      <Text style={styles.resultsTitle}>{t('search.matches')}</Text>
+      <SearchArtistSection
+        results={results}
+        currentTopMatch={currentTopMatch}
+        activeFilter={activeFilter}
+        handleArtistPress={handleArtistPress}
+      />
+      <SearchAlbumSection
+        results={results}
+        currentTopMatch={currentTopMatch}
+        activeFilter={activeFilter}
+        handleAlbumPress={handleAlbumPress}
+      />
+      <SearchPlaylistSection
+        results={results}
+        currentTopMatch={currentTopMatch}
+        activeFilter={activeFilter}
+        handlePlaylistPress={handlePlaylistPress}
+      />
+      <SearchTagSection
+        results={results}
+        activeFilter={activeFilter}
+        navigation={navigation}
+      />
+      {hasRemainingTracks && (
+        <SectionHeader
+          title={activeFilter === "all" ? t('library.songs') : t('search.more_songs')}
+        />
+      )}
+    </>
+  );
+});
+
+interface GetSearchListTracksParams {
+  readonly isAdvancedSearching: boolean;
+  readonly advancedSearchResults: Track[];
+  readonly isSearching: boolean;
+  readonly isOnlyTopMatch: boolean;
+  readonly activeFilter: FilterOption;
+  readonly results: SearchResults;
+  readonly currentTopMatch: TopMatch;
+}
+
+const getSearchListTracks = ({
+  isAdvancedSearching,
+  advancedSearchResults,
+  isSearching,
+  isOnlyTopMatch,
+  activeFilter,
+  results,
+  currentTopMatch,
+}: GetSearchListTracksParams): Track[] => {
+  if (isAdvancedSearching) {
+    return advancedSearchResults;
+  }
+
+  const shouldShowTracks =
+    isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks");
+
+  if (!shouldShowTracks) {
+    return [];
+  }
+
+  return results.tracks.filter(
+    (track: Track) =>
+      currentTopMatch?.type !== "track" || track.id !== currentTopMatch.item.id,
+  );
+};
+
+const SearchListFooter = ({
+  isLoadingMore,
+  accentColor,
+}: {
+  readonly isLoadingMore: boolean;
+  readonly accentColor: string;
+}) => {
+  if (!isLoadingMore) return <View style={{ height: 20 }} />;
+  return (
+    <View style={{ paddingVertical: 20, alignItems: "center" }}>
+      <ActivityIndicator size="small" color={accentColor} />
+    </View>
+  );
+};
+
+interface SearchListEmptyProps {
+  readonly isLoading: boolean;
+  readonly isAdvancedSearching: boolean;
+  readonly advancedSearchResultsCount: number;
+  readonly isSearching: boolean;
+  readonly activeFilter: FilterOption;
+  readonly results: SearchResults;
+  readonly query: string;
+}
+
+const SearchListEmpty = ({
+  isLoading,
+  isAdvancedSearching,
+  advancedSearchResultsCount,
+  isSearching,
+  activeFilter,
+  results,
+  query,
+}: SearchListEmptyProps) => {
+  const { t } = useTranslation();
+
+  if (isLoading) return null;
+  if (isAdvancedSearching) {
+    if (advancedSearchResultsCount === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="color-filter-outline" size={64} color="#333" />
+          <Text style={styles.emptyText}>
+            {t('search.no_tag_matches') || "No se encontraron canciones con ese filtro de etiquetas."}
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }
+  if (!isSearching) return null;
+
+  const hasArtists =
+    (activeFilter === "all" || activeFilter === "artists") &&
+    results.artists.length > 0;
+  const hasAlbums =
+    (activeFilter === "all" || activeFilter === "albums") &&
+    results.albums.length > 0;
+  const hasTracks =
+    (activeFilter === "all" || activeFilter === "tracks") &&
+    results.tracks.length > 0;
+  const hasPlaylists =
+    (activeFilter === "all" || activeFilter === "playlists") &&
+    results.playlists.length > 0;
+  const hasTags =
+    (activeFilter === "all" || activeFilter === "tags") &&
+    results.tags.length > 0;
+
+  if (hasArtists || hasAlbums || hasTracks || hasPlaylists || hasTags) return null;
+
+  return (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="search-outline" size={64} color="#333" />
+      <Text style={styles.emptyText}>
+        {t('search.no_results', { query })}
+      </Text>
+    </View>
+  );
+};
 
 // --- MAIN SCREEN ---
 
-function SearchScreen({ tags }: { tags: Tag[] }) {
+interface SearchScreenProps {
+  readonly tags: Tag[];
+}
+
+function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<SearchNavigationProp>();
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [isReady, setIsReady] = useState(false);
+  const showInitialLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
 
   useEffect(() => {
     // A brief delay to allow WatermelonDB query to settle and populate tags
@@ -296,6 +771,45 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     }, 150);
     return () => clearTimeout(timer);
   }, []);
+
+  const [genreLists, setGenreLists] = useState<SmartList[]>([]);
+
+  useEffect(() => {
+    const sub = database.collections.get<Track>('tracks')
+      .query(
+        Q.where('genre', Q.notEq(null)),
+        Q.where('genre', Q.notEq(''))
+      )
+      .observe()
+      .pipe(catchError(() => of([])))
+      .subscribe((tracks) => {
+        const genreSet = new Set<string>();
+        for (const t of tracks) {
+          const g = t.genre?.trim();
+          if (g) {
+            genreSet.add(g);
+          }
+        }
+        const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+        const lists: SmartList[] = sortedGenres.map(genre => ({
+          id: `genre_${encodeURIComponent(genre)}`,
+          name: genre,
+          description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
+          placeholderIcon: 'disc-outline',
+          group: 'genre' as const,
+          genre,
+          getTracks: async () => {
+            return database.collections.get<Track>('tracks').query(
+              Q.where('genre', genre),
+              Q.sortBy('title', Q.asc)
+            ).fetch();
+          }
+        }));
+        setGenreLists(lists);
+      });
+
+    return () => sub.unsubscribe();
+  }, [t]);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { isCompactTags, setIsCompactTags, hasSeenSearchTutorial, setHasSeenSearchTutorial } = useSettingsStore();
@@ -332,69 +846,19 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const [advancedSearchResults, setAdvancedSearchResults] = useState<Track[]>([]);
   const [isAdvancedLoading, setIsAdvancedLoading] = useState(false);
 
-  const executeAdvancedTagSearch = useCallback(async (includes: string[], excludes: string[], matchAll: boolean, noPlaylists: boolean) => {
+  const executeAdvancedTagSearch = useCallback(async (
+    includes: string[],
+    excludes: string[],
+    matchAll: boolean,
+    noPlaylists: boolean
+  ) => {
     setIsAdvancedLoading(true);
     try {
-      // 1. Get excluded track IDs from tags
-      let excludedTrackIds: string[] = [];
-      if (excludes.length > 0) {
-        const excludedRelations = await database.collections.get<TrackTag>('track_tags')
-          .query(Q.where('tag_id', Q.oneOf(excludes)))
-          .fetch();
-        excludedTrackIds = excludedRelations.map(r => (r as any)._raw.track_id);
-      }
-
-      // 2. Get tracks in playlists if noPlaylists is active
-      if (noPlaylists) {
-        const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks').query().fetch();
-        const trackIdsInPlaylists = playlistTracks.map(pt => (pt as any)._raw.track_id);
-        excludedTrackIds = Array.from(new Set([...excludedTrackIds, ...trackIdsInPlaylists]));
-      }
-
-      // 3. Get included track IDs
-      let matchingTrackIds: string[] = [];
-      if (includes.length > 0) {
-        if (matchAll) {
-          let tempIds: string[] | null = null;
-          for (const tagId of includes) {
-            const tagRelations = await database.collections.get<TrackTag>('track_tags')
-              .query(Q.where('tag_id', tagId))
-              .fetch();
-            const ids = tagRelations.map(r => (r as any)._raw.track_id);
-            if (tempIds === null) {
-              tempIds = ids;
-            } else {
-              tempIds = tempIds.filter(id => ids.includes(id));
-            }
-            if (tempIds.length === 0) break;
-          }
-          matchingTrackIds = tempIds || [];
-        } else {
-          const tagRelations = await database.collections.get<TrackTag>('track_tags')
-            .query(Q.where('tag_id', Q.oneOf(includes)))
-            .fetch();
-          matchingTrackIds = Array.from(new Set(tagRelations.map(r => (r as any)._raw.track_id)));
-        }
-      } else {
-        // No includes: match all tracks in database except excluded ones
-        const allTracks = await database.collections.get<Track>('tracks').query().fetch();
-        matchingTrackIds = allTracks.map(t => t.id);
-      }
-
-      // 4. Subtract excluded IDs
-      if (excludedTrackIds.length > 0) {
-        matchingTrackIds = matchingTrackIds.filter(id => !excludedTrackIds.includes(id));
-      }
-
-      // 5. Fetch actual Track records
-      if (matchingTrackIds.length === 0) {
-        setAdvancedSearchResults([]);
-      } else {
-        const tracks = await database.collections.get<Track>('tracks')
-          .query(Q.where('id', Q.oneOf(matchingTrackIds)))
-          .fetch();
-        setAdvancedSearchResults(tracks);
-      }
+      const excludedTrackIds = await getExcludedTrackIds(excludes, noPlaylists);
+      const candidateTrackIds = await getCandidateTrackIds(includes, matchAll);
+      const matchingTrackIds = candidateTrackIds.filter(id => !excludedTrackIds.has(id));
+      const tracks = await fetchTracksByIds(matchingTrackIds);
+      setAdvancedSearchResults(tracks);
     } catch (e) {
       console.error('Error executing advanced tag search:', e);
       setAdvancedSearchResults([]);
@@ -423,7 +887,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         setAdvancedMatchAll(matchAll);
         setAdvancedNoPlaylists(noPlaylists);
         setIsAdvancedSearching(true);
-        executeAdvancedTagSearch(includes, excludes, matchAll, noPlaylists);
+        void executeAdvancedTagSearch(includes, excludes, matchAll, noPlaylists);
       }
     });
   }, [advancedIncludes, advancedExcludes, advancedMatchAll, advancedNoPlaylists, executeAdvancedTagSearch]);
@@ -440,6 +904,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
   const isSearching = isTextSearching;
   const isCurrentlySearching = isSearching || isAdvancedSearching;
   const isLoading = isTextSearchLoading || isAdvancedLoading;
+  const showSearchLoader = useDelayedLoader(isLoading, { delay: 200, minDisplayTime: 400 });
 
   // Clear advanced search if query text changes
   useEffect(() => {
@@ -510,7 +975,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     (text?: string) => {
       const textToSave = text || queryRef.current;
       if (textToSave.trim()) {
-        saveSearch(textToSave);
+        void saveSearch(textToSave);
         Keyboard.dismiss();
       }
     },
@@ -555,7 +1020,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       });
     } else if (currentTopMatch.type === "track") {
       const track = currentTopMatch.item as Track;
-      (async () => {
+      void (async () => {
         try {
           const album = await track.album.fetch();
           const collaborators = await track.queryCollaborators.fetch() as Artist[];
@@ -563,7 +1028,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             ? collaborators.map(a => a.name).join(', ')
             : t('actions.unknown');
 
-          HistoryService.updateUIRecents({
+          await HistoryService.updateUIRecents({
             id: track.id,
             type: "track",
             context: "manual",
@@ -576,7 +1041,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         }
       })();
 
-      usePlayerStore.getState().playSingleTrack(track, "search");
+      void usePlayerStore.getState().playSingleTrack(track, "search");
     }
   }, [currentTopMatch, handleResultClick, navigation, t]);
 
@@ -601,7 +1066,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
 
   const handleSearchSubmit = useCallback(() => {
     if (query.trim()) {
-      saveSearch(query);
+      void saveSearch(query);
       Keyboard.dismiss();
     }
   }, [query, saveSearch]);
@@ -651,7 +1116,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                 onDelete={() => deleteHistoryItem(item.id)}
                 onPress={() => {
                   setQuery(item.query);
-                  saveSearch(item.query);
+                  void saveSearch(item.query);
                   Keyboard.dismiss();
                 }}
               />
@@ -707,8 +1172,9 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
           ) : (
             <View style={isCompactTags ? styles.tagsContainer : styles.tagsContainerNormal}>
               {tags.map((tag, index) => (
-                <View
+                <Animated.View
                   key={tag.id}
+                  entering={getTagFadeIn(index)}
                   ref={index === 0 ? firstTagRef : undefined}
                   collapsable={false}
                   onLayout={index === 0 ? (e) => {
@@ -726,7 +1192,39 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
                       });
                     }}
                   />
-                </View>
+                </Animated.View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Exploración por géneros */}
+      {!isCurrentlySearching && (
+        <View style={styles.genresSection}>
+          <View style={styles.tagsSectionHeader}>
+            <Text style={styles.tagsSectionTitle}>{t('search.explore_genres') || 'Exploración por género'}</Text>
+          </View>
+          {genreLists.length === 0 ? (
+            <Text style={styles.noTagsText}>
+              {t('search.no_genres') || 'No se encontraron canciones con género en tu biblioteca.'}
+            </Text>
+          ) : (
+            <View style={styles.genresGrid}>
+              {genreLists.map((list, index) => (
+                <Animated.View
+                  key={list.id}
+                  entering={getRowFadeIn(index, 3)}
+                >
+                  <SearchGenreCard
+                    genre={list.genre || list.name}
+                    smartList={list}
+                    cardWidth={GENRE_CARD_WIDTH}
+                    onPress={() => {
+                      navigation.navigate('SmartListDetail', { smartListId: list.id });
+                    }}
+                  />
+                </Animated.View>
               ))}
             </View>
           )}
@@ -741,145 +1239,18 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
         </>
       )}
 
-      {/* Ocultamos el título de Resultados y las listas si solo hay un Top Match en esta vista o si no estamos buscando */}
-      {isSearching && !isOnlyTopMatch &&
-        (activeFilter === "all" ||
-          (activeFilter === "artists" && results.artists.length > 1) ||
-          (activeFilter === "albums" && results.albums.length > 1) ||
-          (activeFilter === "tracks" && results.tracks.length > 1) ||
-          (activeFilter === "playlists" && results.playlists.length > 1) ||
-          (activeFilter === "tags" && results.tags.length > 0)) && (
-          <>
-            <Text style={styles.resultsTitle}>{t('search.matches')}</Text>
-
-            {/* Artists Section */}
-            {(activeFilter === "all" || activeFilter === "artists") &&
-              results.artists.some(
-                (artist) => artist.id !== currentTopMatch?.item.id,
-              ) && (
-                <>
-                  <SectionHeader
-                    title={activeFilter === "all" ? t('library.artists') : t('search.other_artists')}
-                  />
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalScroll}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {results.artists
-                      .filter((artist) => artist.id !== currentTopMatch?.item.id)
-                      .map((artist) => (
-                        <SearchArtistCard
-                          key={artist.id}
-                          artist={artist}
-                          onPress={handleArtistPress}
-                        />
-                      ))}
-                  </ScrollView>
-                </>
-              )}
-
-            {/* Albums Section */}
-            {(activeFilter === "all" || activeFilter === "albums") &&
-              results.albums.some(
-                (album) => album.id !== currentTopMatch?.item.id,
-              ) && (
-                <>
-                  <SectionHeader
-                    title={activeFilter === "all" ? t('library.albums') : t('search.other_albums')}
-                  />
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalScroll}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {results.albums
-                      .filter((album) => album.id !== currentTopMatch?.item.id)
-                      .map((album) => (
-                        <SearchAlbumCard
-                          key={album.id}
-                          album={album}
-                          onPress={handleAlbumPress}
-                        />
-                      ))}
-                  </ScrollView>
-                </>
-              )}
-
-            {/* Playlists Section */}
-            {(activeFilter === "all" || activeFilter === "playlists") &&
-              results.playlists.some(
-                (playlist) => playlist.id !== currentTopMatch?.item.id,
-              ) && (
-                <>
-                  <SectionHeader
-                    title={activeFilter === "all" ? t('library.playlists') : t('search.other_playlists')}
-                  />
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalScroll}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {results.playlists
-                      .filter((playlist) => playlist.id !== currentTopMatch?.item.id)
-                      .map((playlist) => (
-                        <SearchPlaylistCard
-                          key={playlist.id}
-                          playlist={playlist}
-                          onPress={handlePlaylistPress}
-                        />
-                      ))}
-                  </ScrollView>
-                </>
-              )}
-
-            {/* Tags Section */}
-            {(activeFilter === "all" || activeFilter === "tags") &&
-              results.tags.length > 0 && (
-                <>
-                  <SectionHeader
-                    title={t('navigation.tags')}
-                  />
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalScroll}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {results.tags.map((tag) => (
-                      <View key={tag.id} style={{ marginRight: 10, alignSelf: 'center' }}>
-                        <SearchTagCard
-                          tag={tag}
-                          isCompact={true}
-                          onPress={() => {
-                            navigation.navigate("TagDetail", {
-                              tagId: tag.id,
-                              tagName: tag.name,
-                              tagColor: tag.color || colors.accent
-                            });
-                          }}
-                        />
-                      </View>
-                    ))}
-                  </ScrollView>
-                </>
-              )}
-
-            {(activeFilter === "all" || activeFilter === "tracks") &&
-              results.tracks.some(
-                (track) =>
-                  currentTopMatch?.type !== "track" ||
-                  track.id !== currentTopMatch.item.id,
-              ) && (
-                <SectionHeader
-                  title={activeFilter === "all" ? t('library.songs') : t('search.more_songs')}
-                />
-              )}
-          </>
-        )}
+      {/* Secciones de resultados */}
+      <SearchResultSections
+        isSearching={isSearching}
+        isOnlyTopMatch={isOnlyTopMatch}
+        activeFilter={activeFilter}
+        results={results}
+        currentTopMatch={currentTopMatch}
+        handleArtistPress={handleArtistPress}
+        handleAlbumPress={handleAlbumPress}
+        handlePlaylistPress={handlePlaylistPress}
+        navigation={navigation}
+      />
     </View>
   );
 
@@ -894,6 +1265,83 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
     },
     [handleTrackPress],
   );
+
+  const listTracks = useMemo(
+    () =>
+      getSearchListTracks({
+        isAdvancedSearching,
+        advancedSearchResults,
+        isSearching,
+        isOnlyTopMatch,
+        activeFilter,
+        results,
+        currentTopMatch,
+      }),
+    [
+      isAdvancedSearching,
+      advancedSearchResults,
+      isSearching,
+      isOnlyTopMatch,
+      activeFilter,
+      results,
+      currentTopMatch,
+    ],
+  );
+
+  const renderContent = () => {
+    if (isReady) {
+      return (
+        <FlashList
+          ref={flatListRef}
+          data={listTracks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          onEndReached={() => {
+            if (activeFilter === "tracks" && !isAdvancedSearching) {
+              void loadMoreTracks();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            <SearchListFooter
+              isLoadingMore={isLoadingMore}
+              accentColor={colors.accent}
+            />
+          }
+          contentContainerStyle={{
+            paddingTop: headerHeight + 10,
+            paddingBottom:
+              Layout.MINI_PLAYER_HEIGHT +
+              Layout.TAB_BAR_HEIGHT +
+              Layout.PLAYER_MARGIN +
+              insets.bottom +
+              20,
+          }}
+          ListEmptyComponent={
+            <SearchListEmpty
+              isLoading={isLoading}
+              isAdvancedSearching={isAdvancedSearching}
+              advancedSearchResultsCount={advancedSearchResults.length}
+              isSearching={isSearching}
+              activeFilter={activeFilter}
+              results={results}
+              query={query}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        />
+      );
+    }
+
+    if (showInitialLoader) {
+      return <SkeletonSearchScreen topOffset={headerHeight + 10} />;
+    }
+
+    return null;
+  };
 
   return (
     <View ref={rootRef} collapsable={false} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -948,7 +1396,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
             accessibilityLabel={t('search_tutorial.help_btn')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -987,7 +1435,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
               </TouchableOpacity>
             )}
           </View>
-          {isLoading && (
+          {showSearchLoader && (
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="small" color={colors.accent} />
             </View>
@@ -1030,99 +1478,7 @@ function SearchScreen({ tags }: { tags: Tag[] }) {
       </View>
 
       {/* 1. CAPA DE CONTENIDO (AL FONDO) */}
-      {isReady ? (
-        <FlashList
-          ref={flatListRef}
-          data={
-            isAdvancedSearching
-              ? advancedSearchResults
-              : isSearching && !isOnlyTopMatch && (activeFilter === "all" || activeFilter === "tracks")
-                ? results.tracks.filter(
-                  (track) =>
-                    currentTopMatch?.type !== "track" ||
-                    track.id !== currentTopMatch.item.id,
-                )
-                : []
-          }
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
-          onEndReached={() => {
-            if (activeFilter === "tracks" && !isAdvancedSearching) {
-              loadMoreTracks();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={() => {
-            if (!isLoadingMore) return <View style={{ height: 20 }} />;
-            return (
-              <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                <ActivityIndicator size="small" color={colors.accent} />
-              </View>
-            );
-          }}
-          contentContainerStyle={{
-            paddingTop: headerHeight + 10,
-            paddingBottom:
-              Layout.MINI_PLAYER_HEIGHT +
-              Layout.TAB_BAR_HEIGHT +
-              Layout.PLAYER_MARGIN +
-              insets.bottom +
-              20,
-          }}
-          ListEmptyComponent={(() => {
-            if (isLoading) return null;
-            if (isAdvancedSearching) {
-              if (advancedSearchResults.length === 0) {
-                return (
-                  <View style={styles.emptyContainer}>
-                    <Ionicons name="color-filter-outline" size={64} color="#333" />
-                    <Text style={styles.emptyText}>
-                      {t('search.no_tag_matches') || "No se encontraron canciones con ese filtro de etiquetas."}
-                    </Text>
-                  </View>
-                );
-              }
-              return null;
-            }
-            if (!isSearching) return null;
-
-            const hasArtists =
-              (activeFilter === "all" || activeFilter === "artists") &&
-              results.artists.length > 0;
-            const hasAlbums =
-              (activeFilter === "all" || activeFilter === "albums") &&
-              results.albums.length > 0;
-            const hasTracks =
-              (activeFilter === "all" || activeFilter === "tracks") &&
-              results.tracks.length > 0;
-            const hasPlaylists =
-              (activeFilter === "all" || activeFilter === "playlists") &&
-              results.playlists.length > 0;
-            const hasTags =
-              (activeFilter === "all" || activeFilter === "tags") &&
-              results.tags.length > 0;
-
-            if (hasArtists || hasAlbums || hasTracks || hasPlaylists || hasTags) return null;
-
-            return (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="search-outline" size={64} color="#333" />
-                <Text style={styles.emptyText}>
-                  {t('search.no_results', { query })}
-                </Text>
-              </View>
-            );
-          })()}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        />
-      ) : (
-        <View style={{ flex: 1, paddingTop: headerHeight + 60, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      )}
+      {renderContent()}
 
       {/* Tutorial Contextual Spotlight de Búsqueda */}
       <SearchSpotlightTutorial
@@ -1197,9 +1553,14 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   helpButton: {
-    padding: 6,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resultsTitle: {
     fontSize: 24,
@@ -1306,6 +1667,49 @@ const styles = StyleSheet.create({
   tagsSection: {
     marginTop: 10,
     marginBottom: 20,
+  },
+  genresSection: {
+    marginTop: 10,
+    marginBottom: 24,
+  },
+  genresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  genreCard: {
+    marginBottom: 16,
+  },
+  genreImageContainer: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#282828',
+    marginBottom: 8,
+  },
+  genreTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 2,
+  },
+  genreTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  genreSubtitle: {
+    color: '#CCCCCC',
+    fontSize: 11,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
   },
   smartListsGrid: {
     flexDirection: 'row',

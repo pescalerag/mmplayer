@@ -9,59 +9,60 @@ import {
   ActivityIndicator,
   AppState,
   ImageBackground,
+  Linking,
   Platform,
   StyleSheet,
   Text,
   View,
-  Linking,
 } from "react-native";
-import TrackPlayer, { State } from "react-native-track-player";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import TrackPlayer, { State } from "react-native-track-player";
+import { clearLaunchAudioUri, getLaunchAudioUri } from "./modules/native-audio-scanner";
 import GlobalToast from "./src/components/common/GlobalToast";
-import GlobalBottomSheet from "./src/components/sheets/GlobalBottomSheet";
-import QueueSheet from "./src/components/sheets/QueueSheet";
-import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
-import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
-import WelcomeModal from "./src/components/modals/WelcomeModal";
+import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
-import ZipProgressModal from "./src/components/modals/ZipProgressModal";
 import MigrationBlockingModal from "./src/components/modals/MigrationBlockingModal";
 import TagFormModal from "./src/components/modals/TagFormModal";
-import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
+import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
+import WelcomeModal from "./src/components/modals/WelcomeModal";
+import ZipProgressModal from "./src/components/modals/ZipProgressModal";
+import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
+import GlobalBottomSheet from "./src/components/sheets/GlobalBottomSheet";
+import QueueSheet from "./src/components/sheets/QueueSheet";
 import "./src/constants/i18n";
+import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
 import MainNavigator from "./src/navigation/MainNavigator";
-import { navigationRef } from "./src/navigation/navigationRef";
+import { navigationRef, waitForNavigationReady } from "./src/navigation/navigationRef";
+import { ChromecastService } from "./src/services/ChromecastService";
+import { ExternalAudioService } from "./src/services/ExternalAudioService";
+import { MediaAssetService } from "./src/services/MediaAssetService";
+import { NotificationService } from "./src/services/NotificationService";
+import { PurchasesService } from "./src/services/PurchasesService";
 import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
-import { useSettingsStore } from "./src/store/useSettingsStore";
-import { MediaAssetService } from "./src/services/MediaAssetService";
-import { ChromecastService } from "./src/services/ChromecastService";
-import { PurchasesService } from "./src/services/PurchasesService";
-import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
-SplashScreen.preventAutoHideAsync().catch(() => {});
+
+const WIDGET_ACTION_REGEX = /[?&]action=([^&]+)/;
+
+SplashScreen.preventAutoHideAsync().catch(() => { });
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
-  const userTier = useSettingsStore(state => state.userTier);
-  const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
-  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
-  // const isLegendaryTheme = activeAppTheme === 'legendary' && isSupporterOrVIP;
+  // Deshabilitado temporalmente: el tema legendario de la aplicación vendrá en una futura versión
   const isLegendaryTheme = false;
   const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
 
   useEffect(() => {
     const hideSplash = async () => {
       if (AppState.currentState === 'active') {
-        await SplashScreen.hideAsync().catch(() => {});
+        await SplashScreen.hideAsync().catch(() => { });
       } else {
         const sub = AppState.addEventListener('change', (nextState) => {
           if (nextState === 'active') {
             sub.remove();
-            SplashScreen.hideAsync().catch(() => {});
+            SplashScreen.hideAsync().catch(() => { });
           }
         });
       }
@@ -70,9 +71,9 @@ export default function App() {
     async function prepare() {
       try {
         if (Platform.OS === "android") {
-          await NavigationBar.setBackgroundColorAsync("#00000000").catch(() => {});
-          await NavigationBar.setButtonStyleAsync("light").catch(() => {});
-          await SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
+          await NavigationBar.setBackgroundColorAsync("#00000000").catch(() => { });
+          await NavigationBar.setButtonStyleAsync("light").catch(() => { });
+          await SystemUI.setBackgroundColorAsync('#000000').catch(() => { });
         }
 
         await Font.loadAsync({
@@ -83,14 +84,15 @@ export default function App() {
         await setupPlayer();
         ChromecastService.init();
         PurchasesService.init().catch(err => console.warn('PurchasesService init warning:', err));
+        NotificationService.init().catch(err => console.warn('NotificationService init warning:', err));
         // Restaurar cola persistida del último cierre de la app
         await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
         await usePlayerStore.getState().restoreRecentsState();
 
         // Ejecutar migración y Garbage Collector de archivos multimedia en segundo plano
-        MediaAssetService.migrateLegacyCacheAssets();
-        MediaAssetService.runGarbageCollector();
+        void MediaAssetService.migrateLegacyCacheAssets();
+        void MediaAssetService.runGarbageCollector();
 
         // Ejecutar migración de last_modified en segundo plano para legacy tracks
         ScannerService.migrateLastModifiedIfNeeded().catch((err) => {
@@ -111,11 +113,13 @@ export default function App() {
     });
   }, []);
 
-  // Escuchador en vivo para resincronizar RevenueCat al volver a primer plano (reembolsos, compras)
+  // Escuchador en vivo para resincronizar RevenueCat y Notificaciones al volver a primer plano
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        PurchasesService.syncCustomerInfo().catch(() => {});
+        PurchasesService.syncCustomerInfo().catch(() => { });
+        NotificationService.checkAndGenerateSummaries().catch(() => { });
+        NotificationService.getUnreadCount().catch(() => { });
       }
     });
 
@@ -127,10 +131,12 @@ export default function App() {
   useEffect(() => {
     if (!fontsLoaded) return;
 
+    let lastHandledNotificationTimestamp = 0;
+
     const handleWidgetUrl = async (url: string | null) => {
-      if (!url || !url.includes('widget')) return;
+      if (!url?.includes('widget')) return;
       try {
-        const match = url.match(/[?&]action=([^&]+)/);
+        const match = WIDGET_ACTION_REGEX.exec(url);
         const action = match ? match[1] : null;
 
         if (action === 'play') {
@@ -155,16 +161,115 @@ export default function App() {
       }
     };
 
-    Linking.getInitialURL().then(url => {
-      handleWidgetUrl(url);
+    const handleNotificationClickUrl = async () => {
+      try {
+        clearLaunchAudioUri();
+
+        const now = Date.now();
+        if (now - lastHandledNotificationTimestamp < 1500) {
+          return;
+        }
+        lastHandledNotificationTimestamp = now;
+
+        // Esperar a que el contenedor de navegación esté listo
+        const isReady = await waitForNavigationReady(8000);
+        if (!isReady || !navigationRef.isReady()) return;
+
+        // Esperar si es necesario a que el store tenga la canción activa sincronizada
+        let activeTrack = usePlayerStore.getState().activeTrack;
+        if (!activeTrack) {
+          await usePlayerStore.getState().syncWithTrackPlayer().catch(() => { });
+          activeTrack = usePlayerStore.getState().activeTrack;
+        }
+
+        activeTrack ??= await new Promise<ReturnType<typeof usePlayerStore.getState>['activeTrack']>((resolve) => {
+          const syncStartTime = Date.now();
+          const interval = setInterval(() => {
+            const currentTrack = usePlayerStore.getState().activeTrack;
+            if (currentTrack) {
+              clearInterval(interval);
+              resolve(currentTrack);
+            } else if (Date.now() - syncStartTime >= 1500) {
+              clearInterval(interval);
+              resolve(null);
+            }
+          }, 100);
+        });
+
+        if (!activeTrack) {
+          return;
+        }
+
+        // Si ya estamos en PlayerScreen o una de sus subpantallas, no duplicar navegación
+        const currentRoute = navigationRef.getCurrentRoute()?.name;
+        if (
+          currentRoute === 'PlayerHome' ||
+          currentRoute === 'Player' ||
+          currentRoute === 'Lyrics' ||
+          currentRoute === 'LyricsEditor' ||
+          currentRoute === 'LyricsSync' ||
+          currentRoute === 'ShareSong' ||
+          currentRoute === 'ShareLyrics'
+        ) {
+          return;
+        }
+
+        navigationRef.navigate('Player');
+      } catch (e) {
+        console.error('[App] Error al abrir PlayerScreen desde la notificación:', e);
+      }
+    };
+
+    const handleIncomingUrl = async (url: string | null) => {
+      if (!url) return;
+      if (url.includes('widget')) {
+        await handleWidgetUrl(url);
+        return;
+      }
+      if (url.includes('notification.click') || url.startsWith('trackplayer://')) {
+        await handleNotificationClickUrl();
+        return;
+      }
+      if (ExternalAudioService.isAudioUrl(url)) {
+        await ExternalAudioService.handleOpenedAudioUrl(url);
+      }
+    };
+
+    // 1. Initial URL via React Native Linking
+    void Linking.getInitialURL().then(url => {
+      void handleIncomingUrl(url);
     });
 
-    const subscription = Linking.addEventListener('url', event => {
-      handleWidgetUrl(event.url);
+    // 2. Initial URL via native launch intent (Android Intent.ACTION_VIEW)
+    const nativeUri = getLaunchAudioUri();
+    if (nativeUri) {
+      void handleIncomingUrl(nativeUri);
+    }
+
+    // 3. Listen for Linking events (warm start)
+    const subLinking = Linking.addEventListener('url', event => {
+      void handleIncomingUrl(event.url);
+    });
+
+    // 4. Listen for native audio file opened events (warm start / onNewIntent)
+    const subNative = ExternalAudioService.subscribeToAudioFileOpened(uri => {
+      void handleIncomingUrl(uri);
+    });
+
+    // 5. Escuchar cambios de estado de la app para capturar intents al volver a primer plano
+    const subAppState = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const uri = getLaunchAudioUri();
+        if (uri && (uri.includes('notification.click') || uri.startsWith('trackplayer://'))) {
+          void handleIncomingUrl(uri);
+        }
+      }
     });
 
     return () => {
-      subscription.remove();
+      subLinking.remove();
+      subNative.remove();
+      subAppState.remove();
     };
   }, [fontsLoaded]);
 
@@ -189,48 +294,48 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-      <ImageBackground
-        source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
-        style={{ flex: 1, backgroundColor: "#000000" }}
-        imageStyle={{ resizeMode: 'cover' }}
-      >
-        <TrackPlayerSync />
-        <NavigationContainer
-          ref={navigationRef}
-          theme={{
-            dark: true,
-            colors: {
-              primary: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
-              background: isLegendaryTheme ? "transparent" : "#000000",
-              card: isLegendaryTheme ? "transparent" : "#121212",
-              text: "#FFFFFF",
-              border: isLegendaryTheme ? "rgba(245, 184, 0, 0.25)" : "#282828",
-              notification: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
-            },
-            fonts: {
-              regular: { fontFamily: "Montserrat", fontWeight: "400" },
-              medium: { fontFamily: "Montserrat", fontWeight: "500" },
-              bold: { fontFamily: "Montserrat", fontWeight: "bold" },
-              heavy: { fontFamily: "Montserrat", fontWeight: "800" },
-            },
-          }}
+        <ImageBackground
+          source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
+          style={{ flex: 1, backgroundColor: "#000000" }}
+          imageStyle={{ resizeMode: 'cover' }}
         >
-          <StatusBar style="light" />
-          <MainNavigator />
-          {/* Los sheets globales deben estar dentro de NavigationContainer
+          <TrackPlayerSync />
+          <NavigationContainer
+            ref={navigationRef}
+            theme={{
+              dark: true,
+              colors: {
+                primary: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
+                background: isLegendaryTheme ? "transparent" : "#000000",
+                card: isLegendaryTheme ? "transparent" : "#121212",
+                text: "#FFFFFF",
+                border: isLegendaryTheme ? "rgba(245, 184, 0, 0.25)" : "#282828",
+                notification: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
+              },
+              fonts: {
+                regular: { fontFamily: "Montserrat", fontWeight: "400" },
+                medium: { fontFamily: "Montserrat", fontWeight: "500" },
+                bold: { fontFamily: "Montserrat", fontWeight: "bold" },
+                heavy: { fontFamily: "Montserrat", fontWeight: "800" },
+              },
+            }}
+          >
+            <StatusBar style="light" />
+            <MainNavigator />
+            {/* Los sheets globales deben estar dentro de NavigationContainer
                         para que useNavigation() funcione en ellos */}
-          <GlobalBottomSheet />
-          <QueueSheet />
-          <UpdatedAppModal />
-          <WelcomeModal />
-          <GlobalToast />
-          <BackupBlockingModal />
-          <ZipProgressModal />
-          <MigrationBlockingModal />
-          <TagFormModal />
-          <ActivityCustomDateModal />
-        </NavigationContainer>
-      </ImageBackground>
+            <GlobalBottomSheet />
+            <QueueSheet />
+            <UpdatedAppModal />
+            <WelcomeModal />
+            <GlobalToast />
+            <BackupBlockingModal />
+            <ZipProgressModal />
+            <MigrationBlockingModal />
+            <TagFormModal />
+            <ActivityCustomDateModal />
+          </NavigationContainer>
+        </ImageBackground>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

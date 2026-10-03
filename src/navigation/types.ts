@@ -13,6 +13,7 @@ export type HomeStackParamList = {
     Settings: undefined;
     ActivityHistory: undefined;
     FolderDetail: { folderPath: string; folderName?: string };
+    Notifications: undefined;
 };
 
 export type ActivityStackParamList = {

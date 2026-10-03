@@ -26,6 +26,7 @@ export default class Track extends Model {
     @text('bg_video') bgVideo: string | null;
     @field('rating') rating: number | null;
     @field('genre') genre: string | null;
+    @field('is_excluded_from_shuffle') isExcludedFromShuffle: boolean;
 
     @relation('albums', 'album_id') album: any;
     @relation('artists', 'artist_id') artist: any;
@@ -62,6 +63,22 @@ export default class Track extends Model {
         await this.database.write(async () => {
             await this.update(t => {
                 t.bgVideo = uri;
+            });
+        });
+    }
+
+    async toggleExcludeFromShuffle(): Promise<void> {
+        await this.database.write(async () => {
+            await this.update(t => {
+                t.isExcludedFromShuffle = !t.isExcludedFromShuffle;
+            });
+        });
+    }
+
+    async setExcludeFromShuffle(excluded: boolean): Promise<void> {
+        await this.database.write(async () => {
+            await this.update(t => {
+                t.isExcludedFromShuffle = excluded;
             });
         });
     }

@@ -83,23 +83,141 @@ interface Rect {
 }
 
 interface ActivitySpotlightTutorialProps {
-    visible: boolean;
-    onClose: () => void;
-    rootRef?: React.RefObject<any>;
-    scrollViewRef?: React.RefObject<any>;
+    readonly visible: boolean;
+    readonly onClose: () => void;
+    readonly rootRef?: React.RefObject<any>;
+    readonly scrollViewRef?: React.RefObject<any>;
+    readonly periodTabsRef?: React.RefObject<any>;
+    readonly metricToggleRef?: React.RefObject<any>;
+    readonly heroCardRef?: React.RefObject<any>;
+    readonly highlightsCardRef?: React.RefObject<any>;
+    readonly smartListsRef?: React.RefObject<any>;
+    readonly shareButtonRef?: React.RefObject<any>;
+
+    readonly periodTabsLayout?: React.RefObject<any>;
+    readonly metricToggleLayout?: React.RefObject<any>;
+    readonly heroCardLayout?: React.RefObject<any>;
+    readonly highlightsCardLayout?: React.RefObject<any>;
+    readonly smartListsLayout?: React.RefObject<any>;
+    readonly shareButtonLayout?: React.RefObject<any>;
+}
+
+// Helpers to reduce cognitive complexity of measureCurrentTarget
+function getScrollTargetY(stepKey: ActivitySpotlightStepKey): number | null {
+    if (stepKey === 'smart_lists') return 320;
+    if (stepKey === 'hero_summary' || stepKey === 'period_selector' || stepKey === 'share_stats') return 0;
+    return null;
+}
+
+interface StepLayoutConfigs {
+    topInset: number;
+    periodTabsLayout?: React.RefObject<any>;
+    metricToggleLayout?: React.RefObject<any>;
+    heroCardLayout?: React.RefObject<any>;
+    highlightsCardLayout?: React.RefObject<any>;
+    smartListsLayout?: React.RefObject<any>;
+    shareButtonLayout?: React.RefObject<any>;
+}
+
+function calculateStepPreset(stepKey: ActivitySpotlightStepKey, configs: StepLayoutConfigs): { rect: Rect; radius: number } {
+    const {
+        topInset,
+        periodTabsLayout,
+        metricToggleLayout,
+        heroCardLayout,
+        highlightsCardLayout,
+        smartListsLayout,
+        shareButtonLayout,
+    } = configs;
+
+    switch (stepKey) {
+        case 'period_selector':
+            return {
+                rect: {
+                    x: periodTabsLayout?.current?.x ?? 16,
+                    y: topInset + 56,
+                    width: periodTabsLayout?.current?.width || (SCREEN_WIDTH - 32),
+                    height: periodTabsLayout?.current?.height || 44,
+                },
+                radius: 12,
+            };
+        case 'metric_toggle':
+            return {
+                rect: {
+                    x: metricToggleLayout?.current?.x ?? 16,
+                    y: topInset + 106,
+                    width: metricToggleLayout?.current?.width || (SCREEN_WIDTH - 32),
+                    height: metricToggleLayout?.current?.height || 42,
+                },
+                radius: 12,
+            };
+        case 'hero_summary':
+            return {
+                rect: {
+                    x: heroCardLayout?.current?.x ?? 16,
+                    y: topInset + 160,
+                    width: heroCardLayout?.current?.width || (SCREEN_WIDTH - 32),
+                    height: heroCardLayout?.current?.height || 100,
+                },
+                radius: 14,
+            };
+        case 'highlights_and_tabs':
+            return {
+                rect: {
+                    x: highlightsCardLayout?.current?.x ?? 16,
+                    y: topInset + 270,
+                    width: highlightsCardLayout?.current?.width || (SCREEN_WIDTH - 32),
+                    height: highlightsCardLayout?.current?.height || 220,
+                },
+                radius: 14,
+            };
+        case 'smart_lists':
+            return {
+                rect: {
+                    x: smartListsLayout?.current?.x ?? 16,
+                    y: SCREEN_HEIGHT * 0.48,
+                    width: smartListsLayout?.current?.width || (SCREEN_WIDTH - 32),
+                    height: smartListsLayout?.current?.height || 190,
+                },
+                radius: 14,
+            };
+        case 'share_stats':
+            return {
+                rect: {
+                    x: shareButtonLayout?.current?.x ?? (SCREEN_WIDTH - 54),
+                    y: topInset + 10,
+                    width: shareButtonLayout?.current?.width || 38,
+                    height: shareButtonLayout?.current?.height || 38,
+                },
+                radius: 19,
+            };
+        default:
+            return {
+                rect: { x: 20, y: 100, width: SCREEN_WIDTH - 40, height: 50 },
+                radius: 14,
+            };
+    }
+}
+
+interface StepElementRefs {
     periodTabsRef?: React.RefObject<any>;
     metricToggleRef?: React.RefObject<any>;
     heroCardRef?: React.RefObject<any>;
     highlightsCardRef?: React.RefObject<any>;
     smartListsRef?: React.RefObject<any>;
     shareButtonRef?: React.RefObject<any>;
+}
 
-    periodTabsLayout?: React.MutableRefObject<any>;
-    metricToggleLayout?: React.MutableRefObject<any>;
-    heroCardLayout?: React.MutableRefObject<any>;
-    highlightsCardLayout?: React.MutableRefObject<any>;
-    smartListsLayout?: React.MutableRefObject<any>;
-    shareButtonLayout?: React.MutableRefObject<any>;
+function getStepTargetElement(stepKey: ActivitySpotlightStepKey, refs: StepElementRefs): any {
+    switch (stepKey) {
+        case 'period_selector': return refs.periodTabsRef?.current;
+        case 'metric_toggle': return refs.metricToggleRef?.current;
+        case 'hero_summary': return refs.heroCardRef?.current;
+        case 'highlights_and_tabs': return refs.highlightsCardRef?.current;
+        case 'smart_lists': return refs.smartListsRef?.current;
+        case 'share_stats': return refs.shareButtonRef?.current;
+        default: return null;
+    }
 }
 
 export default function ActivitySpotlightTutorial({
@@ -153,7 +271,7 @@ export default function ActivitySpotlightTutorial({
         return () => loop.stop();
     }, [pulseRingAnim]);
 
-    const measureTimers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+    const measureTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
     useEffect(() => {
         return () => {
@@ -169,74 +287,35 @@ export default function ActivitySpotlightTutorial({
         measureTimers.current = [];
 
         // Scroll view positioning for off-screen items
-        if (step.key === 'smart_lists') {
-            scrollViewRef?.current?.scrollTo?.({ y: 320, animated: true });
-        } else if (step.key === 'hero_summary' || step.key === 'period_selector' || step.key === 'share_stats') {
-            scrollViewRef?.current?.scrollTo?.({ y: 0, animated: true });
+        const scrollY = getScrollTargetY(step.key);
+        if (scrollY !== null) {
+            scrollViewRef?.current?.scrollTo?.({ y: scrollY, animated: true });
         }
 
         // 1. Dynamic pre-calculated rects for instant 0ms feedback
-        let calculatedRect: Rect = { x: 20, y: 100, width: SCREEN_WIDTH - 40, height: 50 };
-        let radius = 14;
+        const { rect, radius } = calculateStepPreset(step.key, {
+            topInset: insets.top,
+            periodTabsLayout,
+            metricToggleLayout,
+            heroCardLayout,
+            highlightsCardLayout,
+            smartListsLayout,
+            shareButtonLayout,
+        });
 
-        if (step.key === 'period_selector') {
-            const w = periodTabsLayout?.current?.width || (SCREEN_WIDTH - 32);
-            const h = periodTabsLayout?.current?.height || 44;
-            const x = periodTabsLayout?.current?.x !== undefined ? periodTabsLayout.current.x : 16;
-            const y = insets.top + 56;
-            calculatedRect = { x, y, width: w, height: h };
-            radius = 12;
-        } else if (step.key === 'metric_toggle') {
-            const w = metricToggleLayout?.current?.width || (SCREEN_WIDTH - 32);
-            const h = metricToggleLayout?.current?.height || 42;
-            const x = metricToggleLayout?.current?.x !== undefined ? metricToggleLayout.current.x : 16;
-            const y = insets.top + 106;
-            calculatedRect = { x, y, width: w, height: h };
-            radius = 12;
-        } else if (step.key === 'hero_summary') {
-            const w = heroCardLayout?.current?.width || (SCREEN_WIDTH - 32);
-            const h = heroCardLayout?.current?.height || 100;
-            const x = heroCardLayout?.current?.x !== undefined ? heroCardLayout.current.x : 16;
-            const y = insets.top + 160;
-            calculatedRect = { x, y, width: w, height: h };
-            radius = 14;
-        } else if (step.key === 'highlights_and_tabs') {
-            const w = highlightsCardLayout?.current?.width || (SCREEN_WIDTH - 32);
-            const h = highlightsCardLayout?.current?.height || 220;
-            const x = highlightsCardLayout?.current?.x !== undefined ? highlightsCardLayout.current.x : 16;
-            const y = insets.top + 270;
-            calculatedRect = { x, y, width: w, height: h };
-            radius = 14;
-        } else if (step.key === 'smart_lists') {
-            const w = smartListsLayout?.current?.width || (SCREEN_WIDTH - 32);
-            const h = smartListsLayout?.current?.height || 190;
-            const x = smartListsLayout?.current?.x !== undefined ? smartListsLayout.current.x : 16;
-            const y = SCREEN_HEIGHT * 0.48;
-            calculatedRect = { x, y, width: w, height: h };
-            radius = 14;
-        } else if (step.key === 'share_stats') {
-            const w = shareButtonLayout?.current?.width || 38;
-            const h = shareButtonLayout?.current?.height || 38;
-            const x = shareButtonLayout?.current?.x !== undefined ? shareButtonLayout.current.x : SCREEN_WIDTH - 54;
-            const y = insets.top + 10;
-            calculatedRect = { x, y, width: w, height: h };
-            radius = 19;
-        }
-
-        setTargetRect(calculatedRect);
+        setTargetRect(rect);
         setCurrentRadius(radius);
 
         // 2. Exact native measurement pass relative to rootRef
         const executeMeasurement = () => {
-            let targetEl: any = null;
-            switch (step.key) {
-                case 'period_selector': targetEl = periodTabsRef?.current; break;
-                case 'metric_toggle': targetEl = metricToggleRef?.current; break;
-                case 'hero_summary': targetEl = heroCardRef?.current; break;
-                case 'highlights_and_tabs': targetEl = highlightsCardRef?.current; break;
-                case 'smart_lists': targetEl = smartListsRef?.current; break;
-                case 'share_stats': targetEl = shareButtonRef?.current; break;
-            }
+            const targetEl = getStepTargetElement(step.key, {
+                periodTabsRef,
+                metricToggleRef,
+                heroCardRef,
+                highlightsCardRef,
+                smartListsRef,
+                shareButtonRef,
+            });
 
             if (!targetEl || typeof targetEl.measureInWindow !== 'function') return;
 
@@ -508,9 +587,9 @@ export default function ActivitySpotlightTutorial({
 
                     {/* Indicador de pasos con puntos */}
                     <View style={styles.dotsRow}>
-                        {ACTIVITY_SPOTLIGHT_STEPS.map((_, idx) => (
+                        {ACTIVITY_SPOTLIGHT_STEPS.map((step, idx) => (
                             <View
-                                key={idx}
+                                key={step.key}
                                 style={[
                                     styles.dot,
                                     idx === currentStepIndex && [styles.dotActive, { backgroundColor: colors.accent }],

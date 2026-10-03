@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { useSheetProps } from '@/hooks/useSheetProps';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Dimensions,
   StyleSheet,
   Switch,
   Text,
@@ -9,10 +13,8 @@ import {
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeSection, useSettingsStore } from '../../store/useSettingsStore';
-import { useAppTheme } from '@/hooks/useAppTheme';
-import { useSheetProps } from '@/hooks/useSheetProps';
 
 interface SectionItem {
   id: HomeSection;
@@ -35,6 +37,11 @@ export default function HomeSectionsSheet() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const { close: closeSheet } = useSheetProps('home-sections');
+  const insets = useSafeAreaInsets();
+  const screenHeight = Dimensions.get('window').height;
+
+  // Calculamos la altura disponible para la lista para evitar overflow en pantallas con barra de navegación
+  const listHeight = Math.min(320, Math.max(220, screenHeight * 0.38));
 
   const {
     homeSectionsOrder,
@@ -42,38 +49,46 @@ export default function HomeSectionsSheet() {
     homeSectionsVisibility,
     setHomeSectionsVisibility,
     setShowGlobalShuffle,
+    showHomeGreeting,
+    setShowHomeGreeting,
   } = useSettingsStore();
 
-  const [data, setData] = useState<SectionItem[]>(ALL_SECTIONS);
-
-  // Sincronizar orden inicial
-  useEffect(() => {
+  const [localShowGreeting, setLocalShowGreeting] = useState(() => showHomeGreeting ?? true);
+  const [data, setData] = useState<SectionItem[]>(() => {
     const currentOrder = homeSectionsOrder || [];
     const ordered = currentOrder
       .map((id) => ALL_SECTIONS.find((s) => s.id === id)!)
       .filter(Boolean);
     const missing = ALL_SECTIONS.filter((s) => !currentOrder.includes(s.id));
-    setData([...ordered, ...missing]);
-  }, [homeSectionsOrder]);
+    return [...ordered, ...missing];
+  });
+  const [localVisibility, setLocalVisibility] = useState<Record<HomeSection, boolean>>(() => ({
+    ...(homeSectionsVisibility || ({} as Record<HomeSection, boolean>)),
+  }));
 
   const onDragEnd = ({ data }: { data: SectionItem[] }) => {
     setData(data);
-    setHomeSectionsOrder(data.map((item) => item.id));
   };
 
   const handleToggle = (sectionId: HomeSection, value: boolean) => {
-    const updated = {
-      ...homeSectionsVisibility,
+    setLocalVisibility((prev) => ({
+      ...prev,
       [sectionId]: value,
-    };
-    setHomeSectionsVisibility(updated);
-    if (sectionId === 'shuffle_button') {
-      setShowGlobalShuffle(value);
+    }));
+  };
+
+  const handleDone = () => {
+    setHomeSectionsOrder(data.map((item) => item.id));
+    setHomeSectionsVisibility(localVisibility);
+    setShowHomeGreeting(localShowGreeting);
+    if (localVisibility.shuffle_button !== undefined) {
+      setShowGlobalShuffle(localVisibility.shuffle_button);
     }
+    closeSheet();
   };
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<SectionItem>) => {
-    const isEnabled = homeSectionsVisibility[item.id] ?? true;
+    const isEnabled = localVisibility[item.id] ?? true;
 
     return (
       <ScaleDecorator>
@@ -124,11 +139,38 @@ export default function HomeSectionsSheet() {
         <Text style={styles.subtitle}>{t('settings.home_sections_subtitle') || 'Personaliza el orden y visibilidad de las secciones'}</Text>
       </View>
 
+      <View style={styles.fixedOptionContainer}>
+        <View style={styles.itemLeft}>
+          <Text
+            style={[
+              styles.itemText,
+              !localShowGreeting && { color: colors.textSecondary || '#888888' },
+            ]}
+            numberOfLines={1}
+          >
+            {t('settings.home_greeting') || 'Saludo de bienvenida'}
+          </Text>
+          <Text style={styles.itemSubtext}>
+            {t('settings.home_greeting_desc') || 'Mostrar saludo al inicio de la pantalla'}
+          </Text>
+        </View>
+
+        <View style={styles.itemRight}>
+          <Switch
+            value={localShowGreeting}
+            onValueChange={setLocalShowGreeting}
+            trackColor={{ false: '#282828', true: colors.accent }}
+            thumbColor={localShowGreeting ? '#FFFFFF' : '#888888'}
+            ios_backgroundColor="#282828"
+          />
+        </View>
+      </View>
+
       <Text style={styles.sectionTitle}>
         {t('settings.drag_to_reorder_home_sections') || 'Orden de las secciones (Mantén presionado para mover)'}
       </Text>
 
-      <GestureHandlerRootView style={{ height: 420 }}>
+      <GestureHandlerRootView style={{ height: listHeight }}>
         <DraggableFlatList
           data={data}
           onDragEnd={onDragEnd}
@@ -139,10 +181,10 @@ export default function HomeSectionsSheet() {
         />
       </GestureHandlerRootView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity
           style={[styles.confirmButton, { backgroundColor: colors.accent }]}
-          onPress={() => closeSheet()}
+          onPress={handleDone}
           activeOpacity={0.8}
         >
           <Text style={[styles.confirmButtonText, { color: colors.onAccent || '#FFFFFF' }]}>
@@ -175,6 +217,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#CCCCCC',
     marginTop: 6,
+  },
+  fixedOptionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  itemSubtext: {
+    fontSize: 12,
+    fontFamily: 'Montserrat',
+    fontWeight: '700',
+    color: '#888888',
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 14,

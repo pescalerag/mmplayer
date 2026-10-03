@@ -1,5 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -173,6 +174,57 @@ export const LyricsService = {
             return null;
         } catch (error) {
             console.error("[LyricsService] Error importing custom lyrics:", error);
+            throw error;
+        }
+    },
+
+    exportLyrics: async (track: Track): Promise<boolean> => {
+        if (!track?.lyricsLRC?.trim()) {
+            return false;
+        }
+
+        try {
+            let resolvedArtistName = '';
+            try {
+                if (typeof (track as any).artist === 'string') {
+                    resolvedArtistName = (track as any).artist;
+                } else if ((track as any).artist?.fetch) {
+                    const fetched = await (track as any).artist.fetch();
+                    resolvedArtistName = fetched?.name || '';
+                } else if ((track as any).artist?.name) {
+                    resolvedArtistName = (track as any).artist.name;
+                } else {
+                    const primaryArtist: any = await track.artist;
+                    resolvedArtistName = primaryArtist?.name || '';
+                }
+            } catch {
+                resolvedArtistName = '';
+            }
+
+            const sanitize = (name: string) => name.replace(/[/\\?%*:|"<>]/g, '_').trim();
+            const artistStr = sanitize(resolvedArtistName);
+            const titleStr = sanitize(track.title) || 'track';
+            const fileName = artistStr ? `${artistStr} - ${titleStr}.lrc` : `${titleStr}.lrc`;
+            const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+            await FileSystem.writeAsStringAsync(fileUri, track.lyricsLRC, {
+                encoding: FileSystem.EncodingType.UTF8,
+            });
+
+            const isAvailable = await Sharing.isAvailableAsync();
+            if (!isAvailable) {
+                throw new Error('Sharing is not available on this device');
+            }
+
+            await Sharing.shareAsync(fileUri, {
+                mimeType: 'text/plain',
+                dialogTitle: fileName,
+                UTI: 'public.plain-text',
+            });
+
+            return true;
+        } catch (error) {
+            console.error('[LyricsService] Error exporting lyrics:', error);
             throw error;
         }
     },

@@ -1,5 +1,7 @@
+import { Model } from '@nozbe/watermelondb';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+import { generateVideoThumbnail } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -11,6 +13,7 @@ const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
+const CANVAS_THUMBNAILS_DIR = `${BASE_MEDIA_DIR}canvas_thumbnails/`;
 const USER_AVATAR_DIR = `${BASE_MEDIA_DIR}user_avatar/`;
 
 const getFileExtension = (uri: string, defaultExt: string = 'jpg'): string => {
@@ -41,19 +44,26 @@ const purgeEntityFiles = async (dirPath: string, filePrefix: string) => {
     try {
         await ensureDirectoryExists(dirPath);
         const files = await FileSystem.readDirectoryAsync(dirPath);
-        for (const file of files) {
-            if (file.startsWith(filePrefix)) {
-                const targetUri = `${dirPath}${file}`;
-                await FileSystem.deleteAsync(targetUri, { idempotent: true });
-            }
-        }
+        const filesToDelete = files
+            .filter(file => file.startsWith(filePrefix))
+            .map(file => FileSystem.deleteAsync(`${dirPath}${file}`, { idempotent: true }));
+        await Promise.all(filesToDelete);
     } catch (e) {
         console.warn(`[MediaAssetService] Error purgando archivos con prefijo ${filePrefix} en ${dirPath}:`, e);
     }
 };
 
-const cleanupTempSource = async (sourceUri: string) => {
-    if (!sourceUri || !sourceUri.startsWith('file://')) return;
+export interface CanvasVideoItem {
+    uri: string;
+    fileName: string;
+    size: number;
+    md5: string;
+    thumbnailUri?: string | null;
+    modificationTime?: number;
+}
+
+export const cleanupTempSource = async (sourceUri: string) => {
+    if (!sourceUri?.startsWith('file://')) return;
     if (sourceUri.includes('/cache/') || sourceUri.includes('/Caches/') || sourceUri.includes('DocumentPicker')) {
         try {
             await FileSystem.deleteAsync(sourceUri, { idempotent: true });
@@ -63,7 +73,126 @@ const cleanupTempSource = async (sourceUri: string) => {
     }
 };
 
+const ensureCanvasThumbnail = async (uri: string, thumbPath: string, fileName: string): Promise<boolean> => {
+    try {
+        const thumbInfo = await FileSystem.getInfoAsync(thumbPath);
+        if (thumbInfo.exists) return true;
+    } catch { }
+
+    try {
+        const genResult = await generateVideoThumbnail(uri, thumbPath);
+        return Boolean(genResult);
+    } catch (e) {
+        console.warn(`[MediaAssetService] Error generando miniatura de ${fileName}:`, e);
+        return false;
+    }
+};
+
+const parseCanvasVideoItem = async (file: string): Promise<CanvasVideoItem | null> => {
+    const uri = `${CANVAS_DIR}${file}`;
+    try {
+        const info = await FileSystem.getInfoAsync(uri);
+        if (!info.exists) return null;
+
+        const hashMatch = /^canvas_([a-f0-9]+)\.[a-z0-9]+$/i.exec(file);
+        const md5Val = hashMatch ? hashMatch[1] : `${file}_${info.size}`;
+
+        const thumbPath = `${CANVAS_THUMBNAILS_DIR}${file}.jpg`;
+        const thumbExists = await ensureCanvasThumbnail(uri, thumbPath, file);
+
+        return {
+            uri,
+            fileName: file,
+            size: info.size ?? 0,
+            md5: md5Val,
+            thumbnailUri: thumbExists ? thumbPath : null,
+            modificationTime: info.modificationTime,
+        };
+    } catch (e) {
+        console.warn(`[MediaAssetService] Error leyendo archivo canvas ${file}:`, e);
+        return null;
+    }
+};
+
+const isExistingCanvasUri = async (sourceUri: string): Promise<boolean> => {
+    if (!sourceUri.startsWith(CANVAS_DIR)) return false;
+    const exists = await FileSystem.getInfoAsync(sourceUri).catch(() => ({ exists: false }));
+    return Boolean(exists.exists);
+};
+
+const resolveVideoMd5 = async (sourceUri: string, knownMd5?: string): Promise<string | undefined> => {
+    if (knownMd5) return knownMd5;
+    try {
+        const info = await FileSystem.getInfoAsync(sourceUri, { md5: true });
+        if (info.exists && (info as any).md5) {
+            return (info as any).md5;
+        }
+    } catch { }
+    return undefined;
+};
+
+const findExistingCanvasByMd5 = async (md5?: string): Promise<string | null> => {
+    if (!md5) return null;
+    const existingVideos = await MediaAssetService.getAllUploadedCanvasVideos();
+    const existing = existingVideos.find(v => v.md5 === md5);
+    return existing ? existing.uri : null;
+};
+
+const persistCanvasFile = async (sourceUri: string, destPath: string): Promise<void> => {
+    const destInfo = await FileSystem.getInfoAsync(destPath).catch(() => ({ exists: false }));
+    if (!destInfo.exists && sourceUri !== destPath && !sourceUri.startsWith(CANVAS_DIR)) {
+        await FileSystem.copyAsync({ from: sourceUri, to: destPath });
+    }
+};
+
+const isLegacyAssetPath = (uri?: string | null): boolean => {
+    if (!uri) return false;
+    return uri.includes('/cache/') || uri.includes('/Caches/') || !uri.includes('/media_assets/');
+};
+
+const migrateSingleLegacyAsset = async <T extends Model>(
+    record: T,
+    currentUri: string | null | undefined,
+    saveFn: (id: string, uri: string) => Promise<string>,
+    updateField: (item: T, newPath: string) => void,
+    label: string
+): Promise<void> => {
+    if (!isLegacyAssetPath(currentUri)) return;
+
+    try {
+        const info = await FileSystem.getInfoAsync(currentUri!);
+        if (info.exists) {
+            const newPath = await saveFn(record.id, currentUri!);
+            await database.write(async () => {
+                await record.update(item => {
+                    updateField(item as T, newPath);
+                });
+            });
+        }
+    } catch (e) {
+        console.warn(`[MediaAssetService] Error migrando ${label} ${record.id}:`, e);
+    }
+};
+
+const migrateLegacyCollectionAssets = async <T extends Model>(
+    collectionName: string,
+    getUri: (item: T) => string | null | undefined,
+    saveFn: (id: string, uri: string) => Promise<string>,
+    updateField: (item: T, newPath: string) => void,
+    label: string
+): Promise<void> => {
+    const coll = database.collections.get<T>(collectionName);
+    const records = await coll.query().fetch();
+    await Promise.all(
+        records.map(record =>
+            migrateSingleLegacyAsset(record, getUri(record), saveFn, updateField, label)
+        )
+    );
+};
+
 export const MediaAssetService = {
+    cleanupTempSource,
+
     init: async () => {
         if (Platform.OS === 'web') return;
         await ensureDirectoryExists(BASE_MEDIA_DIR);
@@ -71,6 +200,7 @@ export const MediaAssetService = {
         await ensureDirectoryExists(PLAYLIST_DIR);
         await ensureDirectoryExists(CD_DIR);
         await ensureDirectoryExists(CANVAS_DIR);
+        await ensureDirectoryExists(CANVAS_THUMBNAILS_DIR);
         await ensureDirectoryExists(USER_AVATAR_DIR);
     },
 
@@ -162,17 +292,190 @@ export const MediaAssetService = {
         await purgeEntityFiles(CD_DIR, `album_cd_${albumId}.`);
     },
 
+    /**
+     * Obtiene todos los vídeos Canvas subidos a la aplicación de forma rápida.
+     */
+    getAllUploadedCanvasVideos: async (): Promise<CanvasVideoItem[]> => {
+        if (Platform.OS === 'web') return [];
+        await MediaAssetService.init();
+
+        try {
+            const files = await FileSystem.readDirectoryAsync(CANVAS_DIR);
+            const videoFiles = files.filter(f => /\.(mp4|mov|mkv|webm|m4v|3gp)$/i.test(f));
+
+            const itemPromises = videoFiles.map(file => parseCanvasVideoItem(file));
+            const results = await Promise.all(itemPromises);
+            const items = results.filter((item): item is CanvasVideoItem => item !== null);
+
+            items.sort((a, b) => (b.modificationTime || 0) - (a.modificationTime || 0));
+            return items;
+        } catch (e) {
+            console.error('[MediaAssetService] Error obteniendo vídeos canvas subidos:', e);
+            return [];
+        }
+    },
+
+    /**
+     * Comprueba si un vídeo ya ha sido subido comparando su hash MD5 o tamaño.
+     */
+    checkCanvasDuplicate: async (sourceUri: string): Promise<{ isDuplicate: boolean; existingVideo?: CanvasVideoItem; md5?: string }> => {
+        if (Platform.OS === 'web' || !sourceUri) return { isDuplicate: false };
+        await MediaAssetService.init();
+
+        try {
+            const info = await FileSystem.getInfoAsync(sourceUri, { md5: true });
+            if (!info.exists) return { isDuplicate: false };
+
+            const md5 = (info as any).md5;
+            const existingVideos = await MediaAssetService.getAllUploadedCanvasVideos();
+
+            if (md5) {
+                const match = existingVideos.find(v => v.md5 === md5);
+                if (match) {
+                    return { isDuplicate: true, existingVideo: match, md5 };
+                }
+            } else if (info.size > 0) {
+                const match = existingVideos.find(v => v.size === info.size);
+                if (match) {
+                    return { isDuplicate: true, existingVideo: match };
+                }
+            }
+
+            return { isDuplicate: false, md5 };
+        } catch (e) {
+            console.error('[MediaAssetService] Error comprobando duplicado canvas:', e);
+            return { isDuplicate: false };
+        }
+    },
+
+    /**
+     * Guarda un nuevo vídeo Canvas en el almacenamiento persistente con prevención de duplicados por hash.
+     */
+    saveNewCanvasVideo: async (sourceUri: string, knownMd5?: string): Promise<string> => {
+        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+        await MediaAssetService.init();
+
+        if (await isExistingCanvasUri(sourceUri)) return sourceUri;
+
+        const md5 = await resolveVideoMd5(sourceUri, knownMd5);
+        const existingUri = await findExistingCanvasByMd5(md5);
+        if (existingUri) {
+            await cleanupTempSource(sourceUri);
+            return existingUri;
+        }
+
+        const ext = getFileExtension(sourceUri, 'mp4');
+        const fileName = md5 ? `canvas_${md5}.${ext}` : `canvas_${Date.now()}.${ext}`;
+        const destPath = `${CANVAS_DIR}${fileName}`;
+        const thumbDest = `${CANVAS_THUMBNAILS_DIR}${fileName}.jpg`;
+
+        await persistCanvasFile(sourceUri, destPath);
+        await cleanupTempSource(sourceUri);
+        await ensureCanvasThumbnail(destPath, thumbDest, fileName);
+
+        return destPath;
+    },
+
+    /**
+     * Asigna un vídeo Canvas a una lista de canciones en una única operación atómica por lote.
+     */
+    assignCanvasToTracks: async (tracks: Track[], videoUri: string): Promise<void> => {
+        if (!tracks || tracks.length === 0) return;
+        await database.write(async () => {
+            const batchUpdates = tracks.map(track =>
+                track.prepareUpdate(t => {
+                    t.bgVideo = videoUri;
+                })
+            );
+            await database.batch(batchUpdates);
+        });
+    },
+
+    /**
+     * Elimina el vídeo Canvas de una lista de canciones en una única operación atómica.
+     */
+    removeCanvasFromTracks: async (tracks: Track[]): Promise<void> => {
+        if (!tracks || tracks.length === 0) return;
+        await database.write(async () => {
+            const batchUpdates = tracks.map(track =>
+                track.prepareUpdate(t => {
+                    t.bgVideo = null;
+                })
+            );
+            await database.batch(batchUpdates);
+        });
+    },
+
+    /**
+     * Elimina un archivo de vídeo del almacenamiento y desasocia las canciones que lo usen.
+     */
+    deleteCanvasVideo: async (videoUri: string): Promise<void> => {
+        if (Platform.OS === 'web' || !videoUri) return;
+        try {
+            const tracksColl = database.collections.get<Track>('tracks');
+            const allTracks = await tracksColl.query().fetch();
+            const matchingTracks = allTracks.filter(t => t.bgVideo === videoUri);
+
+            if (matchingTracks.length > 0) {
+                await database.write(async () => {
+                    const batchUpdates = matchingTracks.map(track =>
+                        track.prepareUpdate(t => {
+                            t.bgVideo = null;
+                        })
+                    );
+                    await database.batch(batchUpdates);
+                });
+            }
+
+            await FileSystem.deleteAsync(videoUri, { idempotent: true });
+
+            const fileName = videoUri.split('/').pop();
+            if (fileName) {
+                const thumbPath = `${CANVAS_THUMBNAILS_DIR}${fileName}.jpg`;
+                await FileSystem.deleteAsync(thumbPath, { idempotent: true });
+            }
+        } catch (e) {
+            console.error('[MediaAssetService] Error eliminando vídeo canvas:', e);
+        }
+    },
+
     saveTrackCanvasVideo: async (trackId: string, sourceUri: string): Promise<string> => {
         if (Platform.OS === 'web' || !sourceUri) return sourceUri;
         await MediaAssetService.init();
 
+        if (sourceUri.startsWith(CANVAS_DIR)) {
+            const exists = await FileSystem.getInfoAsync(sourceUri).catch(() => ({ exists: false }));
+            if (exists.exists) return sourceUri;
+        }
+
         const ext = getFileExtension(sourceUri, 'mp4');
-        const prefix = `canvas_track_${trackId}.`;
-        await purgeEntityFiles(CANVAS_DIR, prefix);
+        let md5: string | undefined;
+        try {
+            const info = await FileSystem.getInfoAsync(sourceUri, { md5: true });
+            if (info.exists && (info as any).md5) {
+                md5 = (info as any).md5;
+            }
+        } catch { }
 
-        const destPath = `${CANVAS_DIR}canvas_track_${trackId}.${ext}`;
+        if (md5) {
+            const existingVideos = await MediaAssetService.getAllUploadedCanvasVideos();
+            const existing = existingVideos.find(v => v.md5 === md5);
+            if (existing) {
+                await cleanupTempSource(sourceUri);
+                return existing.uri;
+            }
+        }
 
-        if (sourceUri === destPath) return destPath;
+        const fileName = md5 ? `canvas_${md5}.${ext}` : `canvas_track_${trackId}.${ext}`;
+        const destPath = `${CANVAS_DIR}${fileName}`;
+
+        if (sourceUri === destPath) return sourceUri;
+
+        const destInfo = await FileSystem.getInfoAsync(destPath).catch(() => ({ exists: false }));
+        if (destInfo.exists) {
+            await cleanupTempSource(sourceUri);
+            return destPath;
+        }
 
         await FileSystem.copyAsync({ from: sourceUri, to: destPath });
         await cleanupTempSource(sourceUri);
@@ -184,90 +487,51 @@ export const MediaAssetService = {
         await purgeEntityFiles(CANVAS_DIR, `canvas_track_${trackId}.`);
     },
 
+
     /**
      * Migración ligera en segundo plano para usuarios existentes con archivos en cacheDirectory o nombres antiguos.
      */
-    migrateLegacyCacheAssets: async (): Promise<void> => {
+    migrateLegacyCacheAssets: (): void => {
         if (Platform.OS === 'web') return;
         setTimeout(async () => {
             try {
                 await MediaAssetService.init();
 
                 // 1. Migrar Fotos de Artistas
-                const artistsColl = database.collections.get<Artist>('artists');
-                const artists = await artistsColl.query().fetch();
-                for (const artist of artists) {
-                    if (artist.imageUrl && (artist.imageUrl.includes('/cache/') || artist.imageUrl.includes('/Caches/') || !artist.imageUrl.includes('/media_assets/'))) {
-                        try {
-                            const info = await FileSystem.getInfoAsync(artist.imageUrl);
-                            if (info.exists) {
-                                const newPath = await MediaAssetService.saveArtistImage(artist.id, artist.imageUrl);
-                                await database.write(async () => {
-                                    await artist.update(a => { a.imageUrl = newPath; });
-                                });
-                            }
-                        } catch (e) {
-                            console.warn(`[MediaAssetService] Error migrando imagen de artista ${artist.id}:`, e);
-                        }
-                    }
-                }
+                await migrateLegacyCollectionAssets<Artist>(
+                    'artists',
+                    a => a.imageUrl,
+                    MediaAssetService.saveArtistImage,
+                    (a, newPath) => { a.imageUrl = newPath; },
+                    'imagen de artista'
+                );
 
                 // 2. Migrar Portadas de Playlists
-                const playlistsColl = database.collections.get<Playlist>('playlists');
-                const playlists = await playlistsColl.query().fetch();
-                for (const playlist of playlists) {
-                    if (playlist.coverCustomUrl && (playlist.coverCustomUrl.includes('/cache/') || playlist.coverCustomUrl.includes('/Caches/') || !playlist.coverCustomUrl.includes('/media_assets/'))) {
-                        try {
-                            const info = await FileSystem.getInfoAsync(playlist.coverCustomUrl);
-                            if (info.exists) {
-                                const newPath = await MediaAssetService.savePlaylistCover(playlist.id, playlist.coverCustomUrl);
-                                await database.write(async () => {
-                                    await playlist.update(p => { p.coverCustomUrl = newPath; });
-                                });
-                            }
-                        } catch (e) {
-                            console.warn(`[MediaAssetService] Error migrando portada de playlist ${playlist.id}:`, e);
-                        }
-                    }
-                }
+                await migrateLegacyCollectionAssets<Playlist>(
+                    'playlists',
+                    p => p.coverCustomUrl,
+                    MediaAssetService.savePlaylistCover,
+                    (p, newPath) => { p.coverCustomUrl = newPath; },
+                    'portada de playlist'
+                );
 
                 // 3. Migrar Diseños CD de Álbumes
-                const albumsColl = database.collections.get<Album>('albums');
-                const albums = await albumsColl.query().fetch();
-                for (const album of albums) {
-                    if (album.cdArtUrl && (album.cdArtUrl.includes('/cache/') || album.cdArtUrl.includes('/Caches/') || !album.cdArtUrl.includes('/media_assets/'))) {
-                        try {
-                            const info = await FileSystem.getInfoAsync(album.cdArtUrl);
-                            if (info.exists) {
-                                const newPath = await MediaAssetService.saveAlbumCDCover(album.id, album.cdArtUrl);
-                                await database.write(async () => {
-                                    await album.update(a => { a.cdArtUrl = newPath; });
-                                });
-                            }
-                        } catch (e) {
-                            console.warn(`[MediaAssetService] Error migrando CD de álbum ${album.id}:`, e);
-                        }
-                    }
-                }
+                await migrateLegacyCollectionAssets<Album>(
+                    'albums',
+                    a => a.cdArtUrl,
+                    MediaAssetService.saveAlbumCDCover,
+                    (a, newPath) => { a.cdArtUrl = newPath; },
+                    'CD de álbum'
+                );
 
                 // 4. Migrar Vídeos Canvas de Canciones
-                const tracksColl = database.collections.get<Track>('tracks');
-                const tracks = await tracksColl.query().fetch();
-                for (const track of tracks) {
-                    if (track.bgVideo && (track.bgVideo.includes('/cache/') || track.bgVideo.includes('/Caches/') || !track.bgVideo.includes('/media_assets/'))) {
-                        try {
-                            const info = await FileSystem.getInfoAsync(track.bgVideo);
-                            if (info.exists) {
-                                const newPath = await MediaAssetService.saveTrackCanvasVideo(track.id, track.bgVideo);
-                                await database.write(async () => {
-                                    await track.update(t => { t.bgVideo = newPath; });
-                                });
-                            }
-                        } catch (e) {
-                            console.warn(`[MediaAssetService] Error migrando canvas de canción ${track.id}:`, e);
-                        }
-                    }
-                }
+                await migrateLegacyCollectionAssets<Track>(
+                    'tracks',
+                    t => t.bgVideo,
+                    MediaAssetService.saveTrackCanvasVideo,
+                    (t, newPath) => { t.bgVideo = newPath; },
+                    'canvas de canción'
+                );
             } catch (err) {
                 console.error('[MediaAssetService] Error durante la migración de archivos:', err);
             }
@@ -277,63 +541,46 @@ export const MediaAssetService = {
     /**
      * Garbage Collector para eliminar archivos huérfanos que ya no existen en WatermelonDB.
      */
-    runGarbageCollector: async (): Promise<void> => {
+    runGarbageCollector: (): void => {
         if (Platform.OS === 'web') return;
         setTimeout(async () => {
             try {
                 await MediaAssetService.init();
 
+                const cleanOrphanFiles = async (
+                    dir: string,
+                    pattern: RegExp,
+                    validIds: Set<string>
+                ) => {
+                    const files = await FileSystem.readDirectoryAsync(dir);
+                    const filesToDelete = files
+                        .filter(file => {
+                            const match = pattern.exec(file);
+                            return Boolean(match && !validIds.has(match[1]));
+                        })
+                        .map(file => FileSystem.deleteAsync(`${dir}${file}`, { idempotent: true }));
+                    await Promise.all(filesToDelete);
+                };
+
                 // 1. Limpiar fotos de artistas huérfanas
                 const artistsColl = database.collections.get<Artist>('artists');
                 const allArtists = await artistsColl.query().fetch();
-                const validArtistIds = new Set(allArtists.map(a => a.id));
-
-                const artistFiles = await FileSystem.readDirectoryAsync(ARTIST_DIR);
-                for (const file of artistFiles) {
-                    const match = file.match(/^artist_(.+)\.[a-z0-9]+$/i);
-                    if (match && !validArtistIds.has(match[1])) {
-                        await FileSystem.deleteAsync(`${ARTIST_DIR}${file}`, { idempotent: true });
-                    }
-                }
+                await cleanOrphanFiles(ARTIST_DIR, /^artist_(.+)\.[a-z0-9]+$/i, new Set(allArtists.map(a => a.id)));
 
                 // 2. Limpiar portadas de playlists huérfanas
                 const playlistsColl = database.collections.get<Playlist>('playlists');
                 const allPlaylists = await playlistsColl.query().fetch();
-                const validPlaylistIds = new Set(allPlaylists.map(p => p.id));
-
-                const playlistFiles = await FileSystem.readDirectoryAsync(PLAYLIST_DIR);
-                for (const file of playlistFiles) {
-                    const match = file.match(/^playlist_(.+)\.[a-z0-9]+$/i);
-                    if (match && !validPlaylistIds.has(match[1])) {
-                        await FileSystem.deleteAsync(`${PLAYLIST_DIR}${file}`, { idempotent: true });
-                    }
-                }
+                await cleanOrphanFiles(PLAYLIST_DIR, /^playlist_(.+)\.[a-z0-9]+$/i, new Set(allPlaylists.map(p => p.id)));
 
                 // 3. Limpiar CDs de álbumes huérfanos
                 const albumsColl = database.collections.get<Album>('albums');
                 const allAlbums = await albumsColl.query().fetch();
-                const validAlbumIds = new Set(allAlbums.map(a => a.id));
-
-                const cdFiles = await FileSystem.readDirectoryAsync(CD_DIR);
-                for (const file of cdFiles) {
-                    const match = file.match(/^album_cd_(.+)\.[a-z0-9]+$/i);
-                    if (match && !validAlbumIds.has(match[1])) {
-                        await FileSystem.deleteAsync(`${CD_DIR}${file}`, { idempotent: true });
-                    }
-                }
+                await cleanOrphanFiles(CD_DIR, /^album_cd_(.+)\.[a-z0-9]+$/i, new Set(allAlbums.map(a => a.id)));
 
                 // 4. Limpiar vídeos Canvas huérfanos
                 const tracksColl = database.collections.get<Track>('tracks');
                 const allTracks = await tracksColl.query().fetch();
-                const validTrackIds = new Set(allTracks.map(t => t.id));
-
-                const canvasFiles = await FileSystem.readDirectoryAsync(CANVAS_DIR);
-                for (const file of canvasFiles) {
-                    const match = file.match(/^canvas_track_(.+)\.[a-z0-9]+$/i);
-                    if (match && !validTrackIds.has(match[1])) {
-                        await FileSystem.deleteAsync(`${CANVAS_DIR}${file}`, { idempotent: true });
-                    }
-                }
+                await cleanOrphanFiles(CANVAS_DIR, /^canvas_track_(.+)\.[a-z0-9]+$/i, new Set(allTracks.map(t => t.id)));
             } catch (err) {
                 console.error('[MediaAssetService] Error en Garbage Collector:', err);
             }

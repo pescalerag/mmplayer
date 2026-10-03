@@ -72,6 +72,17 @@ export default function LyricsMenuSheet() {
     }
   };
 
+  const handleExportLRC = async () => {
+    if (!hasLyrics) return;
+    closeMenu();
+    try {
+      await LyricsService.exportLyrics(track);
+    } catch (e) {
+      console.error('[LyricsMenuSheet] Error exporting lyrics:', e);
+      Alert.alert(t('actions.error') || 'Error', t('lyrics.export_error') || 'No se pudo exportar el archivo de letras.');
+    }
+  };
+
   const handleSearchLyrics = async () => {
     if (LyricsService.isFetching()) {
       Alert.alert(
@@ -138,11 +149,19 @@ export default function LyricsMenuSheet() {
       />
 
       <MenuOption
-        icon="cloud-upload-outline"
+        icon="cloud-download-outline"
         text={t('audio_effects.lyrics_import') || 'Importar archivo .LRC'}
         disabled={isFetchingLyrics}
         containerStyle={isFetchingLyrics ? { opacity: 0.4 } : undefined}
         onPress={handleImportLRC}
+      />
+
+      <MenuOption
+        icon="cloud-upload-outline"
+        text={t('lyrics.export_lrc') || 'Exportar archivo .LRC'}
+        disabled={!hasLyrics || isFetchingLyrics}
+        containerStyle={(!hasLyrics || isFetchingLyrics) ? { opacity: 0.4 } : undefined}
+        onPress={handleExportLRC}
       />
 
       <MenuOption

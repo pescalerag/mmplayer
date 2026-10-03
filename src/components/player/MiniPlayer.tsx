@@ -30,13 +30,13 @@ const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
     let r = 0, g = 0, b = 0;
     hex = hex.replace(/^#/, '');
     if (hex.length === 3) {
-        r = parseInt(hex[0] + hex[0], 16);
-        g = parseInt(hex[1] + hex[1], 16);
-        b = parseInt(hex[2] + hex[2], 16);
+        r = Number.parseInt(hex[0] + hex[0], 16);
+        g = Number.parseInt(hex[1] + hex[1], 16);
+        b = Number.parseInt(hex[2] + hex[2], 16);
     } else if (hex.length === 6) {
-        r = parseInt(hex.substring(0, 2), 16);
-        g = parseInt(hex.substring(2, 4), 16);
-        b = parseInt(hex.substring(4, 6), 16);
+        r = Number.parseInt(hex.substring(0, 2), 16);
+        g = Number.parseInt(hex.substring(2, 4), 16);
+        b = Number.parseInt(hex.substring(4, 6), 16);
     }
     r /= 255;
     g /= 255;
@@ -73,13 +73,13 @@ const hexToRgba = (hex: string, alpha: number): string => {
     hex = hex.replace(/^#/, '');
     let r = 0, g = 0, b = 0;
     if (hex.length === 3) {
-        r = parseInt(hex[0] + hex[0], 16);
-        g = parseInt(hex[1] + hex[1], 16);
-        b = parseInt(hex[2] + hex[2], 16);
+        r = Number.parseInt(hex[0] + hex[0], 16);
+        g = Number.parseInt(hex[1] + hex[1], 16);
+        b = Number.parseInt(hex[2] + hex[2], 16);
     } else if (hex.length === 6) {
-        r = parseInt(hex.substring(0, 2), 16);
-        g = parseInt(hex.substring(2, 4), 16);
-        b = parseInt(hex.substring(4, 6), 16);
+        r = Number.parseInt(hex.substring(0, 2), 16);
+        g = Number.parseInt(hex.substring(2, 4), 16);
+        b = Number.parseInt(hex.substring(4, 6), 16);
     }
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
@@ -127,7 +127,7 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
                 // Convert it to RGBA with 0.65 opacity to overlay on the cover
                 const rgbaVal = hexToRgba(darkHex, 0.65);
                 return [rgbaVal, rgbaVal];
-            } catch (e) {
+            } catch {
                 return ['rgba(18,18,18,0.6)', 'rgba(18,18,18,0.6)'];
             }
         }
@@ -140,7 +140,7 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
                 const hsl = hexToHsl(coverColor);
                 // Solid dark color: Saturation 25%, Lightness 10%
                 return hslToHex(hsl.h, 25, 10);
-            } catch (e) {
+            } catch {
                 return colors.cardBackground;
             }
         }
@@ -199,24 +199,26 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     // Se considera en pausa cuando no se está reproduciendo activamente (Playing o Buffering)
     // y no hay una carga de cola en curso.
     const isPaused = !isQueueLoading && !isPlaybackLoading && playbackState.state !== State.Playing;
+    const isCasting = useCastStore(state => state.isLocalCastActive || state.isChromecastConnected);
+    const shouldShowClose = isPaused && !isCasting;
 
-    const closeButtonProgress = useSharedValue(isPaused ? 1 : 0);
+    const closeButtonProgress = useSharedValue(shouldShowClose ? 1 : 0);
 
-    // Cuando cambia la pista, si no está en pausa reseteamos el botón para evitar parpadeos;
-    // si está en pausa (ej. al montar o restaurar), se sincroniza con el estado actual
+    // Cuando cambia la pista, si no debe mostrarse reseteamos el botón para evitar parpadeos;
+    // si debe mostrarse (ej. al montar o pausar sin castear), se sincroniza con el estado actual
     const prevTrackIdRef = React.useRef(track.id);
     React.useEffect(() => {
         if (prevTrackIdRef.current !== track.id) {
             prevTrackIdRef.current = track.id;
-            closeButtonProgress.value = isPaused ? 1 : 0;
+            closeButtonProgress.value = shouldShowClose ? 1 : 0;
         }
-    }, [track.id, isPaused, closeButtonProgress]);
+    }, [track.id, shouldShowClose, closeButtonProgress]);
 
     React.useEffect(() => {
-        closeButtonProgress.value = withTiming(isPaused ? 1 : 0, {
+        closeButtonProgress.value = withTiming(shouldShowClose ? 1 : 0, {
             duration: 250,
         });
-    }, [isPaused, closeButtonProgress]);
+    }, [shouldShowClose, closeButtonProgress]);
 
     const animatedCloseButtonStyle = useAnimatedStyle(() => ({
         width: closeButtonProgress.value * 30,
@@ -226,7 +228,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     }));
 
     const handleOpenClearQueue = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         openClearQueueSheet();
     };
 
@@ -238,7 +240,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
     const SWIPE_THRESHOLD = 60;
 
     const triggerHaptic = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
     const skipNext = () => usePlayerStore.getState().skipToNext().catch(() => { });
@@ -283,13 +285,14 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
                         <View style={styles.swipeableContent}>
                             <Animated.View
                                 style={[styles.closeButtonWrapper, animatedCloseButtonStyle]}
-                                pointerEvents={isPaused ? 'auto' : 'none'}
+                                pointerEvents={shouldShowClose ? 'auto' : 'none'}
                             >
                                 <TouchableOpacity
                                     style={styles.closeButton}
                                     onPress={handleOpenClearQueue}
                                     hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                                     activeOpacity={0.7}
+                                    disabled={!shouldShowClose}
                                 >
                                     <Ionicons name="close" size={17} color={colors.text} />
                                 </TouchableOpacity>
@@ -352,6 +355,18 @@ const MiniPlayer = () => {
 
     if (!activeTrackModel) return null;
 
+    if ((activeTrackModel as any).isExternal) {
+        return (
+            <MiniPlayerUI
+                track={activeTrackModel}
+                album={(activeTrackModel as any).albumObj || null}
+                artist={(activeTrackModel as any).artistObj || null}
+                artists={(activeTrackModel as any).artistsList || []}
+                onPress={() => navigation.navigate('Player')}
+            />
+        );
+    }
+
     return (
         <ObservableMiniPlayerUI
             trackModel={activeTrackModel}
@@ -360,7 +375,20 @@ const MiniPlayer = () => {
     );
 };
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }, radii: any = { sm: 4, md: 8, lg: 12, full: 9999 }, fontWeights: any = { regular: '400', semiBold: '600', bold: '700' }, shadows: any = { lg: {} }) => StyleSheet.create({
+const DEFAULT_SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+const DEFAULT_RADII = { sm: 4, md: 8, lg: 12, full: 9999 };
+const DEFAULT_FONT_WEIGHTS = { regular: '400', semiBold: '600', bold: '700' };
+const DEFAULT_SHADOWS = { lg: {} };
+
+const getStyles = (
+    colors: any,
+    fonts: any,
+    layout: any,
+    spacing: any = DEFAULT_SPACING,
+    radii: any = DEFAULT_RADII,
+    fontWeights: any = DEFAULT_FONT_WEIGHTS,
+    shadows: any = DEFAULT_SHADOWS
+) => StyleSheet.create({
     container: { width: '100%', height: layout.MINI_PLAYER_HEIGHT, borderRadius: radii.lg || 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.overlayAlpha10, ...shadows.lg },
     miniPlayerRow: { flex: 1, flexDirection: 'row', alignItems: 'center', width: '100%' },
     swipeableArea: { flex: 1 },

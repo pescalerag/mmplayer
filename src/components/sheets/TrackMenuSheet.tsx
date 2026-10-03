@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, View, Text, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, TouchableOpacity, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
 import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
 import { PlaylistService } from '../../services/PlaylistService';
 import { ScannerService } from '../../services/ScannerService';
+import { ShuffleService } from '../../services/ShuffleService';
+import { RingtoneService, RingtoneType } from '../../services/RingtoneService';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
-import { MediaAssetService } from '../../services/MediaAssetService';
 import { useSheetProps } from '@/hooks/useSheetProps';
-import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector } from '@/store/useUIStore';
+import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 
@@ -169,10 +169,12 @@ export default function TrackMenuSheet() {
   const [artistId, setArtistId] = useState<string | null>(null);
   const [artistsList, setArtistsList] = useState<Artist[]>([]);
   const [isFavorite, setIsFavorite] = useState(selectedTrack?.isFavorite ?? false);
+  const [isExcludedFromShuffle, setIsExcludedFromShuffle] = useState(selectedTrack?.isExcludedFromShuffle ?? false);
 
   useEffect(() => {
     if (selectedTrack) {
       setIsFavorite(selectedTrack.isFavorite);
+      setIsExcludedFromShuffle(!!selectedTrack.isExcludedFromShuffle);
     }
   }, [selectedTrack]);
 
@@ -195,6 +197,33 @@ export default function TrackMenuSheet() {
   }, [selectedTrack, t]);
 
   if (!selectedTrack) return null;
+
+  const isExternalTrack = Boolean((selectedTrack as any)?.isExternal || selectedTrack?.id?.startsWith('ext_'));
+
+  if (isExternalTrack) {
+    const displayArtist = artistName !== t('actions.unknown') ? artistName : ((selectedTrack as any).artistName || artistName);
+    const displayCover = imageUrl || (selectedTrack as any).coverUrl || null;
+
+    return (
+      <BaseMenuSheet
+        title={selectedTrack.title}
+        subtitle={displayArtist}
+        coverUrl={displayCover}
+        placeholderIcon="musical-notes"
+      >
+        <MenuSeparator />
+        {/* OPTION: Properties */}
+        <MenuOption
+          icon="information-circle-outline"
+          text={t('track_details.open_button')}
+          onPress={() => {
+            closeMenu();
+            openTrackDetails(selectedTrack);
+          }}
+        />
+      </BaseMenuSheet>
+    );
+  }
 
   const handleExclude = () => {
     Alert.alert(
@@ -243,6 +272,21 @@ export default function TrackMenuSheet() {
       );
     } catch (error) {
       console.error('Error al cambiar favorito:', error);
+    }
+  };
+
+  const handleToggleShuffleExclusion = async () => {
+    if (!selectedTrack) return;
+    try {
+      const wasExcluded = isExcludedFromShuffle;
+      closeMenu();
+      await ShuffleService.toggleTrackExclusion(selectedTrack);
+      useToastStore.getState().showToast(
+        wasExcluded ? t('toasts.included_in_shuffle') : t('toasts.excluded_from_shuffle'),
+        'shuffle'
+      );
+    } catch (error) {
+      console.error('Error al cambiar exclusión de aleatorio:', error);
     }
   };
 
@@ -313,24 +357,9 @@ export default function TrackMenuSheet() {
       <MenuOption
         icon="videocam-outline"
         text={selectedTrack.bgVideo ? t('actions.canvas_change') : t('actions.canvas_add')}
-        onPress={async () => {
-          try {
-            const result = await DocumentPicker.getDocumentAsync({
-              type: 'video/*',
-              copyToCacheDirectory: true,
-            });
-
-            const asset = result.assets?.[0];
-            if (asset) {
-              const persistentUri = await MediaAssetService.saveTrackCanvasVideo(selectedTrack.id, asset.uri);
-              await selectedTrack.updateBgVideo(persistentUri);
-              useToastStore.getState().showToast(t('actions.canvas_saved'), 'videocam');
-              closeMenu();
-            }
-          } catch (error) {
-            console.error('Error al seleccionar vídeo:', error);
-            Alert.alert(t('actions.error'), t('actions.canvas_error'));
-          }
+        onPress={() => {
+          closeMenu();
+          openCanvasManager(selectedTrack);
         }}
       />
 
@@ -342,7 +371,6 @@ export default function TrackMenuSheet() {
           iconColor={colors.heartIcon}
           textStyle={{ color: colors.heartIcon }}
           onPress={async () => {
-            await MediaAssetService.removeTrackCanvasVideo(selectedTrack.id);
             await selectedTrack.updateBgVideo(null);
             useToastStore.getState().showToast(t('actions.canvas_removed'), 'trash');
             closeMenu();
@@ -472,6 +500,13 @@ export default function TrackMenuSheet() {
         />
       )}
 
+      {/* OPTION: Exclude from shuffle */}
+      <MenuOption
+        icon="shuffle-outline"
+        text={isExcludedFromShuffle ? t('actions.include_in_shuffle') : t('actions.exclude_from_shuffle')}
+        onPress={handleToggleShuffleExclusion}
+      />
+
       {/* OPTION: Exclude song */}
       <MenuOption
         icon="eye-off-outline"
@@ -479,6 +514,53 @@ export default function TrackMenuSheet() {
         iconColor={colors.heartIcon}
         textStyle={{ color: colors.heartIcon }}
         onPress={handleExclude}
+      />
+
+      {/* RINGTONE OPTIONS (Android) */}
+      {Platform.OS === 'android' && (
+        <>
+          <MenuSeparator />
+          {/* OPTION: Set as ringtone */}
+          <MenuOption
+            icon="call-outline"
+            text={t('actions.set_as_ringtone') || 'Establecer como tono de llamada'}
+            onPress={async () => {
+              closeMenu();
+              await RingtoneService.applyRingtone(selectedTrack, RingtoneType.RINGTONE);
+            }}
+          />
+
+          {/* OPTION: Set as notification */}
+          <MenuOption
+            icon="notifications-outline"
+            text={t('actions.set_as_notification') || 'Establecer como tono de notificación'}
+            onPress={async () => {
+              closeMenu();
+              await RingtoneService.applyRingtone(selectedTrack, RingtoneType.NOTIFICATION);
+            }}
+          />
+
+          {/* OPTION: Set as alarm */}
+          <MenuOption
+            icon="alarm-outline"
+            text={t('actions.set_as_alarm') || 'Establecer como alarma'}
+            onPress={async () => {
+              closeMenu();
+              await RingtoneService.applyRingtone(selectedTrack, RingtoneType.ALARM);
+            }}
+          />
+        </>
+      )}
+
+      {/* OPTION: Properties */}
+      <MenuSeparator />
+      <MenuOption
+        icon="information-circle-outline"
+        text={t('track_details.open_button')}
+        onPress={() => {
+          closeMenu();
+          openTrackDetails(selectedTrack);
+        }}
       />
     </BaseMenuSheet>
   );

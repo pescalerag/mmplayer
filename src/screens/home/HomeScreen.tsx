@@ -1,6 +1,6 @@
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
+import { openAlbumMenu, openArtistMenu, openHomeSections, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -8,7 +8,16 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    Dimensions,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
 import { database } from '../../database';
@@ -22,14 +31,20 @@ import { SmartListService } from '../../services/SmartListService';
 
 import { usePlayerStore } from '../../store/usePlayerStore';
 
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { HomeSection, useSettingsStore } from '../../store/useSettingsStore';
 
 import { MediaCard } from '@/components/cards/MediaCard';
-import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
-import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
 import { StatsWidget } from '@/components/cards/StatsWidget';
-import MarqueeText from '@/components/common/MarqueeText';
+import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
+import { SkeletonHomeScreen } from '@/components/common/Skeleton';
+import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
+import { useDelayedLoader } from '@/hooks/useDelayedLoader';
+import { NotificationService } from '../../services/NotificationService';
+import { useNotificationStore } from '../../store/useNotificationStore';
 import { useStatsStore } from '../../store/useStatsStore';
+import { shuffleArray } from '../../utils/shuffle';
+import Animated from 'react-native-reanimated';
+import { getSectionFadeIn } from '@/utils/cascadeAnimations';
 
 const { width } = Dimensions.get('window');
 
@@ -83,6 +98,212 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
 });
 RecentMediaCard.displayName = 'RecentMediaCard';
 
+interface UserTierBadgeProps {
+    userTier: string;
+    onPress: () => void;
+    styles: any;
+}
+
+const UserTierBadge = React.memo(({ userTier, onPress, styles }: UserTierBadgeProps) => {
+    const isVip = userTier === 'VIP';
+    const isSupporter = userTier === 'SUPPORTER';
+
+    let tierLabel = 'USER';
+    if (isVip) {
+        tierLabel = 'VIP';
+    } else if (isSupporter) {
+        tierLabel = 'SUPPORTER';
+    }
+
+    return (
+        <TouchableOpacity
+            style={[
+                styles.userTierBadge,
+                isVip && styles.userTierBadgeVip,
+                isSupporter && styles.userTierBadgeSupporter,
+            ]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            {isVip && <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />}
+            {isSupporter && <Ionicons name="heart" size={11} color="#2DD4BF" />}
+            <Text
+                style={[
+                    styles.userTierBadgeText,
+                    isVip && styles.userTierBadgeTextVip,
+                    isSupporter && styles.userTierBadgeTextSupporter,
+                ]}
+            >
+                {tierLabel}
+            </Text>
+        </TouchableOpacity>
+    );
+});
+UserTierBadge.displayName = 'UserTierBadge';
+
+
+const getGreetingKey = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 13) return 'home.welcome_morning';
+    if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
+    return 'home.welcome_evening';
+};
+
+const getCacheBustedAvatarUri = (uri: string) => {
+    if (uri.startsWith('file://') && !uri.includes('?t=')) {
+        return `${uri}?t=${Date.now()}`;
+    }
+    return uri;
+};
+
+const insertSectionAfterFirstMatch = (order: HomeSection[], item: HomeSection, targetKeys: HomeSection[]) => {
+    if (order.includes(item)) return;
+    for (const key of targetKeys) {
+        const idx = order.indexOf(key);
+        if (idx !== -1) {
+            order.splice(idx + 1, 0, item);
+            return;
+        }
+    }
+    order.unshift(item);
+};
+
+const computeHomeSectionsOrder = (homeSectionsOrderRaw?: HomeSection[] | null): HomeSection[] => {
+    const order = [...(homeSectionsOrderRaw || [])];
+    insertSectionAfterFirstMatch(order, 'smart_playlists', ['recent_media', 'recent_playlists']);
+    insertSectionAfterFirstMatch(order, 'stats', ['recent_media']);
+    if (!order.includes('shuffle_button')) {
+        order.push('shuffle_button');
+    }
+    return order;
+};
+
+const fetchSmartListData = async (t: (key: string) => string) => {
+    const lists = SmartListService.getSmartLists();
+    const loadedSmart = await Promise.all(
+        lists.map(async (list) => {
+            const tracks = await list.getTracks();
+            const subtitle = `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`;
+            return {
+                id: `smart-list-${list.id}`,
+                type: 'playlist' as const,
+                title: list.name,
+                subtitle,
+                trackCount: tracks.length,
+            };
+        })
+    );
+    return loadedSmart.filter(item => item.trackCount > 0);
+};
+
+const mapAlbumToMediaItem = async (album: Album) => {
+    const artist = await album.artist.fetch();
+    return {
+        id: album.id,
+        type: 'album' as const,
+        title: album.title,
+        subtitle: artist?.name || 'Artista desconocido',
+        imageUrl: album.coverUrl || '',
+    };
+};
+
+const mapTrackToMediaItem = async (track: Track) => {
+    const artist = await track.artist.fetch();
+    const album = await track.album.fetch();
+    return {
+        id: track.id,
+        type: 'track' as const,
+        title: track.title,
+        subtitle: artist?.name || 'Artista desconocido',
+        imageUrl: album?.coverUrl || '',
+    };
+};
+
+const fetchRecentlyAddedViaSql = async (): Promise<Album[]> => {
+    if (Platform.OS === 'web') return [];
+    try {
+        return await database.collections
+            .get<Album>('albums')
+            .query(
+                Q.unsafeSqlQuery(
+                    `SELECT "albums".* FROM "albums"
+                     INNER JOIN "tracks" ON "tracks"."album_id" = "albums"."id"
+                     WHERE "albums"."_status" is not 'deleted' AND "tracks"."_status" is not 'deleted'
+                     GROUP BY "albums"."id"
+                     ORDER BY MAX(COALESCE("tracks"."last_modified", 0)) DESC, "albums"."title" ASC
+                     LIMIT 10`
+                ),
+                Q.experimentalJoinTables(['tracks'])
+            )
+            .fetch();
+    } catch (e) {
+        console.warn('[HomeScreen] Error fetching recently added albums via unsafeSqlQuery:', e);
+        return [];
+    }
+};
+
+const fetchRecentlyAddedViaFallback = async (): Promise<Album[]> => {
+    try {
+        const recentTracks = await database.collections
+            .get<Track>('tracks')
+            .query(
+                Q.where('album_id', Q.notEq(null)),
+                Q.sortBy('last_modified', Q.desc),
+                Q.take(150)
+            )
+            .fetch();
+
+        const seenAlbumIds = new Set<string>();
+        const albumIds: string[] = [];
+        for (const track of recentTracks) {
+            const aId = (track as any).albumId || (track._raw as any).album_id || track.album?.id;
+            if (aId && !seenAlbumIds.has(aId)) {
+                seenAlbumIds.add(aId);
+                albumIds.push(aId);
+                if (albumIds.length >= 10) break;
+            }
+        }
+
+        if (albumIds.length === 0) return [];
+
+        const fetched = await database.collections
+            .get<Album>('albums')
+            .query(Q.where('id', Q.oneOf(albumIds)))
+            .fetch();
+        const map = new Map(fetched.map(a => [a.id, a]));
+        return albumIds.map(id => map.get(id)).filter((a): a is Album => Boolean(a));
+    } catch (e) {
+        console.warn('[HomeScreen] Fallback for recently added albums failed:', e);
+        return [];
+    }
+};
+
+const fetchRecentlyAddedAlbums = async (): Promise<Album[]> => {
+    let addedAlbums = await fetchRecentlyAddedViaSql();
+    if (!addedAlbums || addedAlbums.length === 0) {
+        addedAlbums = await fetchRecentlyAddedViaFallback();
+    }
+    if (!addedAlbums || addedAlbums.length === 0) {
+        addedAlbums = await database.collections
+            .get<Album>('albums')
+            .query(Q.take(10))
+            .fetch();
+    }
+    return addedAlbums;
+};
+
+const fetchExploreAlbums = async (): Promise<Album[]> => {
+    const allAlbumIds = await database.collections.get<Album>('albums').query().fetchIds();
+    if (allAlbumIds.length === 0) return [];
+
+    const shuffled = shuffleArray(allAlbumIds);
+    const randomIds = shuffled.slice(0, 6);
+    return database.collections
+        .get<Album>('albums')
+        .query(Q.where('id', Q.oneOf(randomIds)))
+        .fetch();
+};
+
 export default function HomeScreen() {
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
@@ -90,13 +311,6 @@ export default function HomeScreen() {
     const navigation = useNavigation<any>();
     const { t } = useTranslation();
     const [headerHeight, setHeaderHeight] = React.useState(100);
-
-    const getGreetingKey = () => {
-        const hour = new Date().getHours();
-        if (hour >= 6 && hour < 13) return 'home.welcome_morning';
-        if (hour >= 13 && hour < 20) return 'home.welcome_afternoon';
-        return 'home.welcome_evening';
-    };
 
     const recentMediaRaw = usePlayerStore(state => state.recentMedia);
     const recentMedia = React.useMemo(() => recentMediaRaw || [], [recentMediaRaw]);
@@ -111,35 +325,12 @@ export default function HomeScreen() {
     const homeSectionsOrderRaw = useSettingsStore(state => state.homeSectionsOrder);
     const homeSectionsVisibilityRaw = useSettingsStore(state => state.homeSectionsVisibility);
 
-    const homeSectionsOrder = React.useMemo(() => {
-        const order = [...(homeSectionsOrderRaw || [])];
-        if (!order.includes('smart_playlists')) {
-            const mediaIndex = order.indexOf('recent_media');
-            if (mediaIndex !== -1) {
-                order.splice(mediaIndex + 1, 0, 'smart_playlists');
-            } else {
-                const playlistIndex = order.indexOf('recent_playlists');
-                if (playlistIndex !== -1) {
-                    order.splice(playlistIndex, 0, 'smart_playlists');
-                } else {
-                    order.unshift('smart_playlists');
-                }
-            }
-        }
-        if (!order.includes('stats')) {
-            const recentIdx = order.indexOf('recent_media');
-            if (recentIdx !== -1) {
-                order.splice(recentIdx + 1, 0, 'stats');
-            } else {
-                order.unshift('stats');
-            }
-        }
-        if (!order.includes('shuffle_button')) {
-            order.push('shuffle_button');
-        }
-        return order;
-    }, [homeSectionsOrderRaw]);
+    const homeSectionsOrder = React.useMemo(
+        () => computeHomeSectionsOrder(homeSectionsOrderRaw),
+        [homeSectionsOrderRaw]
+    );
 
+    const showHomeGreeting = useSettingsStore(state => state.showHomeGreeting ?? true);
     const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
 
     const homeSectionsVisibility = React.useMemo(() => {
@@ -154,160 +345,85 @@ export default function HomeScreen() {
     const activeTrack = usePlayerStore(state => state.activeTrack);
     const playbackStateRN = usePlaybackState();
     const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
+    const unreadNotificationsCount = useNotificationStore((state) => state.unreadCount);
 
     const [recentlyAdded, setRecentlyAdded] = React.useState<any[]>([]);
     const [mostPlayed, setMostPlayed] = React.useState<any[]>([]);
     const [explore, setExplore] = React.useState<any[]>([]);
     const [smartLists, setSmartLists] = React.useState<any[]>([]);
 
-    const fetchHomeData = async () => {
+    const fetchHomeData = React.useCallback(async () => {
         try {
-            // Fetch smart lists
-            const lists = SmartListService.getSmartLists();
-            const loadedSmart = await Promise.all(
-                lists.map(async (list) => {
-                    const tracks = await list.getTracks();
-                    return {
-                        id: `smart-list-${list.id}`,
-                        type: 'playlist' as const,
-                        title: list.name,
-                        subtitle: `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
-                        trackCount: tracks.length,
-                    };
-                })
-            );
-            setSmartLists(loadedSmart.filter(item => item.trackCount > 0));
+            const smartListsData = await fetchSmartListData(t);
+            setSmartLists(smartListsData);
 
-            // Fetch recently added albums (ordered by newest track's last_modified date)
-            let addedAlbums: Album[] = [];
-            if (Platform.OS !== 'web') {
-                try {
-                    addedAlbums = await database.collections
-                        .get<Album>('albums')
-                        .query(
-                            Q.unsafeSqlQuery(
-                                `SELECT "albums".* FROM "albums"
-                                 INNER JOIN "tracks" ON "tracks"."album_id" = "albums"."id"
-                                 WHERE "albums"."_status" is not 'deleted' AND "tracks"."_status" is not 'deleted'
-                                 GROUP BY "albums"."id"
-                                 ORDER BY MAX(COALESCE("tracks"."last_modified", 0)) DESC, "albums"."title" ASC
-                                 LIMIT 10`
-                            ),
-                            Q.experimentalJoinTables(['tracks'])
-                        )
-                        .fetch();
-                } catch (e) {
-                    console.warn('[HomeScreen] Error fetching recently added albums via unsafeSqlQuery:', e);
-                }
-            }
-
-            if (!addedAlbums || addedAlbums.length === 0) {
-                try {
-                    // Fallback: Query recent tracks and collect distinct album IDs in order
-                    const recentTracks = await database.collections
-                        .get<Track>('tracks')
-                        .query(
-                            Q.where('album_id', Q.notEq(null)),
-                            Q.sortBy('last_modified', Q.desc),
-                            Q.take(150)
-                        )
-                        .fetch();
-
-                    const seenAlbumIds = new Set<string>();
-                    const albumIds: string[] = [];
-                    for (const track of recentTracks) {
-                        const aId = (track as any).albumId || (track._raw as any).album_id || track.album?.id;
-                        if (aId && !seenAlbumIds.has(aId)) {
-                            seenAlbumIds.add(aId);
-                            albumIds.push(aId);
-                            if (albumIds.length >= 10) break;
-                        }
-                    }
-
-                    if (albumIds.length > 0) {
-                        const fetched = await database.collections
-                            .get<Album>('albums')
-                            .query(Q.where('id', Q.oneOf(albumIds)))
-                            .fetch();
-                        const map = new Map(fetched.map(a => [a.id, a]));
-                        addedAlbums = albumIds.map(id => map.get(id)).filter((a): a is Album => !!a);
-                    }
-                } catch (e) {
-                    console.warn('[HomeScreen] Fallback for recently added albums failed:', e);
-                }
-            }
-
-            if (!addedAlbums || addedAlbums.length === 0) {
-                addedAlbums = await database.collections
-                    .get<Album>('albums')
-                    .query(Q.take(10))
-                    .fetch();
-            }
-
-            const mappedAdded = await Promise.all(addedAlbums.map(async (album) => {
-                const artist = await album.artist.fetch();
-                return {
-                    id: album.id,
-                    type: 'album' as const,
-                    title: album.title,
-                    subtitle: artist?.name || 'Artista desconocido',
-                    imageUrl: album.coverUrl || '',
-                };
-            }));
+            const addedAlbums = await fetchRecentlyAddedAlbums();
+            const mappedAdded = await Promise.all(addedAlbums.map(mapAlbumToMediaItem));
             setRecentlyAdded(mappedAdded);
 
-            // Fetch most played tracks
             const popularTracks = await HistoryService.getMostPlayedTracks(10);
-            const mappedPopular = await Promise.all(popularTracks.map(async (track) => {
-                const artist = await track.artist.fetch();
-                const album = await track.album.fetch();
-                return {
-                    id: track.id,
-                    type: 'track' as const,
-                    title: track.title,
-                    subtitle: artist?.name || 'Artista desconocido',
-                    imageUrl: album?.coverUrl || '',
-                };
-            }));
+            const mappedPopular = await Promise.all(popularTracks.map(mapTrackToMediaItem));
             setMostPlayed(mappedPopular);
 
-            // Fetch explore albums (Random)
-            const allAlbumIds = await database.collections.get<Album>('albums').query().fetchIds();
-            if (allAlbumIds.length > 0) {
-                const shuffled = [...allAlbumIds].sort(() => Math.random() - 0.5);
-                const randomIds = shuffled.slice(0, 6);
-                const randomAlbums = await database.collections
-                    .get<Album>('albums')
-                    .query(Q.where('id', Q.oneOf(randomIds)))
-                    .fetch();
-
-                const mappedExplore = await Promise.all(randomAlbums.map(async (album) => {
-                    const artist = await album.artist.fetch();
-                    return {
-                        id: album.id,
-                        type: 'album' as const,
-                        title: album.title,
-                        subtitle: artist?.name || 'Artista desconocido',
-                        imageUrl: album.coverUrl || '',
-                    };
-                }));
-                setExplore(mappedExplore);
-            }
+            const randomAlbums = await fetchExploreAlbums();
+            const mappedExplore = await Promise.all(randomAlbums.map(mapAlbumToMediaItem));
+            setExplore(mappedExplore);
         } catch (e) {
             console.error("Error loading modular home data:", e);
         }
-    };
+    }, [t]);
+
+    const [isLoading, setIsLoading] = React.useState(true);
+    const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 500 });
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
+    const isInitialLoadDone = React.useRef(false);
+
+    const loadAllHomeData = React.useCallback(async (showFullLoader: boolean) => {
+        if (showFullLoader) {
+            setIsLoading(true);
+        }
+        try {
+            await Promise.all([
+                fetchHomeData(),
+                useStatsStore.getState().fetchStats(),
+                usePlayerStore.getState().refreshRecentsFromDatabase(),
+            ]);
+        } catch (e) {
+            console.error('[HomeScreen] Error loading home data:', e);
+        } finally {
+            if (showFullLoader) {
+                requestAnimationFrame(() => {
+                    setIsLoading(false);
+                    isInitialLoadDone.current = true;
+                });
+            }
+        }
+    }, [fetchHomeData]);
+
+    const handleRefresh = React.useCallback(async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([
+                fetchHomeData(),
+                useStatsStore.getState().fetchStats(),
+                usePlayerStore.getState().refreshRecentsFromDatabase(),
+            ]);
+        } catch (e) {
+            console.error('[HomeScreen] Error refreshing home data:', e);
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [fetchHomeData]);
 
     useEffect(() => {
-        HistoryService.initializeDefaultsIfNeeded();
+        void HistoryService.initializeDefaultsIfNeeded();
     }, []);
 
     useFocusEffect(
         React.useCallback(() => {
-            fetchHomeData();
-            useStatsStore.getState().fetchStats();
-            usePlayerStore.getState().refreshRecentsFromDatabase();
-        }, [])
+            void loadAllHomeData(!isInitialLoadDone.current);
+            void NotificationService.getUnreadCount();
+        }, [loadAllHomeData])
     );
 
     const handleMediaPress = React.useCallback(async (item: any) => {
@@ -318,7 +434,7 @@ export default function HomeScreen() {
         } else if (item.type === 'track') {
             try {
                 const track = await database.get<Track>('tracks').find(item.id);
-                usePlayerStore.getState().playSingleTrack(track, 'home-recents');
+                await usePlayerStore.getState().playSingleTrack(track, 'home-recents');
             } catch (error) {
                 console.error('Error al reproducir track reciente:', error);
             }
@@ -368,7 +484,7 @@ export default function HomeScreen() {
         if (type === 'playlist') {
             handlePlaylistPress(id);
         } else {
-            handleMediaPress({ id, type });
+            void handleMediaPress({ id, type });
         }
     }, [handlePlaylistPress, handleMediaPress]);
 
@@ -376,9 +492,175 @@ export default function HomeScreen() {
         if (type === 'playlist') {
             handlePlaylistLongPress(id);
         } else {
-            handleMediaLongPress({ id, type });
+            void handleMediaLongPress({ id, type });
         }
     }, [handlePlaylistLongPress, handleMediaLongPress]);
+
+    const renderSectionContent = React.useCallback((section: HomeSection) => {
+        switch (section) {
+            case 'stats':
+                return <StatsWidget />;
+
+            case 'recent_media':
+                return (
+                    <View style={{ marginVertical: 12 }}>
+                        <Text style={styles.sectionTitle}>
+                            {t('home.recently_played') || "Escuchado recientemente"}
+                        </Text>
+                        {recentMedia.length > 0 ? (
+                            <View style={styles.gridContainer}>
+                                {recentMedia.map((item) => (
+                                    <RecentMediaCard
+                                        key={`${item.id}-${item.type}`}
+                                        item={item}
+                                        isActuallyPlaying={isActuallyPlaying}
+                                        activeTrack={activeTrack}
+                                        onPress={handleMediaPress}
+                                        onLongPress={handleMediaLongPress}
+                                    />
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
+                            </View>
+                        )}
+                    </View>
+                );
+
+            case 'smart_playlists':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.smart_playlists_title') || "Listas inteligentes"}
+                        data={smartLists}
+                        emptyText={t('home.empty_smart_playlists')}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="playlist"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `home-smart-list-${item.id}`}
+                    />
+                );
+
+            case 'recent_playlists':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.my_playlists') || "Mis listas de reproducción"}
+                        data={recentPlaylists}
+                        emptyText={t('home.empty_playlists')}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="playlist"
+                                title={item.id === 'favorites' ? t('home.your_favourites') : item.name}
+                                subtitle={item.id === 'favorites' ? t('home.most_liked_songs') : (item.description || '')}
+                                customCoverUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `recent-playlist-${item.id}`}
+                    />
+                );
+
+            case 'recently_added':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.recently_added_albums') || "Álbumes añadidos recientemente"}
+                        data={recentlyAdded}
+                        emptyText={t('home.empty_added') || "No hay álbumes añadidos"}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="album"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                imageUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `added-album-${item.id}`}
+                    />
+                );
+
+            case 'most_played':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.most_played_songs') || "Tus más escuchadas"}
+                        data={mostPlayed}
+                        emptyText={t('home.empty_most_played') || "Escucha música para ver tus canciones más escuchadas"}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="track"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                imageUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `most-played-${item.id}`}
+                    />
+                );
+
+            case 'explore':
+                return (
+                    <HorizontalCarousel
+                        title={t('home.explore_albums') || "Explorar álbumes aleatorios"}
+                        data={explore}
+                        emptyText={t('home.empty_explore') || "No hay álbumes para explorar"}
+                        renderItem={({ item }) => (
+                            <MediaCard
+                                id={item.id}
+                                type="album"
+                                title={item.title}
+                                subtitle={item.subtitle}
+                                imageUrl={item.imageUrl}
+                                onPress={handleCardPress}
+                                onLongPress={handleCardLongPress}
+                            />
+                        )}
+                        keyExtractor={(item) => `explore-album-${item.id}`}
+                    />
+                );
+
+            case 'shuffle_button':
+                return <GlobalShuffleButton />;
+
+            default:
+                return null;
+        }
+    }, [
+        t,
+        styles.sectionTitle,
+        styles.gridContainer,
+        styles.emptyState,
+        styles.emptyText,
+        recentMedia,
+        isActuallyPlaying,
+        activeTrack,
+        handleMediaPress,
+        handleMediaLongPress,
+        smartLists,
+        recentPlaylists,
+        recentlyAdded,
+        mostPlayed,
+        explore,
+        handleCardPress,
+        handleCardLongPress,
+    ]);
+
+    const visibleSections = React.useMemo(() => {
+        return homeSectionsOrder.filter((section) => homeSectionsVisibility[section]);
+    }, [homeSectionsOrder, homeSectionsVisibility]);
 
     return (
         <View style={styles.container}>
@@ -409,7 +691,7 @@ export default function HomeScreen() {
                 pointerEvents="none"
             />
 
-            {/* CAPA DE LA INTERFAZ (GREETING HEADER) */}
+            {/* CAPA DE LA INTERFAZ (HEADER) */}
             <View
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
                 style={{
@@ -423,242 +705,196 @@ export default function HomeScreen() {
                     zIndex: 10,
                 }}
             >
-                <View style={[styles.headerRow, isProfileRight && { flexDirection: 'row-reverse' }]}>
-                    <View style={[styles.profileCluster, isProfileRight && { flexDirection: 'row-reverse' }]}>
-                        <TouchableOpacity
-                            style={styles.settingsButton}
-                            onPress={() => navigation.navigate('Settings')}
-                            activeOpacity={0.7}
-                            accessibilityLabel={t('settings.title') || 'Configuración'}
-                        >
-                            <Ionicons name="settings-outline" size={20} color={colors.text} />
-                        </TouchableOpacity>
+                <View style={styles.headerRow}>
+                    {isProfileRight ? (
+                        <>
+                            <View style={styles.headerActionsCluster}>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={openHomeSections}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.home_sections') || 'Personalizar'}
+                                >
+                                    <Ionicons name="color-palette-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.profileBadge}
-                            onPress={() => navigation.navigate('UserProfile')}
-                            activeOpacity={0.7}
-                        >
-                            {userAvatarUri ? (
-                                <Image
-                                    source={{ uri: userAvatarUri.startsWith('file://') && !userAvatarUri.includes('?t=') ? `${userAvatarUri}?t=${Date.now()}` : userAvatarUri }}
-                                    style={styles.profileAvatar}
-                                    contentFit="cover"
-                                    cachePolicy="memory-disk"
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => navigation.navigate('Notifications')}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('home.notifications') || 'Notificaciones'}
+                                >
+                                    <Ionicons name={unreadNotificationsCount > 0 ? "notifications" : "notifications-outline"} size={20} color={colors.text} />
+                                    {unreadNotificationsCount > 0 && (
+                                        <View style={styles.notificationBadgeDot} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.profileCluster}>
+                                <UserTierBadge
+                                    userTier={userTier}
+                                    onPress={() => navigation.navigate('Support')}
+                                    styles={styles}
                                 />
-                            ) : (
-                                <View style={styles.profileAvatarPlaceholder}>
-                                    <Ionicons name="person" size={18} color={colors.onAccent} />
-                                </View>
-                            )}
-                            <Text
-                                style={styles.profileAliasText}
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                            >
-                                {userAlias || t('profile.default_user', 'Usuario')}
-                            </Text>
-                        </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[
-                                styles.userTierBadge,
-                                userTier === 'VIP' && styles.userTierBadgeVip,
-                                userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
-                            ]}
-                            onPress={() => navigation.navigate('Support')}
-                            activeOpacity={0.7}
-                        >
-                            {userTier === 'VIP' && (
-                                <MaterialCommunityIcons name="crown" size={12} color="#FBBF24" />
-                            )}
-                            {userTier === 'SUPPORTER' && (
-                                <Ionicons name="heart" size={11} color="#2DD4BF" />
-                            )}
-                            <Text style={[
-                                styles.userTierBadgeText,
-                                userTier === 'VIP' && styles.userTierBadgeTextVip,
-                                userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
-                            ]}>
-                                {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                                <TouchableOpacity
+                                    style={styles.profileBadge}
+                                    onPress={() => navigation.navigate('UserProfile')}
+                                    activeOpacity={0.7}
+                                >
+                                    {userAvatarUri ? (
+                                        <Image
+                                            source={{ uri: getCacheBustedAvatarUri(userAvatarUri) }}
+                                            style={styles.profileAvatar}
+                                            contentFit="cover"
+                                            cachePolicy="memory-disk"
+                                        />
+                                    ) : (
+                                        <View style={styles.profileAvatarPlaceholder}>
+                                            <Ionicons name="person" size={18} color={colors.onAccent} />
+                                        </View>
+                                    )}
+                                    <Text
+                                        style={styles.profileAliasText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {userAlias || t('profile.default_user', 'Usuario')}
+                                    </Text>
+                                </TouchableOpacity>
 
-                    <View style={[
-                        styles.welcomeTextWrapper,
-                        isProfileRight && { alignItems: 'flex-start', marginLeft: 0, marginRight: 4 }
-                    ]}>
-                        <MarqueeText
-                            text={t(getGreetingKey())}
-                            style={[styles.welcomeText, isProfileRight && { textAlign: 'left' }]}
-                            speed={25}
-                            pauseDuration={2000}
-                            spacing={40}
-                        />
-                    </View>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => navigation.navigate('Settings')}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.title') || 'Configuración'}
+                                >
+                                    <Ionicons name="settings-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            <View style={styles.profileCluster}>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => navigation.navigate('Settings')}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.title') || 'Configuración'}
+                                >
+                                    <Ionicons name="settings-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.profileBadge}
+                                    onPress={() => navigation.navigate('UserProfile')}
+                                    activeOpacity={0.7}
+                                >
+                                    {userAvatarUri ? (
+                                        <Image
+                                            source={{ uri: getCacheBustedAvatarUri(userAvatarUri) }}
+                                            style={styles.profileAvatar}
+                                            contentFit="cover"
+                                            cachePolicy="memory-disk"
+                                        />
+                                    ) : (
+                                        <View style={styles.profileAvatarPlaceholder}>
+                                            <Ionicons name="person" size={18} color={colors.onAccent} />
+                                        </View>
+                                    )}
+                                    <Text
+                                        style={styles.profileAliasText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {userAlias || t('profile.default_user', 'Usuario')}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <UserTierBadge
+                                    userTier={userTier}
+                                    onPress={() => navigation.navigate('Support')}
+                                    styles={styles}
+                                />
+                            </View>
+
+                            <View style={styles.headerActionsCluster}>
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={() => navigation.navigate('Notifications')}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('home.notifications') || 'Notificaciones'}
+                                >
+                                    <Ionicons name={unreadNotificationsCount > 0 ? "notifications" : "notifications-outline"} size={20} color={colors.text} />
+                                    {unreadNotificationsCount > 0 && (
+                                        <View style={styles.notificationBadgeDot} />
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.settingsButton}
+                                    onPress={openHomeSections}
+                                    activeOpacity={0.7}
+                                    accessibilityLabel={t('settings.home_sections') || 'Personalizar'}
+                                >
+                                    <Ionicons name="color-palette-outline" size={20} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
                 </View>
             </View>
 
             {/* CAPA DE CONTENIDO */}
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{ paddingTop: headerHeight + 20, paddingBottom: 200 }}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-            >
-                {/* Modular Sections Render */}
-                {homeSectionsOrder.map((section) => {
-                    if (!homeSectionsVisibility[section]) return null;
+            {(() => {
+                if (showLoader) {
+                    return <SkeletonHomeScreen topOffset={headerHeight + 16} />;
+                }
+                if (isLoading) {
+                    return null;
+                }
+                return (
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ paddingTop: headerHeight + 16, paddingBottom: 200 }}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={colors.accentLight || colors.accent}
+                                colors={[colors.accent]}
+                            />
+                        }
+                    >
+                        {/* Saludo Principal Fijo */}
+                        {showHomeGreeting && (
+                            <View style={styles.greetingContainer}>
+                                <Text style={styles.welcomeText}>
+                                    {t(getGreetingKey())}
+                                </Text>
+                            </View>
+                        )}
 
-                    switch (section) {
-                        case 'stats':
-                            return <StatsWidget key="home-stats-widget" />;
+                        {/* Modular Sections Render */}
+                        {visibleSections.map((section, sectionIndex) => {
+                            const content = renderSectionContent(section);
+                            if (!content) return null;
 
-                        case 'recent_media':
                             return (
-                                <View key="recent_media" style={{ marginVertical: 12 }}>
-                                    <Text style={styles.sectionTitle}>
-                                        {t('home.recently_played') || "Escuchado recientemente"}
-                                    </Text>
-                                    {recentMedia.length > 0 ? (
-                                        <View style={styles.gridContainer}>
-                                            {recentMedia.map((item) => (
-                                                <RecentMediaCard
-                                                    key={`${item.id}-${item.type}`}
-                                                    item={item}
-                                                    isActuallyPlaying={isActuallyPlaying}
-                                                    activeTrack={activeTrack}
-                                                    onPress={handleMediaPress}
-                                                    onLongPress={handleMediaLongPress}
-                                                />
-                                            ))}
-                                        </View>
-                                    ) : (
-                                        <View style={styles.emptyState}>
-                                            <Text style={styles.emptyText}>{t('home.empty_recents')}</Text>
-                                        </View>
-                                    )}
-                                </View>
+                                <Animated.View
+                                    key={`home-section-${section}`}
+                                    entering={getSectionFadeIn(sectionIndex)}
+                                >
+                                    {content}
+                                </Animated.View>
                             );
-
-                        case 'smart_playlists':
-                            return (
-                                <HorizontalCarousel
-                                    key="smart_playlists"
-                                    title={t('home.smart_playlists_title') || "Listas inteligentes"}
-                                    data={smartLists}
-                                    emptyText={t('home.empty_smart_playlists')}
-                                    renderItem={({ item }) => (
-                                        <MediaCard
-                                            id={item.id}
-                                            type="playlist"
-                                            title={item.title}
-                                            subtitle={item.subtitle}
-                                            onPress={handleCardPress}
-                                            onLongPress={handleCardLongPress}
-                                        />
-                                    )}
-                                    keyExtractor={(item) => `home-smart-list-${item.id}`}
-                                />
-                            );
-
-                        case 'recent_playlists':
-                            return (
-                                <HorizontalCarousel
-                                    key="recent_playlists"
-                                    title={t('home.my_playlists') || "Mis listas de reproducción"}
-                                    data={recentPlaylists}
-                                    emptyText={t('home.empty_playlists')}
-                                    renderItem={({ item }) => (
-                                        <MediaCard
-                                            id={item.id}
-                                            type="playlist"
-                                            title={item.id === 'favorites' ? t('home.your_favourites') : item.name}
-                                            subtitle={item.id === 'favorites' ? t('home.most_liked_songs') : (item.description || '')}
-                                            customCoverUrl={item.imageUrl}
-                                            onPress={handleCardPress}
-                                            onLongPress={handleCardLongPress}
-                                        />
-                                    )}
-                                    keyExtractor={(item) => `recent-playlist-${item.id}`}
-                                />
-                            );
-
-                        case 'recently_added':
-                            return (
-                                <HorizontalCarousel
-                                    key="recently_added"
-                                    title={t('home.recently_added_albums') || "Álbumes añadidos recientemente"}
-                                    data={recentlyAdded}
-                                    emptyText={t('home.empty_added') || "No hay álbumes añadidos"}
-                                    renderItem={({ item }) => (
-                                        <MediaCard
-                                            id={item.id}
-                                            type="album"
-                                            title={item.title}
-                                            subtitle={item.subtitle}
-                                            imageUrl={item.imageUrl}
-                                            onPress={handleCardPress}
-                                            onLongPress={handleCardLongPress}
-                                        />
-                                    )}
-                                    keyExtractor={(item) => `added-album-${item.id}`}
-                                />
-                            );
-
-                        case 'most_played':
-                            return (
-                                <HorizontalCarousel
-                                    key="most_played"
-                                    title={t('home.most_played_songs') || "Tus más escuchadas"}
-                                    data={mostPlayed}
-                                    emptyText={t('home.empty_most_played') || "Escucha música para ver tus canciones más escuchadas"}
-                                    renderItem={({ item }) => (
-                                        <MediaCard
-                                            id={item.id}
-                                            type="track"
-                                            title={item.title}
-                                            subtitle={item.subtitle}
-                                            imageUrl={item.imageUrl}
-                                            onPress={handleCardPress}
-                                            onLongPress={handleCardLongPress}
-                                        />
-                                    )}
-                                    keyExtractor={(item) => `most-played-${item.id}`}
-                                />
-                            );
-
-                        case 'explore':
-                            return (
-                                <HorizontalCarousel
-                                    key="explore"
-                                    title={t('home.explore_albums') || "Explorar álbumes aleatorios"}
-                                    data={explore}
-                                    emptyText={t('home.empty_explore') || "No hay álbumes para explorar"}
-                                    renderItem={({ item }) => (
-                                        <MediaCard
-                                            id={item.id}
-                                            type="album"
-                                            title={item.title}
-                                            subtitle={item.subtitle}
-                                            imageUrl={item.imageUrl}
-                                            onPress={handleCardPress}
-                                            onLongPress={handleCardLongPress}
-                                        />
-                                    )}
-                                    keyExtractor={(item) => `explore-album-${item.id}`}
-                                />
-                            );
-
-                        case 'shuffle_button':
-                            return <GlobalShuffleButton key="home-shuffle-button" />;
-
-                        default:
-                            return null;
-                    }
-                })}
-            </ScrollView>
+                        })}
+                    </ScrollView>
+                );
+            })()}
         </View>
     );
 }
@@ -688,7 +924,12 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             alignItems: 'center',
             gap: 8,
             flexShrink: 1,
-            maxWidth: '65%',
+        },
+        headerActionsCluster: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
         },
         settingsButton: {
             width: 38,
@@ -700,6 +941,17 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             justifyContent: 'center',
             alignItems: 'center',
             flexShrink: 0,
+        },
+        notificationBadgeDot: {
+            position: 'absolute',
+            top: 5,
+            right: 5,
+            width: 9,
+            height: 9,
+            borderRadius: 4.5,
+            backgroundColor: colors.heartIcon || '#EF4444',
+            borderWidth: 1.5,
+            borderColor: colors.background || '#121212',
         },
         profileBadge: {
             flexDirection: 'row',
@@ -713,7 +965,6 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             borderColor: 'rgba(255, 255, 255, 0.14)',
             gap: 8,
             flexShrink: 1,
-            maxWidth: '50%',
         },
         profileAvatar: {
             width: 34,
@@ -768,19 +1019,17 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
         userTierBadgeTextVip: {
             color: '#FBBF24',
         },
-        welcomeTextWrapper: {
-            flex: 1,
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            marginLeft: 4,
+        greetingContainer: {
+            paddingHorizontal: horizPadding,
+            marginBottom: 16,
+            marginTop: 4,
         },
         welcomeText: {
             color: colors.text,
-            fontSize: 20,
+            fontSize: 26,
             fontFamily: fonts.regular,
             fontWeight: '800',
-            letterSpacing: -0.4,
-            textAlign: 'right',
+            letterSpacing: -0.5,
         },
         sectionTitle: {
             color: colors.text,
@@ -847,6 +1096,12 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
             fontSize: 14,
             fontFamily: fonts.regular,
             fontWeight: fontWeights.bold,
+        },
+        loadingContainer: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 280,
         },
     });
 };

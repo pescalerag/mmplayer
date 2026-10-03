@@ -3,10 +3,13 @@ package expo.modules.nativeaudioscanner
 import android.content.Context
 import android.content.Intent
 import android.content.ContentUris
+import android.content.ContentValues
+import android.media.RingtoneManager
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.PowerManager
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Base64
 import android.util.Log
@@ -15,6 +18,9 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.RandomAccessFile
 import android.media.MediaScannerConnection
+import android.media.MediaMetadataRetriever
+import android.graphics.Bitmap
+import java.io.FileOutputStream
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.os.Build
@@ -172,6 +178,302 @@ class NativeAudioScannerModule : Module() {
       }
     }
     return null
+  }
+
+  private fun updateRingtoneFlags(context: Context, uri: Uri, ringtoneType: Int) {
+    try {
+      val values = ContentValues().apply {
+        when (ringtoneType) {
+          RingtoneManager.TYPE_RINGTONE -> put(MediaStore.Audio.Media.IS_RINGTONE, true)
+          RingtoneManager.TYPE_NOTIFICATION -> put(MediaStore.Audio.Media.IS_NOTIFICATION, true)
+          RingtoneManager.TYPE_ALARM -> put(MediaStore.Audio.Media.IS_ALARM, true)
+        }
+      }
+      context.contentResolver.update(uri, values, null, null)
+    } catch (_: Exception) {}
+  }
+
+  private fun resolveRingtoneUri(context: Context, filePathOrUri: String, ringtoneType: Int): Uri? {
+    if (filePathOrUri.startsWith("content://")) {
+      val uri = Uri.parse(filePathOrUri)
+      updateRingtoneFlags(context, uri, ringtoneType)
+      return uri
+    }
+
+    val rawPath = if (filePathOrUri.startsWith("file://")) filePathOrUri.substring(7) else filePathOrUri
+    val cleanPath = Uri.decode(rawPath)
+    val candidates = listOf(
+      cleanPath,
+      rawPath,
+      cleanPath.replace("%23", "#"),
+      cleanPath.replace("#", "%23")
+    ).distinct()
+
+    for (candidate in candidates) {
+      val existingUri = getUriForPath(candidate)
+      if (existingUri != null) {
+        updateRingtoneFlags(context, existingUri, ringtoneType)
+        return existingUri
+      }
+    }
+
+    for (candidate in candidates) {
+      val file = File(candidate)
+      if (file.exists()) {
+        var scannedUri: Uri? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        MediaScannerConnection.scanFile(
+          context,
+          arrayOf(file.absolutePath),
+          null
+        ) { _, uri ->
+          scannedUri = uri
+          latch.countDown()
+        }
+        latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+
+        if (scannedUri != null) {
+          updateRingtoneFlags(context, scannedUri!!, ringtoneType)
+          return scannedUri
+        }
+      }
+    }
+
+    for (candidate in candidates) {
+      val file = File(candidate)
+      if (file.exists()) {
+        try {
+          val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DATA, file.absolutePath)
+            put(MediaStore.Audio.Media.TITLE, file.nameWithoutExtension)
+            put(MediaStore.Audio.Media.MIME_TYPE, "audio/*")
+            when (ringtoneType) {
+              RingtoneManager.TYPE_RINGTONE -> put(MediaStore.Audio.Media.IS_RINGTONE, true)
+              RingtoneManager.TYPE_NOTIFICATION -> put(MediaStore.Audio.Media.IS_NOTIFICATION, true)
+              RingtoneManager.TYPE_ALARM -> put(MediaStore.Audio.Media.IS_ALARM, true)
+            }
+          }
+          val inserted = context.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+          if (inserted != null) return inserted
+        } catch (_: Exception) {
+          // Ignored: ringtone insert fallback
+        }
+      }
+    }
+
+    for (candidate in candidates) {
+      val file = File(candidate)
+      if (file.exists()) {
+        return Uri.fromFile(file)
+      }
+    }
+
+    return null
+  }
+
+  private fun resolveAudioUriInfo(context: Context, uriString: String): Map<String, Any?> {
+    val uri = try {
+      Uri.parse(uriString)
+    } catch (_: Exception) {
+      return emptyMap()
+    }
+
+    var title: String? = null
+    var artist: String? = null
+    var album: String? = null
+    var durationSec = 0.0
+    var resolvedPath: String? = null
+    var coverUrl: String? = null
+    var albumArtist: String? = null
+    var genre: String? = null
+    var year: Int? = null
+    var trackNumber = 0
+    var discNumber = 1
+    var lastModified = System.currentTimeMillis()
+
+    if (uri.scheme == "file") {
+      resolvedPath = uri.path
+    } else if (uri.scheme == "content") {
+      try {
+        context.contentResolver.query(uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null)?.use { cursor ->
+          val dataIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+          if (dataIdx >= 0 && cursor.moveToFirst()) {
+            val p = cursor.getString(dataIdx)
+            if (!p.isNullOrEmpty() && File(p).exists()) {
+              resolvedPath = p
+            }
+          }
+        }
+      } catch (_: Exception) {
+        // Ignored: data column query fallback
+      }
+    }
+
+    if (resolvedPath != null) {
+      val file = File(resolvedPath)
+      if (file.exists()) {
+        lastModified = file.lastModified()
+      }
+
+      val mediaUri = getUriForPath(resolvedPath)
+      if (mediaUri != null) {
+        try {
+          val proj = arrayOf(
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.TRACK
+          )
+          context.contentResolver.query(mediaUri, proj, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+              val tCol = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
+              val aCol = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
+              val alCol = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM)
+              val durCol = cursor.getColumnIndex(MediaStore.Audio.Media.DURATION)
+              val albIdCol = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
+              val trkCol = cursor.getColumnIndex(MediaStore.Audio.Media.TRACK)
+
+              if (tCol >= 0) title = cursor.getString(tCol)
+              if (aCol >= 0) artist = cursor.getString(aCol)
+              if (alCol >= 0) album = cursor.getString(alCol)
+              if (durCol >= 0) durationSec = cursor.getLong(durCol) / 1000.0
+              if (trkCol >= 0) trackNumber = cursor.getInt(trkCol) % 1000
+              if (albIdCol >= 0) {
+                val albId = cursor.getLong(albIdCol)
+                if (albId > 0) {
+                  coverUrl = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), albId).toString()
+                }
+              }
+            }
+          }
+        } catch (_: Exception) {
+          // Ignored: MediaStore metadata query fallback
+        }
+      }
+    }
+
+    val mmr = MediaMetadataRetriever()
+    try {
+      if (resolvedPath != null && File(resolvedPath).exists()) {
+        mmr.setDataSource(resolvedPath)
+      } else {
+        mmr.setDataSource(context, uri)
+      }
+
+      if (title.isNullOrBlank()) {
+        title = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+      }
+      if (artist.isNullOrBlank()) {
+        artist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+      }
+      if (album.isNullOrBlank()) {
+        album = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+      }
+      if (durationSec <= 0.0) {
+        val durStr = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+        val durMs = durStr?.toLongOrNull() ?: 0L
+        if (durMs > 0) durationSec = durMs / 1000.0
+      }
+      if (genre.isNullOrBlank()) {
+        genre = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
+      }
+      if (albumArtist.isNullOrBlank()) {
+        albumArtist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+      }
+      if (year == null) {
+        val yearStr = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
+        year = yearStr?.toIntOrNull()
+      }
+      if (trackNumber == 0) {
+        val trkStr = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
+        if (trkStr != null) {
+          trackNumber = trkStr.split("/")[0].toIntOrNull() ?: 0
+        }
+      }
+
+      if (coverUrl.isNullOrBlank()) {
+        val picture = mmr.embeddedPicture
+        if (picture != null && picture.isNotEmpty()) {
+          try {
+            val cacheDir = File(context.cacheDir, "external_covers")
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            val hash = (resolvedPath ?: uriString).hashCode().toString()
+            val coverFile = File(cacheDir, "cover_$hash.jpg")
+            coverFile.writeBytes(picture)
+            coverUrl = Uri.fromFile(coverFile).toString()
+          } catch (_: Exception) {
+            // Ignored: embedded picture cache write fallback
+          }
+        }
+      }
+    } catch (e: Exception) {
+      Log.w("NativeAudioScanner", "MediaMetadataRetriever could not read uri: ${e.message}")
+    } finally {
+      try {
+        mmr.release()
+      } catch (_: Exception) {
+        // Ignored: MediaMetadataRetriever release fallback
+      }
+    }
+
+    var displayName: String? = null
+    var fileSize: Long = 0L
+    if (uri.scheme == "content") {
+      try {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+          val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+          val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+          if (cursor.moveToFirst()) {
+            if (nameIdx >= 0) displayName = cursor.getString(nameIdx)
+            if (sizeIdx >= 0) fileSize = cursor.getLong(sizeIdx)
+          }
+        }
+      } catch (_: Exception) {
+        // Ignored: openable columns query fallback
+      }
+    }
+    if (fileSize <= 0L && resolvedPath != null) {
+      val f = File(resolvedPath)
+      if (f.exists()) fileSize = f.length()
+    }
+    if (displayName.isNullOrBlank() && resolvedPath != null) {
+      displayName = File(resolvedPath).name
+    }
+    if (displayName.isNullOrBlank()) {
+      displayName = uri.lastPathSegment
+    }
+
+    if (title.isNullOrBlank()) {
+      title = displayName?.substringBeforeLast('.') ?: "Audio"
+    }
+    if (artist.isNullOrBlank()) {
+      artist = "Artista desconocido"
+    }
+    if (album.isNullOrBlank()) {
+      album = "Álbum desconocido"
+    }
+
+    val finalFileUrl = if (resolvedPath != null) "file://${resolvedPath.replace("#", "%23")}" else uriString
+
+    return mapOf(
+      "fileUrl" to finalFileUrl,
+      "resolvedPath" to (resolvedPath ?: ""),
+      "originalUri" to uriString,
+      "title" to title,
+      "artist" to artist,
+      "album" to album,
+      "albumArtist" to albumArtist,
+      "duration" to durationSec,
+      "coverUrl" to coverUrl,
+      "genre" to genre,
+      "year" to year,
+      "trackNumber" to trackNumber,
+      "discNumber" to discNumber,
+      "lastModified" to lastModified,
+      "size" to fileSize
+    )
   }
 
   private fun tryWriteMetadata(
@@ -461,6 +763,94 @@ class NativeAudioScannerModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("NativeAudioScanner")
+
+    Events("onAudioFileOpened")
+
+    OnNewIntent { intent ->
+      if (Intent.ACTION_VIEW == intent.action && intent.data != null) {
+        val uriStr = intent.data.toString()
+        sendEvent("onAudioFileOpened", mapOf("uri" to uriStr))
+      }
+    }
+
+    Function("getLaunchAudioUri") {
+      val activity = appContext.currentActivity ?: return@Function null
+      val intent = activity.intent ?: return@Function null
+      if (Intent.ACTION_VIEW == intent.action && intent.data != null) {
+        return@Function intent.data.toString()
+      }
+      return@Function null
+    }
+
+    Function("clearLaunchAudioUri") {
+      val activity = appContext.currentActivity ?: return@Function false
+      val intent = activity.intent
+      if (intent != null && Intent.ACTION_VIEW == intent.action) {
+        intent.action = null
+        intent.data = null
+      }
+      return@Function true
+    }
+
+    AsyncFunction("resolveAudioUriInfo") { uriString: String ->
+      val context = appContext.reactContext ?: return@AsyncFunction emptyMap<String, Any?>()
+      return@AsyncFunction resolveAudioUriInfo(context, uriString)
+    }
+
+    Function("canWriteSettings") {
+      val context = appContext.reactContext ?: return@Function false
+      return@Function if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        Settings.System.canWrite(context)
+      } else {
+        true
+      }
+    }
+
+    Function("openWriteSettingsPermission") {
+      val context = appContext.reactContext ?: return@Function false
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+          data = Uri.parse("package:" + context.packageName)
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        true
+      } else {
+        true
+      }
+    }
+
+    AsyncFunction("setRingtone") { filePathOrUri: String, ringtoneType: Int ->
+      val context = appContext.reactContext ?: return@AsyncFunction mapOf(
+        "success" to false,
+        "error" to "NO_CONTEXT"
+      )
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(context)) {
+        return@AsyncFunction mapOf(
+          "success" to false,
+          "error" to "PERMISSION_DENIED"
+        )
+      }
+
+      try {
+        val targetUri = resolveRingtoneUri(context, filePathOrUri, ringtoneType)
+          ?: return@AsyncFunction mapOf(
+            "success" to false,
+            "error" to "URI_NOT_FOUND"
+          )
+
+        RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, targetUri)
+
+        mapOf("success" to true)
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error setting ringtone: ${e.message}", e)
+        mapOf(
+          "success" to false,
+          "error" to (e.message ?: "UNKNOWN_ERROR")
+        )
+      }
+    }
 
     AsyncFunction("updateWidget") { title: String, artist: String, coverUri: String?, isPlaying: Boolean ->
       val context = appContext.reactContext ?: return@AsyncFunction
@@ -1144,6 +1534,53 @@ class NativeAudioScannerModule : Module() {
             false
           }
         }
+      }
+    }
+
+    AsyncFunction("generateVideoThumbnail") { videoUri: String, destPath: String ->
+      val retriever = MediaMetadataRetriever()
+      try {
+        if (videoUri.startsWith("content://")) {
+          val context = appContext.reactContext
+          if (context != null) {
+            retriever.setDataSource(context, Uri.parse(videoUri))
+          } else {
+            retriever.setDataSource(videoUri)
+          }
+        } else {
+          val cleanPath = if (videoUri.startsWith("file://")) videoUri.substring(7) else videoUri
+          retriever.setDataSource(cleanPath)
+        }
+
+        val bitmap: Bitmap? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+          retriever.getScaledFrameAtTime(500000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 360, 640)
+            ?: retriever.getScaledFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 360, 640)
+            ?: retriever.getFrameAtTime(500000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            ?: retriever.frameAtTime
+        } else {
+          retriever.getFrameAtTime(500000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            ?: retriever.frameAtTime
+        }
+
+        if (bitmap != null) {
+          val cleanDest = if (destPath.startsWith("file://")) destPath.substring(7) else destPath
+          val file = File(cleanDest)
+          file.parentFile?.mkdirs()
+          FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+          }
+          bitmap.recycle()
+          destPath
+        } else {
+          null
+        }
+      } catch (e: Exception) {
+        Log.e("NativeAudioScanner", "Error generating video thumbnail: ${e.message}")
+        null
+      } finally {
+        try {
+          retriever.release()
+        } catch (_: Exception) {}
       }
     }
   }

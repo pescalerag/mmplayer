@@ -1,19 +1,22 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SkeletonTagList } from '@/components/common/Skeleton';
+import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
+import TagSpotlightTutorial from '@/components/modals/TagSpotlightTutorial';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { useDelayedLoader } from '@/hooks/useDelayedLoader';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { openTagForm, openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
-import { openTagForm, openTagMenu } from '@/store/useUIStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { getItemFadeIn } from '@/utils/cascadeAnimations';
 import { database } from '../../database';
 import Tag from '../../database/models/Tag';
-import { TagsNavigationProp } from '../../navigation/types';
-import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
-import { useAppTheme } from '@/hooks/useAppTheme';
-import TagSpotlightTutorial from '@/components/modals/TagSpotlightTutorial';
 
 interface TagManagementContentProps {
     tags: Tag[];
@@ -39,6 +42,15 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
     const createButtonLayout = useRef<any>(null);
     const firstTagLayout = useRef<any>(null);
     const [headerHeight, setHeaderHeight] = useState(100);
+    const [isReady, setIsReady] = useState(false);
+    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Auto-lanzar el tutorial la primera vez que se visita la pantalla
     useEffect(() => {
@@ -63,11 +75,23 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
         } as unknown as Tag;
     }, [t, colors.accent]);
 
-    const effectiveTags = tags.length > 0 ? tags : (isTutorialVisible ? [sampleTag] : []);
+    const getEffectiveTags = () => {
+        if (tags.length > 0) {
+            return tags;
+        }
+        if (isTutorialVisible) {
+            return [sampleTag];
+        }
+        return [];
+    };
+    const effectiveTags = getEffectiveTags();
 
     const renderItem = ({ item, index }: { item: Tag; index: number }) => {
         return (
-            <View style={{ marginBottom: 12 }}>
+            <Animated.View
+                entering={getItemFadeIn(index)}
+                style={{ marginBottom: 12 }}
+            >
                 <View
                     ref={index === 0 ? firstTagRef : undefined}
                     collapsable={false}
@@ -95,7 +119,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                         </TouchableOpacity>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </Animated.View>
         );
     };
 
@@ -118,9 +142,8 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                             style={styles.helpButton}
                             accessibilityLabel={t('tags_tutorial.help_btn')}
                             activeOpacity={0.7}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+                            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
                         </TouchableOpacity>
                     </View>
                 }
@@ -129,8 +152,14 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                     if (hHeight !== headerHeight) {
                         setHeaderHeight(hHeight);
                     }
-                    return (
-                        <View style={StyleSheet.absoluteFill}>
+
+                    let content = null;
+                    if (!isReady) {
+                        if (showLoader) {
+                            content = <SkeletonTagList topOffset={hHeight + 30} />;
+                        }
+                    } else {
+                        content = (
                             <FlashList
                                 data={effectiveTags}
                                 keyExtractor={t => t.id}
@@ -167,6 +196,12 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                                     <Text style={styles.empty}>{t('tags.empty_tags')}</Text>
                                 }
                             />
+                        );
+                    }
+
+                    return (
+                        <View style={StyleSheet.absoluteFill}>
+                            {content}
                         </View>
                     );
                 }}
@@ -271,11 +306,19 @@ const styles = StyleSheet.create({
         marginTop: 50,
     },
     helpButton: {
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.14)',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 280,
     },
 });

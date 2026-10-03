@@ -16,6 +16,253 @@ export type UIHistoryPayload = {
   imageUrl?: string | null;
 };
 
+type HistorySummary = {
+  totalSeconds: number;
+  totalPlays: number;
+  trackDurations: Record<string, number>;
+  trackPlayCounts: Record<string, number>;
+};
+
+type AggregatedArtist = { id: string; name: string; imageUrl: string | null; duration: number; plays: number };
+type AggregatedAlbum = { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number };
+type AggregatedSong = { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number };
+
+function summarizeHistoryRecords(records: PlaybackHistory[]): HistorySummary {
+  let totalSeconds = 0;
+  const trackDurations: Record<string, number> = {};
+  const trackPlayCounts: Record<string, number> = {};
+
+  for (const record of records) {
+    const seconds = record.durationPlayed || 0;
+    totalSeconds += seconds;
+    trackDurations[record.itemId] = (trackDurations[record.itemId] || 0) + seconds;
+    trackPlayCounts[record.itemId] = (trackPlayCounts[record.itemId] || 0) + 1;
+  }
+
+  return {
+    totalSeconds,
+    totalPlays: records.length,
+    trackDurations,
+    trackPlayCounts,
+  };
+}
+
+function updateArtistStat(
+  artistData: Record<string, AggregatedArtist>,
+  artist: { id: string; name: string; imageUrl?: string | null } | null,
+  dur: number,
+  cnt: number
+) {
+  if (!artist) return;
+  const current = artistData[artist.id] || {
+    id: artist.id,
+    name: artist.name,
+    imageUrl: artist.imageUrl || null,
+    duration: 0,
+    plays: 0,
+  };
+  current.duration += dur;
+  current.plays += cnt;
+  artistData[artist.id] = current;
+}
+
+function updateAlbumStat(
+  albumData: Record<string, AggregatedAlbum>,
+  album: { id: string; title: string; coverUrl?: string | null } | null,
+  artistName: string,
+  dur: number,
+  cnt: number
+) {
+  if (!album) return;
+  const current = albumData[album.id] || {
+    id: album.id,
+    title: album.title,
+    coverUrl: album.coverUrl || null,
+    artistName,
+    duration: 0,
+    plays: 0,
+  };
+  current.duration += dur;
+  current.plays += cnt;
+  albumData[album.id] = current;
+}
+
+function updateSongStat(
+  songData: Record<string, AggregatedSong>,
+  track: Track,
+  coverUrl: string | null,
+  artistName: string,
+  dur: number,
+  cnt: number
+) {
+  const current = songData[track.id] || {
+    id: track.id,
+    title: track.title,
+    coverUrl,
+    artistName,
+    duration: 0,
+    plays: 0,
+  };
+  current.duration += dur;
+  current.plays += cnt;
+  songData[track.id] = current;
+}
+
+async function buildMediaStats(
+  tracks: Track[],
+  trackDurations: Record<string, number>,
+  trackPlayCounts: Record<string, number>
+) {
+  const artistData: Record<string, AggregatedArtist> = {};
+  const albumData: Record<string, AggregatedAlbum> = {};
+  const songData: Record<string, AggregatedSong> = {};
+
+  const relevantTracks = tracks.filter((track) => {
+    const dur = trackDurations[track.id] || 0;
+    const cnt = trackPlayCounts[track.id] || 0;
+    return dur > 0 || cnt > 0;
+  });
+
+  const resolvedTracks = await Promise.all(
+    relevantTracks.map(async (track) => {
+      const [artist, album] = await Promise.all([
+        track.artist.fetch().catch(() => null),
+        track.album.fetch().catch(() => null),
+      ]);
+      const dur = trackDurations[track.id] || 0;
+      const cnt = trackPlayCounts[track.id] || 0;
+      return { track, artist, album, dur, cnt };
+    })
+  );
+
+  for (const { track, artist, album, dur, cnt } of resolvedTracks) {
+    const artistName = artist?.name || '';
+    const coverUrl = album?.coverUrl || null;
+
+    updateArtistStat(artistData, artist, dur, cnt);
+    updateAlbumStat(albumData, album, artistName, dur, cnt);
+    updateSongStat(songData, track, coverUrl, artistName, dur, cnt);
+  }
+
+  return { artistData, albumData, songData };
+}
+
+function findTopItem<T extends { duration: number; plays: number }>(
+  items: Record<string, T>,
+  metric: 'duration' | 'plays'
+): T | null {
+  let topItem: T | null = null;
+  let maxScore = 0;
+  for (const item of Object.values(items)) {
+    const score = metric === 'duration' ? item.duration : item.plays;
+    if (score > maxScore) {
+      maxScore = score;
+      topItem = item;
+    }
+  }
+  return topItem;
+}
+
+function clampCustomTo(customTo?: Date): Date {
+  const to = customTo ? new Date(customTo) : new Date();
+  const maxTo = new Date();
+  maxTo.setHours(23, 59, 59, 999);
+  return to.getTime() > maxTo.getTime() ? maxTo : to;
+}
+
+async function clampCustomFrom(
+  customFrom: Date | null | undefined,
+  getFirstHistoryDate: () => Promise<Date | null>
+): Promise<Date | null> {
+  if (!customFrom) return null;
+  const from = new Date(customFrom);
+  const firstDate = await getFirstHistoryDate();
+  if (!firstDate) return from;
+
+  const firstDayStart = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate(), 0, 0, 0, 0);
+  return from.getTime() < firstDayStart.getTime() ? firstDayStart : from;
+}
+
+async function resolveCustomDateRange(
+  customFrom: Date | null | undefined,
+  customTo: Date | undefined,
+  getFirstHistoryDate: () => Promise<Date | null>
+): Promise<{ from: Date | null; to: Date }> {
+  const to = clampCustomTo(customTo);
+  let from = await clampCustomFrom(customFrom, getFirstHistoryDate);
+
+  if (from && from.getTime() > to.getTime()) {
+    from = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 0, 0, 0, 0);
+  }
+
+  return { from, to };
+}
+
+async function resolveDetailedStatsRange(
+  period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom',
+  customFrom: Date | null | undefined,
+  customTo: Date | undefined,
+  getPeriodRange: (period: any) => { from: Date | null; to: Date },
+  getFirstHistoryDate: () => Promise<Date | null>
+): Promise<{ from: Date | null; to: Date }> {
+  const isCustom = period === 'custom' || (customFrom !== undefined && period !== 'all');
+  if (isCustom) {
+    return resolveCustomDateRange(customFrom, customTo, getFirstHistoryDate);
+  }
+  return getPeriodRange(period);
+}
+
+function queryHistoryInRange(from: Date | null, to: Date) {
+  const collection = database.collections.get<PlaybackHistory>('playback_history');
+  if (from) {
+    return collection.query(
+      Q.where('played_at', Q.gte(from.getTime())),
+      Q.where('played_at', Q.lte(to.getTime()))
+    );
+  }
+  return collection.query(
+    Q.where('played_at', Q.lte(to.getTime()))
+  );
+}
+
+async function fetchDetailedMediaStats(
+  uniqueTrackIds: string[],
+  trackDurations: Record<string, number>,
+  trackPlayCounts: Record<string, number>,
+  metric: 'duration' | 'plays',
+  limit = 50
+) {
+  if (uniqueTrackIds.length === 0) {
+    return { topSongs: [], topAlbums: [], topArtists: [] };
+  }
+
+  try {
+    const tracks = await database.collections
+      .get<Track>('tracks')
+      .query(Q.where('id', Q.oneOf(uniqueTrackIds)))
+      .fetch();
+
+    const { artistData, albumData, songData } = await buildMediaStats(tracks, trackDurations, trackPlayCounts);
+
+    const scoreOf = (d: { duration: number; plays: number }) =>
+      metric === 'duration' ? d.duration : d.plays;
+
+    const sortedSongs = Object.values(songData).sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, limit);
+    const sortedAlbums = Object.values(albumData).sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, limit);
+    const sortedArtists = Object.values(artistData).sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, limit);
+
+    return {
+      topSongs: sortedSongs,
+      topAlbums: sortedAlbums,
+      topArtists: sortedArtists,
+    };
+  } catch (e) {
+    console.warn('[HistoryService] Error calculating detailed stats:', e);
+    return { topSongs: [], topAlbums: [], topArtists: [] };
+  }
+}
+
+
 export const HistoryService = {
   /**
    * 1. ACTUALIZA LA INTERFAZ AL INSTANTE (HomeScreen)
@@ -82,7 +329,7 @@ export const HistoryService = {
       let cappedDuration = durationPlayed;
       try {
         const track = await database.get<Track>('tracks').find(cleanId);
-        if (track && track.duration && track.duration > 0) {
+        if (track?.duration && track.duration > 0) {
           cappedDuration = Math.min(durationPlayed, track.duration);
         } else {
           cappedDuration = Math.min(durationPlayed, 600);
@@ -122,16 +369,19 @@ export const HistoryService = {
 
       if (corrupted.length > 0) {
         await database.write(async () => {
-          for (const rec of corrupted) {
-            try {
-              const track = await database.get<Track>('tracks').find(rec.itemId);
-              await rec.update(r => {
-                r.durationPlayed = track?.duration ? Math.floor(track.duration) : 300;
-              });
-            } catch {
-              await rec.destroyPermanently();
-            }
-          }
+          const ops = await Promise.all(
+            corrupted.map(async (rec) => {
+              try {
+                const track = await database.get<Track>('tracks').find(rec.itemId);
+                return rec.prepareUpdate(r => {
+                  r.durationPlayed = track?.duration ? Math.floor(track.duration) : 300;
+                });
+              } catch {
+                return rec.prepareDestroyPermanently();
+              }
+            })
+          );
+          await database.batch(...ops);
         });
         console.log(`[Historial] Sanitizados ${corrupted.length} registros con duraciones anómalas.`);
       }
@@ -156,32 +406,39 @@ export const HistoryService = {
           database.collections.get<Album>('albums').query(Q.take(3)).fetch()
         ]);
 
-        const initialMedia: any[] = [];
-
-        for (const album of albums) {
+        const albumMediaPromises = albums.map(async (album) => {
           const artist = await album.artist.fetch().catch(() => null);
-          initialMedia.push({
+          return {
             id: album.id,
-            type: 'album',
+            type: 'album' as const,
             title: album.title,
             subtitle: artist?.name || 'Artista desconocido',
             imageUrl: album.coverUrl || null,
             timestamp: Date.now(),
-          });
-        }
+          };
+        });
 
-        for (const track of tracks) {
-          const artist = await track.artist.fetch().catch(() => null);
-          const album = await track.album.fetch().catch(() => null);
-          initialMedia.push({
+        const trackMediaPromises = tracks.map(async (track) => {
+          const [artist, album] = await Promise.all([
+            track.artist.fetch().catch(() => null),
+            track.album.fetch().catch(() => null),
+          ]);
+          return {
             id: track.id,
-            type: 'track',
+            type: 'track' as const,
             title: track.title,
             subtitle: artist?.name || 'Artista desconocido',
             imageUrl: album?.coverUrl || null,
             timestamp: Date.now(),
-          });
-        }
+          };
+        });
+
+        const [albumMedia, trackMedia] = await Promise.all([
+          Promise.all(albumMediaPromises),
+          Promise.all(trackMediaPromises),
+        ]);
+
+        const initialMedia = [...albumMedia, ...trackMedia];
 
         usePlayerStore.setState({ recentMedia: initialMedia.slice(0, 6) });
       }
@@ -202,123 +459,12 @@ export const HistoryService = {
     }
   },
 
+  /**
+   * Obtiene las estadísticas de la semana actual.
+   * Delega en getStatsForPeriod('week', 'duration').
+   */
   async getWeeklyStats() {
-    const from = new Date();
-    const day = from.getDay();
-    const diff = from.getDate() - day + (day === 0 ? -6 : 1);
-    from.setDate(diff);
-    from.setHours(0, 0, 0, 0);
-
-    const historyRecords = await database.collections
-      .get<PlaybackHistory>('playback_history')
-      .query(Q.where('played_at', Q.gte(from.getTime())))
-      .fetch();
-
-    let totalSeconds = 0;
-    const trackDurations: Record<string, number> = {};
-    for (const record of historyRecords) {
-      const seconds = record.durationPlayed || 0;
-      totalSeconds += seconds;
-      trackDurations[record.itemId] = (trackDurations[record.itemId] || 0) + seconds;
-    }
-
-    const totalHours = totalSeconds / 3600;
-    const uniqueTrackIds = Object.keys(trackDurations);
-
-    let topArtistObj = { id: '', name: '', imageUrl: null as string | null, duration: 0 };
-    let topAlbumObj = { id: '', title: '', coverUrl: null as string | null, duration: 0 };
-    let topSongObj = { id: '', title: '', coverUrl: null as string | null, artistName: '', duration: 0 };
-
-    if (uniqueTrackIds.length > 0) {
-      try {
-        const tracks = await database.collections
-          .get<Track>('tracks')
-          .query(Q.where('id', Q.oneOf(uniqueTrackIds)))
-          .fetch();
-
-        const artistDurations: Record<string, { id: string; duration: number; name: string; imageUrl: string | null }> = {};
-        const albumDurations: Record<string, { id: string; duration: number; title: string; coverUrl: string | null }> = {};
-        const songDurations: Record<string, { id: string; duration: number; title: string; coverUrl: string | null; artistName: string }> = {};
-
-        for (const track of tracks) {
-          const dur = trackDurations[track.id] || 0;
-          if (dur <= 0) continue;
-
-          const artist = await track.artist.fetch().catch(() => null);
-          if (artist) {
-            const artistId = artist.id;
-            if (!artistDurations[artistId]) {
-              artistDurations[artistId] = { id: artist.id, duration: 0, name: artist.name, imageUrl: artist.imageUrl || null };
-            }
-            artistDurations[artistId].duration += dur;
-          }
-
-          const album = await track.album.fetch().catch(() => null);
-          if (album) {
-            const albumId = album.id;
-            if (!albumDurations[albumId]) {
-              albumDurations[albumId] = { id: album.id, duration: 0, title: album.title, coverUrl: album.coverUrl || null };
-            }
-            albumDurations[albumId].duration += dur;
-          }
-
-          const songId = track.id;
-          if (!songDurations[songId]) {
-            songDurations[songId] = {
-              id: track.id,
-              duration: 0,
-              title: track.title,
-              coverUrl: album?.coverUrl || null,
-              artistName: artist?.name || 'Artista desconocido'
-            };
-          }
-          songDurations[songId].duration += dur;
-        }
-
-        let maxArtistDuration = 0;
-        for (const data of Object.values(artistDurations)) {
-          if (data.duration > maxArtistDuration) {
-            maxArtistDuration = data.duration;
-            topArtistObj = data;
-          }
-        }
-
-        let maxAlbumDuration = 0;
-        for (const data of Object.values(albumDurations)) {
-          if (data.duration > maxAlbumDuration) {
-            maxAlbumDuration = data.duration;
-            topAlbumObj = data;
-          }
-        }
-
-        let maxSongDuration = 0;
-        for (const data of Object.values(songDurations)) {
-          if (data.duration > maxSongDuration) {
-            maxSongDuration = data.duration;
-            topSongObj = data;
-          }
-        }
-      } catch (e) {
-        console.warn("Error calculating weekly stats:", e);
-      }
-    }
-
-    return {
-      totalHours,
-      topArtist: topArtistObj.name,
-      topArtistId: topArtistObj.id,
-      topArtistImg: topArtistObj.imageUrl,
-      topArtistDuration: topArtistObj.duration,
-      topAlbum: topAlbumObj.title,
-      topAlbumId: topAlbumObj.id,
-      topAlbumImg: topAlbumObj.coverUrl,
-      topAlbumDuration: topAlbumObj.duration,
-      topSong: topSongObj.title,
-      topSongId: topSongObj.id,
-      topSongImg: topSongObj.coverUrl,
-      topSongArtist: topSongObj.artistName,
-      topSongDuration: topSongObj.duration,
-    };
+    return this.getStatsForPeriod('week', 'duration');
   },
 
   /**
@@ -375,24 +521,13 @@ export const HistoryService = {
 
     const historyRecords = await query.fetch();
 
-    let totalSeconds = 0;
-    let totalPlays = historyRecords.length;
-    const trackDurations: Record<string, number> = {};
-    const trackPlayCounts: Record<string, number> = {};
-
-    for (const record of historyRecords) {
-      const seconds = record.durationPlayed || 0;
-      totalSeconds += seconds;
-      trackDurations[record.itemId] = (trackDurations[record.itemId] || 0) + seconds;
-      trackPlayCounts[record.itemId] = (trackPlayCounts[record.itemId] || 0) + 1;
-    }
-
+    const { totalSeconds, totalPlays, trackDurations, trackPlayCounts } = summarizeHistoryRecords(historyRecords);
     const totalHours = totalSeconds / 3600;
     const uniqueTrackIds = Object.keys(trackDurations);
 
-    let topArtistObj = { id: '', name: '', imageUrl: null as string | null, duration: 0, plays: 0 };
-    let topAlbumObj = { id: '', title: '', coverUrl: null as string | null, duration: 0, plays: 0 };
-    let topSongObj = { id: '', title: '', coverUrl: null as string | null, artistName: '', duration: 0, plays: 0 };
+    let topArtistObj: AggregatedArtist = { id: '', name: '', imageUrl: null, duration: 0, plays: 0 };
+    let topAlbumObj: AggregatedAlbum = { id: '', title: '', coverUrl: null, artistName: '', duration: 0, plays: 0 };
+    let topSongObj: AggregatedSong = { id: '', title: '', coverUrl: null, artistName: '', duration: 0, plays: 0 };
 
     if (uniqueTrackIds.length > 0) {
       try {
@@ -401,62 +536,11 @@ export const HistoryService = {
           .query(Q.where('id', Q.oneOf(uniqueTrackIds)))
           .fetch();
 
-        const artistData: Record<string, { id: string; name: string; imageUrl: string | null; duration: number; plays: number }> = {};
-        const albumData: Record<string, { id: string; title: string; coverUrl: string | null; duration: number; plays: number }> = {};
-        const songData: Record<string, { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number }> = {};
+        const { artistData, albumData, songData } = await buildMediaStats(tracks, trackDurations, trackPlayCounts);
 
-        for (const track of tracks) {
-          const dur = trackDurations[track.id] || 0;
-          const cnt = trackPlayCounts[track.id] || 0;
-          if (dur <= 0 && cnt <= 0) continue;
-
-          const artist = await track.artist.fetch().catch(() => null);
-          if (artist) {
-            if (!artistData[artist.id]) {
-              artistData[artist.id] = { id: artist.id, name: artist.name, imageUrl: artist.imageUrl || null, duration: 0, plays: 0 };
-            }
-            artistData[artist.id].duration += dur;
-            artistData[artist.id].plays += cnt;
-          }
-
-          const album = await track.album.fetch().catch(() => null);
-          if (album) {
-            if (!albumData[album.id]) {
-              albumData[album.id] = { id: album.id, title: album.title, coverUrl: album.coverUrl || null, duration: 0, plays: 0 };
-            }
-            albumData[album.id].duration += dur;
-            albumData[album.id].plays += cnt;
-          }
-
-          if (!songData[track.id]) {
-            songData[track.id] = {
-              id: track.id,
-              title: track.title,
-              coverUrl: album?.coverUrl || null,
-              artistName: artist?.name || '',
-              duration: 0,
-              plays: 0,
-            };
-          }
-          songData[track.id].duration += dur;
-          songData[track.id].plays += cnt;
-        }
-
-        const scoreOf = (d: { duration: number; plays: number }) =>
-          metric === 'duration' ? d.duration : d.plays;
-
-        let maxArtist = 0;
-        for (const data of Object.values(artistData)) {
-          if (scoreOf(data) > maxArtist) { maxArtist = scoreOf(data); topArtistObj = data; }
-        }
-        let maxAlbum = 0;
-        for (const data of Object.values(albumData)) {
-          if (scoreOf(data) > maxAlbum) { maxAlbum = scoreOf(data); topAlbumObj = data; }
-        }
-        let maxSong = 0;
-        for (const data of Object.values(songData)) {
-          if (scoreOf(data) > maxSong) { maxSong = scoreOf(data); topSongObj = data; }
-        }
+        topArtistObj = findTopItem(artistData, metric) || topArtistObj;
+        topAlbumObj = findTopItem(albumData, metric) || topAlbumObj;
+        topSongObj = findTopItem(songData, metric) || topSongObj;
       } catch (e) {
         console.warn('[HistoryService] Error calculating period stats:', e);
       }
@@ -503,151 +587,59 @@ export const HistoryService = {
     }
   },
 
+  /**
+   * Comprueba si existen registros de reproducción en un rango de fechas.
+   */
+  async hasHistoryInRange(from: Date, to: Date): Promise<boolean> {
+    try {
+      const count = await database.collections
+        .get<PlaybackHistory>('playback_history')
+        .query(
+          Q.where('played_at', Q.gte(from.getTime())),
+          Q.where('played_at', Q.lte(to.getTime()))
+        )
+        .fetchCount();
+      return count > 0;
+    } catch (e) {
+      console.error('[HistoryService] Error checking history in range:', e);
+      return false;
+    }
+  },
+
   async getDetailedStatsForPeriod(
     period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom',
     metric: 'duration' | 'plays',
     customFrom?: Date | null,
     customTo?: Date
   ) {
-    let from: Date | null = null;
-    let to: Date = new Date();
+    const { from, to } = await resolveDetailedStatsRange(
+      period,
+      customFrom,
+      customTo,
+      p => this.getPeriodRange(p),
+      () => this.getFirstHistoryDate()
+    );
 
-    if (period === 'custom' || (customFrom !== undefined && period !== 'all')) {
-      from = customFrom ? new Date(customFrom) : null;
-      to = customTo ? new Date(customTo) : new Date();
+    const historyRecords = await queryHistoryInRange(from, to).fetch();
 
-      // Límite máximo: fin del día actual (hoy)
-      const maxTo = new Date();
-      maxTo.setHours(23, 59, 59, 999);
-      if (to.getTime() > maxTo.getTime()) {
-        to = maxTo;
-      }
-
-      // Acotamiento inferior: si 'from' es anterior a la primera entrada registrada, acotamos a la fecha de inicio de esa primera entrada
-      if (from) {
-        const firstDate = await this.getFirstHistoryDate();
-        if (firstDate) {
-          const firstDayStart = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate(), 0, 0, 0, 0);
-          if (from.getTime() < firstDayStart.getTime()) {
-            from = firstDayStart;
-          }
-        }
-      }
-
-      // Garantizar que from <= to
-      if (from && from.getTime() > to.getTime()) {
-        from = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 0, 0, 0, 0);
-      }
-    } else {
-      const range = this.getPeriodRange(period as any);
-      from = range.from;
-      to = range.to;
-    }
-
-    const query = from
-      ? database.collections
-          .get<PlaybackHistory>('playback_history')
-          .query(
-            Q.where('played_at', Q.gte(from.getTime())),
-            Q.where('played_at', Q.lte(to.getTime()))
-          )
-      : database.collections
-          .get<PlaybackHistory>('playback_history')
-          .query(
-            Q.where('played_at', Q.lte(to.getTime()))
-          );
-
-    const historyRecords = await query.fetch();
-
-    let totalSeconds = 0;
-    const trackDurations: Record<string, number> = {};
-    const trackPlayCounts: Record<string, number> = {};
-
-    for (const record of historyRecords) {
-      const seconds = record.durationPlayed || 0;
-      totalSeconds += seconds;
-      trackDurations[record.itemId] = (trackDurations[record.itemId] || 0) + seconds;
-      trackPlayCounts[record.itemId] = (trackPlayCounts[record.itemId] || 0) + 1;
-    }
+    const { totalSeconds, totalPlays, trackDurations, trackPlayCounts } = summarizeHistoryRecords(historyRecords);
 
     const totalHours = totalSeconds / 3600;
-    const totalPlays = historyRecords.length;
     const uniqueTrackIds = Object.keys(trackDurations);
 
-    const topSongsList: any[] = [];
-    const topAlbumsList: any[] = [];
-    const topArtistsList: any[] = [];
-
-    if (uniqueTrackIds.length > 0) {
-      try {
-        const tracks = await database.collections
-          .get<Track>('tracks')
-          .query(Q.where('id', Q.oneOf(uniqueTrackIds)))
-          .fetch();
-
-        const artistData: Record<string, { id: string; name: string; imageUrl: string | null; duration: number; plays: number }> = {};
-        const albumData: Record<string, { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number }> = {};
-        const songData: Record<string, { id: string; title: string; coverUrl: string | null; artistName: string; duration: number; plays: number }> = {};
-
-        for (const track of tracks) {
-          const dur = trackDurations[track.id] || 0;
-          const cnt = trackPlayCounts[track.id] || 0;
-          if (dur <= 0 && cnt <= 0) continue;
-
-          const artist = await track.artist.fetch().catch(() => null);
-          if (artist) {
-            if (!artistData[artist.id]) {
-              artistData[artist.id] = { id: artist.id, name: artist.name, imageUrl: artist.imageUrl || null, duration: 0, plays: 0 };
-            }
-            artistData[artist.id].duration += dur;
-            artistData[artist.id].plays += cnt;
-          }
-
-          const album = await track.album.fetch().catch(() => null);
-          if (album) {
-            if (!albumData[album.id]) {
-              albumData[album.id] = { id: album.id, title: album.title, coverUrl: album.coverUrl || null, artistName: artist?.name || '', duration: 0, plays: 0 };
-            }
-            albumData[album.id].duration += dur;
-            albumData[album.id].plays += cnt;
-          }
-
-          if (!songData[track.id]) {
-            songData[track.id] = {
-              id: track.id,
-              title: track.title,
-              coverUrl: album?.coverUrl || null,
-              artistName: artist?.name || '',
-              duration: 0,
-              plays: 0,
-            };
-          }
-          songData[track.id].duration += dur;
-          songData[track.id].plays += cnt;
-        }
-
-        const scoreOf = (d: { duration: number; plays: number }) =>
-          metric === 'duration' ? d.duration : d.plays;
-
-        const sortedSongs = Object.values(songData).sort((a, b) => scoreOf(b) - scoreOf(a));
-        const sortedAlbums = Object.values(albumData).sort((a, b) => scoreOf(b) - scoreOf(a));
-        const sortedArtists = Object.values(artistData).sort((a, b) => scoreOf(b) - scoreOf(a));
-
-        topSongsList.push(...sortedSongs.slice(0, 50));
-        topAlbumsList.push(...sortedAlbums.slice(0, 50));
-        topArtistsList.push(...sortedArtists.slice(0, 50));
-
-      } catch (e) {
-        console.warn('[HistoryService] Error calculating detailed stats:', e);
-      }
-    }
+    const { topSongs, topAlbums, topArtists } = await fetchDetailedMediaStats(
+      uniqueTrackIds,
+      trackDurations,
+      trackPlayCounts,
+      metric
+    );
 
     return {
       totalHours,
       totalPlays,
-      topSongs: topSongsList,
-      topAlbums: topAlbumsList,
-      topArtists: topArtistsList,
+      topSongs,
+      topAlbums,
+      topArtists,
     };
   },
 

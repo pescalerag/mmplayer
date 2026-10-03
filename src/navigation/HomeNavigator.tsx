@@ -12,6 +12,7 @@ import SupportScreen from '../screens/support/SupportScreen';
 import SettingsNavigator from './SettingsNavigator';
 import ActivityHistoryScreen from '../screens/activity/ActivityHistoryScreen';
 import FolderDetailScreen from '../screens/library/FolderDetailScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import { HomeStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -36,6 +37,7 @@ export default function HomeNavigator() {
             <Stack.Screen name="Settings" component={SettingsNavigator} />
             <Stack.Screen name="ActivityHistory" component={ActivityHistoryScreen} />
             <Stack.Screen name="FolderDetail" component={FolderDetailScreen} getId={({ params }) => params.folderPath} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </Stack.Navigator>
     );
 }

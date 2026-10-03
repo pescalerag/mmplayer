@@ -52,6 +52,8 @@ interface SettingsState {
     setHasSeenSearchTutorial: (value: boolean) => void;
     hasSeenActivityTutorial: boolean;
     setHasSeenActivityTutorial: (value: boolean) => void;
+    hasAskedNotificationPermission: boolean;
+    setHasAskedNotificationPermission: (value: boolean) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
     hideSyncToastOnResume: boolean;
@@ -78,6 +80,8 @@ interface SettingsState {
     setHomeSectionsOrder: (order: HomeSection[]) => void;
     homeSectionsVisibility: Record<HomeSection, boolean>;
     setHomeSectionsVisibility: (visibility: Record<HomeSection, boolean>) => void;
+    showHomeGreeting: boolean;
+    setShowHomeGreeting: (value: boolean) => void;
     showGlobalShuffle: boolean;
     setShowGlobalShuffle: (value: boolean) => void;
     isCompactTags: boolean;
@@ -117,7 +121,30 @@ interface SettingsState {
     setShuffleOnQueueEnd: (value: boolean) => void;
     homeSectionsVersion: number;
     setHomeSectionsVersion: (version: number) => void;
+    notificationPreferences: NotificationPreferences;
+    setNotificationPreferences: (prefs: NotificationPreferences) => void;
 }
+
+export type NotificationType =
+  | 'songs_added'
+  | 'songs_moved'
+  | 'songs_deleted'
+  | 'summary_weekly'
+  | 'summary_monthly'
+  | 'summary_yearly'
+  | 'app_update';
+
+export type NotificationPreferences = Record<NotificationType, boolean>;
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  songs_added: false,
+  songs_moved: false,
+  songs_deleted: false,
+  summary_weekly: true,
+  summary_monthly: true,
+  summary_yearly: true,
+  app_update: true,
+};
 
 export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
@@ -125,9 +152,100 @@ export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'fo
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Actividad';
 export type HomeSection = 'recent_media' | 'stats' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore' | 'shuffle_button';
 
+function initLanguage(state: SettingsState): void {
+    if (!state.language) {
+        const locales = Localization.getLocales();
+        const systemLanguage = locales[0]?.languageCode ?? 'es';
+        const defaultLang = systemLanguage.startsWith('es') ? 'es' : 'en';
+        state.setLanguage(defaultLang);
+    } else {
+        void i18n.changeLanguage(state.language);
+    }
+}
+
+function initTheme(state: SettingsState): void {
+    if (state.activeAppTheme && state.activeAppTheme !== 'none') {
+        state.setActiveAppTheme('none');
+    }
+}
+
+function initAppTabs(state: SettingsState): void {
+    if (!state.appTabsOrder) return;
+
+    if ((state.appTabsOrder as any[]).includes('Configuración')) {
+        state.setAppTabsOrder(
+            state.appTabsOrder.map((tab) => ((tab as any) === 'Configuración' ? 'Actividad' : tab))
+        );
+    }
+    if ((state.initialAppRoute as any) === 'Configuración') {
+        state.setInitialAppRoute('Actividad');
+    }
+}
+
+function insertStatsSection(order: HomeSection[]): void {
+    const recentIdx = order.indexOf('recent_media');
+    if (recentIdx !== -1) {
+        order.splice(recentIdx + 1, 0, 'stats');
+    } else {
+        order.unshift('stats');
+    }
+}
+
+function migrateHomeSectionsV2(state: SettingsState): void {
+    let newOrder = state.homeSectionsOrder ? [...state.homeSectionsOrder] : [];
+    newOrder = newOrder.filter((s) => s !== 'stats' && s !== 'shuffle_button');
+    insertStatsSection(newOrder);
+    newOrder.push('shuffle_button');
+    state.setHomeSectionsOrder(newOrder);
+
+    const newVis = { ...state.homeSectionsVisibility };
+    newVis.stats = true;
+    newVis.shuffle_button = state.showGlobalShuffle ?? true;
+    state.setHomeSectionsVisibility(newVis);
+
+    state.setHomeSectionsVersion(2);
+}
+
+function ensureHomeSections(state: SettingsState): void {
+    if (!state.homeSectionsOrder) return;
+
+    const currentOrder = [...state.homeSectionsOrder];
+    let changed = false;
+
+    if (!currentOrder.includes('stats')) {
+        insertStatsSection(currentOrder);
+        changed = true;
+    }
+    if (!currentOrder.includes('shuffle_button')) {
+        currentOrder.push('shuffle_button');
+        changed = true;
+    }
+    if (changed) {
+        state.setHomeSectionsOrder(currentOrder);
+    }
+}
+
+function initHomeSections(state: SettingsState): void {
+    state.showHomeGreeting ??= true;
+    if (state.homeSectionsVersion !== 2) {
+        migrateHomeSectionsV2(state);
+    } else {
+        ensureHomeSections(state);
+    }
+}
+
+function initNotifications(state: SettingsState): void {
+    state.notificationPreferences = {
+        ...DEFAULT_NOTIFICATION_PREFERENCES,
+        ...state.notificationPreferences,
+    };
+}
+
 export const useSettingsStore = create<SettingsState>()(
     persist(
         (set) => ({
+            notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
+            setNotificationPreferences: (prefs) => set({ notificationPreferences: prefs }),
             showTagColors: true,
             setShowTagColors: (value) => set({ showTagColors: value }),
             isNormalizationEnabled: true,
@@ -165,6 +283,8 @@ export const useSettingsStore = create<SettingsState>()(
                 shuffle_button: true,
             },
             setHomeSectionsVisibility: (visibility) => set({ homeSectionsVisibility: visibility }),
+            showHomeGreeting: true,
+            setShowHomeGreeting: (value) => set({ showHomeGreeting: value }),
             showGlobalShuffle: true,
             setShowGlobalShuffle: (value) => set((state) => ({
                 showGlobalShuffle: value,
@@ -259,85 +379,34 @@ export const useSettingsStore = create<SettingsState>()(
             setHasSeenSearchTutorial: (value) => set({ hasSeenSearchTutorial: value }),
             hasSeenActivityTutorial: false,
             setHasSeenActivityTutorial: (value) => set({ hasSeenActivityTutorial: value }),
+            hasAskedNotificationPermission: false,
+            setHasAskedNotificationPermission: (value) => set({ hasAskedNotificationPermission: value }),
             language: null,
             setLanguage: (lang) => {
                 set({ language: lang });
-                i18n.changeLanguage(lang);
+                void i18n.changeLanguage(lang);
             },
             homeProfilePosition: 'left',
             setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
             shuffleOnQueueEnd: false,
             setShuffleOnQueueEnd: (value) => {
                 set({ shuffleOnQueueEnd: value });
-                try {
-                    const { usePlayerStore } = require('./usePlayerStore');
-                    usePlayerStore.getState().updateQueueStatus();
-                } catch { }
+                import('./usePlayerStore')
+                    .then(({ usePlayerStore }) => usePlayerStore.getState().updateQueueStatus())
+                    .catch(() => {});
             },
         }),
         {
             name: 'mmplayer-settings',
             storage: createJSONStorage(() => AsyncStorage),
             onRehydrateStorage: () => (state) => {
-                if (state) {
-                    if (!state.language) {
-                        const locales = Localization.getLocales();
-                        const systemLanguage = locales[0]?.languageCode ?? 'es';
-                        const defaultLang = systemLanguage.startsWith('es') ? 'es' : 'en';
-                        state.setLanguage(defaultLang);
-                    } else {
-                        i18n.changeLanguage(state.language);
-                    }
-                    if (state.activeAppTheme && state.activeAppTheme !== 'none') {
-                        state.setActiveAppTheme('none');
-                    }
-                    if (state.appTabsOrder) {
-                        if ((state.appTabsOrder as any[]).includes('Configuración')) {
-                            state.setAppTabsOrder(state.appTabsOrder.map(tab => (tab as any) === 'Configuración' ? 'Actividad' : tab));
-                        }
-                        if ((state.initialAppRoute as any) === 'Configuración') {
-                            state.setInitialAppRoute('Actividad');
-                        }
-                    }
-                    if (state.homeSectionsVersion !== 2) {
-                        let newOrder = state.homeSectionsOrder ? [...state.homeSectionsOrder] : [];
-                        newOrder = newOrder.filter(s => s !== 'stats' && s !== 'shuffle_button');
-                        const recentIdx = newOrder.indexOf('recent_media');
-                        if (recentIdx !== -1) {
-                            newOrder.splice(recentIdx + 1, 0, 'stats');
-                        } else {
-                            newOrder.unshift('stats');
-                        }
-                        newOrder.push('shuffle_button');
-                        state.setHomeSectionsOrder(newOrder);
+                if (!state) return;
 
-                        const newVis = { ...state.homeSectionsVisibility };
-                        newVis.stats = true;
-                        newVis.shuffle_button = state.showGlobalShuffle ?? true;
-                        state.setHomeSectionsVisibility(newVis);
-
-                        state.setHomeSectionsVersion(2);
-                    } else if (state.homeSectionsOrder) {
-                        let currentOrder = [...state.homeSectionsOrder];
-                        let changed = false;
-                        if (!currentOrder.includes('stats')) {
-                            const recentIdx = currentOrder.indexOf('recent_media');
-                            if (recentIdx !== -1) {
-                                currentOrder.splice(recentIdx + 1, 0, 'stats');
-                            } else {
-                                currentOrder.unshift('stats');
-                            }
-                            changed = true;
-                        }
-                        if (!currentOrder.includes('shuffle_button')) {
-                            currentOrder.push('shuffle_button');
-                            changed = true;
-                        }
-                        if (changed) {
-                            state.setHomeSectionsOrder(currentOrder);
-                        }
-                    }
-                }
+                initLanguage(state);
+                initTheme(state);
+                initAppTabs(state);
+                initHomeSections(state);
+                initNotifications(state);
             }
         }
     )

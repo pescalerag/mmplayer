@@ -8,17 +8,58 @@ jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
   StyleSheet: { create: (s) => s },
+  Alert: { alert: jest.fn() },
+  Linking: {
+    openURL: jest.fn().mockResolvedValue(true),
+  },
+}));
+
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => ({
+  FadeIn: {
+    duration: jest.fn(() => ({
+      delay: jest.fn(() => ({})),
+    })),
+    delay: jest.fn(() => ({
+      duration: jest.fn(() => ({})),
+    })),
+  },
+  default: {},
+}));
+
+// Mock expo-document-picker & expo-sharing
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(),
+}));
+
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock watermelondb decorators
+jest.mock('@nozbe/watermelondb/decorators', () => ({
+  field: () => () => {},
+  text: () => () => {},
+  relation: () => () => {},
+  children: () => () => {},
+  lazy: () => () => {},
+  date: () => () => {},
+  readonly: () => () => {},
+  json: () => () => {},
 }));
 
 // Mock react-native-mmkv
+const mockMMKVStorageInstance = {
+  getString: jest.fn(),
+  set: jest.fn(),
+  remove: jest.fn(),
+  delete: jest.fn(),
+  contains: jest.fn(),
+  getNumber: jest.fn(),
+};
 jest.mock('react-native-mmkv', () => ({
-  createMMKV: () => ({
-    getString: jest.fn(),
-    set: jest.fn(),
-    remove: jest.fn(),
-    delete: jest.fn(),
-    contains: jest.fn(),
-  }),
+  createMMKV: () => mockMMKVStorageInstance,
 }));
 
 // Mock @react-native-async-storage/async-storage
@@ -42,6 +83,17 @@ const mockTrackPlayer = {
   play: jest.fn().mockResolvedValue(undefined),
   pause: jest.fn().mockResolvedValue(undefined),
   stop: jest.fn().mockResolvedValue(undefined),
+  add: jest.fn().mockResolvedValue(undefined),
+  remove: jest.fn().mockResolvedValue(undefined),
+  removeUpcomingTracks: jest.fn().mockResolvedValue(undefined),
+  skip: jest.fn().mockResolvedValue(undefined),
+  skipToNext: jest.fn().mockResolvedValue(undefined),
+  skipToPrevious: jest.fn().mockResolvedValue(undefined),
+  getRepeatMode: jest.fn().mockResolvedValue(0),
+  setRepeatMode: jest.fn().mockResolvedValue(undefined),
+  getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 180, buffered: 180 }),
+  seekTo: jest.fn().mockResolvedValue(undefined),
+  updateMetadataForTrack: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('react-native-track-player', () => ({
@@ -71,13 +123,23 @@ jest.mock('expo-modules-core', () => ({
 }));
 
 // Mock database
+const mockTable = {
+  find: jest.fn().mockResolvedValue(null),
+  query: jest.fn(() => ({
+    fetch: jest.fn().mockResolvedValue([]),
+    fetchCount: jest.fn().mockResolvedValue(0),
+    observe: jest.fn(() => ({ subscribe: jest.fn() })),
+  })),
+};
+
 jest.mock('./src/database', () => ({
   database: {
-    get: jest.fn(() => ({
-      find: jest.fn(),
-      query: jest.fn(() => ({ fetch: jest.fn().mockResolvedValue([]) })),
-    })),
+    get: jest.fn(() => mockTable),
+    collections: {
+      get: jest.fn(() => mockTable),
+    },
     write: jest.fn((cb) => cb()),
+    batch: jest.fn((updates) => Promise.resolve(updates)),
   },
 }));
 
@@ -86,14 +148,37 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'es' }],
 }));
 
-// Mock expo-file-system
-jest.mock('expo-file-system', () => ({
-  documentDirectory: 'file:///data/user/0/com.mmplayer/files/',
-  cacheDirectory: 'file:///data/user/0/com.mmplayer/cache/',
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(),
+  notificationAsync: jest.fn(),
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
-jest.mock('expo-file-system/legacy', () => ({
+// Mock expo-file-system
+const mockFileSystem = {
   documentDirectory: 'file:///data/user/0/com.mmplayer/files/',
   cacheDirectory: 'file:///data/user/0/com.mmplayer/cache/',
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024, md5: 'mock-md5' }),
+  makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+  copyAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+  readDirectoryAsync: jest.fn().mockResolvedValue([]),
+  writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
+  EncodingType: { UTF8: 'utf8' },
+};
+jest.mock('expo-file-system', () => mockFileSystem);
+jest.mock('expo-file-system/legacy', () => mockFileSystem);
+
+// Mock expo-constants
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      version: '2.3.2',
+    },
+  },
 }));
 
 // Mock react-native-http-bridge-refurbished
@@ -114,21 +199,31 @@ jest.mock('./src/services/LocalCastService', () => ({
     isServerRunning: jest.fn().mockReturnValue(false),
   },
 }));
+const mockCastStoreState = { isCasting: false, castDevice: null, isServerRunning: false };
 jest.mock('./src/store/useCastStore', () => ({
   useCastStore: {
-    getState: () => ({ isCasting: false, castDevice: null }),
+    getState: () => mockCastStoreState,
+    setState: jest.fn((newState) => Object.assign(mockCastStoreState, newState)),
   },
 }));
-jest.mock('./src/navigation/navigationRef', () => ({
-  navigationRef: { isReady: () => false, navigate: jest.fn() },
-}));
+jest.mock('./src/navigation/navigationRef', () => {
+  const navigationRef = { isReady: () => false, navigate: jest.fn() };
+  return {
+    navigationRef,
+    waitForNavigationReady: jest.fn(async () => navigationRef.isReady()),
+    getActiveTabName: jest.fn(() => 'Biblioteca'),
+  };
+});
+const mockToastState = { showToast: jest.fn() };
 jest.mock('./src/store/useToastStore', () => ({
   useToastStore: {
-    getState: () => ({ showToast: jest.fn() }),
+    getState: () => mockToastState,
+    setState: jest.fn((newState) => Object.assign(mockToastState, newState)),
   },
 }));
 jest.mock('./modules/native-audio-scanner', () => ({
   readFileChunk: jest.fn().mockResolvedValue(''),
+  generateVideoThumbnail: jest.fn().mockResolvedValue('file:///thumbnail.jpg'),
 }));
 
 // Mock i18next
@@ -138,4 +233,9 @@ jest.mock('react-i18next', () => ({
     type: '3rdParty',
     init: () => {},
   },
+}));
+
+// Mock react-native-worklets
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn, ...args) => fn(...args),
 }));

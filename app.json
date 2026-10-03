@@ -3,9 +3,9 @@
     "name": "MMPlayer",
     "slug": "mmplayer",
     "icon": "./src/assets/images/icon.png",
-    "version": "2.3.2",
+    "version": "2.4.0",
     "orientation": "portrait",
-    "scheme": "mmplayer",
+    "scheme": ["mmplayer", "trackplayer"],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "backgroundColor": "#000000",
@@ -29,6 +29,7 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.WAKE_LOCK",
         "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.WRITE_SETTINGS",
         "com.android.vending.BILLING"
       ],
       "adaptiveIcon": {
@@ -36,7 +37,7 @@
         "backgroundImage": "./src/assets/images/android-icon-background.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 30,
+      "versionCode": 31,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
@@ -47,7 +48,41 @@
         "barStyle": "light-content",
         "backgroundColor": "#00000000"
       },
-      "backgroundColor": "#000000"
+      "backgroundColor": "#000000",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "audio/*" },
+            { "scheme": "file", "mimeType": "audio/*" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "application/ogg" },
+            { "scheme": "file", "mimeType": "application/ogg" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "application/x-ogg" },
+            { "scheme": "file", "mimeType": "application/x-ogg" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "content", "mimeType": "application/opus" },
+            { "scheme": "file", "mimeType": "application/opus" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ]
     },
     "plugins": [
       [
