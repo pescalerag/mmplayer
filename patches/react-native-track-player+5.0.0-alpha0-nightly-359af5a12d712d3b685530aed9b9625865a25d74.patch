@@ -151,10 +151,17 @@ index 60b6871..e1bb0a1 100644
      }
  
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-index 13a6c60..13ed2e7 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-@@ -453,10 +453,17 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+@@ -155,6 +155,7 @@
+             this["CAPABILITY_SKIP_TO_NEXT"] = Capability.SKIP_TO_NEXT.ordinal
+             this["CAPABILITY_SKIP_TO_PREVIOUS"] = Capability.SKIP_TO_PREVIOUS.ordinal
+             this["CAPABILITY_SET_RATING"] = Capability.SET_RATING.ordinal
++            this["CAPABILITY_LIKE"] = Capability.LIKE.ordinal
+             this["CAPABILITY_JUMP_FORWARD"] = Capability.JUMP_FORWARD.ordinal
+             this["CAPABILITY_JUMP_BACKWARD"] = Capability.JUMP_BACKWARD.ordinal
+ 
+@@ -453,10 +454,17 @@
          callback.resolve(null)
      }
  
@@ -174,10 +181,9 @@ index 13a6c60..13ed2e7 100644
  
      override fun setRepeatMode(mode: Double, callback: Promise) = launchInScope {
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..9b75d3f 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-@@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture
+@@ -52,6 +52,7 @@
  import kotlinx.coroutines.*
  import kotlinx.coroutines.flow.flow
  import timber.log.Timber
@@ -185,7 +191,18 @@ index b495b5a..9b75d3f 100644
  import java.util.concurrent.TimeUnit
  import kotlin.system.exitProcess
  
-@@ -92,11 +93,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -67,6 +68,10 @@
+     private var sessionCommands: SessionCommands? = null
+     private var playerCommands: Player.Commands? = null
+     private var customLayout: List<CommandButton> = listOf()
++    private var favoriteActionEnabled = false
++    private var favoriteTrackId: String? = null
++    private var isFavorite = false
++    private var favoriteButtonEnabled = false
+     private var lastWake: Long = 0
+     var onStartCommandIntentValid: Boolean = true
+ 
+@@ -92,11 +97,29 @@
  
      @ExperimentalCoroutinesApi
      override fun onCreate() {
@@ -215,7 +232,7 @@ index b495b5a..9b75d3f 100644
          fakePlayer = ExoPlayer.Builder(this).build()
          val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
              flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-@@ -104,9 +123,11 @@ class MusicService : HeadlessJsMediaService() {
+@@ -104,9 +127,11 @@
              data = Uri.parse("trackplayer://notification.click")
              action = Intent.ACTION_VIEW
          }
@@ -227,7 +244,7 @@ index b495b5a..9b75d3f 100644
              .setBitmapLoader(CacheBitmapLoader(CoilBitmapLoader(this)))
              // https://github.com/androidx/media/issues/1218
              .setSessionActivity(
-@@ -119,6 +140,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -119,6 +144,7 @@
              )
              .build()
          super.onCreate()
@@ -235,16 +252,19 @@ index b495b5a..9b75d3f 100644
      }
  
      enum class AppKilledPlaybackBehavior(val string: String) {
-@@ -174,6 +196,8 @@ class MusicService : HeadlessJsMediaService() {
-         if (!commandStarted) {
+@@ -170,8 +196,9 @@
+             // HACK: this is not supposed to be here. I definitely screwed up. but Why?
+             onMediaKeyEvent(intent)
+         }
+-        // HACK: Why is onPlay triggering onStartCommand??
+-        if (!commandStarted) {
++        // Let Media3 dispatch every notification intent, including custom actions on Android < 13.
++        // HeadlessJsMediaService already guards JS task initialization; ignore only repeated null starts.
++        if (!commandStarted || intent != null) {
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
-+        } else if (intent != null && Intent.ACTION_MEDIA_BUTTON == intent.action) {
-+            super.onStartCommand(intent, flags, startId)
          }
-         return START_STICKY
-     }
-@@ -211,6 +235,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +238,9 @@
          player = QueuedAudioPlayer(this@MusicService, options)
          fakePlayer.release()
          mediaSession.player = player.forwardingPlayer
@@ -254,7 +274,7 @@ index b495b5a..9b75d3f 100644
          observeEvents()
      }
  
-@@ -290,10 +317,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -290,12 +320,25 @@
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -275,11 +295,42 @@ index b495b5a..9b75d3f 100644
 +            .filter { it != CustomCommandButton.PREVIOUS && it != CustomCommandButton.NEXT }
              .filter { notificationCapabilities.contains(it.capability) }
              .map { c -> c.commandButton }
++        favoriteActionEnabled = notificationCapabilities.contains(Capability.LIKE)
++        if (favoriteActionEnabled) customLayout = customLayout + favoriteCommandButton()
          val sessionCommandsBuilder =
-@@ -443,12 +481,36 @@ class MusicService : HeadlessJsMediaService() {
+             MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+         customLayout.forEach { v ->
+@@ -305,18 +348,12 @@
+         sessionCommands = sessionCommandsBuilder.build()
+         playerCommands = playerCommandsBuilder.build()
+ 
+-        if (mediaSession.mediaNotificationControllerInfo != null) {
+-            // https://github.com/androidx/media/blob/c35a9d62baec57118ea898e271ac66819399649b/demos/session_service/src/main/java/androidx/media3/demo/session/DemoMediaLibrarySessionCallback.kt#L107
+-            mediaSession.setCustomLayout(
+-                mediaSession.mediaNotificationControllerInfo!!,
+-                customLayout
+-            )
+-            mediaSession.setAvailableCommands(
+-                mediaSession.mediaNotificationControllerInfo!!,
+-                sessionCommandsBuilder.build(),
+-                playerCommands!!
+-            )
+-        }
++        // Grant the action to controllers that connected before updateOptions, too.
++        mediaSession.connectedControllers.forEach { controller ->
++            mediaSession.setAvailableCommands(controller, sessionCommands!!, playerCommands!!)
++        }
++        // Broadcast icon changes to SystemUI, lock screen and connected controllers.
++        mediaSession.setMediaButtonPreferences(customLayout)
+     }
+ 
+     @MainThread
+@@ -443,12 +480,36 @@
      @MainThread
      fun getCurrentTrackIndex(): Int = player.currentIndex
  
+-    @MainThread
+-    fun getRate(): Float = player.playbackSpeed
 +    private var lastSpeed: Float = 1.0f
 +    private var lastPitch: Float = 1.0f
 +
@@ -296,8 +347,7 @@ index b495b5a..9b75d3f 100644
 +        }
 +    }
 +
-     @MainThread
--    fun getRate(): Float = player.playbackSpeed
++    @MainThread
 +    fun getRate(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.speed else lastSpeed
  
      @MainThread
@@ -315,17 +365,70 @@ index b495b5a..9b75d3f 100644
      }
  
      @MainThread
-@@ -544,6 +606,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -495,8 +556,41 @@
+         }
+     }
+ 
++    private fun favoriteCommandButton(): CommandButton {
++        val matchesTrack = favoriteTrackId != null &&
++            favoriteTrackId == currentTrack?.originalItem?.getString("id")
++        val selected = matchesTrack && isFavorite
++        return CommandButton.Builder(
++            if (selected) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
++        )
++            .setDisplayName(if (selected) "Remove from favorites" else "Add to favorites")
++            .setSessionCommand(SessionCommand(TOGGLE_FAVORITE, Bundle()))
++            .setSlots(CommandButton.SLOT_OVERFLOW)
++            .setEnabled(matchesTrack && favoriteButtonEnabled)
++            .build()
++    }
++
++    private fun refreshFavoriteButton() {
++        if (!favoriteActionEnabled) return
++        customLayout = customLayout.filter {
++            it.sessionCommand?.customAction != TOGGLE_FAVORITE
++        } + favoriteCommandButton()
++        mediaSession.setMediaButtonPreferences(customLayout)
++    }
++
+     @MainThread
+     fun updateNowPlayingMetadata(bundle: Bundle) {
++        if (bundle.containsKey("favoriteTrackId")) {
++            // A delayed DB read must never update a different queue entry's heart.
++            val queueId = bundle.getString("favoriteTrackId")
++            if (queueId != currentTrack?.originalItem?.getString("id")) return
++            favoriteTrackId = queueId
++            isFavorite = bundle.getBoolean("isFavorite")
++            favoriteButtonEnabled = bundle.getBoolean("favoriteEnabled", true)
++            refreshFavoriteButton()
++            // Heart-only updates must not replace the playing MediaItem.
++            return
++        }
+         updateMetadataForTrack(player.currentIndex, bundle)
+     }
+ 
+@@ -538,11 +632,20 @@
+ 
+         scope.launch {
+             event.audioItemTransition.collect {
++                if (favoriteTrackId != currentTrack?.originalItem?.getString("id")) {
++                    favoriteTrackId = null
++                    isFavorite = false
++                    favoriteButtonEnabled = false
++                    refreshFavoriteButton()
++                }
+                 if (it !is AudioItemTransitionReason.REPEAT) {
+                     emitPlaybackTrackChangedEvents(
+                         player.previousIndex,
                          (it?.oldPosition ?: 0).toSeconds()
                      )
-                 }
++                }
 +                if (lastSpeed != 1.0f || lastPitch != 1.0f) {
 +                    applyPlaybackParameters(lastSpeed, lastPitch)
-+                }
+                 }
              }
          }
- 
-@@ -792,12 +857,33 @@ class MusicService : HeadlessJsMediaService() {
+@@ -792,12 +895,33 @@
  
      @MainThread
      override fun onDestroy() {
@@ -341,6 +444,8 @@ index b495b5a..9b75d3f 100644
 -            Timber.d("Releasing media session and destroying player")
 -            mediaSession.release()
 -            player.destroy()
+-        }
+-
 +            Timber.d("Destroying player")
 +            try {
 +                player.destroy()
@@ -354,15 +459,15 @@ index b495b5a..9b75d3f 100644
 +            } catch (t: Throwable) {
 +                Timber.w(t, "Error releasing fakePlayer in onDestroy")
 +            }
-         }
- 
++        }
++
 +        if (instance === this) {
 +            instance = null
 +        }
          progressUpdateJob?.cancel()
          super.onDestroy()
      }
-@@ -905,24 +991,16 @@ class MusicService : HeadlessJsMediaService() {
+@@ -905,24 +1029,17 @@
                      onStartCommand(null, 0, 0)
                  }
              }
@@ -386,6 +491,7 @@ index b495b5a..9b75d3f 100644
 -            }
 +            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
 +                .setCustomLayout(customLayout)
++                .setMediaButtonPreferences(customLayout)
 +                .setAvailableSessionCommands(
 +                    sessionCommands
 +                        ?: MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
@@ -397,10 +503,26 @@ index b495b5a..9b75d3f 100644
          }
  
          override fun onCustomCommand(
-@@ -983,6 +1061,22 @@ class MusicService : HeadlessJsMediaService() {
+@@ -931,6 +1048,14 @@
+             command: SessionCommand,
+             args: Bundle
+         ): ListenableFuture<SessionResult> {
++            if (command.customAction == TOGGLE_FAVORITE) {
++                val queueId = currentTrack?.originalItem?.getString("id")
++                if (queueId == null || queueId != favoriteTrackId || !favoriteButtonEnabled) {
++                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_INVALID_STATE))
++                }
++                emit("remote-like", Bundle().apply { putString("trackId", queueId) })
++                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
++            }
+             player.forwardingPlayer.let {
+                 when (command.customAction) {
+                     CustomCommandButton.JUMP_BACKWARD.customAction -> { it.seekBack() }
+@@ -983,6 +1108,23 @@
      }
  
      companion object {
++        private const val TOGGLE_FAVORITE = "TOGGLE_FAVORITE"
 +        @Volatile
 +        @JvmStatic
 +        var instance: MusicService? = null
@@ -458,10 +580,9 @@ index 85d300f..0ab7ba7 100644
   * Sets the queue.
   *
 diff --git a/node_modules/react-native-track-player/src/NativeTrackPlayer.ts b/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
-index a5dcd75..7367a05 100644
 --- a/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
 +++ b/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
-@@ -20,6 +20,7 @@ export interface Spec extends TurboModule {
+@@ -20,6 +20,7 @@
    getVolume(): Promise<number>;
    setRate(rate: number): Promise<void>;
    getRate(): Promise<number>;
@@ -469,6 +590,14 @@ index a5dcd75..7367a05 100644
    getProgress(): Promise<UnsafeObject>;
    getPlaybackState(): Promise<UnsafeObject>;
    retry(): Promise<void>;
+@@ -65,6 +66,7 @@
+     CAPABILITY_SKIP_TO_NEXT: number;
+     CAPABILITY_SKIP_TO_PREVIOUS: number;
+     CAPABILITY_SET_RATING: number;
++    CAPABILITY_LIKE: number;
+     CAPABILITY_JUMP_FORWARD: number;
+     CAPABILITY_JUMP_BACKWARD: number;
+ 
 diff --git a/node_modules/react-native-track-player/src/trackPlayer.ts b/node_modules/react-native-track-player/src/trackPlayer.ts
 index 0b188b7..eaca4de 100644
 --- a/node_modules/react-native-track-player/src/trackPlayer.ts
@@ -489,3 +618,79 @@ index 0b188b7..eaca4de 100644
  /**
   * Sets the queue.
   *
+diff --git a/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts b/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
+--- a/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
++++ b/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
+@@ -2,4 +2,8 @@
+ 
+ export interface NowPlayingMetadata extends TrackMetadataBase {
+   elapsedTime?: number;
++  /** Android: update only the heart for this exact queue entry, without replacing its media item. */
++  favoriteTrackId?: string;
++  isFavorite?: boolean;
++  favoriteEnabled?: boolean;
+ }
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts b/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts
+--- a/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts
+@@ -1,5 +1,9 @@
+ import type { TrackMetadataBase } from './TrackMetadataBase';
+ export interface NowPlayingMetadata extends TrackMetadataBase {
+     elapsedTime?: number;
++    /** Android: update only the heart for this exact queue entry, without replacing its media item. */
++    favoriteTrackId?: string;
++    isFavorite?: boolean;
++    favoriteEnabled?: boolean;
+ }
+ //# sourceMappingURL=NowPlayingMetadata.d.ts.map
+diff --git a/node_modules/react-native-track-player/src/constants/Capability.ts b/node_modules/react-native-track-player/src/constants/Capability.ts
+--- a/node_modules/react-native-track-player/src/constants/Capability.ts
++++ b/node_modules/react-native-track-player/src/constants/Capability.ts
+@@ -13,4 +13,5 @@
+   JumpForward = Constants?.CAPABILITY_JUMP_FORWARD ?? 10,
+   JumpBackward = Constants?.CAPABILITY_JUMP_BACKWARD ?? 11,
+   SetRating = Constants?.CAPABILITY_SET_RATING ?? 12,
++  Like = Constants?.CAPABILITY_LIKE ?? 13,
+ }
+diff --git a/node_modules/react-native-track-player/lib/module/constants/Capability.js b/node_modules/react-native-track-player/lib/module/constants/Capability.js
+--- a/node_modules/react-native-track-player/lib/module/constants/Capability.js
++++ b/node_modules/react-native-track-player/lib/module/constants/Capability.js
+@@ -14,6 +14,7 @@
+   Capability[Capability["JumpForward"] = Constants?.CAPABILITY_JUMP_FORWARD ?? 10] = "JumpForward";
+   Capability[Capability["JumpBackward"] = Constants?.CAPABILITY_JUMP_BACKWARD ?? 11] = "JumpBackward";
+   Capability[Capability["SetRating"] = Constants?.CAPABILITY_SET_RATING ?? 12] = "SetRating";
++  Capability[Capability["Like"] = Constants?.CAPABILITY_LIKE ?? 13] = "Like";
+   return Capability;
+ }({});
+ //# sourceMappingURL=Capability.js.map
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts b/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts
+--- a/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts
+@@ -10,6 +10,7 @@
+     SkipToPrevious,
+     JumpForward,
+     JumpBackward,
+-    SetRating
++    SetRating,
++    Like
+ }
+ //# sourceMappingURL=Capability.d.ts.map
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts b/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts
+--- a/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts
+@@ -48,6 +48,7 @@
+         CAPABILITY_SKIP_TO_NEXT: number;
+         CAPABILITY_SKIP_TO_PREVIOUS: number;
+         CAPABILITY_SET_RATING: number;
++    CAPABILITY_LIKE: number;
+         CAPABILITY_JUMP_FORWARD: number;
+         CAPABILITY_JUMP_BACKWARD: number;
+         STATE_NONE: string;
+@@ -86,6 +87,7 @@
+     CAPABILITY_SKIP_TO_NEXT: number;
+     CAPABILITY_SKIP_TO_PREVIOUS: number;
+     CAPABILITY_SET_RATING: number;
++    CAPABILITY_LIKE: number;
+     CAPABILITY_JUMP_FORWARD: number;
+     CAPABILITY_JUMP_BACKWARD: number;
+     STATE_NONE: string;

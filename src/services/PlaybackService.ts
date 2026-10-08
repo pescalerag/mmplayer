@@ -11,6 +11,7 @@ import { updateWidget } from "../../modules/native-audio-scanner";
 import { useABRepeatStore } from "../store/useABRepeatStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import i18n from "../constants/i18n";
+import { startNotificationFavoritesSync } from './NotificationFavoritesService';
 
 const SKIP_PREVIOUS_THRESHOLD = 3;
 
@@ -91,6 +92,7 @@ export async function syncWidgetState() {
 }
 
 export const PlaybackService = async function () {
+  startNotificationFavoritesSync();
   TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
   TrackPlayer.addEventListener(Event.RemotePlayPause, async () => {

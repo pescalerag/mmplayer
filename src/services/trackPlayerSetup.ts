@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import TrackPlayer, {
     AppKilledPlaybackBehavior,
     Capability,
@@ -28,6 +29,7 @@ export async function setupPlayer() {
             Capability.SkipToPrevious,
             Capability.SeekTo,
             Capability.PlayFromSearch,
+            ...(Platform.OS === 'android' ? [Capability.Like] : []),
         ],
         notificationCapabilities: [
             Capability.Play,
@@ -35,6 +37,7 @@ export async function setupPlayer() {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
             Capability.SeekTo,
+            ...(Platform.OS === 'android' ? [Capability.Like] : []),
         ],
     });
 
