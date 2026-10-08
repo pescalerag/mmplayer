@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -15,7 +15,7 @@ import { useDelayedLoader } from '@/hooks/useDelayedLoader';
 import { SkeletonActivityScreen } from '@/components/common/Skeleton';
 import { formatDuration } from './utils/activityStatUtils';
 import Animated from 'react-native-reanimated';
-import { getSectionFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 
 interface WeeklyHeroCardProps {
   readonly totalHours: number;
@@ -228,6 +228,7 @@ function WeeklyHighlightsSection({
 }
 
 export default function WeeklyActivityScreen() {
+  const cascade = useCascadeEntry();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
@@ -251,7 +252,7 @@ export default function WeeklyActivityScreen() {
     isLoading,
   } = useStatsStore();
 
-  const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 500 });
+  const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 0 });
 
   useFocusEffect(
     useCallback(() => {
@@ -308,16 +309,17 @@ export default function WeeklyActivityScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {showLoader && <SkeletonActivityScreen topOffset={12} />}
+      {isLoading && showLoader && <SkeletonActivityScreen topOffset={12} />}
+      {isLoading && !showLoader && <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={colors.accent} /></View>}
 
-      {!showLoader && !isLoading && (
+      {!isLoading && (
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {hasActivity ? (
-            <Animated.View entering={getSectionFadeIn(0)}>
+            <Animated.View entering={cascade.section(0)}>
               <WeeklyHighlightsSection
                 totalHours={totalHours}
                 topArtist={topArtist}

@@ -1,37 +1,12 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import TrackPlayer, {
     Event,
-    State,
     useTrackPlayerEvents
 } from 'react-native-track-player';
-import { LocalCastService } from '../../services/LocalCastService';
-import { useCastStore } from '../../store/useCastStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
-
-// Module-level variable to track if the player was playing before a track transition.
-// Since transitions (loading/buffering) are non-playing states, we preserve the last known
-// active state (playing vs paused/stopped/etc.).
-let wasPlayingBeforeTransition = false;
-
-const isPlayingState = (state: any) => {
-    return state === 'playing' || state === State.Playing;
-};
-
-const isPausedOrStoppedState = (state: any) => {
-    return state === 'paused' || state === State.Paused ||
-        state === 'stopped' || state === State.Stopped ||
-        state === 'none' || state === State.None ||
-        state === 'ended' || state === State.Ended;
-};
-
-const handlePlaybackStateEvent = (state: any) => {
-    if (isPlayingState(state)) {
-        wasPlayingBeforeTransition = true;
-    } else if (isPausedOrStoppedState(state)) {
-        wasPlayingBeforeTransition = false;
-    }
-};
+import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStore';
+import { useCastStore } from '../../store/useCastStore';
 
 const isTrackChangeIgnored = (track: any): boolean => {
     if (!track?.id) return false;
@@ -50,9 +25,12 @@ const isTrackChangeIgnored = (track: any): boolean => {
     return false;
 };
 
-const handleCastOrLocalPlay = async (track: any) => {
+const forwardLocalCastPlayback = async (track: any) => {
     const isRestoring = usePlayerStore.getState().isRestoring;
-    if (!isRestoring && track?.id) {
+    const { isLocalCastActive, isCastPlaying } = useCastStore.getState();
+    // Native skips preserve play intent themselves. Local cast alone needs
+    // the override to forward a play command to its remote client.
+    if (!isRestoring && track?.id && isLocalCastActive && isCastPlaying) {
         await TrackPlayer.play();
     }
 };
@@ -86,15 +64,16 @@ const handleActiveTrackChangedEvent = async (event: any) => {
         return;
     }
 
-    await handleCastOrLocalPlay(track);
+    await forwardLocalCastPlayback(track);
 
-    if (track?.id) {
-        await usePlayerStore.getState().setActiveTrackById(track.id, (track as any)?.instanceId);
-    }
-
-    if (index !== undefined) {
-        await usePlayerStore.getState().updateQueueStatus(index);
-    }
+    await Promise.all([
+        track?.id
+            ? usePlayerStore.getState().setActiveTrackById(track.id, track.instanceId)
+            : Promise.resolve(),
+        index !== undefined
+            ? usePlayerStore.getState().updateQueueStatus(index)
+            : Promise.resolve(),
+    ]);
 
     updateUserQueueSlot(index, lastIndex);
 
@@ -103,6 +82,7 @@ const handleActiveTrackChangedEvent = async (event: any) => {
 };
 
 export const TrackPlayerSync = () => {
+    useEffect(subscribeToPlaybackSnapshot, []);
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {
@@ -118,12 +98,8 @@ export const TrackPlayerSync = () => {
         Event.RemoteNext,
         Event.RemotePrevious,
         Event.PlaybackActiveTrackChanged,
-        Event.PlaybackState,
     ], async (event) => {
         switch (event.type) {
-            case Event.PlaybackState:
-                handlePlaybackStateEvent(event.state);
-                break;
             case Event.PlaybackActiveTrackChanged:
                 await handleActiveTrackChangedEvent(event);
                 break;

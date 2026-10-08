@@ -7,7 +7,7 @@ import { useAppTheme } from '../../hooks/useAppTheme';
 import { DisplayStats, SmartListItem } from '../../screens/activity/utils/activityStatUtils';
 import LibraryCard from '../cards/LibraryCard';
 import Animated from 'react-native-reanimated';
-import { getItemFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 
 interface HighlightItemCardProps {
   readonly label: string;
@@ -115,6 +115,7 @@ export function ActivityHighlightsTab({
   smartListsRef,
   smartListsLayout,
 }: ActivityHighlightsTabProps) {
+  const cascade = useCascadeEntry();
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
 
@@ -132,7 +133,7 @@ export function ActivityHighlightsTab({
         {sectionLabel}
       </Text>
 
-      <Animated.View entering={getItemFadeIn(0)}>
+      <Animated.View entering={cascade.item(0)}>
         <HighlightItemCard
           label={t('home.weekly_stats_artist')}
           title={stats.topArtist || noneText}
@@ -146,7 +147,7 @@ export function ActivityHighlightsTab({
         />
       </Animated.View>
 
-      <Animated.View entering={getItemFadeIn(1)}>
+      <Animated.View entering={cascade.item(1)}>
         <HighlightItemCard
           label={t('home.weekly_stats_album')}
           title={stats.topAlbum || noneText}
@@ -159,7 +160,7 @@ export function ActivityHighlightsTab({
         />
       </Animated.View>
 
-      <Animated.View entering={getItemFadeIn(2)}>
+      <Animated.View entering={cascade.item(2)}>
         <HighlightItemCard
           label={t('home.weekly_stats_song')}
           title={stats.topSong || noneText}
@@ -174,7 +175,7 @@ export function ActivityHighlightsTab({
       </Animated.View>
 
       {visibleSmartLists.length > 0 && (
-        <Animated.View entering={getItemFadeIn(3)}>
+        <Animated.View entering={cascade.item(3)}>
           <View ref={smartListsRef} onLayout={handleSmartListsLayout} style={styles.smartListsSection}>
             <Text
               style={[

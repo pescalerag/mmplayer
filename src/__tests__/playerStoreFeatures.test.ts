@@ -6,6 +6,54 @@ import { database } from '../database';
 import Track from '../database/models/Track';
 import Album from '../database/models/Album';
 
+describe('Player transport responsiveness', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Off);
+    usePlayerStore.setState({ hasPrevious: false, hasNext: false });
+  });
+
+  it('enables navigation before adjacent metadata finishes loading', async () => {
+    let finishMetadata!: (track: any) => void;
+    const pending = new Promise(resolve => { finishMetadata = resolve; });
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockReturnValue(pending) });
+    const update = usePlayerStore.getState().updateQueueStatus(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(usePlayerStore.getState()).toMatchObject({ hasPrevious: true, hasNext: true });
+    finishMetadata({ id: 'adjacent' });
+    await update;
+  });
+
+  it('ignores an older queue update after a newer one has completed', async () => {
+    let finishQueue!: (queue: any[]) => void;
+    (TrackPlayer.getQueue as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finishQueue = resolve; }));
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ id: 'b' }) });
+    const oldUpdate = usePlayerStore.getState().updateQueueStatus(0);
+    await usePlayerStore.getState().updateQueueStatus(2);
+    const newest = usePlayerStore.getState();
+    finishQueue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    await oldUpdate;
+    expect(usePlayerStore.getState().hasNext).toBe(newest.hasNext);
+    expect(usePlayerStore.getState().nextTrack).toBe(newest.nextTrack);
+  });
+
+  it('ignores an older active track lookup after a rapid second skip', async () => {
+    let finishTrack!: (track: any) => void;
+    const newest = { id: 'c' };
+    const find = jest.fn()
+      .mockReturnValueOnce(new Promise(resolve => { finishTrack = resolve; }))
+      .mockResolvedValueOnce(newest);
+    (database.get as jest.Mock).mockReturnValue({ find });
+    const first = usePlayerStore.getState().setActiveTrackById('b');
+    await usePlayerStore.getState().setActiveTrackById('c');
+    finishTrack({ id: 'b' });
+    await first;
+    expect(usePlayerStore.getState().activeTrack).toBe(newest);
+  });
+});
+
 describe('Player Store Features & Shuffle Helpers', () => {
   const createTestTrack = (id: string, overrides: any = {}) => {
     const track: any = {

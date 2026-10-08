@@ -22,6 +22,8 @@ const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
 let isHandlingQueueEnded = false;
 let instanceCounter = 0;
+let queueStatusRevision = 0;
+let activeTrackRevision = 0;
 
 let isApplyingSpeedAndPitch = false;
 let hasPendingSpeedPitchUpdate = false;
@@ -904,9 +906,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   skipToNext: async () => {
     try {
-      const queue = await TrackPlayer.getQueue();
-      const index = await TrackPlayer.getActiveTrackIndex();
-      const repeatMode = await TrackPlayer.getRepeatMode();
+      const [queue, index, repeatMode] = await Promise.all([
+        TrackPlayer.getQueue(),
+        TrackPlayer.getActiveTrackIndex(),
+        TrackPlayer.getRepeatMode(),
+      ]);
       const { shuffleOnQueueEnd } = useSettingsStore.getState();
 
       const isLastTrack = index !== undefined && index !== null && index >= queue.length - 1;
@@ -956,6 +960,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setActiveTrackById: async (trackId, instanceId) => {
+    const revision = ++activeTrackRevision;
     try {
       const cleanId = trackId.split('-')[0];
       const instId = instanceId || (trackId.includes('-') ? trackId.substring(cleanId.length + 1) : null);
@@ -967,6 +972,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         return;
       }
       const track = await database.get<Track>("tracks").find(cleanId);
+      if (revision !== activeTrackRevision) return;
       set({ activeTrack: track, activeTrackInstanceId: instId });
     } catch (error) {
       console.error("Error setting active track by ID:", error);
@@ -1494,11 +1500,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   updateQueueStatus: async (currentIndex?: number) => {
+    const revision = ++queueStatusRevision;
     try {
-      const queue = await TrackPlayer.getQueue();
-      const index = currentIndex ?? (await TrackPlayer.getActiveTrackIndex());
-
-      const repeatMode = await TrackPlayer.getRepeatMode();
+      const [queue, index, repeatMode] = await Promise.all([
+        TrackPlayer.getQueue(),
+        currentIndex ?? TrackPlayer.getActiveTrackIndex(),
+        TrackPlayer.getRepeatMode(),
+      ]);
+      if (revision !== queueStatusRevision) return;
       const { shuffleOnQueueEnd } = useSettingsStore.getState();
 
       if (index === undefined || index === null || queue.length === 0) {
@@ -1513,10 +1522,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const prevIndex = getAdjacentTrackIndex(index, -1, queue.length, isLooping);
       const nextIndex = getAdjacentTrackIndex(index, 1, queue.length, isLooping);
 
+      // Transport controls do not depend on database metadata.
+      set({ hasPrevious: hasPrev, hasNext: hasNxt });
+
       const [prevModel, nextModel] = await Promise.all([
         fetchTrackModelFromQueue(queue, prevIndex, index),
         fetchTrackModelFromQueue(queue, nextIndex, index),
       ]);
+      if (revision !== queueStatusRevision) return;
 
       set({
         hasPrevious: hasPrev,

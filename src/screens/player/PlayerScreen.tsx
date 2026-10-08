@@ -31,7 +31,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
     State as TrackPlayerState,
-    useProgress,
 } from 'react-native-track-player';
 import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
@@ -53,7 +52,8 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import { useTranslation } from 'react-i18next';
 import { of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, startWith } from 'rxjs/operators';
+import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
@@ -378,8 +378,9 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
         let isMounted = true;
         const syncAdjacent = async () => {
             try {
-                const queue = await TrackPlayer.getQueue();
-                const activeIndex = await TrackPlayer.getActiveTrackIndex();
+                const [queue, activeIndex] = await Promise.all([
+                    TrackPlayer.getQueue(), TrackPlayer.getActiveTrackIndex(),
+                ]);
                 const { prevM, nextM, prevArtwork, nextArtwork } = await resolveAdjacentTrackPair(queue, activeIndex);
                 if (isMounted) {
                     setPrevTrackModel(prevM);
@@ -523,17 +524,19 @@ const usePlayerCover = (
     prevCoverUrl: string | null,
     defaultBackground: string
 ) => {
-    const [asyncCoverUrl, setAsyncCoverUrl] = useState<string | null>(null);
+    const [asyncCover, setAsyncCover] = useState<{ trackId: string; url: string } | null>(null);
+    const nativeCover = usePlaybackSnapshotStore(snapshot =>
+        snapshot.trackId === track.id.toString() ? snapshot.artwork : null);
 
     useEffect(() => {
         let isMounted = true;
-        setAsyncCoverUrl(null);
+        setAsyncCover(null);
 
         const loadCover = async () => {
             try {
                 const alb: any = await track.album.fetch();
                 if (isMounted && alb?.coverUrl) {
-                    setAsyncCoverUrl(alb.coverUrl);
+                    setAsyncCover({ trackId: track.id, url: alb.coverUrl });
                     return;
                 }
             } catch {
@@ -542,8 +545,8 @@ const usePlayerCover = (
 
             try {
                 const tp: any = await TrackPlayer.getActiveTrack();
-                if (isMounted && tp?.artwork) {
-                    setAsyncCoverUrl(tp.artwork);
+                if (isMounted && tp?.artwork && tp.id?.toString().split('-')[0] === track.id.toString()) {
+                    setAsyncCover({ trackId: track.id, url: tp.artwork });
                 }
             } catch {
                 // Ignore active track fetch error
@@ -556,7 +559,8 @@ const usePlayerCover = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track.id]);
 
-    const rawCoverUrl = album?.coverUrl || asyncCoverUrl || null;
+    const rawCoverUrl = album?.coverUrl || nativeCover ||
+        (asyncCover?.trackId === track.id ? asyncCover.url : null);
     const initialCover = rawCoverUrl || resolveAdjacentCoverFallback(
         track.id,
         nextTrackModel,
@@ -2638,7 +2642,10 @@ const PlayerScreenUI = ({
     const isCasting = isLocalCastActive || isChromecastConnected;
 
     // Progress & Lyrics
-    const { position, duration } = useProgress();
+    const progress = usePlaybackSnapshotStore();
+    const isCurrentProgress = progress.trackId === track.id.toString();
+    const position = isCurrentProgress ? progress.position : 0;
+    const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track, position);
     const hasLyrics = !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
     const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
@@ -3007,10 +3014,11 @@ const PlayerScreenUI = ({
 
 const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    album: trackModel.album.observe().pipe(catchError(() => of(null))),
-    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
-    artists: trackModel.queryCollaborators.observe() as any,
-    tags: trackModel.queryTags.observe(),
+    // Render transport immediately; relations enrich the screen as they arrive.
+    album: trackModel.album.observe().pipe(startWith(null), catchError(() => of(null))),
+    artist: trackModel.artist.observe().pipe(startWith(null), catchError(() => of(null))),
+    artists: trackModel.queryCollaborators.observe().pipe(startWith([])),
+    tags: trackModel.queryTags.observe().pipe(startWith([])),
 }))(PlayerScreenUI);
 
 function KeepAwakeController() {

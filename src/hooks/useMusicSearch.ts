@@ -117,8 +117,11 @@ export function useMusicSearch(query: string) {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const trackConditionsRef = useRef<any[]>([]);
+    const searchRevision = useRef(0);
+    const paginationBusy = useRef(false);
 
     useEffect(() => {
+        let active = true;
         const loadSuggestions = async () => {
             try {
                 const [recentAlbums, randomArtists, recentTags, recentPlaylists] = await Promise.all([
@@ -127,6 +130,7 @@ export function useMusicSearch(query: string) {
                     database.collections.get<Tag>('tags').query(Q.take(10)).fetch(),
                     database.collections.get<Playlist>('playlists').query(Q.take(10)).fetch(),
                 ]);
+                if (!active) return;
                 setSuggestions({
                     tracks: [],
                     albums: recentAlbums,
@@ -138,12 +142,18 @@ export function useMusicSearch(query: string) {
                 console.error('Error loading suggestions:', error);
             }
         };
-        loadSuggestions();
+        void loadSuggestions();
+        return () => { active = false; };
     }, []);
 
     useEffect(() => {
+        const revision = ++searchRevision.current;
+        trackConditionsRef.current = [];
+        paginationBusy.current = false;
+        setIsLoadingMore(false);
         const normalizedQuery = normalizeText(query.trim());
         if (!normalizedQuery) {
+            setIsLoading(false);
             setResults({ tracks: [], albums: [], artists: [], tags: [], playlists: [] });
             setTopMatch(null);
             setPage(0);
@@ -187,6 +197,7 @@ export function useMusicSearch(query: string) {
                 const albumIds = albums.map(a => a.id);
 
                 const trackConditions = await buildTrackConditions(searchPattern, artistIds, albumIds);
+                if (!isActive || revision !== searchRevision.current) return;
                 trackConditionsRef.current = trackConditions;
 
                 const queryClauses: any[] = [];
@@ -283,6 +294,7 @@ export function useMusicSearch(query: string) {
                         await fetchRelatedForTopTrack(currentTopMatch.item, sortedArtists, sortedAlbums);
                     }
 
+                    if (!isActive || revision !== searchRevision.current) return;
                     setHasMoreTracks(tracks.length === TRACKS_PER_PAGE);
                     setResults({ 
                         tracks: finalTracks, 
@@ -298,7 +310,7 @@ export function useMusicSearch(query: string) {
             } finally {
                 if (isActive) setIsLoading(false);
             }
-        }, 400);
+        }, 180);
 
         return () => {
             isActive = false;
@@ -307,8 +319,10 @@ export function useMusicSearch(query: string) {
     }, [query]);
 
     const loadMoreTracks = useCallback(async () => {
-        if (isLoadingMore || !hasMoreTracks || !query.trim()) return;
+        if (paginationBusy.current || isLoading || isLoadingMore || !hasMoreTracks || !query.trim() || trackConditionsRef.current.length === 0) return;
 
+        const revision = searchRevision.current;
+        paginationBusy.current = true;
         setIsLoadingMore(true);
         try {
             const nextPage = page + 1;
@@ -329,19 +343,23 @@ export function useMusicSearch(query: string) {
                 Q.take(TRACKS_PER_PAGE)
             ).fetch();
 
-            setResults(prev => ({
-                ...prev,
-                tracks: [...prev.tracks, ...newTracks]
-            }));
+            if (revision !== searchRevision.current) return;
+            setResults(prev => {
+                const existingIds = new Set(prev.tracks.map(track => track.id));
+                return { ...prev, tracks: [...prev.tracks, ...newTracks.filter(track => !existingIds.has(track.id))] };
+            });
 
             setPage(nextPage);
             setHasMoreTracks(newTracks.length === TRACKS_PER_PAGE);
         } catch (error) {
             console.error('Error loading more tracks:', error);
         } finally {
-            setIsLoadingMore(false);
+            if (revision === searchRevision.current) {
+                paginationBusy.current = false;
+                setIsLoadingMore(false);
+            }
         }
-    }, [isLoadingMore, hasMoreTracks, query, page]);
+    }, [isLoading, isLoadingMore, hasMoreTracks, query, page]);
 
     return {
         results: query.trim() ? results : suggestions,

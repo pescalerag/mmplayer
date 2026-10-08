@@ -16,9 +16,9 @@ export interface SmartList {
 }
 
 export const SmartListService = {
-  getSmartLists(): SmartList[] {
+  getSmartLists(language = i18n.language): SmartList[] {
     const now = new Date();
-    const lang = i18n.language || 'es';
+    const lang = language || 'es';
     const isEs = lang.startsWith('es');
 
     const monthName = now.toLocaleDateString(lang, { month: 'long' });
