@@ -745,7 +745,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                             <Ionicons
                                 name="mic"
                                 size={24}
-                                color="#A855F7"
+                                color={colors.accent}
                             />
                         </TouchableOpacity>
                         <TouchableOpacity

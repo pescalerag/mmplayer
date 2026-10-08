@@ -56,6 +56,7 @@ import { catchError, startWith } from 'rxjs/operators';
 import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
+import { usePlayerLyricsAnimation } from '../../hooks/usePlayerLyricsAnimation';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -737,91 +738,6 @@ const useScreenTransition = (isFocused: boolean, navigation: any) => {
     }, [isFocused, navigation]);
 
     return isTransitioning;
-};
-
-const useLyricsAnimation = (
-    trackId: string,
-    hasLyrics: boolean,
-    showPlayerLyrics: boolean,
-    currentPhrase: string
-) => {
-    const lyricsHeight = useSharedValue(hasLyrics ? 46 : 0);
-    const lyricsOpacity = useSharedValue(hasLyrics ? 1 : 0);
-
-    useEffect(() => {
-        lyricsHeight.value = withTiming(hasLyrics ? 46 : 0, { duration: 200 });
-        lyricsOpacity.value = withTiming(hasLyrics ? 1 : 0, { duration: 200 });
-    }, [hasLyrics, lyricsHeight, lyricsOpacity]);
-
-    const lyricsAnimatedStyle = useAnimatedStyle(() => ({
-        height: lyricsHeight.value,
-        opacity: lyricsOpacity.value,
-    }));
-
-    const [displayedPhrase, setDisplayedPhrase] = useState(currentPhrase);
-    const lyricTextOpacity = useSharedValue(hasLyrics && currentPhrase.trim() !== '' ? 1 : 0);
-    const prevTrackIdRef = React.useRef(trackId);
-
-    useEffect(() => {
-        // Caso 1: Cambio de canción
-        if (prevTrackIdRef.current !== trackId) {
-            prevTrackIdRef.current = trackId;
-            cancelAnimation(lyricTextOpacity);
-            setDisplayedPhrase(currentPhrase);
-            lyricTextOpacity.value = (hasLyrics && currentPhrase.trim() !== '') ? 1 : 0;
-            return;
-        }
-
-        // Caso 2: No hay letras o la visualización está desactivada
-        if (!hasLyrics || !showPlayerLyrics) {
-            cancelAnimation(lyricTextOpacity);
-            lyricTextOpacity.value = 0;
-            setDisplayedPhrase('');
-            return;
-        }
-
-        // Caso 3: La frase no ha cambiado
-        if (currentPhrase === displayedPhrase) {
-            if (displayedPhrase.trim() !== '' && lyricTextOpacity.value < 0.9) {
-                lyricTextOpacity.value = withTiming(1, { duration: 150 });
-            }
-            return;
-        }
-
-        // Caso 4: Transición hacia silencio o instrumental (frase vacía)
-        if (currentPhrase.trim() === '') {
-            lyricTextOpacity.value = withTiming(0, { duration: 150 }, (finished) => {
-                if (finished) {
-                    scheduleOnRN(setDisplayedPhrase, '');
-                }
-            });
-            return;
-        }
-
-        // Caso 5: Transición desde silencio a una nueva frase
-        if (displayedPhrase.trim() === '') {
-            setDisplayedPhrase(currentPhrase);
-            lyricTextOpacity.value = withTiming(1, { duration: 200 });
-            return;
-        }
-
-        // Caso 6: Transición normal de frase A a frase B
-        cancelAnimation(lyricTextOpacity);
-        setDisplayedPhrase(currentPhrase);
-        lyricTextOpacity.value = 1;
-    }, [trackId, showPlayerLyrics, hasLyrics, currentPhrase, displayedPhrase, lyricTextOpacity]);
-
-    const activeLyricText = currentPhrase.trim() !== '' ? currentPhrase : displayedPhrase;
-
-    const textAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: lyricTextOpacity.value,
-    }));
-
-    return {
-        lyricsAnimatedStyle,
-        textAnimatedStyle,
-        activeLyricText,
-    };
 };
 
 const usePlayerArtworkSize = (
@@ -2678,11 +2594,10 @@ const PlayerScreenUI = ({
         ? parsedLyrics[activeIndex].text
         : '';
 
-    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = useLyricsAnimation(
-        track.id,
+    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = usePlayerLyricsAnimation(
         hasLyrics,
-        showPlayerLyrics,
-        currentPhrase
+        currentPhrase,
+        isFocused
     );
 
     // Dynamic artwork sizing
