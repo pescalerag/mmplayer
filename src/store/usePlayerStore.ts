@@ -16,6 +16,7 @@ import { shuffleArray } from "../utils/shuffle";
 import { useCastStore } from "./useCastStore";
 import { useSettingsStore } from "./useSettingsStore";
 import { useToastStore } from "./useToastStore";
+import { refreshPlaybackSnapshot } from "./usePlaybackSnapshotStore";
 import { beginQueueSnapshotRead, publishNativeQueue } from "./useQueueSnapshotStore";
 
 const storage = createMMKV();
@@ -566,7 +567,8 @@ async function resolveTargetTrackPlayerTrack(
 async function syncActiveTrackFromTP(
   targetTP: TPTrack,
   get: () => PlayerState,
-  set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void
+  set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void,
+  isCurrent: () => boolean
 ) {
   const cleanId = targetTP.id.toString().split('-')[0];
   const current = get().activeTrack;
@@ -574,7 +576,7 @@ async function syncActiveTrackFromTP(
 
   const isExternal = cleanId.startsWith('ext_') || (current && (current as any).isExternal && (current as any).id === cleanId);
   if (isExternal) {
-    if (instId && instId !== get().activeTrackInstanceId) {
+    if (isCurrent() && instId !== get().activeTrackInstanceId) {
       set({ activeTrackInstanceId: instId });
     }
     return;
@@ -582,12 +584,15 @@ async function syncActiveTrackFromTP(
 
   if (!current || current.id.toString() !== cleanId) {
     const track = await database.get<Track>("tracks").find(cleanId);
+    if (!isCurrent()) return;
     set({
       activeTrack: track,
       activeTrackInstanceId: instId,
       queueVersion: get().queueVersion + 1,
       windowVersion: get().windowVersion + 1,
     });
+  } else if (isCurrent()) {
+    set({ activeTrackInstanceId: instId });
   }
 }
 
@@ -981,6 +986,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   syncWithTrackPlayer: async () => {
+    const revision = ++activeTrackRevision;
+    const isCurrent = () => revision === activeTrackRevision;
+    // Foreground reads and event-driven metadata lookups share the same ordering guard.
+    void refreshPlaybackSnapshot();
     try {
       const [activeTP, activeIndex] = await Promise.all([
         TrackPlayer.getActiveTrack(),
@@ -988,11 +997,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       ]);
 
       const targetTP = await resolveTargetTrackPlayerTrack(activeTP, activeIndex);
+      if (!isCurrent()) return;
       if (targetTP?.id) {
-        await syncActiveTrackFromTP(targetTP, get, set);
+        await syncActiveTrackFromTP(targetTP, get, set, isCurrent);
       }
 
-      if (activeIndex !== undefined && activeIndex !== null) {
+      if (isCurrent() && activeIndex !== undefined && activeIndex !== null) {
         await get().updateQueueStatus(activeIndex);
       }
     } catch (e) {

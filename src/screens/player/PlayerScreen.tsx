@@ -249,7 +249,11 @@ const PlayerArtwork = ({
     cardBackgroundColor,
     textSecondaryColor,
 }: PlayerArtworkProps) => {
-    const [hasError, setHasError] = useState(false);
+    const [failedRequest, setFailedRequest] = useState<string | null>(null);
+    const [imageAttempt, setImageAttempt] = useState(0);
+    const [imageGeneration, setImageGeneration] = useState(0);
+    const isFocused = useIsFocused();
+    const imageRequestRef = useRef<string | null>(null);
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
     // Mirror BlurredBackground: keep lastValidUriRef so null intermediates
@@ -257,7 +261,6 @@ const PlayerArtwork = ({
     const lastValidUriRef = useRef<string | null>(coverUrl || null);
 
     useEffect(() => {
-        setHasError(false);
         if (coverUrl) {
             lastValidUriRef.current = coverUrl;
         } else {
@@ -274,7 +277,23 @@ const PlayerArtwork = ({
         lastValidUriRef.current = coverUrl;
     }
     const effectiveUri = coverUrl || lastValidUriRef.current;
-    const showPlaceholder = !effectiveUri || hasError;
+    const requestKey = `${effectiveUri}:${imageGeneration}:${imageAttempt}`;
+    imageRequestRef.current = requestKey;
+    const showPlaceholder = !effectiveUri || failedRequest === requestKey;
+
+    useEffect(() => {
+        setFailedRequest(null);
+        setImageAttempt(0);
+        if (isFocused) setImageGeneration(value => value + 1);
+        const subscription = AppState.addEventListener('change', state => {
+            if (state === 'active') {
+                setFailedRequest(null);
+                setImageAttempt(0);
+                setImageGeneration(value => value + 1);
+            }
+        });
+        return () => subscription.remove();
+    }, [effectiveUri, isFocused]);
 
     const imageSource = useMemo(
         () => (effectiveUri ? { uri: effectiveUri } : null),
@@ -304,12 +323,19 @@ const PlayerArtwork = ({
                 </View>
             ) : (
                 <Image
+                    key={requestKey}
+                    recyclingKey={requestKey}
                     source={imageSource}
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
                     transition={250}
                     cachePolicy="memory-disk"
-                    onError={() => setHasError(true)}
+                    onError={() => {
+                        // An error from the previous cover must not hide the current one.
+                        if (imageRequestRef.current !== requestKey) return;
+                        if (imageAttempt === 0) setImageAttempt(1);
+                        else setFailedRequest(requestKey);
+                    }}
                 />
             )}
         </View>
@@ -576,7 +602,7 @@ const usePlayerCover = (
 
     if (stableCoverRef.current.trackId !== track.id) {
         stableCoverRef.current = { trackId: track.id, url: initialCover };
-    } else if (!stableCoverRef.current.url && rawCoverUrl) {
+    } else if (rawCoverUrl && stableCoverRef.current.url !== rawCoverUrl) {
         stableCoverRef.current = { ...stableCoverRef.current, url: rawCoverUrl };
     }
 

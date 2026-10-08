@@ -9,23 +9,6 @@ import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStor
 import { subscribeToQueueSnapshot } from '../../store/useQueueSnapshotStore';
 import { useCastStore } from '../../store/useCastStore';
 
-const isTrackChangeIgnored = (track: any): boolean => {
-    if (!track?.id) return false;
-    
-    const cleanEventId = track.id.split('-')[0];
-    const playerState = usePlayerStore.getState();
-    
-    if (playerState.isQueueLoading && playerState.activeTrack) {
-        const cleanActiveId = playerState.activeTrack.id.toString();
-        if (cleanEventId !== cleanActiveId) {
-            console.log(`[Sync] Ignorando cambio de track temporal a "${track.title}" durante carga de cola.`);
-            return true;
-        }
-    }
-    
-    return false;
-};
-
 const forwardLocalCastPlayback = async (track: any) => {
     const isRestoring = usePlayerStore.getState().isRestoring;
     const { isLocalCastActive, isCastPlaying } = useCastStore.getState();
@@ -48,7 +31,10 @@ const updateUserQueueSlot = (index?: number, lastIndex?: number) => {
     }
 };
 
-const handleActiveTrackChangedEvent = async (event: any) => {
+let trackEventRevision = 0;
+
+export const handleActiveTrackChangedEvent = async (event: any) => {
+    const revision = ++trackEventRevision;
     let { index, lastIndex, track } = event;
 
     if (!track?.id) {
@@ -61,9 +47,7 @@ const handleActiveTrackChangedEvent = async (event: any) => {
         } catch {}
     }
 
-    if (isTrackChangeIgnored(track)) {
-        return;
-    }
+    if (revision !== trackEventRevision) return;
 
     // Consume manual slots immediately on a real song change, not after DB metadata.
     // Insertions before the playing entry can change its index without changing the song.
@@ -71,9 +55,8 @@ const handleActiveTrackChangedEvent = async (event: any) => {
         updateUserQueueSlot(index, lastIndex);
     }
 
-    await forwardLocalCastPlayback(track);
-
     await Promise.all([
+        forwardLocalCastPlayback(track),
         track?.id
             ? usePlayerStore.getState().setActiveTrackById(track.id, track.instanceId)
             : Promise.resolve(),

@@ -1,5 +1,5 @@
 import TrackPlayer, { Event, State } from 'react-native-track-player';
-import { subscribeToPlaybackSnapshot, usePlaybackSnapshotStore } from '../store/usePlaybackSnapshotStore';
+import { refreshPlaybackSnapshot, subscribeToPlaybackSnapshot, usePlaybackSnapshotStore } from '../store/usePlaybackSnapshotStore';
 
 jest.mock('react-native-track-player', () => ({
     __esModule: true,
@@ -122,4 +122,59 @@ describe('shared playback snapshot', () => {
         }
         dispose();
     });
+    it('restores cover, duration and play intent on foreground after 200 missed track events', async () => {
+        const dispose = subscribeToPlaybackSnapshot();
+        await settle();
+        for (let i = 1; i <= 200; i++) {
+            (TrackPlayer.getActiveTrack as jest.Mock).mockResolvedValue({ id: `song${i}-instance`, artwork: `cover-${i}` });
+        }
+        (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 57, duration: 250, buffered: 250 });
+        (TrackPlayer.getPlayWhenReady as jest.Mock).mockResolvedValue(false);
+        (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Paused });
+        await refreshPlaybackSnapshot();
+        expect(usePlaybackSnapshotStore.getState()).toMatchObject({ trackId: 'song200', artwork: 'cover-200',
+            position: 57, duration: 250, controlState: State.Paused });
+        dispose();
+    });
+
+    it('rejects a stale foreground snapshot when a newer track event arrives during the read', async () => {
+        const dispose = subscribeToPlaybackSnapshot();
+        await settle();
+        let finish!: (track: any) => void;
+        (TrackPlayer.getActiveTrack as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const refresh = refreshPlaybackSnapshot();
+        listeners[Event.PlaybackActiveTrackChanged]({ track: { id: 'new-instance', artwork: 'new-cover', duration: 240 } });
+        finish({ id: 'old-instance', artwork: 'old-cover' });
+        await refresh;
+        expect(usePlaybackSnapshotStore.getState()).toMatchObject({ trackId: 'new', artwork: 'new-cover' });
+        dispose();
+    });
+
+    it('does not undo a pause pressed while foreground reconciliation is pending', async () => {
+        const dispose = subscribeToPlaybackSnapshot();
+        await settle();
+        let finish!: (track: any) => void;
+        (TrackPlayer.getActiveTrack as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const refresh = refreshPlaybackSnapshot();
+        listeners[Event.PlaybackPlayWhenReadyChanged]({ playWhenReady: false });
+        finish({ id: 'a', artwork: 'cover-a' });
+        await refresh;
+        expect(usePlaybackSnapshotStore.getState().controlState).toBe(State.Paused);
+        dispose();
+    });
+
+    it('ignores a background progress read that finishes after foreground recovery', async () => {
+        let finish!: (progress: any) => void;
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const dispose = subscribeToPlaybackSnapshot();
+        await settle();
+        (TrackPlayer.getActiveTrack as jest.Mock).mockResolvedValue({ id: 'new-instance', artwork: 'new-cover' });
+        (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 5, duration: 210, buffered: 210 });
+        await refreshPlaybackSnapshot();
+        finish({ position: 170, duration: 180, buffered: 180 });
+        await settle();
+        expect(usePlaybackSnapshotStore.getState()).toMatchObject({ trackId: 'new', position: 5, duration: 210 });
+        dispose();
+    });
+
 });

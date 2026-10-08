@@ -12,6 +12,13 @@ export const usePlaybackSnapshotStore = create(() => ({
     buffered: 0,
 }));
 
+let refreshCurrentSubscription: (() => Promise<void>) | undefined;
+
+// Called on foreground/focus; track identity is event-driven between these reconciliations.
+export async function refreshPlaybackSnapshot() {
+    await refreshCurrentSubscription?.();
+}
+
 // Loading/ready are transport transitions, not user pauses. Keep the last
 // settled display state until native play intent or a settled state changes it.
 export function resolvePlaybackControlState(state: State | undefined, playWhenReady: boolean | undefined, previous: State | undefined) {
@@ -74,6 +81,34 @@ export function subscribeToPlaybackSnapshot() {
             void refreshProgress();
         }),
     ];
+    const refresh = async () => {
+        const requestedRevision = ++revision;
+        const requestedStateRevision = stateRevision;
+        const requestedIntentRevision = intentRevision;
+        try {
+            const [track, playback, playWhenReady, progress] = await Promise.all([
+                TrackPlayer.getActiveTrack(), TrackPlayer.getPlaybackState(),
+                TrackPlayer.getPlayWhenReady(), TrackPlayer.getProgress(),
+            ]);
+            if (disposed || requestedRevision !== revision) return;
+            usePlaybackSnapshotStore.setState(snapshot => {
+                const state = requestedStateRevision === stateRevision ? playback.state : snapshot.state;
+                const intent = requestedIntentRevision === intentRevision && requestedStateRevision === stateRevision
+                    ? playWhenReady : snapshot.playWhenReady;
+                return {
+                    trackId: track?.id?.toString().split('-')[0] ?? null,
+                    artwork: typeof track?.artwork === 'string' ? track.artwork : null,
+                    ...progress,
+                    state,
+                    playWhenReady: intent,
+                    controlState: resolvePlaybackControlState(state, intent, snapshot.controlState),
+                };
+            });
+        } catch {
+            // Setup or teardown may overlap a foreground transition.
+        }
+    };
+    refreshCurrentSubscription = refresh;
     const initialRevision = revision;
     const initialStateRevision = stateRevision;
     const initialIntentRevision = intentRevision;
@@ -105,6 +140,7 @@ export function subscribeToPlaybackSnapshot() {
     const timer = setInterval(() => { void refreshProgress(); }, 250);
     return () => {
         disposed = true;
+        if (refreshCurrentSubscription === refresh) refreshCurrentSubscription = undefined;
         clearInterval(timer);
         subscriptions.forEach(subscription => subscription.remove());
     };
