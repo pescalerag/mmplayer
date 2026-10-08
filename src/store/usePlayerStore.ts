@@ -215,6 +215,8 @@ async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack>
     artwork: album?.coverUrl || (track as any)?.coverUrl || undefined,
     duration: track.duration,
     instanceId: instanceId || uniqueSuffix,
+    replayGain: track.replayGain ?? null,
+    replayPeak: track.replayPeak ?? null,
   };
 }
 

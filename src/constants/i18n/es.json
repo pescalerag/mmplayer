@@ -606,9 +606,9 @@
     "fallback_gain": "Ganancia fallback",
     "fallback_gain_desc": "Volumen a aplicar si la canción no tiene datos de normalización",
     "scan_replaygain": "Escanear ganancias de volumen",
-    "scan_replaygain_desc": "Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos",
+    "scan_replaygain_desc": "Lee la ganancia y el pico ReplayGain guardados en tus archivos de audio",
     "scan_replaygain_alert_title": "Analizar volumen de canciones",
-    "scan_replaygain_alert_desc": "Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?",
+    "scan_replaygain_alert_desc": "Este proceso leerá las etiquetas de las canciones que aún no tengan ganancia o pico ReplayGain. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?",
     "scan_replaygain_success": "Se han analizado y guardado las ganancias de {{count}} canciones.",
     "fade": "Atenuación suave (Fade)",
     "fade_desc": "Baja y sube el volumen suavemente (500ms) al pausar y reproducir",
@@ -799,7 +799,8 @@
     "bitrate": "Bitrate",
     "sample_rate": "Frecuencia de muestreo",
     "channels": "Canales",
-    "replay_gain": "Replay Gain"
+    "replay_gain": "Replay Gain",
+    "replay_peak": "Pico ReplayGain"
   },
   "toasts": {
     "syncing": "Sincronizando Biblioteca...",

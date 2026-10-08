@@ -10,6 +10,7 @@ import {
   clearLaunchAudioUri,
   addAudioFileOpenedListener,
   ResolvedAudioInfo,
+  getReplayGainMetadata,
 } from '../../modules/native-audio-scanner';
 
 const AUDIO_EXTENSIONS_REGEX = /\.(mp3|flac|wav|m4a|aac|ogg|opus|wma|alac|aiff|mid|midi)(\?.*)?$/i;
@@ -76,6 +77,7 @@ export function createExternalTrack(info: ResolvedAudioInfo): Track {
     discNumber: info.discNumber || 1,
     lastModified: info.lastModified || Date.now(),
     replayGain: null,
+    replayPeak: null,
     lyricsLRC: null,
     lyricsFetchFailed: true,
     bgVideo: null,
@@ -206,6 +208,19 @@ export const ExternalAudioService = {
         // Track does NOT exist in DB: play directly with read metadata without adding to DB!
         console.log('[ExternalAudioService] Playing external audio without adding to DB:', info.title);
         targetTrack = createExternalTrack(info);
+        try {
+          const replayMeta = await getReplayGainMetadata(info.fileUrl);
+          if (replayMeta) {
+            if (typeof replayMeta.gain === 'number' && Number.isFinite(replayMeta.gain)) {
+              (targetTrack as any).replayGain = replayMeta.gain;
+            }
+            if (typeof replayMeta.peak === 'number' && Number.isFinite(replayMeta.peak) && replayMeta.peak > 0) {
+              (targetTrack as any).replayPeak = replayMeta.peak;
+            }
+          }
+        } catch (e) {
+          console.warn('[ExternalAudioService] Could not read ReplayGain metadata:', e);
+        }
       }
 
       if (!targetTrack) {

@@ -1026,7 +1026,9 @@ class NativeAudioScannerModule : Module() {
                 validAlbumArts[albumId] = finalCoverUrl
             }
             
-            val replayGain: Double? = null
+            val replayTags = if (shouldScanReplay) ReplayGainReader.readTags(data) else null
+            val replayGain: Double? = replayTags?.gain
+            val replayPeak: Double? = replayTags?.peak
             
             val fileMap = mapOf(
               "id" to id.toString(),
@@ -1044,7 +1046,8 @@ class NativeAudioScannerModule : Module() {
               "albumArtist" to albumArtist,
               "genre" to genre,
               "lastModified" to (dateModifiedSec * 1000),
-              "replayGain" to replayGain
+              "replayGain" to replayGain,
+              "replayPeak" to replayPeak
             )
             audioList.add(fileMap)
           }
@@ -1062,6 +1065,12 @@ class NativeAudioScannerModule : Module() {
       } catch (e: Exception) {
         throw Exception("Error scanning MediaStore: ${e.message}", e)
       }
+    }
+
+    AsyncFunction("getReplayGainMetadata") { uri: String ->
+      val path = if (uri.startsWith("file://")) Uri.parse(uri).path ?: uri else uri
+      val tags = ReplayGainReader.readTags(path)
+      mapOf("gain" to tags.gain, "peak" to tags.peak)
     }
 
     AsyncFunction("getReplayGain") { uri: String ->

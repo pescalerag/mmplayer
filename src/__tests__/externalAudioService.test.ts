@@ -13,6 +13,7 @@ jest.mock('../../modules/native-audio-scanner', () => ({
   resolveAudioUriInfo: jest.fn(),
   clearLaunchAudioUri: jest.fn(),
   addAudioFileOpenedListener: jest.fn(),
+  getReplayGainMetadata: jest.fn().mockResolvedValue({ gain: null, peak: null }),
 }));
 
 describe('ExternalAudioService', () => {

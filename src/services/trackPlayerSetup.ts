@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { initializeReplayGain } from './ReplayGainService';
 import TrackPlayer, {
     AppKilledPlaybackBehavior,
     Capability,
@@ -6,6 +7,7 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 
 export async function setupPlayer() {
+    await initializeReplayGain();
     let isSetup = false;
     try {
         await TrackPlayer.getActiveTrack();

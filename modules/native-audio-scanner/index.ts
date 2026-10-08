@@ -18,11 +18,18 @@ export type AudioTag = {
   albumArtist?: string | null;
   lastModified: number;
   replayGain?: number | null;
+  replayPeak?: number | null;
   genre?: string | null;
 };
 
 export async function getAudioFiles(scanReplayGain: boolean = false): Promise<AudioTag[]> {
   return await NativeAudioScannerModule.getAudioFiles(scanReplayGain);
+}
+
+export interface ReplayGainMetadata { gain: number | null; peak: number | null }
+
+export async function getReplayGainMetadata(uri: string): Promise<ReplayGainMetadata> {
+  return NativeAudioScannerModule.getReplayGainMetadata(uri);
 }
 
 export async function getReplayGain(uri: string): Promise<number | null> {
@@ -258,4 +265,4 @@ export function addAudioFileOpenedListener(listener: (event: { uri: string }) =>
 }
 
 
-
+

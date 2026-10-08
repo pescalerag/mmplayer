@@ -1,7 +1,6 @@
 import TrackPlayer, { Event, State, RemotePlaySearchEvent } from "react-native-track-player";
 import { createMMKV } from "react-native-mmkv";
 import { HistoryService } from "./HistoryService";
-import { useSettingsStore } from "../store/useSettingsStore";
 import { database } from "../database";
 import Track from "../database/models/Track";
 import { Q } from "@nozbe/watermelondb";
@@ -221,36 +220,10 @@ export const PlaybackService = async function () {
       const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
       const nextTrackId = event.track?.id?.toString();
 
-      // NUEVO: Lógica de Normalización de Volumen Segura (Compatible con Cast)
-      if (nextTrackId) {
-        try {
-          const isCasting = useCastStore.getState().isServerRunning;
-          
-          if (isCasting) {
-             // Si el servidor de Cast está activo, MANTENEMOS el móvil silenciado (volumen 0)
-             await TrackPlayer.setVolume(0);
-          } else {
-             // Flujo normal: Aplicamos la normalización de volumen o lo restauramos a 1.0
-             const settings = useSettingsStore.getState();
-             
-             if (settings.isNormalizationEnabled) {
-                const cleanId = nextTrackId.split('-')[0];
-                const trackModel = await database.get<Track>('tracks').find(cleanId);
-                const trackGainDB = trackModel.replayGain ?? settings.fallbackGainDB;
-                const totalTargetDB = trackGainDB + settings.preampLevel;
-                
-                let linearVolume = Math.pow(10, totalTargetDB / 20);
-                linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
-                
-                await TrackPlayer.setVolume(linearVolume);
-             } else {
-                await TrackPlayer.setVolume(1.0);
-             }
-          }
-        } catch (error) {
-          console.error("Error aplicando volumen:", error);
-          await TrackPlayer.setVolume(1.0); // Fallback
-        }
+      // ReplayGain runs in the native PCM pipeline before the first sample.
+      // Player volume remains reserved for transport fades and Cast muting.
+      if (nextTrackId && useCastStore.getState().isServerRunning) {
+        await TrackPlayer.setVolume(0);
       }
 
       // Reset position memory on track change
