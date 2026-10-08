@@ -16,6 +16,7 @@ import { shuffleArray } from "../utils/shuffle";
 import { useCastStore } from "./useCastStore";
 import { useSettingsStore } from "./useSettingsStore";
 import { useToastStore } from "./useToastStore";
+import { beginQueueSnapshotRead, publishNativeQueue } from "./useQueueSnapshotStore";
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
@@ -1501,6 +1502,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   updateQueueStatus: async (currentIndex?: number) => {
     const revision = ++queueStatusRevision;
+    const snapshotRevision = beginQueueSnapshotRead();
     try {
       const [queue, index, repeatMode] = await Promise.all([
         TrackPlayer.getQueue(),
@@ -1508,6 +1510,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         TrackPlayer.getRepeatMode(),
       ]);
       if (revision !== queueStatusRevision) return;
+      publishNativeQueue(queue, index, snapshotRevision);
       const { shuffleOnQueueEnd } = useSettingsStore.getState();
 
       if (index === undefined || index === null || queue.length === 0) {

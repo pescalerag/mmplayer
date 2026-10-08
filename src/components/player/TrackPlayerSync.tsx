@@ -6,6 +6,7 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStore';
+import { subscribeToQueueSnapshot } from '../../store/useQueueSnapshotStore';
 import { useCastStore } from '../../store/useCastStore';
 
 const isTrackChangeIgnored = (track: any): boolean => {
@@ -64,6 +65,12 @@ const handleActiveTrackChangedEvent = async (event: any) => {
         return;
     }
 
+    // Consume manual slots immediately on a real song change, not after DB metadata.
+    // Insertions before the playing entry can change its index without changing the song.
+    if (!event.lastTrack?.id || event.lastTrack.id !== track?.id) {
+        updateUserQueueSlot(index, lastIndex);
+    }
+
     await forwardLocalCastPlayback(track);
 
     await Promise.all([
@@ -75,14 +82,13 @@ const handleActiveTrackChangedEvent = async (event: any) => {
             : Promise.resolve(),
     ]);
 
-    updateUserQueueSlot(index, lastIndex);
-
     // Guardar estado en disco tras cada cambio de track
     await usePlayerStore.getState().savePlaybackState();
 };
 
 export const TrackPlayerSync = () => {
     useEffect(subscribeToPlaybackSnapshot, []);
+    useEffect(subscribeToQueueSnapshot, []);
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {

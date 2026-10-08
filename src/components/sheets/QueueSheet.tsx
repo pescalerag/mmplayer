@@ -7,9 +7,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Animated,
+    ActivityIndicator,
     BackHandler,
     Dimensions,
-    Platform,
     StyleSheet,
     Switch,
     Text,
@@ -21,15 +21,12 @@ import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-nativ
 import { GestureDetector, Gesture, TouchableOpacity as GHTouchableOpacity, GestureHandlerRootView } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import TrackPlayer, {
-    Event,
+import {
     State,
     Track as TPTrack,
-    useTrackPlayerEvents,
 } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { database } from '../../database';
-import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
@@ -37,6 +34,10 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
 import { Colors, Layout } from '../../theme/theme';
+import { refreshQueueSnapshot, useQueueSnapshotStore } from '../../store/useQueueSnapshotStore';
+import { QueueActionsService, QueueRemoval } from '../../services/QueueActionsService';
+import { useCastStore } from '../../store/useCastStore';
+import { LocalCastService } from '../../services/LocalCastService';
 
 const { height, width } = Dimensions.get('window');
 const TAB_WIDTH = (width - 48 - 110) / 2;
@@ -44,13 +45,7 @@ const ITEM_ROW_HEIGHT = 72; // Altura fija para optimizar getItemLayout
 
 type ActiveTab = 'queue' | 'recent';
 
-interface DeletedQueueItem {
-    track: TPTrack;
-    index: number;
-    isUserQueued: boolean;
-}
-
-let deletedQueueStack: DeletedQueueItem[] = [];
+let deletedQueueStack: QueueRemoval[] = [];
 let undoDeletionTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export default function QueueSheet() {
@@ -61,10 +56,6 @@ export default function QueueSheet() {
     const isVisible = activeSheet === 'queue';
     const insets = useSafeAreaInsets();
     const userQueueSize = usePlayerStore(state => state.userQueueSize);
-    const decrementUserQueue = usePlayerStore(state => state.decrementUserQueue);
-    const clearPlayer = usePlayerStore(state => state.clearPlayer);
-    const clearUserQueue = usePlayerStore(state => state.clearUserQueue);
-    const clearContextQueue = usePlayerStore(state => state.clearContextQueue);
     const queueVersion = usePlayerStore(state => state.queueVersion);
     const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
     const setShuffleOnQueueEnd = useSettingsStore(state => state.setShuffleOnQueueEnd);
@@ -72,72 +63,12 @@ export default function QueueSheet() {
     const playbackState = usePlaybackState();
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
-    const [queue, setQueue] = useState<TPTrack[]>([]);
-    const [activeIndex, setActiveIndex] = useState<number>(0);
+    const queue = useQueueSnapshotStore(state => state.queue);
+    const activeIndex = useQueueSnapshotStore(state => state.activeIndex);
+    const queueReady = useQueueSnapshotStore(state => state.ready);
     const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
     const [showTrashMenu, setShowTrashMenu] = useState(false);
     const [showAddPlaylistMenu, setShowAddPlaylistMenu] = useState(false);
-    const [dbTracksMap, setDbTracksMap] = useState<Map<string, { title: string; artist: string; artwork: string | null }>>(new Map());
-    const dbTracksMapRef = useRef(dbTracksMap);
-
-    useEffect(() => {
-        dbTracksMapRef.current = dbTracksMap;
-    }, [dbTracksMap]);
-
-    // Carga metadatos desde WatermelonDB en lotes (Chunking) para evitar saturar la BD
-    const fetchDbMetadataForQueue = React.useCallback(async (tpQueue: TPTrack[]) => {
-        try {
-            const trackIds = Array.from(new Set(tpQueue.map(t => t.id.toString().split('-')[0])));
-            if (trackIds.length === 0) return;
-
-            const currentMap = dbTracksMapRef.current;
-            const missingTrackIds = trackIds.filter(id => !currentMap.has(id));
-            if (missingTrackIds.length === 0) return;
-
-            const CHUNK_SIZE = 50;
-            const fetchedMetadata = new Map<string, { title: string; artist: string; artwork: string | null }>();
-
-            for (let i = 0; i < missingTrackIds.length; i += CHUNK_SIZE) {
-                const chunk = missingTrackIds.slice(i, i + CHUNK_SIZE);
-                const dbTracks = await database.collections.get<Track>('tracks')
-                    .query(Q.where('id', Q.oneOf(chunk)))
-                    .fetch();
-
-                await Promise.all(dbTracks.map(async (track) => {
-                    const album = await track.album.fetch();
-                    const collaborators = await track.queryCollaborators.fetch() as Artist[];
-                    const artistNames = collaborators.length > 0
-                        ? collaborators.map(a => a.name).join(', ')
-                        : 'Artista desconocido';
-
-                    fetchedMetadata.set(track.id, {
-                        title: track.title,
-                        artist: artistNames,
-                        artwork: album?.coverUrl || null
-                    });
-                }));
-            }
-
-            if (fetchedMetadata.size > 0) {
-                setDbTracksMap(prevMap => {
-                    const newMap = new Map(prevMap);
-                    fetchedMetadata.forEach((value, key) => {
-                        newMap.set(key, value);
-                    });
-                    return newMap;
-                });
-            }
-        } catch (err) {
-            console.error('QueueSheet: error cargando metadatos de DB para cola', err);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (queue.length > 0) {
-            fetchDbMetadataForQueue(queue);
-        }
-    }, [queue, fetchDbMetadataForQueue]);
-
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
 
@@ -174,10 +105,8 @@ export default function QueueSheet() {
         transform: [{ translateY: slideTranslateY.value + dragTranslateY.value }],
     }));
 
-    const isReordering = useRef(false);
-
     const recentTracks = React.useMemo(() => {
-        return queue.slice(0, activeIndex).reverse();
+        return queue.slice(0, Math.max(0, activeIndex)).reverse();
     }, [queue, activeIndex]);
 
     // Muestra TODA la cola restante sin capas ni límites de 50
@@ -189,34 +118,9 @@ export default function QueueSheet() {
 
     const totalUpcomingCount = Math.max(0, queue.length - (activeIndex + 1));
 
-    useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], async () => {
-        if (isReordering.current) return;
-        try {
-            const [fullQueue, idx] = await Promise.all([
-                TrackPlayer.getQueue(),
-                TrackPlayer.getActiveTrackIndex(),
-            ]);
-            if (fullQueue) setQueue(fullQueue);
-            if (idx !== undefined && idx !== null) setActiveIndex(idx);
-        } catch (e) {
-            console.error('QueueSheet: error leyendo active index', e);
-        }
-    });
-
     useEffect(() => {
         if (isVisible) {
-            (async () => {
-                try {
-                    const [fullQueue, idx] = await Promise.all([
-                        TrackPlayer.getQueue(),
-                        TrackPlayer.getActiveTrackIndex(),
-                    ]);
-                    setQueue(fullQueue);
-                    if (idx !== undefined && idx !== null) setActiveIndex(idx);
-                } catch (e) {
-                    console.error('QueueSheet: error cargando cola', e);
-                }
-            })();
+            void refreshQueueSnapshot().catch(error => console.error('QueueSheet: error cargando cola', error));
         }
     }, [isVisible, queueVersion]);
 
@@ -265,170 +169,50 @@ export default function QueueSheet() {
         }).start();
     };
 
-    // Reordenamiento fluido mediante TrackPlayer.move nativo
     const handleDragEnd = React.useCallback(async ({ data, from, to }: { data: TPTrack[], from: number, to: number }) => {
-        if (from === to) return;
-
-        isReordering.current = true;
-
-        const upcomingCount = Math.max(0, queue.length - (activeIndex + 1));
-        const safeFrom = Math.max(0, Math.min(from, upcomingCount - 1));
-        const safeTo = Math.max(0, Math.min(to, upcomingCount - 1));
-
-        const globalFrom = activeIndex + 1 + safeFrom;
-        const globalTo = activeIndex + 1 + safeTo;
-
-        if (globalFrom === globalTo) {
-            isReordering.current = false;
-            return;
-        }
-
-        // Optimistic UI update — instant visual feedback before native bridge confirms
-        const newQueue = [
-            ...queue.slice(0, activeIndex + 1),
-            ...data
-        ];
-        setQueue(newQueue);
-
+        if (from === to || !data[to]) return;
         try {
-            await TrackPlayer.move(globalFrom, globalTo);
-            // Sync store so PlayerScreen prev/next badges update correctly
-            await usePlayerStore.getState().updateQueueStatus();
-            await usePlayerStore.getState().savePlaybackState();
-            usePlayerStore.setState((state: any) => ({ windowVersion: (state.windowVersion || 0) + 1 }));
-
-            // Immediately re-buffer the newly placed next track for LocalCast
-            try {
-                const { useCastStore } = require('../../store/useCastStore');
-                if (useCastStore.getState().isLocalCastActive) {
-                    const { LocalCastService } = require('../../services/LocalCastService');
-                    LocalCastService.triggerPreloadNext(activeIndex).catch(() => {});
-                }
-            } catch (castErr) {}
+            await QueueActionsService.move(data[to], data[to + 1]);
+            usePlayerStore.setState(state => ({ windowVersion: state.windowVersion + 1 }));
+            if (useCastStore.getState().isLocalCastActive) {
+                void LocalCastService.triggerPreloadNext(useQueueSnapshotStore.getState().activeIndex).catch(() => {});
+            }
         } catch (error) {
             console.error('Error reordering track:', error);
-            const fullQueue = await TrackPlayer.getQueue();
-            setQueue(fullQueue);
-        } finally {
-            setTimeout(() => {
-                isReordering.current = false;
-            }, 300);
         }
-    }, [activeIndex, queue, setQueue]);
+    }, []);
 
-    const handleSkipTo = React.useCallback(async (globalIndex: number) => {
-        try {
-            // Skip only — do NOT call TrackPlayer.play() here.
-            // The PlaybackActiveTrackChanged event in PlaybackService will:
-            //   1. Update Zustand activeTrack via setActiveTrackById
-            //   2. Update updateQueueStatus (prev/next in PlayerScreen)
-            // Calling play() here could accidentally start playback of whatever
-            // ends up at globalIndex after a drag reorder.
-            await TrackPlayer.skip(globalIndex);
-            await TrackPlayer.play();
-            setActiveIndex(globalIndex);
-            // Also refresh queue status immediately so PlayerScreen doesn't wait for the event
-            await usePlayerStore.getState().updateQueueStatus(globalIndex);
-        } catch (error) {
-            console.error('Error skipping to track:', error);
-        }
-    }, [setActiveIndex]);
+    const handleSkipTo = React.useCallback((track: TPTrack) => {
+        void QueueActionsService.play(track).catch(error => console.error('Error skipping to track:', error));
+    }, []);
 
-    const handleRemove = React.useCallback(async (trackToRemove: TPTrack, globalIndex: number, isUserQueued: boolean) => {
-        try {
-            // Guardar en la pila para deshacer
-            deletedQueueStack.push({
-                track: trackToRemove,
-                index: globalIndex,
-                isUserQueued,
-            });
-
-            await TrackPlayer.remove(globalIndex);
-            if (isUserQueued) decrementUserQueue();
-            const [fullQueue, idx] = await Promise.all([
-                TrackPlayer.getQueue(),
-                TrackPlayer.getActiveTrackIndex(),
-            ]);
-            setQueue(fullQueue);
-            if (idx !== undefined && idx !== null) setActiveIndex(idx);
-
-            await usePlayerStore.getState().updateQueueStatus(idx ?? undefined);
-            await usePlayerStore.getState().savePlaybackState();
-
-            if (undoDeletionTimeout) {
-                clearTimeout(undoDeletionTimeout);
-            }
-
-            const TOAST_DURATION = 3000;
-            undoDeletionTimeout = setTimeout(() => {
-                deletedQueueStack = [];
+    const handleRemove = React.useCallback((track: TPTrack, isUserQueued: boolean) => {
+        const removal = QueueActionsService.remove(track, isUserQueued);
+        if (!removal) return;
+        deletedQueueStack = deletedQueueStack.filter(item => !item.failed);
+        deletedQueueStack.push(removal);
+        if (undoDeletionTimeout) clearTimeout(undoDeletionTimeout);
+        const TOAST_DURATION = 3000;
+        undoDeletionTimeout = setTimeout(() => {
+            deletedQueueStack = [];
+            undoDeletionTimeout = null;
+        }, TOAST_DURATION);
+        const count = deletedQueueStack.length;
+        const message = count === 1
+            ? t('queue.track_removed', 'Has eliminado una canción de la cola')
+            : t('queue.tracks_removed', { count, defaultValue: `Has eliminado ${count} canciones de la cola` });
+        useToastStore.getState().showToast(message, 'close-circle', '#EF4444', {
+            text: t('queue.undo', 'Deshacer'),
+            color: colors.accentLight || colors.accent || '#8B5CF6',
+            onPress: () => {
+                if (undoDeletionTimeout) clearTimeout(undoDeletionTimeout);
                 undoDeletionTimeout = null;
-            }, TOAST_DURATION);
-
-            const count = deletedQueueStack.length;
-            const message = count === 1
-                ? t('queue.track_removed', 'Has eliminado una canción de la cola')
-                : t('queue.tracks_removed', { count, defaultValue: `Has eliminado ${count} canciones de la cola` });
-
-            useToastStore.getState().showToast(
-                message,
-                'close-circle',
-                '#EF4444',
-                {
-                    text: t('queue.undo', 'Deshacer'),
-                    color: colors.accentLight || colors.accent || '#8B5CF6',
-                    onPress: async () => {
-                        if (undoDeletionTimeout) {
-                            clearTimeout(undoDeletionTimeout);
-                            undoDeletionTimeout = null;
-                        }
-
-                        const itemsToRestore = [...deletedQueueStack];
-                        deletedQueueStack = [];
-
-                        let userQueuedRestored = 0;
-                        // Restaurar en orden LIFO para conservar exactamente los índices originales
-                        for (let i = itemsToRestore.length - 1; i >= 0; i--) {
-                            const item = itemsToRestore[i];
-                            try {
-                                const currentQ = await TrackPlayer.getQueue();
-                                const targetIdx = Math.min(item.index, currentQ.length);
-                                await TrackPlayer.add([item.track], targetIdx);
-                                if (item.isUserQueued) {
-                                    userQueuedRestored++;
-                                }
-                            } catch (err) {
-                                console.error('Error al restaurar canción en la cola:', err);
-                            }
-                        }
-
-                        if (userQueuedRestored > 0) {
-                            usePlayerStore.setState((state) => ({
-                                userQueueSize: state.userQueueSize + userQueuedRestored,
-                            }));
-                        }
-
-                        const [restoredQueue, restoredIdx] = await Promise.all([
-                            TrackPlayer.getQueue(),
-                            TrackPlayer.getActiveTrackIndex(),
-                        ]);
-                        setQueue(restoredQueue);
-                        if (restoredIdx !== undefined && restoredIdx !== null) setActiveIndex(restoredIdx);
-
-                        usePlayerStore.setState((state) => ({
-                            queueVersion: (state.queueVersion || 0) + 1,
-                            windowVersion: (state.windowVersion || 0) + 1,
-                        }));
-                        await usePlayerStore.getState().updateQueueStatus(restoredIdx ?? undefined);
-                        await usePlayerStore.getState().savePlaybackState();
-                    },
-                },
-                TOAST_DURATION
-            );
-        } catch (error) {
-            console.error('Error removing track:', error);
-        }
-    }, [decrementUserQueue, colors.accent, colors.accentLight, t]);
+                const removals = deletedQueueStack;
+                deletedQueueStack = [];
+                void QueueActionsService.undo(removals).catch(error => console.error('Error restoring queue:', error));
+            },
+        }, TOAST_DURATION);
+    }, [colors.accent, colors.accentLight, t]);
 
     const clearUndoState = React.useCallback(() => {
         if (undoDeletionTimeout) {
@@ -473,29 +257,22 @@ export default function QueueSheet() {
     };
 
     const listHeader = React.useMemo(() => {
-        const dbId = currentTrack?.id?.toString().split('-')[0];
-        const dbMeta = dbId ? dbTracksMap.get(dbId) : null;
         return (
             <CurrentTrackHeader
                 currentTrack={currentTrack}
-                dbMeta={dbMeta}
                 isPlayingGlobal={isPlayingGlobal}
                 colors={colors}
             />
         );
-    }, [currentTrack, isPlayingGlobal, dbTracksMap, colors]);
+    }, [currentTrack, isPlayingGlobal, colors]);
 
     const renderQueueItem = React.useCallback(({ item, getIndex, drag, isActive }: RenderItemParams<TPTrack>) => {
         const index = getIndex() || 0;
-        const dbId = item.id.toString().split('-')[0];
-        const dbMeta = dbTracksMap.get(dbId);
         return (
             <ScaleDecorator>
                 <QueueTrackRow
                     item={item}
-                    dbMeta={dbMeta}
                     index={index}
-                    activeIndex={activeIndex}
                     userQueueSize={userQueueSize}
                     onSkip={handleSkipTo}
                     onRemove={handleRemove}
@@ -505,21 +282,16 @@ export default function QueueSheet() {
                 />
             </ScaleDecorator>
         );
-    }, [activeIndex, userQueueSize, handleSkipTo, handleRemove, dbTracksMap, colors]);
+    }, [userQueueSize, handleSkipTo, handleRemove, colors]);
 
-    const renderRecentItem = React.useCallback(({ item, index }: { item: TPTrack; index: number }) => {
-        const dbId = item.id.toString().split('-')[0];
-        const dbMeta = dbTracksMap.get(dbId);
+    const renderRecentItem = React.useCallback(({ item }: { item: TPTrack }) => {
         return (
             <RecentTrackRow
                 item={item}
-                dbMeta={dbMeta}
-                index={index}
-                activeIndex={activeIndex}
                 onSkip={handleSkipTo}
             />
         );
-    }, [activeIndex, handleSkipTo, dbTracksMap]);
+    }, [handleSkipTo]);
 
     if (!shouldRender && !isVisible) return null;
 
@@ -625,14 +397,6 @@ export default function QueueSheet() {
                                 data={upcomingTracks}
                                 keyExtractor={(item, index) => item?.id ? String(item.id) : `queue-item-${index}`}
                                 renderItem={renderQueueItem}
-                                onDragBegin={() => {
-                                    isReordering.current = true;
-                                }}
-                                onRelease={() => {
-                                    setTimeout(() => {
-                                        isReordering.current = false;
-                                    }, 400);
-                                }}
                                 onDragEnd={handleDragEnd}
                                 activationDistance={5}
                                 autoscrollThreshold={50}
@@ -647,16 +411,16 @@ export default function QueueSheet() {
                                     offset: ITEM_ROW_HEIGHT * index,
                                     index,
                                 })}
-                                initialNumToRender={15}
-                                maxToRenderPerBatch={15}
-                                windowSize={21}
+                                initialNumToRender={8}
+                                maxToRenderPerBatch={8}
+                                windowSize={7}
                                 extraData={queue}
-                                ListEmptyComponent={
+                                ListEmptyComponent={queueReady ? (
                                     <View style={styles.emptyState}>
                                         <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
                                         <Text style={styles.emptyText}>{t('queue.empty')}</Text>
                                     </View>
-                                }
+                                ) : <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />}
                                 contentContainerStyle={styles.queueListContent}
                                 showsVerticalScrollIndicator={false}
                             />
@@ -720,13 +484,7 @@ export default function QueueSheet() {
                                             onPress={async () => {
                                                 setShowTrashMenu(false);
                                                 clearUndoState();
-                                                await clearUserQueue();
-                                                const [fullQueue, idx] = await Promise.all([
-                                                    TrackPlayer.getQueue(),
-                                                    TrackPlayer.getActiveTrackIndex(),
-                                                ]);
-                                                setQueue(fullQueue);
-                                                if (idx !== undefined && idx !== null) setActiveIndex(idx);
+                                                await QueueActionsService.clear('manual').catch(error => console.error('Error clearing manual queue:', error));
                                             }}
                                             activeOpacity={0.7}
                                         >
@@ -742,13 +500,7 @@ export default function QueueSheet() {
                                             onPress={async () => {
                                                 setShowTrashMenu(false);
                                                 clearUndoState();
-                                                await clearContextQueue();
-                                                const [fullQueue, idx] = await Promise.all([
-                                                    TrackPlayer.getQueue(),
-                                                    TrackPlayer.getActiveTrackIndex(),
-                                                ]);
-                                                setQueue(fullQueue);
-                                                if (idx !== undefined && idx !== null) setActiveIndex(idx);
+                                                await QueueActionsService.clear('context').catch(error => console.error('Error clearing context queue:', error));
                                             }}
                                             activeOpacity={0.7}
                                         >
@@ -763,7 +515,7 @@ export default function QueueSheet() {
                                         onPress={async () => {
                                             setShowTrashMenu(false);
                                             clearUndoState();
-                                            await clearPlayer();
+                                            void QueueActionsService.stop().catch(error => console.error('Error clearing player:', error));
                                             closeQueue();
                                         }}
                                         activeOpacity={0.7}
@@ -860,21 +612,20 @@ export default function QueueSheet() {
 
 interface CurrentTrackHeaderProps {
     currentTrack: TPTrack | null;
-    dbMeta?: { title: string; artist: string; artwork: string | null } | null;
     isPlayingGlobal: boolean;
     colors: ReturnType<typeof useAppTheme>['colors'];
 }
 
-const CurrentTrackHeader = React.memo(({ currentTrack, dbMeta, isPlayingGlobal, colors }: CurrentTrackHeaderProps) => {
-    const artworkUrl = dbMeta ? dbMeta.artwork : currentTrack?.artwork;
+const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal, colors }: CurrentTrackHeaderProps) => {
+    const artworkUrl = currentTrack?.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
         , [artworkUrl]);
 
     if (!currentTrack) return null;
 
-    const title = dbMeta?.title ?? currentTrack.title;
-    const artist = dbMeta?.artist ?? currentTrack.artist;
+    const title = currentTrack.title;
+    const artist = currentTrack.artist;
 
     return (
         <View style={[styles.currentTrackRow, { backgroundColor: colors.accentAlpha15 }]}>
@@ -907,29 +658,26 @@ const CurrentTrackHeader = React.memo(({ currentTrack, dbMeta, isPlayingGlobal, 
 CurrentTrackHeader.displayName = 'CurrentTrackHeader';
 
 interface QueueTrackRowProps {
-    item: any;
-    dbMeta?: { title: string; artist: string; artwork: string | null } | null;
+    item: TPTrack;
     index: number;
-    activeIndex: number;
     userQueueSize: number;
-    onSkip: (globalIndex: number) => void;
-    onRemove: (track: TPTrack, globalIndex: number, isUserQueued: boolean) => void;
+    onSkip: (track: TPTrack) => void;
+    onRemove: (track: TPTrack, isUserQueued: boolean) => void;
     drag?: () => void;
     isActive?: boolean;
     colors: ReturnType<typeof useAppTheme>['colors'];
 }
 
-const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueSize, onSkip, onRemove, drag, isActive, colors }: QueueTrackRowProps) => {
-    const globalIndex = activeIndex + 1 + index;
+const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove, drag, isActive, colors }: QueueTrackRowProps) => {
     const isUserQueued = index < userQueueSize;
     const isManual = item.isManual === true || isUserQueued;
-    const artworkUrl = dbMeta ? dbMeta.artwork : item.artwork;
+    const artworkUrl = item.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
         , [artworkUrl]);
 
-    const title = dbMeta?.title ?? item.title;
-    const artist = dbMeta?.artist ?? item.artist;
+    const title = item.title;
+    const artist = item.artist;
 
     return (
         <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 || Colors.accentAlpha10 }]]}>
@@ -945,7 +693,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
 
             <TouchableOpacity
                 style={styles.trackMainContent}
-                onPress={() => onSkip(globalIndex)}
+                onPress={() => onSkip(item)}
                 activeOpacity={0.7}
                 disabled={isActive}
             >
@@ -976,7 +724,7 @@ const QueueTrackRow = React.memo(({ item, dbMeta, index, activeIndex, userQueueS
 
             <TouchableOpacity
                 style={styles.removeButton}
-                onPress={() => onRemove(item, globalIndex, isUserQueued)}
+                onPress={() => onRemove(item, isManual)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 disabled={isActive}
             >
@@ -989,26 +737,22 @@ QueueTrackRow.displayName = 'QueueTrackRow';
 
 interface RecentTrackRowProps {
     item: TPTrack;
-    dbMeta?: { title: string; artist: string; artwork: string | null } | null;
-    index: number;
-    activeIndex: number;
-    onSkip: (globalIndex: number) => void;
+    onSkip: (track: TPTrack) => void;
 }
 
-const RecentTrackRow = React.memo(({ item, dbMeta, index, activeIndex, onSkip }: RecentTrackRowProps) => {
-    const globalIndex = activeIndex - 1 - index;
-    const artworkUrl = dbMeta ? dbMeta.artwork : item.artwork;
+const RecentTrackRow = React.memo(({ item, onSkip }: RecentTrackRowProps) => {
+    const artworkUrl = item.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
         , [artworkUrl]);
 
-    const title = dbMeta?.title ?? item.title;
-    const artist = dbMeta?.artist ?? item.artist;
+    const title = item.title;
+    const artist = item.artist;
 
     return (
         <GHTouchableOpacity
             style={styles.trackRow}
-            onPress={() => onSkip(globalIndex)}
+            onPress={() => onSkip(item)}
             activeOpacity={0.7}
         >
             {imageSource ? (
