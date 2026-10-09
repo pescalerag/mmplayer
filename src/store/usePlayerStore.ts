@@ -26,6 +26,20 @@ let isHandlingQueueEnded = false;
 let instanceCounter = 0;
 let queueStatusRevision = 0;
 let activeTrackRevision = 0;
+let lastConsumedQueueTransition: string | null = null;
+
+// The service and mounted UI receive the same native event. Consume manual
+// entries once, and ignore index shifts caused by inserting the playing item.
+export function consumeUserQueueTransition(event: { track?: TPTrack | { id?: string }; lastTrack?: TPTrack | { id?: string }; index?: number; lastIndex?: number }) {
+  if (event.index === undefined || event.lastIndex === undefined || event.index <= event.lastIndex) return;
+  if (event.lastTrack?.id && event.lastTrack.id === event.track?.id) return;
+  const transition = `${event.lastTrack?.id ?? ''}:${event.track?.id ?? ''}:${event.lastIndex}:${event.index}`;
+  if (transition === lastConsumedQueueTransition) return;
+  lastConsumedQueueTransition = transition;
+  usePlayerStore.setState(state => ({
+    userQueueSize: Math.max(0, state.userQueueSize - (event.index! - event.lastIndex!)),
+  }));
+}
 
 let isApplyingSpeedAndPitch = false;
 let hasPendingSpeedPitchUpdate = false;
@@ -914,20 +928,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   skipToNext: async () => {
     try {
-      const [queue, index, repeatMode] = await Promise.all([
-        TrackPlayer.getQueue(),
-        TrackPlayer.getActiveTrackIndex(),
-        TrackPlayer.getRepeatMode(),
-      ]);
       const { shuffleOnQueueEnd } = useSettingsStore.getState();
-
-      const isLastTrack = index !== undefined && index !== null && index >= queue.length - 1;
-
-      if (isLastTrack && repeatMode === RepeatMode.Off) {
-        if (shuffleOnQueueEnd) {
-          await get().playRandomQueueOnEnd();
+      // Native skips already handle repeat mode and the end of the queue.
+      // Only inspect the adjacent item when random autoplay needs an end check.
+      if (shuffleOnQueueEnd) {
+        const index = await TrackPlayer.getActiveTrackIndex();
+        if (index !== undefined && index !== null) {
+          const nextTrack = await TrackPlayer.getTrack(index + 1);
+          if (!nextTrack && await TrackPlayer.getRepeatMode() === RepeatMode.Off) {
+            await get().playRandomQueueOnEnd();
+            return;
+          }
         }
-        return;
       }
 
       await TrackPlayer.skipToNext();

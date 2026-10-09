@@ -28,7 +28,9 @@ export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, i
         } catch (e) {
             console.error('❌ [PlayPauseButton] Error alternando estado:', e);
         } finally {
-            isTogglingRef.current = false;
+            setTimeout(() => {
+                isTogglingRef.current = false;
+            }, 120);
         }
     };
 

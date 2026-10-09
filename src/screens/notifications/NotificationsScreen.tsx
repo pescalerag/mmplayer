@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
+import Animated from 'react-native-reanimated';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { Layout } from '../../theme/theme';
 import { database } from '../../database';
@@ -24,12 +25,102 @@ import { openNotificationSettings } from '../../store/useUIStore';
 import AppNotification from '../../database/models/AppNotification';
 import NotificationCard from '../../components/notifications/NotificationCard';
 import { HistoryService } from '../../services/HistoryService';
+import { getItemFadeIn } from '../../utils/cascadeAnimations';
 
-interface NotificationsScreenProps {
+interface NotificationsListProps {
   notifications: AppNotification[];
+  isReady: boolean;
+  headerHeight: number;
+  insetsBottom: number;
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  onPress: (item: AppNotification) => void;
+  onDelete: (id: string) => void;
 }
 
-function NotificationsScreenContent({ notifications }: Readonly<NotificationsScreenProps>) {
+function NotificationsList({
+  notifications,
+  isReady,
+  headerHeight,
+  insetsBottom,
+  isRefreshing,
+  onRefresh,
+  onPress,
+  onDelete,
+}: Readonly<NotificationsListProps>) {
+  const { colors, fonts } = useAppTheme();
+  const { t } = useTranslation();
+
+  if (!isReady) {
+    return null;
+  }
+
+  return (
+    <FlashList
+      data={notifications}
+      keyExtractor={(item) => item.id}
+      extraData={notifications}
+      renderItem={({ item, index }) => (
+        <Animated.View entering={getItemFadeIn(index)}>
+          <NotificationCard
+            notification={item}
+            onPress={onPress}
+            onDelete={onDelete}
+          />
+        </Animated.View>
+      )}
+      contentContainerStyle={[
+        styles.listContent,
+        {
+          paddingTop: headerHeight + 28,
+          paddingBottom:
+            Layout.MINI_PLAYER_HEIGHT +
+            Layout.TAB_BAR_HEIGHT +
+            Layout.PLAYER_MARGIN +
+            insetsBottom +
+            20,
+        },
+      ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.accent}
+          colors={[colors.accent]}
+          progressViewOffset={headerHeight + 10}
+        />
+      }
+      ListEmptyComponent={
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIconCircle, { backgroundColor: colors.accentAlpha10 }]}>
+            <Ionicons name="notifications-off-outline" size={40} color={colors.accent} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: fonts.bold }]}>
+            {t('notifications.empty_title') || 'No hay notificaciones'}
+          </Text>
+          <Text
+            style={[
+              styles.emptySubtitle,
+              { color: colors.textSecondary, fontFamily: fonts.regular },
+            ]}
+          >
+            {t('notifications.empty_subtitle') ||
+              'Aquí recibirás resúmenes de tu actividad, novedades y cambios en tu biblioteca.'}
+          </Text>
+        </View>
+      }
+    />
+  );
+}
+
+const ObservableNotificationsList = withObservables([], () => ({
+  notifications: database
+    .get<AppNotification>('notifications')
+    .query(Q.sortBy('created_at', Q.desc))
+    .observeWithColumns(['is_read']),
+}))(NotificationsList);
+
+export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { colors, fonts } = useAppTheme();
@@ -37,6 +128,14 @@ function NotificationsScreenContent({ notifications }: Readonly<NotificationsScr
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(100);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Auto-mark library notifications as read and check summaries on focus
   useFocusEffect(
@@ -210,72 +309,18 @@ function NotificationsScreenContent({ notifications }: Readonly<NotificationsScr
         </View>
       </View>
 
-      {/* LIST OF NOTIFICATIONS */}
-      <FlashList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        extraData={notifications}
-        renderItem={({ item }) => (
-          <NotificationCard
-            notification={item}
-            onPress={handleNotificationPress}
-            onDelete={handleDeleteNotification}
-          />
-        )}
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            paddingTop: headerHeight + 28,
-            paddingBottom:
-              Layout.MINI_PLAYER_HEIGHT +
-              Layout.TAB_BAR_HEIGHT +
-              Layout.PLAYER_MARGIN +
-              insets.bottom +
-              20,
-          },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
-            progressViewOffset={headerHeight + 10}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={[styles.emptyIconCircle, { backgroundColor: colors.accentAlpha10 }]}>
-              <Ionicons name="notifications-off-outline" size={40} color={colors.accent} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: fonts.bold }]}>
-              {t('notifications.empty_title') || 'No hay notificaciones'}
-            </Text>
-            <Text
-              style={[
-                styles.emptySubtitle,
-                { color: colors.textSecondary, fontFamily: fonts.regular },
-              ]}
-            >
-              {t('notifications.empty_subtitle') ||
-                'Aquí recibirás resúmenes de tu actividad, novedades y cambios en tu biblioteca.'}
-            </Text>
-          </View>
-        }
+      {/* 4. LISTA DE NOTIFICACIONES */}
+      <ObservableNotificationsList
+        isReady={isReady}
+        headerHeight={headerHeight}
+        insetsBottom={insets.bottom}
+        isRefreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        onPress={handleNotificationPress}
+        onDelete={handleDeleteNotification}
       />
     </View>
   );
-}
-
-const ObservableNotificationsScreen = withObservables([], () => ({
-  notifications: database
-    .get<AppNotification>('notifications')
-    .query(Q.sortBy('created_at', Q.desc))
-    .observeWithColumns(['is_read']),
-}))(NotificationsScreenContent);
-
-export default function NotificationsScreen() {
-  return <ObservableNotificationsScreen />;
 }
 
 async function handleStatsNavigation(item: AppNotification, navigation: any) {

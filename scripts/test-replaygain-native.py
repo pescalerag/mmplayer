@@ -11,8 +11,10 @@ cache = Path(os.environ.get("GRADLE_USER_HOME", Path.home() / ".gradle")) / "cac
 
 def jar(group, artifact, preferred=None):
     directory = cache / group / artifact
-    candidates = list((directory / preferred).glob("*/*.jar")) if preferred else []
-    candidates = candidates or list(directory.glob("*/*/*.jar"))
+    def binaries(paths):
+        return [path for path in paths if not path.name.endswith(("-sources.jar", "-javadoc.jar"))]
+    candidates = binaries((directory / preferred).glob("*/*.jar")) if preferred else []
+    candidates = candidates or binaries(directory.glob("*/*/*.jar"))
     if not candidates:
         raise RuntimeError(f"Build Android first: no cached {artifact}")
     return str(candidates[0])
@@ -36,6 +38,7 @@ output.mkdir(parents=True, exist_ok=True)
 sources = [
     root / "node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt",
     root / "modules/native-audio-scanner/android/src/main/java/expo/modules/nativeaudioscanner/ReplayGainReader.kt",
+    root / "modules/native-audio-scanner/android/src/main/java/expo/modules/nativeaudioscanner/ReplayGainScanCache.kt",
     root / "tests/native/ReplayGainTest.kt",
     root / "node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt",
     *sorted((root / "tests/native/stubs").glob("*.kt"))]

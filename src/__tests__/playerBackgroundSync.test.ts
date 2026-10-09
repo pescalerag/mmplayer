@@ -17,6 +17,18 @@ describe('foreground reconciliation after extended background playback', () => {
     });
     afterEach(() => jest.restoreAllMocks());
 
+    it('starts the next song immediately on its event even if the previous song was paused', async () => {
+        await handleActiveTrackChangedEvent({ track: { id: 'next-instance' }, index: 1, lastIndex: 0 });
+        expect(TrackPlayer.play).toHaveBeenCalledTimes(1);
+        expect(TrackPlayer.getActiveTrackIndex).not.toHaveBeenCalled();
+    });
+
+    it('does not start playback when restoring a saved paused queue', async () => {
+        usePlayerStore.setState({ isRestoring: true });
+        await handleActiveTrackChangedEvent({ track: { id: 'restored-instance' }, index: 0 });
+        expect(TrackPlayer.play).not.toHaveBeenCalled();
+    });
+
     it('recovers the actual song after 200 native advances with no delivered JS events', async () => {
         let nativeSong = 'song0';
         (TrackPlayer.getActiveTrack as jest.Mock).mockImplementation(async () => ({ id: nativeSong + '-instance' }));

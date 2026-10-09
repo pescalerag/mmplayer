@@ -1,4 +1,4 @@
-import TrackPlayer, { Event, State, RemotePlaySearchEvent } from "react-native-track-player";
+import TrackPlayer, { Event, State, RemotePlaySearchEvent, PlaybackActiveTrackChangedEvent } from "react-native-track-player";
 import { createMMKV } from "react-native-mmkv";
 import { HistoryService } from "./HistoryService";
 import { database } from "../database";
@@ -8,7 +8,7 @@ import { LyricsSyncService } from "./LyricsSyncService";
 import { useCastStore } from "../store/useCastStore";
 import { updateWidget } from "../../modules/native-audio-scanner";
 import { useABRepeatStore } from "../store/useABRepeatStore";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { consumeUserQueueTransition, usePlayerStore } from "../store/usePlayerStore";
 import i18n from "../constants/i18n";
 import { startNotificationFavoritesSync } from './NotificationFavoritesService';
 
@@ -21,6 +21,7 @@ let currentTrackId: string | null = null;
 let accumulatedTimes: Record<string, number> = {};
 let lastKnownPosition = 0;
 let lastKnownDuration = 0;
+let activeTrackEventRevision = 0;
 
 export const PlaybackTimeTracker = {
   onStatePlaying(trackId: string) {
@@ -73,6 +74,45 @@ export const PlaybackTimeTracker = {
     currentTrackId = trackId;
   }
 };
+
+async function syncActiveTrackToStore(event: PlaybackActiveTrackChangedEvent, revision: number) {
+  // ── Sync Zustand store so PlayerScreen always reflects the real active track ──
+  // This is the single source of truth for the UI. Without this, skipping from
+  // the notification, lock screen, or LocalCast /api/next leaves activeTrack stale.
+  let effectiveTrack = event.track;
+  if (!effectiveTrack?.id) {
+    try {
+      effectiveTrack = await TrackPlayer.getActiveTrack();
+      if (!effectiveTrack?.id && event.index !== undefined && event.index !== null) {
+        const queue = await TrackPlayer.getQueue();
+        effectiveTrack = queue[event.index] ?? null;
+      }
+    } catch {}
+  }
+
+  if (effectiveTrack?.id && revision === activeTrackEventRevision) {
+    try {
+      const { setActiveTrackById, updateQueueStatus } = usePlayerStore.getState();
+      const instanceId = (effectiveTrack as any)?.instanceId;
+      await setActiveTrackById(effectiveTrack.id.toString(), instanceId);
+      if (revision !== activeTrackEventRevision) return;
+      const newIndex = event.index ?? await TrackPlayer.getActiveTrackIndex();
+      if (newIndex !== undefined && newIndex !== null) {
+        await updateQueueStatus(newIndex);
+      }
+      if (revision !== activeTrackEventRevision) return;
+      // Bump versions so PlayerScreenUI re-runs syncAdjacentTracks immediately
+      // This is critical for the swipe slots (prev/next artwork) to update
+      usePlayerStore.setState((state: any) => ({
+        windowVersion: (state.windowVersion || 0) + 1,
+        queueVersion: (state.queueVersion || 0) + 1,
+      }));
+    } catch (storeErr) {
+      console.error('[PlaybackService] Error syncing store after track change:', storeErr);
+    }
+  }
+
+}
 
 export async function syncWidgetState() {
   try {
@@ -201,6 +241,7 @@ export const PlaybackService = async function () {
   TrackPlayer.addEventListener(
     Event.PlaybackActiveTrackChanged,
     async (event) => {
+      const revision = ++activeTrackEventRevision;
       const isSyncActive = usePlayerStore.getState().isSyncingLyrics;
       if (isSyncActive && event.track) {
         const syncedTrack = usePlayerStore.getState().activeTrack;
@@ -216,6 +257,9 @@ export const PlaybackService = async function () {
           return;
         }
       }
+
+      void syncActiveTrackToStore(event, revision);
+      consumeUserQueueTransition(event);
 
       const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
       const nextTrackId = event.track?.id?.toString();
@@ -239,9 +283,6 @@ export const PlaybackService = async function () {
       // Limpiar minutaje y acumulado persistido de la canción anterior
       storage.set("@player_position", 0);
       storage.set("@player_accumulated", 0);
-
-      // Record check if the timer was active prior to transition
-      const wasPlaying = PlaybackTimeTracker.isTimerRunning();
 
       PlaybackTimeTracker.onStateNotPlaying();
 
@@ -312,47 +353,6 @@ export const PlaybackService = async function () {
           }
         } catch { }
       }, 2000);
-
-      // ── Sync Zustand store so PlayerScreen always reflects the real active track ──
-      // This is the single source of truth for the UI. Without this, skipping from
-      // the notification, lock screen, or LocalCast /api/next leaves activeTrack stale.
-      let effectiveTrack = event.track;
-      if (!effectiveTrack?.id) {
-        try {
-          effectiveTrack = await TrackPlayer.getActiveTrack();
-          if (!effectiveTrack?.id && event.index !== undefined && event.index !== null) {
-            const queue = await TrackPlayer.getQueue();
-            effectiveTrack = queue[event.index] ?? null;
-          }
-        } catch {}
-      }
-
-      if (effectiveTrack?.id) {
-        try {
-          const { setActiveTrackById, updateQueueStatus } = usePlayerStore.getState();
-          const instanceId = (effectiveTrack as any)?.instanceId;
-          await setActiveTrackById(effectiveTrack.id.toString(), instanceId);
-          const newIndex = event.index ?? await TrackPlayer.getActiveTrackIndex();
-          if (newIndex !== undefined && newIndex !== null) {
-            await updateQueueStatus(newIndex);
-          }
-          if (event.lastIndex !== undefined && event.index !== undefined && event.index > event.lastIndex) {
-            const { userQueueSize } = usePlayerStore.getState();
-            if (userQueueSize > 0) {
-              const steps = event.index - event.lastIndex;
-              usePlayerStore.setState({ userQueueSize: Math.max(0, userQueueSize - steps) });
-            }
-          }
-          // Bump versions so PlayerScreenUI re-runs syncAdjacentTracks immediately
-          // This is critical for the swipe slots (prev/next artwork) to update
-          usePlayerStore.setState((state: any) => ({
-            windowVersion: (state.windowVersion || 0) + 1,
-            queueVersion: (state.queueVersion || 0) + 1,
-          }));
-        } catch (storeErr) {
-          console.error('[PlaybackService] Error syncing store after track change:', storeErr);
-        }
-      }
 
       await syncWidgetState();
     },

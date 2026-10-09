@@ -910,6 +910,14 @@ class NativeAudioScannerModule : Module() {
         val audioList = mutableListOf<Map<String, Any?>>()
         val validAlbumArts = mutableMapOf<Long, String?>()
         val stalePaths = mutableListOf<String>()
+        val replayCachePreferences = if (shouldScanReplay) {
+          context.getSharedPreferences("replay_gain_scan_cache", Context.MODE_PRIVATE)
+        } else null
+        val pendingReplayCache = mutableMapOf<String, String>()
+        val replayCache = ReplayGainScanCache(
+          get = { path -> pendingReplayCache[path] ?: replayCachePreferences?.getString(path, null) },
+          put = { path, value -> pendingReplayCache[path] = value }
+        )
         
         val supportsAlbumArtist = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
         val supportsGenre = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
@@ -1026,7 +1034,7 @@ class NativeAudioScannerModule : Module() {
                 validAlbumArts[albumId] = finalCoverUrl
             }
             
-            val replayTags = if (shouldScanReplay) ReplayGainReader.readTags(data) else null
+            val replayTags = if (shouldScanReplay) replayCache.read(file) else null
             val replayGain: Double? = replayTags?.gain
             val replayPeak: Double? = replayTags?.peak
             
@@ -1059,6 +1067,12 @@ class NativeAudioScannerModule : Module() {
           } catch (e: Exception) {
             Log.w("NativeAudioScanner", "Failed to trigger rescan for stale paths: ${e.message}")
           }
+        }
+
+        if (pendingReplayCache.isNotEmpty()) {
+          replayCachePreferences?.edit()?.apply {
+            pendingReplayCache.forEach { (path, value) -> putString(path, value) }
+          }?.apply()
         }
         
         return@AsyncFunction audioList

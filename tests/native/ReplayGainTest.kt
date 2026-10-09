@@ -1,5 +1,7 @@
 import com.doublesymmetry.kotlinaudio.players.ReplayGainMath
 import expo.modules.nativeaudioscanner.ReplayGainReader
+import expo.modules.nativeaudioscanner.ReplayGainScanCache
+import expo.modules.nativeaudioscanner.ReplayGainTags
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files
@@ -71,6 +73,121 @@ private fun pcm(samples: IntArray, multiplier: Double): IntArray {
     return IntArray(samples.size) { output.short.toInt() }
 }
 fun main() {
+    test("First scan reads every file and later launches reuse gain, peak and absent tags") {
+        val directory = Files.createTempDirectory("replaygain-cache-").toFile()
+        try {
+            val tagged = directory.resolve("tagged.m4a").apply { writeBytes(m4a("-7.25", "0.9")) }
+            val untagged = directory.resolve("untagged.m4a").apply { writeBytes(m4a(null, null)) }
+            val persisted = mutableMapOf<String, String>()
+            var reads = 0
+            fun cache() = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                reads++; ReplayGainReader.readTags(it)
+            })
+            val firstLaunch = cache()
+            near(firstLaunch.read(tagged).gain, -7.25)
+            near(firstLaunch.read(tagged).peak, 0.9)
+            check(firstLaunch.read(untagged) == ReplayGainTags())
+            check(reads == 2)
+            val nextLaunch = cache()
+            repeat(10) {
+                near(nextLaunch.read(tagged).peak, 0.9)
+                check(nextLaunch.read(untagged) == ReplayGainTags())
+            }
+            check(reads == 2) { "Unchanged or untagged files were reopened" }
+            val added = directory.resolve("added.m4a").apply { writeBytes(m4a("-3.0", "0.8")) }
+            near(nextLaunch.read(added).gain, -3.0)
+            check(reads == 3)
+        } finally { directory.deleteRecursively() }
+    }
+    test("Changed physical dates reread both tags even when the timestamp moves backwards") {
+        val file = Files.createTempFile("replaygain-cache-", ".m4a").toFile()
+        try {
+            val persisted = mutableMapOf<String, String>()
+            var reads = 0
+            val cache = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                reads++; ReplayGainReader.readTags(it)
+            })
+            file.writeBytes(m4a("-6.0", "0.9"))
+            check(file.setLastModified(1_700_000_000_000L))
+            near(cache.read(file).gain, -6.0)
+            val size = file.length()
+            file.writeBytes(m4a("-9.0", "0.8"))
+            check(file.length() == size)
+            check(file.setLastModified(1_600_000_000_000L))
+            val changed = cache.read(file)
+            near(changed.gain, -9.0); near(changed.peak, 0.8)
+            cache.read(file)
+            check(reads == 2)
+        } finally { file.delete() }
+    }
+    test("A size change also invalidates the cache when the date is preserved, including removed tags") {
+        val file = Files.createTempFile("replaygain-cache-", ".m4a").toFile()
+        try {
+            val persisted = mutableMapOf<String, String>()
+            var reads = 0
+            val cache = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                reads++; ReplayGainReader.readTags(it)
+            })
+            file.writeBytes(m4a("-6.0", "0.9"))
+            val timestamp = file.lastModified()
+            near(cache.read(file).peak, 0.9)
+            file.writeBytes(m4a(null, null))
+            check(file.setLastModified(timestamp))
+            check(cache.read(file) == ReplayGainTags())
+            cache.read(file)
+            check(reads == 2)
+        } finally { file.delete() }
+    }
+    test("An old parser version or corrupt cache entry triggers one replacement read") {
+        val file = Files.createTempFile("replaygain-cache-", ".m4a").toFile()
+        try {
+            file.writeBytes(m4a("-6.0", "0.9"))
+            val persisted = mutableMapOf<String, String>()
+            var reads = 0
+            val cache = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                reads++; ReplayGainReader.readTags(it)
+            })
+            for (value in listOf("0|${file.lastModified()}|${file.length()}|-6.0|0.9",
+                "1|${file.lastModified()}|${file.length()}|NaN|0.9", "broken")) {
+                persisted[file.absolutePath] = value
+                near(cache.read(file).peak, 0.9)
+                cache.read(file)
+            }
+            check(reads == 3)
+        } finally { file.delete() }
+    }
+    test("Failed reads and concurrent edits are not saved as a completed cache entry") {
+        val file = Files.createTempFile("replaygain-cache-", ".m4a").toFile()
+        try {
+            file.writeBytes(m4a("-6.0", "0.9"))
+            val persisted = mutableMapOf<String, String>()
+            val failed = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                throw java.io.IOException("read interrupted")
+            })
+            check(runCatching { failed.read(file) }.isFailure)
+            check(persisted.isEmpty())
+            val editing = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                val tags = ReplayGainReader.readTags(it)
+                check(file.setLastModified(file.lastModified() + 1000))
+                tags
+            })
+            editing.read(file)
+            check(persisted.isEmpty())
+        } finally { file.delete() }
+    }
+    test("The real reader retries an incomplete file instead of caching it as tag-free") {
+        val file = Files.createTempFile("replaygain-cache-", ".m4a").toFile()
+        try {
+            file.writeBytes("ID3".toByteArray())
+            val persisted = mutableMapOf<String, String>()
+            var reads = 0
+            val cache = ReplayGainScanCache(persisted::get, { key, value -> persisted[key] = value }, {
+                reads++; ReplayGainReader.readTags(it)
+            })
+            repeat(2) { check(cache.read(file) == ReplayGainTags()) }
+            check(reads == 2 && persisted.isEmpty())
+        } finally { file.delete() }
+    }
     for (version in 3..4) for (encoding in 0..3) for (peakFirst in listOf(false, true)) {
         test("ID3v2.$version encoding=$encoding peakFirst=$peakFirst reads both tags") {
             val result = tags(id3(version, encoding, peakFirst)); near(result.gain, 6.0); near(result.peak, 0.25)

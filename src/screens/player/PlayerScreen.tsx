@@ -12,7 +12,7 @@ import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AppState,
     AppStateStatus,
@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
     RepeatMode,
     State as TrackPlayerState,
+    useProgress,
 } from 'react-native-track-player';
 import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
@@ -47,6 +48,7 @@ import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
+import { PlayerArtwork } from '@/components/player/PlayerArtwork';
 import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
@@ -233,116 +235,7 @@ const CanvasVideo = React.memo(({
 });
 CanvasVideo.displayName = 'CanvasVideo';
 
-interface PlayerArtworkProps {
-    coverUrl?: string | null;
-    size: number;
-    borderRadius?: number;
-    shadowStyle?: any;
-    cardBackgroundColor: string;
-    textSecondaryColor: string;
-}
 
-const PlayerArtwork = ({
-    coverUrl,
-    size,
-    borderRadius = 10,
-    shadowStyle,
-    cardBackgroundColor,
-    textSecondaryColor,
-}: PlayerArtworkProps) => {
-    const [failedRequest, setFailedRequest] = useState<string | null>(null);
-    const [imageAttempt, setImageAttempt] = useState(0);
-    const [imageGeneration, setImageGeneration] = useState(0);
-    const isFocused = useIsFocused();
-    const imageRequestRef = useRef<string | null>(null);
-    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-
-    // Mirror BlurredBackground: keep lastValidUriRef so null intermediates
-    // (during track change while observable resolves) never flash a placeholder.
-    const lastValidUriRef = useRef<string | null>(coverUrl || null);
-
-    useEffect(() => {
-        if (coverUrl) {
-            lastValidUriRef.current = coverUrl;
-        } else {
-            // If coverUrl stays null (genuine no-cover track), clear previous image after short grace period
-            const timer = setTimeout(() => {
-                lastValidUriRef.current = null;
-                forceUpdate();
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [coverUrl]);
-
-    if (coverUrl) {
-        lastValidUriRef.current = coverUrl;
-    }
-    const effectiveUri = coverUrl || lastValidUriRef.current;
-    const requestKey = `${effectiveUri}:${imageGeneration}:${imageAttempt}`;
-    imageRequestRef.current = requestKey;
-    const showPlaceholder = !effectiveUri || failedRequest === requestKey;
-
-    useEffect(() => {
-        setFailedRequest(null);
-        setImageAttempt(0);
-        if (isFocused) setImageGeneration(value => value + 1);
-        const subscription = AppState.addEventListener('change', state => {
-            if (state === 'active') {
-                setFailedRequest(null);
-                setImageAttempt(0);
-                setImageGeneration(value => value + 1);
-            }
-        });
-        return () => subscription.remove();
-    }, [effectiveUri, isFocused]);
-
-    const imageSource = useMemo(
-        () => (effectiveUri ? { uri: effectiveUri } : null),
-        [effectiveUri]
-    );
-
-    return (
-        <View
-            style={[
-                {
-                    width: size,
-                    height: size,
-                    borderRadius,
-                    overflow: 'hidden',
-                    backgroundColor: cardBackgroundColor,
-                },
-                shadowStyle,
-            ]}
-        >
-            {showPlaceholder ? (
-                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: cardBackgroundColor }]}>
-                    <Ionicons
-                        name="musical-notes"
-                        size={Math.min(80, Math.floor(size * 0.25))}
-                        color={textSecondaryColor}
-                    />
-                </View>
-            ) : (
-                <Image
-                    key={requestKey}
-                    recyclingKey={requestKey}
-                    source={imageSource}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    transition={250}
-                    cachePolicy="memory-disk"
-                    onError={() => {
-                        // An error from the previous cover must not hide the current one.
-                        if (imageRequestRef.current !== requestKey) return;
-                        if (imageAttempt === 0) setImageAttempt(1);
-                        else setFailedRequest(requestKey);
-                    }}
-                />
-            )}
-        </View>
-    );
-};
-PlayerArtwork.displayName = 'PlayerArtwork';
 
 
 
@@ -382,10 +275,14 @@ const resolveAdjacentTrackPair = async (queue: any[], activeIndex: number | null
         if (!nextItem) nextItem = queue[0];
     }
 
-    const prevM = prevItem ? await getCleanTrackModel(prevItem) : null;
-    const nextM = nextItem ? await getCleanTrackModel(nextItem) : null;
     const prevArtwork = (prevItem?.artwork as string) || null;
     const nextArtwork = (nextItem?.artwork as string) || null;
+    const artworkToPreload = [prevArtwork, nextArtwork].filter((url): url is string => Boolean(url));
+    if (artworkToPreload.length) void Image.prefetch(artworkToPreload).catch(() => {});
+    const [prevM, nextM] = await Promise.all([
+        prevItem ? getCleanTrackModel(prevItem) : null,
+        nextItem ? getCleanTrackModel(nextItem) : null,
+    ]);
 
     return { prevM, nextM, prevArtwork, nextArtwork };
 };
@@ -412,12 +309,12 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
                 if (isMounted) {
                     setPrevTrackModel(prevM);
                     setNextTrackModel(nextM);
+                    setPrevCoverUrl(prevArtwork);
+                    setNextCoverUrl(nextArtwork);
                     if (prevArtwork) {
-                        setPrevCoverUrl(prevArtwork);
                         getOrExtractColor(prevArtwork).catch(() => {});
                     }
                     if (nextArtwork) {
-                        setNextCoverUrl(nextArtwork);
                         getOrExtractColor(nextArtwork).catch(() => {});
                     }
                 }
@@ -458,7 +355,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         nextCoverUrlRef.current = nextCoverUrl;
-        if (nextCoverUrl) void Image.prefetch(nextCoverUrl);
+        if (nextCoverUrl) void Image.prefetch(nextCoverUrl).catch(() => {});
     }, [nextCoverUrl]);
 
     useEffect(() => {
@@ -467,7 +364,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         prevCoverUrlRef.current = prevCoverUrl;
-        if (prevCoverUrl) void Image.prefetch(prevCoverUrl);
+        if (prevCoverUrl) void Image.prefetch(prevCoverUrl).catch(() => {});
     }, [prevCoverUrl]);
 
     return {
@@ -586,7 +483,7 @@ const usePlayerCover = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track.id]);
 
-    const rawCoverUrl = album?.coverUrl || nativeCover ||
+    const rawCoverUrl = nativeCover || album?.coverUrl ||
         (asyncCover?.trackId === track.id ? asyncCover.url : null);
     const initialCover = rawCoverUrl || resolveAdjacentCoverFallback(
         track.id,
@@ -603,8 +500,8 @@ const usePlayerCover = (
 
     if (stableCoverRef.current.trackId !== track.id) {
         stableCoverRef.current = { trackId: track.id, url: initialCover };
-    } else if (rawCoverUrl && stableCoverRef.current.url !== rawCoverUrl) {
-        stableCoverRef.current = { ...stableCoverRef.current, url: rawCoverUrl };
+    } else if (initialCover && stableCoverRef.current.url !== initialCover) {
+        stableCoverRef.current = { ...stableCoverRef.current, url: initialCover };
     }
 
     const currentCoverUrl: string | null = stableCoverRef.current.url;
@@ -2584,8 +2481,9 @@ const PlayerScreenUI = ({
     const isCasting = isLocalCastActive || isChromecastConnected;
 
     // Progress & Lyrics
-    const progress = usePlaybackSnapshotStore();
-    const isCurrentProgress = progress.trackId === track.id.toString();
+    const progress = useProgress();
+    const progressTrackId = usePlaybackSnapshotStore(snapshot => snapshot.trackId);
+    const isCurrentProgress = progressTrackId === track.id.toString();
     const position = isCurrentProgress ? progress.position : 0;
     const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track, position);

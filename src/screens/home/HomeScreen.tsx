@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import {
     Dimensions,
     FlatList,
-    ActivityIndicator,
     Platform,
     RefreshControl,
     StyleSheet,
@@ -393,14 +392,9 @@ export default function HomeScreen() {
         if (isMounted.current && revision === fetchRevision.current) setHomeData(data);
     }, [t, dataKey]);
 
-    const [isLoading, setIsLoading] = React.useState(!cachedData);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const isInitialLoadDone = React.useRef(Boolean(cachedData));
 
-    const loadAllHomeData = React.useCallback(async (showFullLoader: boolean) => {
-        if (showFullLoader) {
-            setIsLoading(true);
-        }
+    const loadAllHomeData = React.useCallback(async () => {
         try {
             await Promise.all([
                 fetchHomeData(),
@@ -409,11 +403,6 @@ export default function HomeScreen() {
             ]);
         } catch (e) {
             console.error('[HomeScreen] Error loading home data:', e);
-        } finally {
-            if (showFullLoader && isMounted.current) {
-                setIsLoading(false);
-                isInitialLoadDone.current = true;
-            }
         }
     }, [fetchHomeData]);
 
@@ -439,7 +428,7 @@ export default function HomeScreen() {
                 if (!recentMedia.length || !recentPlaylists.length) {
                     void HistoryService.initializeDefaultsIfNeeded();
                 }
-                void loadAllHomeData(!isInitialLoadDone.current);
+                void loadAllHomeData();
                 void NotificationService.getUnreadCount();
             });
         }, [loadAllHomeData])
@@ -888,7 +877,6 @@ export default function HomeScreen() {
                                 <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
                             </View>
                         )}
-                        {isLoading && <ActivityIndicator style={{ position: 'absolute', right: 20, top: 8 }} size="small" color={colors.accent} />}
                     </View>
                 }
                 renderItem={({ item: section, index }) => {

@@ -16,7 +16,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import TrackPlayer, { RepeatMode } from 'react-native-track-player';
+import TrackPlayer, { RepeatMode, useProgress } from 'react-native-track-player';
 import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 
@@ -381,8 +381,9 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const playbackPitch = usePlayerStore(state => state.playbackPitch);
     const isSpeedPitchActive = playbackSpeed !== 1 || playbackPitch !== 1;
 
-    const progress = usePlaybackSnapshotStore();
-    const isCurrentProgress = progress.trackId === track.id.toString();
+    const progress = useProgress();
+    const progressTrackId = usePlaybackSnapshotStore(snapshot => snapshot.trackId);
+    const isCurrentProgress = progressTrackId === track.id.toString();
     const position = isCurrentProgress ? progress.position : 0;
     const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const hasNext = usePlayerStore(state => state.hasNext);

@@ -8,6 +8,7 @@ import java.nio.ByteOrder
 import java.util.Locale
 
 data class ReplayGainTags(var gain: Double? = null, var peak: Double? = null) {
+    internal var readSucceeded = true
     fun accept(key: String, value: String) {
         val number = value.trim().replace(Regex("(?i)\\s*dB$"), "").trim().trimEnd('\u0000')
             .toDoubleOrNull()?.takeIf { it.isFinite() } ?: return
@@ -38,7 +39,10 @@ object ReplayGainReader {
                     else -> readMp4(file, 0, file.length(), tags, 0)
                 }
             }
-        } catch (_: Exception) { /* Missing or malformed metadata is optional. */ }
+        } catch (_: Exception) {
+            // Keep playback tolerant of malformed metadata, but don't cache a failed file read.
+            tags.readSucceeded = false
+        }
         return tags
     }
 

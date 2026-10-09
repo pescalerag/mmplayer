@@ -112,7 +112,7 @@ index 9b48e32..411ad73 100644
              .setDisplayName("Next")
              .setSessionCommand(SessionCommand("NEXT", Bundle()))
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
-index a0f995c..8b2c389 100644
+index a0f995c..75be9ec 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
 @@ -58,6 +58,7 @@ abstract class BaseAudioPlayer internal constructor(
@@ -147,6 +147,7 @@ index dd4bd40..c13f278 100644
      /**
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt
 new file mode 100644
+index 0000000..e6bbcd3
 --- /dev/null
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt
 @@ -0,0 +1,89 @@
@@ -241,6 +242,7 @@ new file mode 100644
 +}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt
 new file mode 100644
+index 0000000..dc27443
 --- /dev/null
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt
 @@ -0,0 +1,26 @@
@@ -272,6 +274,7 @@ new file mode 100644
 +}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainRenderersFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainRenderersFactory.kt
 new file mode 100644
+index 0000000..6f125b3
 --- /dev/null
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainRenderersFactory.kt
 @@ -0,0 +1,61 @@
@@ -382,7 +385,7 @@ index 13a6c60..c1de4b5 100644
  
      override fun setRepeatMode(mode: Double, callback: Promise) = launchInScope {
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..9ecb5fd 100644
+index b495b5a..1c3f8f5 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture
@@ -454,19 +457,23 @@ index b495b5a..9ecb5fd 100644
      }
  
      enum class AppKilledPlaybackBehavior(val string: String) {
-@@ -170,8 +196,9 @@ class MusicService : HeadlessJsMediaService() {
-             // HACK: this is not supposed to be here. I definitely screwed up. but Why?
-             onMediaKeyEvent(intent)
-         }
+@@ -166,12 +192,9 @@ class MusicService : HeadlessJsMediaService() {
+     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+         onStartCommandIntentValid = intent != null
+         Timber.d("onStartCommand: ${intent?.action}, ${intent?.`package`}")
+-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+-            // HACK: this is not supposed to be here. I definitely screwed up. but Why?
+-            onMediaKeyEvent(intent)
+-        }
 -        // HACK: Why is onPlay triggering onStartCommand??
 -        if (!commandStarted) {
-+        // Let Media3 dispatch every notification intent, including custom actions on Android < 13.
++        // Media3 dispatches media keys through onMediaButtonEvent; dispatching here too skips twice.
 +        // HeadlessJsMediaService already guards JS task initialization; ignore only repeated null starts.
 +        if (!commandStarted || intent != null) {
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
          }
-@@ -211,6 +238,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +234,9 @@ class MusicService : HeadlessJsMediaService() {
          player = QueuedAudioPlayer(this@MusicService, options)
          fakePlayer.release()
          mediaSession.player = player.forwardingPlayer
@@ -476,7 +483,7 @@ index b495b5a..9ecb5fd 100644
          observeEvents()
      }
  
-@@ -290,12 +320,25 @@ class MusicService : HeadlessJsMediaService() {
+@@ -290,12 +316,25 @@ class MusicService : HeadlessJsMediaService() {
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -502,7 +509,7 @@ index b495b5a..9ecb5fd 100644
          val sessionCommandsBuilder =
              MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
          customLayout.forEach { v ->
-@@ -305,18 +348,12 @@ class MusicService : HeadlessJsMediaService() {
+@@ -305,18 +344,12 @@ class MusicService : HeadlessJsMediaService() {
          sessionCommands = sessionCommandsBuilder.build()
          playerCommands = playerCommandsBuilder.build()
  
@@ -526,14 +533,15 @@ index b495b5a..9ecb5fd 100644
      }
  
      @MainThread
-@@ -443,12 +480,36 @@ class MusicService : HeadlessJsMediaService() {
+@@ -443,12 +476,36 @@ class MusicService : HeadlessJsMediaService() {
      @MainThread
      fun getCurrentTrackIndex(): Int = player.currentIndex
  
 +    private var lastSpeed: Float = 1.0f
 +    private var lastPitch: Float = 1.0f
 +
-+    @MainThread
+     @MainThread
+-    fun getRate(): Float = player.playbackSpeed
 +    fun applyPlaybackParameters(speed: Float, pitch: Float) {
 +        lastSpeed = if (speed.isFinite() && speed > 0f) speed.coerceIn(0.25f, 4.0f) else 1.0f
 +        lastPitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
@@ -546,8 +554,7 @@ index b495b5a..9ecb5fd 100644
 +        }
 +    }
 +
-     @MainThread
--    fun getRate(): Float = player.playbackSpeed
++    @MainThread
 +    fun getRate(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.speed else lastSpeed
  
      @MainThread
@@ -565,7 +572,7 @@ index b495b5a..9ecb5fd 100644
      }
  
      @MainThread
-@@ -495,8 +556,41 @@ class MusicService : HeadlessJsMediaService() {
+@@ -495,8 +552,41 @@ class MusicService : HeadlessJsMediaService() {
          }
      }
  
@@ -607,7 +614,7 @@ index b495b5a..9ecb5fd 100644
          updateMetadataForTrack(player.currentIndex, bundle)
      }
  
-@@ -538,12 +632,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -538,12 +628,21 @@ class MusicService : HeadlessJsMediaService() {
  
          scope.launch {
              event.audioItemTransition.collect {
@@ -629,7 +636,7 @@ index b495b5a..9ecb5fd 100644
              }
          }
  
-@@ -792,12 +895,33 @@ class MusicService : HeadlessJsMediaService() {
+@@ -792,12 +891,33 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onDestroy() {
@@ -666,7 +673,7 @@ index b495b5a..9ecb5fd 100644
          progressUpdateJob?.cancel()
          super.onDestroy()
      }
-@@ -905,24 +1029,17 @@ class MusicService : HeadlessJsMediaService() {
+@@ -905,24 +1025,17 @@ class MusicService : HeadlessJsMediaService() {
                      onStartCommand(null, 0, 0)
                  }
              }
@@ -702,7 +709,7 @@ index b495b5a..9ecb5fd 100644
          }
  
          override fun onCustomCommand(
-@@ -931,6 +1048,14 @@ class MusicService : HeadlessJsMediaService() {
+@@ -931,6 +1044,14 @@ class MusicService : HeadlessJsMediaService() {
              command: SessionCommand,
              args: Bundle
          ): ListenableFuture<SessionResult> {
@@ -717,7 +724,7 @@ index b495b5a..9ecb5fd 100644
              player.forwardingPlayer.let {
                  when (command.customAction) {
                      CustomCommandButton.JUMP_BACKWARD.customAction -> { it.seekBack() }
-@@ -983,6 +1108,23 @@ class MusicService : HeadlessJsMediaService() {
+@@ -983,6 +1104,23 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      companion object {
@@ -905,6 +912,7 @@ index 0b188b7..eaca4de 100644
   *
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
 new file mode 100644
+index 0000000..0cf68b2
 --- /dev/null
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
 @@ -0,0 +1,45 @@
@@ -954,9 +962,10 @@ new file mode 100644
 +    }
 +}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
+index f8b9ca1..91fc6ef 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
-@@ -115,8 +115,8 @@
+@@ -115,8 +115,8 @@ class MediaFactory (
          factory: DataSource.Factory
      ): ProgressiveMediaSource {
          return ProgressiveMediaSource.Factory(

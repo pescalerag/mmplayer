@@ -4,30 +4,16 @@ import TrackPlayer, {
     Event,
     useTrackPlayerEvents
 } from 'react-native-track-player';
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { consumeUserQueueTransition, usePlayerStore } from '../../store/usePlayerStore';
 import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStore';
 import { subscribeToQueueSnapshot } from '../../store/useQueueSnapshotStore';
-import { useCastStore } from '../../store/useCastStore';
 
-const forwardLocalCastPlayback = async (track: any) => {
+const resumeTrackPlayback = async (track: any) => {
     const isRestoring = usePlayerStore.getState().isRestoring;
-    const { isLocalCastActive, isCastPlaying } = useCastStore.getState();
-    // Native skips preserve play intent themselves. Local cast alone needs
-    // the override to forward a play command to its remote client.
-    if (!isRestoring && track?.id && isLocalCastActive && isCastPlaying) {
+    // Restore v2.3.2: moving to another song starts playback even from pause.
+    // Restoration itself still respects the saved paused state.
+    if (!isRestoring && track?.id) {
         await TrackPlayer.play();
-    }
-};
-
-const updateUserQueueSlot = (index?: number, lastIndex?: number) => {
-    // Si avanzamos hacia adelante, consumimos los slots correspondientes de la user queue
-    if (index !== undefined && lastIndex !== undefined && index > lastIndex) {
-        const { userQueueSize } = usePlayerStore.getState();
-        if (userQueueSize > 0) {
-            const steps = index - lastIndex;
-            const newSize = Math.max(0, userQueueSize - steps);
-            usePlayerStore.setState({ userQueueSize: newSize });
-        }
     }
 };
 
@@ -52,11 +38,11 @@ export const handleActiveTrackChangedEvent = async (event: any) => {
     // Consume manual slots immediately on a real song change, not after DB metadata.
     // Insertions before the playing entry can change its index without changing the song.
     if (!event.lastTrack?.id || event.lastTrack.id !== track?.id) {
-        updateUserQueueSlot(index, lastIndex);
+        consumeUserQueueTransition({ ...event, track, index, lastIndex });
     }
 
     await Promise.all([
-        forwardLocalCastPlayback(track),
+        resumeTrackPlayback(track),
         track?.id
             ? usePlayerStore.getState().setActiveTrackById(track.id, track.instanceId)
             : Promise.resolve(),
