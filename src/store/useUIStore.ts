@@ -1,5 +1,17 @@
 import { create } from 'zustand';
 import { useTagFormStore } from './useTagFormStore';
+import type Album from '../database/models/Album';
+import type Artist from '../database/models/Artist';
+
+export interface TrackMenuMetadata {
+  coverUrl: string | null;
+  artistName: string | null;
+  albumId: string | null;
+  artists: Artist[];
+}
+
+// Any new opening or dismissal invalidates pending track metadata requests.
+let sheetRequestId = 0;
 
 export type SheetType =
   | 'track-menu'
@@ -41,13 +53,41 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   activeSheet: null,
   sheetProps: null,
-  openSheet: (type, props = {}) => set({ activeSheet: type, sheetProps: props }),
-  closeSheet: () => set({ activeSheet: null, sheetProps: null }),
+  openSheet: (type, props = {}) => {
+    sheetRequestId++;
+    set({ activeSheet: type, sheetProps: props });
+  },
+  closeSheet: () => {
+    sheetRequestId++;
+    set({ activeSheet: null, sheetProps: null });
+  },
 }));
 
 // ----- HELPERS DE APERTURA PARA CADA SHEET -----
-export const openTrackMenu = (track: any, callbacks: any = {}, playlistId?: string) =>
-  useUIStore.getState().openSheet('track-menu', { track, callbacks, playlistId });
+export const openTrackMenu = async (track: any, callbacks: any = {}, playlistId?: string) => {
+  const requestId = ++sheetRequestId;
+  let album: Album | null = track?.albumObj ?? null;
+  let artists: Artist[] = track?.artistsList ?? [];
+
+  if (track?.album?.fetch || track?.queryCollaborators?.fetch) {
+    const [albumResult, artistsResult] = await Promise.allSettled([
+      Promise.resolve().then(() => track.album?.fetch() as Promise<Album | null> | undefined),
+      Promise.resolve().then(() => track.queryCollaborators?.fetch() as Promise<Artist[]> | undefined),
+    ]);
+    if (albumResult.status === 'fulfilled') album = albumResult.value ?? album;
+    if (artistsResult.status === 'fulfilled') artists = artistsResult.value ?? artists;
+  }
+
+  if (requestId !== sheetRequestId) return;
+
+  const metadata: TrackMenuMetadata = {
+    coverUrl: album?.coverUrl || track?.coverUrl || null,
+    artistName: artists.length ? artists.map(artist => artist.name).join(', ') : track?.artistName || null,
+    albumId: album?.id || null,
+    artists,
+  };
+  useUIStore.getState().openSheet('track-menu', { track, callbacks, playlistId, metadata });
+};
 
 export const openLyricsMenu = (track: any, callbacks: any = {}) =>
   useUIStore.getState().openSheet('lyrics-menu', { track, callbacks });

@@ -16,6 +16,7 @@ interface BaseMenuSheetProps {
   title?: string;
   subtitle?: string;
   coverUrl?: string | null;
+  imageTransition?: number;
   placeholderIcon?: keyof typeof Ionicons.prototype.props.name | string;
   placeholderIconColor?: string;
   headerLeft?: React.ReactNode;
@@ -27,6 +28,7 @@ export function BaseMenuSheet({
   title,
   subtitle,
   coverUrl,
+  imageTransition = 200,
   placeholderIcon,
   placeholderIconColor,
   headerLeft,
@@ -49,7 +51,7 @@ export function BaseMenuSheet({
               source={{ uri: coverUrl }}
               style={[styles.thumbnail, circularImage && { borderRadius: 28 }]}
               contentFit="cover"
-              transition={200}
+              transition={imageTransition}
             />
           ) : placeholderIcon ? (
             <View style={[styles.thumbnail, styles.placeholder, circularImage && { borderRadius: 28 }]}>
