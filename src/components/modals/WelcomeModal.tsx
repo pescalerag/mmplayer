@@ -1,3 +1,4 @@
+import { APP_LANGUAGES } from '../../constants/languages';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -340,20 +341,19 @@ export default function WelcomeModal() {
                 <View style={styles.card}>
                     <Text style={styles.cardHeader}>{t('settings.language')}</Text>
                     <View style={styles.languageButtons}>
-                        <TouchableOpacity
-                            style={[styles.langBtn, language === 'es' && styles.langBtnActive]}
-                            onPress={() => setLanguage('es')}
-                        >
-                            <Text style={styles.langEmoji}>🇪🇸</Text>
-                            <Text style={[styles.langText, language === 'es' && styles.langTextActive]}>Español</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.langBtn, language === 'en' && styles.langBtnActive]}
-                            onPress={() => setLanguage('en')}
-                        >
-                            <Text style={styles.langEmoji}>🇬🇧</Text>
-                            <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>English</Text>
-                        </TouchableOpacity>
+                        {APP_LANGUAGES.map(option => (
+                            <TouchableOpacity
+                                key={option.code}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: language === option.code }}
+                                style={[styles.langBtn, language === option.code && styles.langBtnActive]}
+                                onPress={() => setLanguage(option.code)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.langEmoji}>{option.emoji}</Text>
+                                <Text style={[styles.langText, language === option.code && styles.langTextActive]}>{option.name}</Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 </View>
 
@@ -649,12 +649,12 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         lineHeight: 14,
     },
     languageButtons: {
-        flexDirection: 'row',
+        flexDirection: 'column',
         gap: 12,
         marginTop: 8,
     },
     langBtn: {
-        flex: 1,
+        width: '100%',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

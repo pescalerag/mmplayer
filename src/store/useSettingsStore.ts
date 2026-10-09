@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import i18n from '../constants/i18n';
+import { getDefaultLanguage } from '../constants/languages';
 
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
 export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
@@ -56,6 +57,8 @@ interface SettingsState {
     setHasAskedNotificationPermission: (value: boolean) => void;
     language: string | null;
     setLanguage: (lang: string) => void;
+    portugueseLanguageOffer: 'unseen' | 'pending' | 'handled';
+    setPortugueseLanguageOffer: (status: 'unseen' | 'pending' | 'handled') => void;
     hideSyncToastOnResume: boolean;
     setHideSyncToastOnResume: (value: boolean) => void;
     swipeLeftAction: SwipeAction;
@@ -153,13 +156,17 @@ export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Act
 export type HomeSection = 'recent_media' | 'stats' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore' | 'shuffle_button';
 
 function initLanguage(state: SettingsState): void {
+    const systemLanguage = Localization.getLocales()[0]?.languageCode ?? 'es';
+    const isExistingInstallation = state.hasSeenWelcomeModal || !!state.lastSeenVersion;
+    const offerPortuguese = isExistingInstallation && getDefaultLanguage(systemLanguage) === 'pt'
+        && !!state.language && !state.language.startsWith('pt');
     if (!state.language) {
-        const locales = Localization.getLocales();
-        const systemLanguage = locales[0]?.languageCode ?? 'es';
-        const defaultLang = systemLanguage.startsWith('es') ? 'es' : 'en';
-        state.setLanguage(defaultLang);
+        state.setLanguage(getDefaultLanguage(systemLanguage));
     } else {
         void i18n.changeLanguage(state.language);
+    }
+    if (!state.portugueseLanguageOffer || state.portugueseLanguageOffer === 'unseen') {
+        state.setPortugueseLanguageOffer(offerPortuguese ? 'pending' : 'handled');
     }
 }
 
@@ -382,8 +389,10 @@ export const useSettingsStore = create<SettingsState>()(
             hasAskedNotificationPermission: false,
             setHasAskedNotificationPermission: (value) => set({ hasAskedNotificationPermission: value }),
             language: null,
+            portugueseLanguageOffer: 'unseen',
+            setPortugueseLanguageOffer: (status) => set({ portugueseLanguageOffer: status }),
             setLanguage: (lang) => {
-                set({ language: lang });
+                set({ language: lang, portugueseLanguageOffer: 'handled' });
                 void i18n.changeLanguage(lang);
             },
             homeProfilePosition: 'left',

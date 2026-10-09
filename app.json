@@ -37,7 +37,7 @@
         "backgroundImage": "./src/assets/images/android-icon-background.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 31,
+      "versionCode": 32,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",

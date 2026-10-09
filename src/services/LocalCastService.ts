@@ -371,7 +371,7 @@ export const LocalCastService = {
 
                 // ── GET / — Web client HTML (LocalCast for PC) ──────────────────────
                 if (method === 'GET' && pathname === '/') {
-                    const currentLang = i18n.language?.startsWith('es') ? 'es' : 'en';
+                    const currentLang = i18n.language || 'en';
                     const translations: LocalCastTranslations = {
                         appTitle: i18n.t('localcast_client.app_title', { defaultValue: 'MMPlayer LocalCast' }),
                         noSong: i18n.t('localcast_client.no_song', { defaultValue: 'No hay canción' }),

@@ -19,7 +19,7 @@ export const SmartListService = {
   getSmartLists(language = i18n.language): SmartList[] {
     const now = new Date();
     const lang = language || 'es';
-    const isEs = lang.startsWith('es');
+    const translate = i18n.getFixedT(lang);
 
     const monthName = now.toLocaleDateString(lang, { month: 'long' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
@@ -28,8 +28,8 @@ export const SmartListService = {
       // ─── LISTAS SEGÚN TUS ESCUCHAS ───
       {
         id: 'top_50_week',
-        name: isEs ? 'Tu Semana' : 'Your Week',
-        description: isEs ? 'Tus 50 canciones más escuchadas de esta semana' : 'Your 50 most played tracks this week',
+        name: translate('smart_playlists.week_title'),
+        description: translate('smart_playlists.week_desc'),
         placeholderIcon: 'time-outline',
         group: 'listening',
         getTracks: async () => {
@@ -39,8 +39,8 @@ export const SmartListService = {
       },
       {
         id: 'top_50_month',
-        name: isEs ? `Mes de ${capitalizedMonth}` : `${capitalizedMonth} Month`,
-        description: isEs ? `Tus 50 canciones más escuchadas en ${monthName}` : `Your 50 most played tracks in ${monthName}`,
+        name: translate('smart_playlists.month_title', { month: capitalizedMonth }),
+        description: translate('smart_playlists.month_desc', { month: monthName }),
         placeholderIcon: 'calendar-outline',
         group: 'listening',
         getTracks: async () => {
@@ -50,8 +50,8 @@ export const SmartListService = {
       },
       {
         id: 'top_50',
-        name: isEs ? 'Tus más escuchadas' : 'Your Most Listened',
-        description: isEs ? 'Tus 50 canciones más escuchadas en MMPlayer' : 'Your 50 most listened tracks in MMPlayer',
+        name: translate('smart_playlists.all_title'),
+        description: translate('smart_playlists.all_desc'),
         placeholderIcon: 'stats-chart-outline',
         group: 'listening',
         getTracks: async () => {
@@ -62,8 +62,8 @@ export const SmartListService = {
       // ─── LISTAS SEGÚN PUNTUACIÓN ───
       {
         id: 'rating_unrated',
-        name: isEs ? 'Sin puntuar' : 'Unrated',
-        description: isEs ? 'Canciones que aún no han sido valoradas' : 'Songs without a rating',
+        name: translate('smart_playlists.unrated_title'),
+        description: translate('smart_playlists.unrated_desc'),
         placeholderIcon: 'star-outline',
         group: 'rating',
         getTracks: async () => {
@@ -77,8 +77,8 @@ export const SmartListService = {
       },
       {
         id: 'rating_1_2',
-        name: isEs ? '1-2 estrellas' : '1-2 Stars',
-        description: isEs ? 'Canciones valoradas entre 1 y 2 estrellas' : 'Songs rated 1 to 2 stars',
+        name: translate('smart_playlists.rating_title', { range: '1-2' }),
+        description: translate('smart_playlists.rating_desc', { min: 1, max: 2 }),
         placeholderIcon: 'star-outline',
         group: 'rating',
         getTracks: async () => {
@@ -89,8 +89,8 @@ export const SmartListService = {
       },
       {
         id: 'rating_2_3',
-        name: isEs ? '2-3 estrellas' : '2-3 Stars',
-        description: isEs ? 'Canciones valoradas entre 2 y 3 estrellas' : 'Songs rated 2 to 3 stars',
+        name: translate('smart_playlists.rating_title', { range: '2-3' }),
+        description: translate('smart_playlists.rating_desc', { min: 2, max: 3 }),
         placeholderIcon: 'star-half-outline',
         group: 'rating',
         getTracks: async () => {
@@ -101,8 +101,8 @@ export const SmartListService = {
       },
       {
         id: 'rating_3_4',
-        name: isEs ? '3-4 estrellas' : '3-4 Stars',
-        description: isEs ? 'Canciones valoradas entre 3 y 4 estrellas' : 'Songs rated 3 to 4 stars',
+        name: translate('smart_playlists.rating_title', { range: '3-4' }),
+        description: translate('smart_playlists.rating_desc', { min: 3, max: 4 }),
         placeholderIcon: 'star-half-outline',
         group: 'rating',
         getTracks: async () => {
@@ -113,8 +113,8 @@ export const SmartListService = {
       },
       {
         id: 'rating_4_5',
-        name: isEs ? '4-5 estrellas' : '4-5 Stars',
-        description: isEs ? 'Canciones con valoración de 4 a 5 estrellas' : 'Songs rated between 4 and 5 stars',
+        name: translate('smart_playlists.rating_title', { range: '4-5' }),
+        description: translate('smart_playlists.rating_top_desc'),
         placeholderIcon: 'star',
         group: 'rating',
         getTracks: async () => {
@@ -125,8 +125,8 @@ export const SmartListService = {
       },
       {
         id: 'rating_5',
-        name: isEs ? '5 estrellas' : '5 Stars',
-        description: isEs ? 'Canciones con valoración perfecta de 5 estrellas' : 'Songs with perfect 5-star rating',
+        name: translate('smart_playlists.perfect_title'),
+        description: translate('smart_playlists.perfect_desc'),
         placeholderIcon: 'star',
         group: 'rating',
         getTracks: async () => {
@@ -183,10 +183,6 @@ export const SmartListService = {
           Q.where('genre', Q.notEq(''))
         )
         .fetch();
-
-      const lang = i18n.language || 'es';
-      const isEs = lang.startsWith('es');
-
       const genreSet = new Set<string>();
       for (const t of tracks) {
         const g = t.genre?.trim();
@@ -200,7 +196,7 @@ export const SmartListService = {
       return sortedGenres.map(genre => ({
         id: `genre_${encodeURIComponent(genre)}`,
         name: genre,
-        description: isEs ? `Canciones del género ${genre}` : `${genre} songs`,
+        description: i18n.t('library.smart_genre_desc', { genre }),
         placeholderIcon: 'disc-outline',
         group: 'genre' as const,
         genre,

@@ -76,6 +76,7 @@ const mockTrackPlayer = {
   getRate: jest.fn().mockResolvedValue(1.0),
   getPitch: jest.fn().mockResolvedValue(1.0),
   getQueue: jest.fn().mockResolvedValue([]),
+  getTrack: jest.fn(async (index) => (await mockTrackPlayer.getQueue())[index]),
   getActiveTrack: jest.fn().mockResolvedValue(null),
   getActiveTrackIndex: jest.fn().mockResolvedValue(0),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),
