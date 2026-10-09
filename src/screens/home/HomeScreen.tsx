@@ -10,9 +10,9 @@ import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Dimensions,
+    FlatList,
     Platform,
     RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -36,15 +36,15 @@ import { HomeSection, useSettingsStore } from '../../store/useSettingsStore';
 import { MediaCard } from '@/components/cards/MediaCard';
 import { StatsWidget } from '@/components/cards/StatsWidget';
 import { GlobalShuffleButton } from '@/components/common/GlobalShuffleButton';
-import { SkeletonHomeScreen } from '@/components/common/Skeleton';
 import { HorizontalCarousel } from '@/components/layouts/HorizontalCarousel';
-import { useDelayedLoader } from '@/hooks/useDelayedLoader';
 import { NotificationService } from '../../services/NotificationService';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { shuffleArray } from '../../utils/shuffle';
 import Animated from 'react-native-reanimated';
-import { getSectionFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
+import { RetainedResource } from '@/utils/retainedResource';
+import { scheduleScreenRefresh } from '@/utils/scheduleScreenRefresh';
 
 const { width } = Dimensions.get('window');
 
@@ -208,8 +208,7 @@ const mapAlbumToMediaItem = async (album: Album) => {
 };
 
 const mapTrackToMediaItem = async (track: Track) => {
-    const artist = await track.artist.fetch();
-    const album = await track.album.fetch();
+    const [artist, album] = await Promise.all([track.artist.fetch(), track.album.fetch()]);
     return {
         id: track.id,
         type: 'track' as const,
@@ -304,12 +303,23 @@ const fetchExploreAlbums = async (): Promise<Album[]> => {
         .fetch();
 };
 
+interface HomeData {
+    recentlyAdded: Awaited<ReturnType<typeof mapAlbumToMediaItem>>[];
+    mostPlayed: Awaited<ReturnType<typeof mapTrackToMediaItem>>[];
+    explore: Awaited<ReturnType<typeof mapAlbumToMediaItem>>[];
+    smartLists: Awaited<ReturnType<typeof fetchSmartListData>>;
+}
+
+const homeDataResource = new RetainedResource<HomeData>(2);
+const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
+
 export default function HomeScreen() {
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const cascade = useCascadeEntry();
     const [headerHeight, setHeaderHeight] = React.useState(100);
 
     const recentMediaRaw = usePlayerStore(state => state.recentMedia);
@@ -347,41 +357,44 @@ export default function HomeScreen() {
     const isActuallyPlaying = playbackStateRN.state === State.Playing || playbackStateRN.state === State.Buffering;
     const unreadNotificationsCount = useNotificationStore((state) => state.unreadCount);
 
-    const [recentlyAdded, setRecentlyAdded] = React.useState<any[]>([]);
-    const [mostPlayed, setMostPlayed] = React.useState<any[]>([]);
-    const [explore, setExplore] = React.useState<any[]>([]);
-    const [smartLists, setSmartLists] = React.useState<any[]>([]);
+    const dataKey = i18n.language;
+    const cachedData = homeDataResource.read(dataKey);
+    const [homeData, setHomeData] = React.useState(cachedData ?? EMPTY_HOME_DATA);
+    const { recentlyAdded, mostPlayed, explore, smartLists } = homeData;
+    const fetchRevision = React.useRef(0);
+    const isMounted = React.useRef(true);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     const fetchHomeData = React.useCallback(async () => {
-        try {
-            const smartListsData = await fetchSmartListData(t);
-            setSmartLists(smartListsData);
+        const revision = ++fetchRevision.current;
+        const previous = homeDataResource.read(dataKey) ?? EMPTY_HOME_DATA;
+        const retainOnError = async <T,>(load: () => Promise<T>, fallback: T): Promise<T> => {
+            try { return await load(); }
+            catch (error) {
+                console.error('[HomeScreen] Error loading section:', error);
+                return fallback;
+            }
+        };
+        const data = await homeDataResource.load(dataKey, async () => {
+            const [added, popular, random, smart] = await Promise.all([
+                retainOnError(async () => Promise.all((await fetchRecentlyAddedAlbums()).map(mapAlbumToMediaItem)), previous.recentlyAdded),
+                retainOnError(async () => Promise.all((await HistoryService.getMostPlayedTracks(10)).map(mapTrackToMediaItem)), previous.mostPlayed),
+                retainOnError(async () => Promise.all((await fetchExploreAlbums()).map(mapAlbumToMediaItem)), previous.explore),
+                retainOnError(() => fetchSmartListData(t), previous.smartLists),
+            ]);
+            return { recentlyAdded: added, mostPlayed: popular, explore: random, smartLists: smart };
+        });
+        if (isMounted.current && revision === fetchRevision.current) setHomeData(data);
+    }, [t, dataKey]);
 
-            const addedAlbums = await fetchRecentlyAddedAlbums();
-            const mappedAdded = await Promise.all(addedAlbums.map(mapAlbumToMediaItem));
-            setRecentlyAdded(mappedAdded);
-
-            const popularTracks = await HistoryService.getMostPlayedTracks(10);
-            const mappedPopular = await Promise.all(popularTracks.map(mapTrackToMediaItem));
-            setMostPlayed(mappedPopular);
-
-            const randomAlbums = await fetchExploreAlbums();
-            const mappedExplore = await Promise.all(randomAlbums.map(mapAlbumToMediaItem));
-            setExplore(mappedExplore);
-        } catch (e) {
-            console.error("Error loading modular home data:", e);
-        }
-    }, [t]);
-
-    const [isLoading, setIsLoading] = React.useState(true);
-    const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 500 });
     const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const isInitialLoadDone = React.useRef(false);
 
-    const loadAllHomeData = React.useCallback(async (showFullLoader: boolean) => {
-        if (showFullLoader) {
-            setIsLoading(true);
-        }
+    const loadAllHomeData = React.useCallback(async () => {
         try {
             await Promise.all([
                 fetchHomeData(),
@@ -390,13 +403,6 @@ export default function HomeScreen() {
             ]);
         } catch (e) {
             console.error('[HomeScreen] Error loading home data:', e);
-        } finally {
-            if (showFullLoader) {
-                requestAnimationFrame(() => {
-                    setIsLoading(false);
-                    isInitialLoadDone.current = true;
-                });
-            }
         }
     }, [fetchHomeData]);
 
@@ -411,18 +417,20 @@ export default function HomeScreen() {
         } catch (e) {
             console.error('[HomeScreen] Error refreshing home data:', e);
         } finally {
-            setIsRefreshing(false);
+            if (isMounted.current) setIsRefreshing(false);
         }
     }, [fetchHomeData]);
 
-    useEffect(() => {
-        void HistoryService.initializeDefaultsIfNeeded();
-    }, []);
-
     useFocusEffect(
         React.useCallback(() => {
-            void loadAllHomeData(!isInitialLoadDone.current);
-            void NotificationService.getUnreadCount();
+            return scheduleScreenRefresh(() => {
+                const { recentMedia, recentPlaylists } = usePlayerStore.getState();
+                if (!recentMedia.length || !recentPlaylists.length) {
+                    void HistoryService.initializeDefaultsIfNeeded();
+                }
+                void loadAllHomeData();
+                void NotificationService.getUnreadCount();
+            });
         }, [loadAllHomeData])
     );
 
@@ -695,10 +703,6 @@ export default function HomeScreen() {
             <View
                 onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
                 style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
                     paddingTop: insets.top + 16,
                     paddingBottom: 12,
                     paddingHorizontal: 20,
@@ -846,55 +850,45 @@ export default function HomeScreen() {
                 </View>
             </View>
 
-            {/* CAPA DE CONTENIDO */}
-            {(() => {
-                if (showLoader) {
-                    return <SkeletonHomeScreen topOffset={headerHeight + 16} />;
+            {/* Mount the visible sections first; refresh after the first paint. */}
+            <FlatList
+                data={visibleSections}
+                keyExtractor={section => `home-section-${section}`}
+                initialNumToRender={2}
+                maxToRenderPerBatch={2}
+                updateCellsBatchingPeriod={32}
+                windowSize={5}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingTop: 16, paddingBottom: 200 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={handleRefresh}
+                        tintColor={colors.accentLight || colors.accent}
+                        colors={[colors.accent]}
+                    />
                 }
-                if (isLoading) {
-                    return null;
-                }
-                return (
-                    <ScrollView
-                        style={{ flex: 1 }}
-                        contentContainerStyle={{ paddingTop: headerHeight + 16, paddingBottom: 200 }}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={isRefreshing}
-                                onRefresh={handleRefresh}
-                                tintColor={colors.accentLight || colors.accent}
-                                colors={[colors.accent]}
-                            />
-                        }
-                    >
-                        {/* Saludo Principal Fijo */}
+                ListHeaderComponent={
+                    <View>
                         {showHomeGreeting && (
                             <View style={styles.greetingContainer}>
-                                <Text style={styles.welcomeText}>
-                                    {t(getGreetingKey())}
-                                </Text>
+                                <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
                             </View>
                         )}
-
-                        {/* Modular Sections Render */}
-                        {visibleSections.map((section, sectionIndex) => {
-                            const content = renderSectionContent(section);
-                            if (!content) return null;
-
-                            return (
-                                <Animated.View
-                                    key={`home-section-${section}`}
-                                    entering={getSectionFadeIn(sectionIndex)}
-                                >
-                                    {content}
-                                </Animated.View>
-                            );
-                        })}
-                    </ScrollView>
-                );
-            })()}
+                    </View>
+                }
+                renderItem={({ item: section, index }) => {
+                    const content = renderSectionContent(section);
+                    if (!content) return null;
+                    return (
+                        <Animated.View entering={cascade.section(index)}>
+                            {content}
+                        </Animated.View>
+                    );
+                }}
+            />
         </View>
     );
 }
@@ -1021,7 +1015,7 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
         },
         greetingContainer: {
             paddingHorizontal: horizPadding,
-            marginBottom: 16,
+            marginBottom: 12,
             marginTop: 4,
         },
         welcomeText: {

@@ -50,9 +50,8 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { Colors, Layout } from "../../theme/theme";
 import { getDynamicTagTextColor } from '../../utils/color';
 
-import { SkeletonSearchScreen } from "@/components/common/Skeleton";
 import { useDelayedLoader } from "@/hooks/useDelayedLoader";
-import { getRowFadeIn, getTagFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { useTranslation } from "react-i18next";
 import Animated from 'react-native-reanimated';
 import { HistoryService } from "../../services/HistoryService";
@@ -287,19 +286,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const NORMAL_CARD_WIDTH = (SCREEN_WIDTH - 40 - 12) / 2;
 const GENRE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 40 - 24) / 3);
 
-const getGenreQuery = (genre: string) => {
-  return database.collections.get<Track>('tracks').query(
-    Q.where('genre', genre),
-    Q.sortBy('title', Q.asc)
-  );
-};
-
-const SearchGenreCard = withObservables(
-  ['genre'],
-  ({ genre }: { genre: string }) => ({
-    tracks: getGenreQuery(genre).observe().pipe(catchError(() => of([]))),
-  })
-)(function SearchGenreCardWrapper({
+const SearchGenreCard = React.memo(function SearchGenreCard({
   smartList,
   tracks,
   cardWidth,
@@ -761,18 +748,11 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
   const navigation = useNavigation<SearchNavigationProp>();
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [isReady, setIsReady] = useState(false);
-  const showInitialLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+  const cascade = useCascadeEntry();
 
-  useEffect(() => {
-    // A brief delay to allow WatermelonDB query to settle and populate tags
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const [genreLists, setGenreLists] = useState<SmartList[]>([]);
+  const genreCascade = useCascadeEntry();
+  const [genreLists, setGenreLists] = useState<SmartList[] | null>(null);
+  const [genreTracks, setGenreTracks] = useState<Record<string, Track[]>>({});
 
   useEffect(() => {
     const sub = database.collections.get<Track>('tracks')
@@ -780,7 +760,7 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
         Q.where('genre', Q.notEq(null)),
         Q.where('genre', Q.notEq(''))
       )
-      .observe()
+      .observeWithColumns(['genre'])
       .pipe(catchError(() => of([])))
       .subscribe((tracks) => {
         const genreSet = new Set<string>();
@@ -805,6 +785,12 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
             ).fetch();
           }
         }));
+        const tracksByGenre: Record<string, Track[]> = Object.create(null);
+        for (const track of tracks) {
+          const genre = track.genre?.trim();
+          if (genre) (tracksByGenre[genre] ??= []).push(track);
+        }
+        setGenreTracks(tracksByGenre);
         setGenreLists(lists);
       });
 
@@ -826,10 +812,10 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
 
   useFocusEffect(
     useCallback(() => {
-      if (!hasSeenSearchTutorial && isReady) {
+      if (!hasSeenSearchTutorial) {
         setIsTutorialVisible(true);
       }
-    }, [hasSeenSearchTutorial, isReady])
+    }, [hasSeenSearchTutorial])
   );
 
   const handleCloseTutorial = useCallback(() => {
@@ -846,28 +832,35 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
   const [advancedSearchResults, setAdvancedSearchResults] = useState<Track[]>([]);
   const [isAdvancedLoading, setIsAdvancedLoading] = useState(false);
 
+  const advancedSearchRevision = useRef(0);
+  useEffect(() => () => { advancedSearchRevision.current++; }, []);
+
   const executeAdvancedTagSearch = useCallback(async (
     includes: string[],
     excludes: string[],
     matchAll: boolean,
     noPlaylists: boolean
   ) => {
+    const revision = ++advancedSearchRevision.current;
     setIsAdvancedLoading(true);
     try {
-      const excludedTrackIds = await getExcludedTrackIds(excludes, noPlaylists);
-      const candidateTrackIds = await getCandidateTrackIds(includes, matchAll);
+      const [excludedTrackIds, candidateTrackIds] = await Promise.all([
+        getExcludedTrackIds(excludes, noPlaylists), getCandidateTrackIds(includes, matchAll),
+      ]);
       const matchingTrackIds = candidateTrackIds.filter(id => !excludedTrackIds.has(id));
       const tracks = await fetchTracksByIds(matchingTrackIds);
-      setAdvancedSearchResults(tracks);
+      if (revision === advancedSearchRevision.current) setAdvancedSearchResults(tracks);
     } catch (e) {
       console.error('Error executing advanced tag search:', e);
-      setAdvancedSearchResults([]);
+      if (revision === advancedSearchRevision.current) setAdvancedSearchResults([]);
     } finally {
-      setIsAdvancedLoading(false);
+      if (revision === advancedSearchRevision.current) setIsAdvancedLoading(false);
     }
   }, []);
 
   const handleClearAdvancedSearch = useCallback(() => {
+    advancedSearchRevision.current++;
+    setIsAdvancedLoading(false);
     setIsAdvancedSearching(false);
     setAdvancedIncludes([]);
     setAdvancedExcludes([]);
@@ -1174,7 +1167,7 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
               {tags.map((tag, index) => (
                 <Animated.View
                   key={tag.id}
-                  entering={getTagFadeIn(index)}
+                  entering={cascade.tag(index)}
                   ref={index === 0 ? firstTagRef : undefined}
                   collapsable={false}
                   onLayout={index === 0 ? (e) => {
@@ -1200,11 +1193,11 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
       )}
 
       {/* Exploración por géneros */}
-      {!isCurrentlySearching && (
+      {!isCurrentlySearching && genreLists !== null && (
         <View style={styles.genresSection}>
-          <View style={styles.tagsSectionHeader}>
+          <Animated.View entering={genreCascade.row(0, 1)} style={styles.tagsSectionHeader}>
             <Text style={styles.tagsSectionTitle}>{t('search.explore_genres') || 'Exploración por género'}</Text>
-          </View>
+          </Animated.View>
           {genreLists.length === 0 ? (
             <Text style={styles.noTagsText}>
               {t('search.no_genres') || 'No se encontraron canciones con género en tu biblioteca.'}
@@ -1214,10 +1207,10 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
               {genreLists.map((list, index) => (
                 <Animated.View
                   key={list.id}
-                  entering={getRowFadeIn(index, 3)}
+                  entering={genreCascade.row(Math.floor(index / 3) + 1, 1)}
                 >
                   <SearchGenreCard
-                    genre={list.genre || list.name}
+                    tracks={genreTracks[list.genre || list.name] || []}
                     smartList={list}
                     cardWidth={GENRE_CARD_WIDTH}
                     onPress={() => {
@@ -1289,14 +1282,14 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
   );
 
   const renderContent = () => {
-    if (isReady) {
-      return (
+    return (
         <FlashList
+          style={{ flex: 1 }}
           ref={flatListRef}
           data={listTracks}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={renderHeader()}
           onEndReached={() => {
             if (activeFilter === "tracks" && !isAdvancedSearching) {
               void loadMoreTracks();
@@ -1310,7 +1303,7 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
             />
           }
           contentContainerStyle={{
-            paddingTop: headerHeight + 10,
+            paddingTop: 10,
             paddingBottom:
               Layout.MINI_PLAYER_HEIGHT +
               Layout.TAB_BAR_HEIGHT +
@@ -1333,14 +1326,7 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         />
-      );
-    }
-
-    if (showInitialLoader) {
-      return <SkeletonSearchScreen topOffset={headerHeight + 10} />;
-    }
-
-    return null;
+    );
   };
 
   return (
@@ -1376,10 +1362,6 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
       <View
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
         style={[styles.searchGradient, {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
           paddingTop: insets.top + 10,
           zIndex: 10,
         }]}

@@ -26,26 +26,6 @@ interface ActivityCustomDateModalProps {
   onApply?: (startDate: Date, endDate: Date) => void;
 }
 
-const MONTH_NAMES_ES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-];
-
-const MONTH_NAMES_EN = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-const SHORT_MONTH_NAMES_ES = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-];
-
-const SHORT_MONTH_NAMES_EN = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-];
-
 export default function ActivityCustomDateModal(props?: ActivityCustomDateModalProps) {
   const store = useCustomDateModalStore();
 
@@ -61,12 +41,10 @@ export default function ActivityCustomDateModal(props?: ActivityCustomDateModalP
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const isSpanish = (i18n.language || 'es').startsWith('es');
-  const monthNames = isSpanish ? MONTH_NAMES_ES : MONTH_NAMES_EN;
-  const shortMonthNames = isSpanish ? SHORT_MONTH_NAMES_ES : SHORT_MONTH_NAMES_EN;
-  const weekDayHeaders = isSpanish
-    ? ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-    : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const locale = i18n.language || 'en';
+  const monthNames = Array.from({ length: 12 }, (_, month) => new Date(2024, month, 1).toLocaleDateString(locale, { month: 'long' }));
+  const shortMonthNames = Array.from({ length: 12 }, (_, month) => new Date(2024, month, 1).toLocaleDateString(locale, { month: 'short' }));
+  const weekDayHeaders = Array.from({ length: 7 }, (_, day) => new Date(2024, 0, 1 + day).toLocaleDateString(locale, { weekday: 'narrow' }));
 
   // Fechas de referencia fijas al inicio del día
   const now = useMemo(() => new Date(), []);
@@ -327,7 +305,7 @@ export default function ActivityCustomDateModal(props?: ActivityCustomDateModalP
   }, [selectedStart, selectedEnd, firstHistoryDate, now, onApply, onClose]);
 
   const formatDateDisplay = (date: Date) => {
-    return date.toLocaleDateString(isSpanish ? 'es-ES' : 'en-US', {
+    return date.toLocaleDateString(locale, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -457,7 +435,7 @@ export default function ActivityCustomDateModal(props?: ActivityCustomDateModalP
                   <Ionicons name="time-outline" size={12} color={colors.accentLight} style={{ marginRight: 4 }} />
                   <Text style={[styles.infoBadgeText, { fontFamily: fonts.regular, color: colors.textSecondary }]}>
                     {t('activity.custom_date_first_record', {
-                      date: firstHistoryDate.toLocaleDateString(isSpanish ? 'es-ES' : 'en-US', { day: 'numeric', month: 'short' }),
+                      date: firstHistoryDate.toLocaleDateString(locale, { day: 'numeric', month: 'short' }),
                     })}
                   </Text>
                 </View>

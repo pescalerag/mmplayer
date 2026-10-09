@@ -72,6 +72,69 @@ describe('useUIStore & sheet helpers', () => {
     expect(useUIStore.getState().activeSheet).toBe('notification-settings');
   });
 
+  it('opens the track menu only after its cover and all artists are ready', async () => {
+    let resolveAlbum!: (value: any) => void;
+    let resolveArtists!: (value: any) => void;
+    const albumPromise = new Promise(resolve => { resolveAlbum = resolve; });
+    const artistsPromise = new Promise(resolve => { resolveArtists = resolve; });
+    const track = {
+      id: 'track-1',
+      album: { fetch: () => albumPromise },
+      queryCollaborators: { fetch: () => artistsPromise },
+    };
+    const callbacks = { album: jest.fn() };
+    const opening = openTrackMenu(track, callbacks, 'playlist-1');
+    expect(useUIStore.getState().activeSheet).toBeNull();
+
+    resolveAlbum({ id: 'album-1', coverUrl: 'file:///cover.jpg' });
+    await Promise.resolve();
+    expect(useUIStore.getState().activeSheet).toBeNull();
+
+    const artists = [{ id: 'artist-1', name: 'First' }, { id: 'artist-2', name: 'Second' }];
+    resolveArtists(artists);
+    await opening;
+    expect(useUIStore.getState().activeSheet).toBe('track-menu');
+    expect(useUIStore.getState().sheetProps).toEqual({
+      track, callbacks, playlistId: 'playlist-1',
+      metadata: { coverUrl: 'file:///cover.jpg', artistName: 'First, Second', albumId: 'album-1', artists },
+    });
+  });
+
+  it.each(['another-track', 'another-sheet', 'close'])('ignores a pending track opening after %s', async (action) => {
+    let resolveAlbum!: (value: any) => void;
+    const albumPromise = new Promise(resolve => { resolveAlbum = resolve; });
+    const opening = openTrackMenu({ id: 'old', album: { fetch: () => albumPromise } });
+
+    if (action === 'another-track') await openTrackMenu({ id: 'new' });
+    else if (action === 'another-sheet') openAlbumMenu({ id: 'new-album' });
+    else useUIStore.getState().closeSheet();
+    const expectedState = useUIStore.getState();
+
+    resolveAlbum({ id: 'old-album', coverUrl: 'file:///old.jpg' });
+    await opening;
+    expect(useUIStore.getState()).toBe(expectedState);
+  });
+
+  it('keeps artist metadata available when the album query fails', async () => {
+    const artists = [{ id: 'artist-1', name: 'Artist' }];
+    await openTrackMenu({
+      id: 'track-1',
+      album: { fetch: () => Promise.reject(new Error('Album unavailable')) },
+      queryCollaborators: { fetch: () => Promise.resolve(artists) },
+    });
+    expect(useUIStore.getState().activeSheet).toBe('track-menu');
+    expect(useUIStore.getState().sheetProps.metadata).toEqual({
+      coverUrl: null, artistName: 'Artist', albumId: null, artists,
+    });
+  });
+
+  it('uses the available cover and artist for external tracks', async () => {
+    await openTrackMenu({ id: 'ext_1', coverUrl: 'file:///external.jpg', artistName: 'External artist' });
+    expect(useUIStore.getState().sheetProps.metadata).toEqual({
+      coverUrl: 'file:///external.jpg', artistName: 'External artist', albumId: null, artists: [],
+    });
+  });
+
   it('tests various other sheet openers for full coverage', () => {
     openTrackMenu({ id: '1' }, {}, 'p1');
     expect(useUIStore.getState().activeSheet).toBe('track-menu');

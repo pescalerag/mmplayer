@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { Metric, getItemStatLabel } from '../../screens/activity/utils/activityStatUtils';
 import Animated from 'react-native-reanimated';
-import { getItemFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 
 interface ActivityRankedItemProps {
   readonly rank: number;
@@ -80,6 +80,7 @@ export function ActivityRankedList({
   metric,
   onItemPress,
 }: ActivityRankedListProps) {
+  const cascade = useCascadeEntry();
   const { t } = useTranslation();
 
   return (
@@ -128,7 +129,7 @@ export function ActivityRankedList({
         }
 
         return (
-          <Animated.View key={item.id} entering={getItemFadeIn(index)}>
+          <Animated.View key={item.id} entering={cascade.item(index)}>
             {content}
           </Animated.View>
         );

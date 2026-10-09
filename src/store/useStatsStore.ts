@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { HistoryService } from '../services/HistoryService';
+import { RetainedResource } from '../utils/retainedResource';
+
+const weeklyStatsResource = new RetainedResource<Awaited<ReturnType<typeof HistoryService.getWeeklyStats>>>(1);
 
 interface StatsState {
     totalHours: number;
@@ -35,11 +38,11 @@ export const useStatsStore = create<StatsState>((set) => ({
     topSongImg: null,
     topSongArtist: '',
     topSongDuration: 0,
-    isLoading: false,
+    isLoading: true,
     fetchStats: async () => {
-        set({ isLoading: true });
+        set({ isLoading: weeklyStatsResource.read('weekly') === undefined });
         try {
-            const stats = await HistoryService.getWeeklyStats();
+            const stats = await weeklyStatsResource.load('weekly', () => HistoryService.getWeeklyStats());
             set({
                 totalHours: stats.totalHours,
                 topArtist: stats.topArtist,

@@ -209,5 +209,9 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 19,
+      steps: [addColumns({ table: "tracks", columns: [{ name: "replay_peak", type: "number", isOptional: true }] })],
+    },
   ],
 });

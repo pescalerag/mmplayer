@@ -48,3 +48,7 @@ export async function releaseEqualizer(): Promise<void> {
 export async function extractColorFromImage(imageUrl: string): Promise<string> {
     return await NativeEqualizerModule.extractColorFromImage(imageUrl);
 }
+
+export async function setReplayGainSettings(enabled: boolean, preamp: number, fallback: number): Promise<void> {
+    return NativeEqualizerModule.setReplayGainSettings(enabled, preamp, fallback);
+}

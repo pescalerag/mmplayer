@@ -10,39 +10,6 @@ index 0000000..bbe97e5
 +	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
 +	<classpathentry kind="output" path="bin/default"/>
 +</classpath>
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock b/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock
-new file mode 100644
-index 0000000..c0b8adb
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/checksums/checksums.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/dependencies-accessors/gc.properties b/node_modules/react-native-track-player/android/.gradle/8.9/dependencies-accessors/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin b/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin
-new file mode 100644
-index 0000000..f76dd23
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/fileChanges/last-build.bin differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock b/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock
-new file mode 100644
-index 0000000..b1ddc5b
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/8.9/fileHashes/fileHashes.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/8.9/gc.properties b/node_modules/react-native-track-player/android/.gradle/8.9/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
-new file mode 100644
-index 0000000..a0ca4b9
-Binary files /dev/null and b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
-diff --git a/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties
-new file mode 100644
-index 0000000..ecdab01
---- /dev/null
-+++ b/node_modules/react-native-track-player/android/.gradle/buildOutputCleanup/cache.properties
-@@ -0,0 +1,2 @@
-+#Wed Sep 30 15:52:47 CEST 2026
-+gradle.version=8.9
-diff --git a/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties b/node_modules/react-native-track-player/android/.gradle/vcs-1/gc.properties
-new file mode 100644
-index 0000000..e69de29
 diff --git a/node_modules/react-native-track-player/android/.project b/node_modules/react-native-track-player/android/.project
 new file mode 100644
 index 0000000..52e8720
@@ -101,6 +68,27 @@ index 0000000..626e0e1
 +org.eclipse.jdt.core.compiler.codegen.targetPlatform=17
 +org.eclipse.jdt.core.compiler.compliance=17
 +org.eclipse.jdt.core.compiler.source=17
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt
+index 5a1b2bf..757c1c8 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt
+@@ -29,6 +29,16 @@ open class AudioItem(
+             }
+             putString("type", type.toString())
+             putString("uri", audioUrl)
++            if (this@AudioItem is com.doublesymmetry.trackplayer.model.TrackAudioItem) {
++                if (track.originalItem.containsKey("replayGain")) {
++                    val gainVal = track.originalItem.get("replayGain")
++                    if (gainVal is Number) putDouble("replayGain", gainVal.toDouble())
++                }
++                if (track.originalItem.containsKey("replayPeak")) {
++                    val peakVal = track.originalItem.get("replayPeak")
++                    if (peakVal is Number) putDouble("replayPeak", peakVal.toDouble())
++                }
++            }
+         }
+         val mediaMetadata = MediaMetadata.Builder()
+             .setTitle(title)
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/CustomCommandButton.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/CustomCommandButton.kt
 index 9b48e32..411ad73 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/CustomCommandButton.kt
@@ -123,6 +111,27 @@ index 9b48e32..411ad73 100644
          commandButton = CommandButton.Builder()
              .setDisplayName("Next")
              .setSessionCommand(SessionCommand("NEXT", Bundle()))
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
+index a0f995c..75be9ec 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
+@@ -58,6 +58,7 @@ abstract class BaseAudioPlayer internal constructor(
+     private val scope = MainScope()
+     private var cache: SimpleCache? = null
+     val playerEventHolder = PlayerEventHolder()
++    val replayGainRenderer = ReplayGainRenderersFactory(context)
+ 
+     private var wasDucking = false
+     private val focusManager: FocusManager = FocusManager()
+@@ -161,7 +162,7 @@ abstract class BaseAudioPlayer internal constructor(
+         }
+         playerEventHolder.updateAudioPlayerState(AudioPlayerState.IDLE)
+ 
+-        val renderer = DefaultRenderersFactory(context)
++        val renderer = replayGainRenderer
+         renderer.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+         exoPlayer = ExoPlayer
+             .Builder(context)
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
 index dd4bd40..c13f278 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
@@ -136,6 +145,200 @@ index dd4bd40..c13f278 100644
      }
  
      /**
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt
+new file mode 100644
+index 0000000..e6bbcd3
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt
+@@ -0,0 +1,89 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import android.content.Context
++import androidx.media3.common.C
++import androidx.media3.common.Format
++import androidx.media3.common.audio.AudioProcessor.AudioFormat
++import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
++import androidx.media3.common.audio.BaseAudioProcessor
++import androidx.media3.extractor.metadata.id3.TextInformationFrame
++import androidx.media3.extractor.metadata.id3.InternalFrame
++import androidx.media3.extractor.metadata.vorbis.VorbisComment
++import java.nio.ByteBuffer
++import java.nio.ByteOrder
++
++/** Per-buffer PCM gain, separate from player volume (fades, ducking and Cast mute). */
++class ReplayGainAudioProcessor(context: Context) : BaseAudioProcessor() {
++    private val preferences = context.getSharedPreferences("mmplayer_replay_gain", Context.MODE_PRIVATE)
++    private var lastFormat: Format? = null
++    private var trackGain: Double? = null
++    private var trackPeak: Double? = null
++    private var explicitGain: Double? = null
++    private var explicitPeak: Double? = null
++    @Volatile private var gain = 1.0
++
++    private fun updateGain() {
++        val effectiveGain = trackGain ?: explicitGain
++        val effectivePeak = trackPeak ?: explicitPeak
++        gain = ReplayGainMath.multiplier(
++            preferences.getBoolean("enabled", false), effectiveGain, effectivePeak,
++            preferences.getFloat("preamp", 0f).toDouble(),
++            preferences.getFloat("fallback", -6f).toDouble()
++        )
++    }
++
++    fun selectFormat(format: Format) {
++        if (lastFormat !== format) {
++            lastFormat = format
++            trackGain = null
++            trackPeak = null
++            explicitGain = null
++            explicitPeak = null
++            format.metadata?.let { metadata ->
++                for (i in 0 until metadata.length()) {
++                    when (val entry = metadata[i]) {
++                        is VorbisComment -> readTag(entry.key, entry.value)
++                        is TextInformationFrame -> if (entry.id == "TXXX") {
++                            readTag(entry.description ?: "", entry.values.firstOrNull() ?: "")
++                        }
++                        is InternalFrame -> when (entry.domain) {
++                            "org.hydrogenaudio.replaygain", "com.apple.iTunes" -> readTag(entry.description, entry.text)
++                            "mmplayer.replaygain" -> {
++                                val number = entry.text.toDoubleOrNull()?.takeIf { it.isFinite() }
++                                if (entry.description == "gain") explicitGain = number
++                                if (entry.description == "peak") explicitPeak = number?.takeIf { it > 0 }
++                            }
++                        }
++                    }
++                }
++            }
++        }
++        updateGain()
++    }
++
++    private fun readTag(key: String, value: String) {
++        val number = value.trim().replace(Regex("(?i)\\s*dB$"), "").trim().toDoubleOrNull()
++            ?.takeIf { it.isFinite() } ?: return
++        when (key.trim().uppercase(java.util.Locale.ROOT)) {
++            "REPLAYGAIN_TRACK_GAIN" -> trackGain = number
++            "REPLAYGAIN_TRACK_PEAK" -> if (number > 0) trackPeak = number
++            "REPLAYGAIN_ALBUM_GAIN" -> if (trackGain == null) trackGain = number
++            "REPLAYGAIN_ALBUM_PEAK" -> if (trackPeak == null && number > 0) trackPeak = number
++        }
++    }
++
++    override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
++        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
++            throw UnhandledAudioFormatException(inputAudioFormat)
++        }
++        // Always active, even at unity, so changing settings needs no decoder restart.
++        return inputAudioFormat
++    }
++
++    override fun queueInput(inputBuffer: ByteBuffer) {
++        val output = replaceOutputBuffer(inputBuffer.remaining()).order(ByteOrder.LITTLE_ENDIAN)
++        inputBuffer.order(ByteOrder.LITTLE_ENDIAN)
++        ReplayGainMath.processPcm16(inputBuffer, output, gain)
++        output.flip()
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt
+new file mode 100644
+index 0000000..dc27443
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainMath.kt
+@@ -0,0 +1,26 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import java.nio.ByteBuffer
++import kotlin.math.pow
++import kotlin.math.roundToInt
++
++/** Kept Android-free for signal-level regression tests. */
++object ReplayGainMath {
++    fun multiplier(enabled: Boolean, gainDb: Double?, peak: Double?, preampDb: Double, fallbackDb: Double): Double {
++        if (!enabled) return 1.0
++        val gain = gainDb?.takeIf { it.isFinite() } ?: fallbackDb.takeIf { it.isFinite() } ?: 0.0
++        val preamp = preampDb.takeIf { it.isFinite() } ?: 0.0
++        val requested = 10.0.pow((gain + preamp).coerceIn(-120.0, 60.0) / 20.0)
++        // Unknown peak: assume full scale, allowing attenuation but no unsafe boost.
++        val safePeak = peak?.takeIf { it.isFinite() && it > 0.0 } ?: 1.0
++        return minOf(requested, 1.0 / safePeak)
++    }
++
++    fun processPcm16(input: ByteBuffer, output: ByteBuffer, gain: Double) {
++        if (gain == 1.0) output.put(input)
++        else while (input.remaining() >= 2) output.putShort(scaleSample(input.short.toInt(), gain).toShort())
++    }
++
++    fun scaleSample(sample: Int, gain: Double): Int =
++        (sample * gain).roundToInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
++}
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainRenderersFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainRenderersFactory.kt
+new file mode 100644
+index 0000000..6f125b3
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainRenderersFactory.kt
+@@ -0,0 +1,61 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import android.content.Context
++import android.os.Handler
++import androidx.media3.common.Format
++import androidx.media3.common.MimeTypes
++import androidx.media3.exoplayer.DefaultRenderersFactory
++import androidx.media3.exoplayer.Renderer
++import androidx.media3.exoplayer.audio.AudioOffloadSupport
++import androidx.media3.exoplayer.audio.AudioRendererEventListener
++import androidx.media3.exoplayer.audio.AudioSink
++import androidx.media3.exoplayer.audio.DefaultAudioSink
++import androidx.media3.exoplayer.audio.ForwardingAudioSink
++import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
++import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter
++import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
++import java.nio.ByteBuffer
++
++class ReplayGainRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
++    val processor = ReplayGainAudioProcessor(context)
++
++    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink {
++        val sink = DefaultAudioSink.Builder(context)
++            .setEnableFloatOutput(false)
++            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
++            .setAudioProcessors(arrayOf(processor))
++            .build()
++        // Encoded passthrough/offload bypasses PCM processing. Decode locally so
++        // normalization also works when enabled during playback and over Bluetooth.
++        return object : ForwardingAudioSink(sink) {
++            override fun getFormatSupport(format: Format): Int =
++                if (format.sampleMimeType == MimeTypes.AUDIO_RAW) super.getFormatSupport(format)
++                else AudioSink.SINK_FORMAT_UNSUPPORTED
++            override fun supportsFormat(format: Format): Boolean =
++                getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
++            override fun getFormatOffloadSupport(format: Format): AudioOffloadSupport = AudioOffloadSupport.DEFAULT_UNSUPPORTED
++        }
++    }
++
++    override fun buildAudioRenderers(
++        context: Context, extensionRendererMode: Int, mediaCodecSelector: MediaCodecSelector,
++        enableDecoderFallback: Boolean, audioSink: AudioSink, eventHandler: Handler,
++        eventListener: AudioRendererEventListener, out: ArrayList<Renderer>
++    ) {
++        out.add(object : MediaCodecAudioRenderer(context, codecAdapterFactory, mediaCodecSelector,
++            enableDecoderFallback, eventHandler, eventListener, audioSink) {
++            override fun processOutputBuffer(
++                positionUs: Long, elapsedRealtimeUs: Long, codec: MediaCodecAdapter?, buffer: ByteBuffer?,
++                bufferIndex: Int, bufferFlags: Int, sampleCount: Int, bufferPresentationTimeUs: Long,
++                isDecodeOnlyBuffer: Boolean, isLastBuffer: Boolean, format: Format
++            ): Boolean {
++                // Format belongs to this decoded buffer, including when the decoder
++                // is reused for gapless playback. No JS event or DB read is involved.
++                processor.selectFormat(format)
++                return super.processOutputBuffer(positionUs, elapsedRealtimeUs, codec, buffer,
++                    bufferIndex, bufferFlags, sampleCount, bufferPresentationTimeUs,
++                    isDecodeOnlyBuffer, isLastBuffer, format)
++            }
++        })
++    }
++}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/service/MusicService.kt
 index 60b6871..e1bb0a1 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/service/MusicService.kt
@@ -151,10 +354,18 @@ index 60b6871..e1bb0a1 100644
      }
  
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-index 13a6c60..13ed2e7 100644
+index 13a6c60..c1de4b5 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-@@ -453,10 +453,17 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+@@ -155,6 +155,7 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+             this["CAPABILITY_SKIP_TO_NEXT"] = Capability.SKIP_TO_NEXT.ordinal
+             this["CAPABILITY_SKIP_TO_PREVIOUS"] = Capability.SKIP_TO_PREVIOUS.ordinal
+             this["CAPABILITY_SET_RATING"] = Capability.SET_RATING.ordinal
++            this["CAPABILITY_LIKE"] = Capability.LIKE.ordinal
+             this["CAPABILITY_JUMP_FORWARD"] = Capability.JUMP_FORWARD.ordinal
+             this["CAPABILITY_JUMP_BACKWARD"] = Capability.JUMP_BACKWARD.ordinal
+ 
+@@ -453,10 +454,17 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
          callback.resolve(null)
      }
  
@@ -174,7 +385,7 @@ index 13a6c60..13ed2e7 100644
  
      override fun setRepeatMode(mode: Double, callback: Promise) = launchInScope {
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..9b75d3f 100644
+index b495b5a..1c3f8f5 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture
@@ -185,7 +396,18 @@ index b495b5a..9b75d3f 100644
  import java.util.concurrent.TimeUnit
  import kotlin.system.exitProcess
  
-@@ -92,11 +93,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -67,6 +68,10 @@ class MusicService : HeadlessJsMediaService() {
+     private var sessionCommands: SessionCommands? = null
+     private var playerCommands: Player.Commands? = null
+     private var customLayout: List<CommandButton> = listOf()
++    private var favoriteActionEnabled = false
++    private var favoriteTrackId: String? = null
++    private var isFavorite = false
++    private var favoriteButtonEnabled = false
+     private var lastWake: Long = 0
+     var onStartCommandIntentValid: Boolean = true
+ 
+@@ -92,11 +97,29 @@ class MusicService : HeadlessJsMediaService() {
  
      @ExperimentalCoroutinesApi
      override fun onCreate() {
@@ -215,7 +437,7 @@ index b495b5a..9b75d3f 100644
          fakePlayer = ExoPlayer.Builder(this).build()
          val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
              flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-@@ -104,9 +123,11 @@ class MusicService : HeadlessJsMediaService() {
+@@ -104,9 +127,11 @@ class MusicService : HeadlessJsMediaService() {
              data = Uri.parse("trackplayer://notification.click")
              action = Intent.ACTION_VIEW
          }
@@ -227,7 +449,7 @@ index b495b5a..9b75d3f 100644
              .setBitmapLoader(CacheBitmapLoader(CoilBitmapLoader(this)))
              // https://github.com/androidx/media/issues/1218
              .setSessionActivity(
-@@ -119,6 +140,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -119,6 +144,7 @@ class MusicService : HeadlessJsMediaService() {
              )
              .build()
          super.onCreate()
@@ -235,16 +457,23 @@ index b495b5a..9b75d3f 100644
      }
  
      enum class AppKilledPlaybackBehavior(val string: String) {
-@@ -174,6 +196,8 @@ class MusicService : HeadlessJsMediaService() {
-         if (!commandStarted) {
+@@ -166,12 +192,9 @@ class MusicService : HeadlessJsMediaService() {
+     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+         onStartCommandIntentValid = intent != null
+         Timber.d("onStartCommand: ${intent?.action}, ${intent?.`package`}")
+-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+-            // HACK: this is not supposed to be here. I definitely screwed up. but Why?
+-            onMediaKeyEvent(intent)
+-        }
+-        // HACK: Why is onPlay triggering onStartCommand??
+-        if (!commandStarted) {
++        // Media3 dispatches media keys through onMediaButtonEvent; dispatching here too skips twice.
++        // HeadlessJsMediaService already guards JS task initialization; ignore only repeated null starts.
++        if (!commandStarted || intent != null) {
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
-+        } else if (intent != null && Intent.ACTION_MEDIA_BUTTON == intent.action) {
-+            super.onStartCommand(intent, flags, startId)
          }
-         return START_STICKY
-     }
-@@ -211,6 +235,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +234,9 @@ class MusicService : HeadlessJsMediaService() {
          player = QueuedAudioPlayer(this@MusicService, options)
          fakePlayer.release()
          mediaSession.player = player.forwardingPlayer
@@ -254,7 +483,7 @@ index b495b5a..9b75d3f 100644
          observeEvents()
      }
  
-@@ -290,10 +317,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -290,12 +316,25 @@ class MusicService : HeadlessJsMediaService() {
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -275,15 +504,44 @@ index b495b5a..9b75d3f 100644
 +            .filter { it != CustomCommandButton.PREVIOUS && it != CustomCommandButton.NEXT }
              .filter { notificationCapabilities.contains(it.capability) }
              .map { c -> c.commandButton }
++        favoriteActionEnabled = notificationCapabilities.contains(Capability.LIKE)
++        if (favoriteActionEnabled) customLayout = customLayout + favoriteCommandButton()
          val sessionCommandsBuilder =
-@@ -443,12 +481,36 @@ class MusicService : HeadlessJsMediaService() {
+             MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+         customLayout.forEach { v ->
+@@ -305,18 +344,12 @@ class MusicService : HeadlessJsMediaService() {
+         sessionCommands = sessionCommandsBuilder.build()
+         playerCommands = playerCommandsBuilder.build()
+ 
+-        if (mediaSession.mediaNotificationControllerInfo != null) {
+-            // https://github.com/androidx/media/blob/c35a9d62baec57118ea898e271ac66819399649b/demos/session_service/src/main/java/androidx/media3/demo/session/DemoMediaLibrarySessionCallback.kt#L107
+-            mediaSession.setCustomLayout(
+-                mediaSession.mediaNotificationControllerInfo!!,
+-                customLayout
+-            )
+-            mediaSession.setAvailableCommands(
+-                mediaSession.mediaNotificationControllerInfo!!,
+-                sessionCommandsBuilder.build(),
+-                playerCommands!!
+-            )
++        // Grant the action to controllers that connected before updateOptions, too.
++        mediaSession.connectedControllers.forEach { controller ->
++            mediaSession.setAvailableCommands(controller, sessionCommands!!, playerCommands!!)
+         }
++        // Broadcast icon changes to SystemUI, lock screen and connected controllers.
++        mediaSession.setMediaButtonPreferences(customLayout)
+     }
+ 
+     @MainThread
+@@ -443,12 +476,36 @@ class MusicService : HeadlessJsMediaService() {
      @MainThread
      fun getCurrentTrackIndex(): Int = player.currentIndex
  
 +    private var lastSpeed: Float = 1.0f
 +    private var lastPitch: Float = 1.0f
 +
-+    @MainThread
+     @MainThread
+-    fun getRate(): Float = player.playbackSpeed
 +    fun applyPlaybackParameters(speed: Float, pitch: Float) {
 +        lastSpeed = if (speed.isFinite() && speed > 0f) speed.coerceIn(0.25f, 4.0f) else 1.0f
 +        lastPitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
@@ -296,8 +554,7 @@ index b495b5a..9b75d3f 100644
 +        }
 +    }
 +
-     @MainThread
--    fun getRate(): Float = player.playbackSpeed
++    @MainThread
 +    fun getRate(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.speed else lastSpeed
  
      @MainThread
@@ -315,7 +572,61 @@ index b495b5a..9b75d3f 100644
      }
  
      @MainThread
-@@ -544,6 +606,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -495,8 +552,41 @@ class MusicService : HeadlessJsMediaService() {
+         }
+     }
+ 
++    private fun favoriteCommandButton(): CommandButton {
++        val matchesTrack = favoriteTrackId != null &&
++            favoriteTrackId == currentTrack?.originalItem?.getString("id")
++        val selected = matchesTrack && isFavorite
++        return CommandButton.Builder(
++            if (selected) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED
++        )
++            .setDisplayName(if (selected) "Remove from favorites" else "Add to favorites")
++            .setSessionCommand(SessionCommand(TOGGLE_FAVORITE, Bundle()))
++            .setSlots(CommandButton.SLOT_OVERFLOW)
++            .setEnabled(matchesTrack && favoriteButtonEnabled)
++            .build()
++    }
++
++    private fun refreshFavoriteButton() {
++        if (!favoriteActionEnabled) return
++        customLayout = customLayout.filter {
++            it.sessionCommand?.customAction != TOGGLE_FAVORITE
++        } + favoriteCommandButton()
++        mediaSession.setMediaButtonPreferences(customLayout)
++    }
++
+     @MainThread
+     fun updateNowPlayingMetadata(bundle: Bundle) {
++        if (bundle.containsKey("favoriteTrackId")) {
++            // A delayed DB read must never update a different queue entry's heart.
++            val queueId = bundle.getString("favoriteTrackId")
++            if (queueId != currentTrack?.originalItem?.getString("id")) return
++            favoriteTrackId = queueId
++            isFavorite = bundle.getBoolean("isFavorite")
++            favoriteButtonEnabled = bundle.getBoolean("favoriteEnabled", true)
++            refreshFavoriteButton()
++            // Heart-only updates must not replace the playing MediaItem.
++            return
++        }
+         updateMetadataForTrack(player.currentIndex, bundle)
+     }
+ 
+@@ -538,12 +628,21 @@ class MusicService : HeadlessJsMediaService() {
+ 
+         scope.launch {
+             event.audioItemTransition.collect {
++                if (favoriteTrackId != currentTrack?.originalItem?.getString("id")) {
++                    favoriteTrackId = null
++                    isFavorite = false
++                    favoriteButtonEnabled = false
++                    refreshFavoriteButton()
++                }
+                 if (it !is AudioItemTransitionReason.REPEAT) {
+                     emitPlaybackTrackChangedEvents(
+                         player.previousIndex,
                          (it?.oldPosition ?: 0).toSeconds()
                      )
                  }
@@ -325,7 +636,7 @@ index b495b5a..9b75d3f 100644
              }
          }
  
-@@ -792,12 +857,33 @@ class MusicService : HeadlessJsMediaService() {
+@@ -792,12 +891,33 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onDestroy() {
@@ -362,7 +673,7 @@ index b495b5a..9b75d3f 100644
          progressUpdateJob?.cancel()
          super.onDestroy()
      }
-@@ -905,24 +991,16 @@ class MusicService : HeadlessJsMediaService() {
+@@ -905,24 +1025,17 @@ class MusicService : HeadlessJsMediaService() {
                      onStartCommand(null, 0, 0)
                  }
              }
@@ -386,6 +697,7 @@ index b495b5a..9b75d3f 100644
 -            }
 +            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
 +                .setCustomLayout(customLayout)
++                .setMediaButtonPreferences(customLayout)
 +                .setAvailableSessionCommands(
 +                    sessionCommands
 +                        ?: MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
@@ -397,10 +709,26 @@ index b495b5a..9b75d3f 100644
          }
  
          override fun onCustomCommand(
-@@ -983,6 +1061,22 @@ class MusicService : HeadlessJsMediaService() {
+@@ -931,6 +1044,14 @@ class MusicService : HeadlessJsMediaService() {
+             command: SessionCommand,
+             args: Bundle
+         ): ListenableFuture<SessionResult> {
++            if (command.customAction == TOGGLE_FAVORITE) {
++                val queueId = currentTrack?.originalItem?.getString("id")
++                if (queueId == null || queueId != favoriteTrackId || !favoriteButtonEnabled) {
++                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_INVALID_STATE))
++                }
++                emit("remote-like", Bundle().apply { putString("trackId", queueId) })
++                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
++            }
+             player.forwardingPlayer.let {
+                 when (command.customAction) {
+                     CustomCommandButton.JUMP_BACKWARD.customAction -> { it.seekBack() }
+@@ -983,6 +1104,23 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      companion object {
++        private const val TOGGLE_FAVORITE = "TOGGLE_FAVORITE"
 +        @Volatile
 +        @JvmStatic
 +        var instance: MusicService? = null
@@ -420,6 +748,19 @@ index b495b5a..9b75d3f 100644
          const val EMPTY_NOTIFICATION_ID = 1
          const val STATE_KEY = "state"
          const val ERROR_KEY = "error"
+diff --git a/node_modules/react-native-track-player/lib/module/constants/Capability.js b/node_modules/react-native-track-player/lib/module/constants/Capability.js
+index 094a1ec..7adafdf 100644
+--- a/node_modules/react-native-track-player/lib/module/constants/Capability.js
++++ b/node_modules/react-native-track-player/lib/module/constants/Capability.js
+@@ -14,6 +14,7 @@ export let Capability = function (Capability) {
+   Capability[Capability["JumpForward"] = Constants?.CAPABILITY_JUMP_FORWARD ?? 10] = "JumpForward";
+   Capability[Capability["JumpBackward"] = Constants?.CAPABILITY_JUMP_BACKWARD ?? 11] = "JumpBackward";
+   Capability[Capability["SetRating"] = Constants?.CAPABILITY_SET_RATING ?? 12] = "SetRating";
++  Capability[Capability["Like"] = Constants?.CAPABILITY_LIKE ?? 13] = "Like";
+   return Capability;
+ }({});
+ //# sourceMappingURL=Capability.js.map
+\ No newline at end of file
 diff --git a/node_modules/react-native-track-player/lib/module/trackPlayer.js b/node_modules/react-native-track-player/lib/module/trackPlayer.js
 index d748072..b549a5d 100644
 --- a/node_modules/react-native-track-player/lib/module/trackPlayer.js
@@ -440,6 +781,55 @@ index d748072..b549a5d 100644
  /**
   * Sets the queue.
   *
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts b/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts
+index 6882f39..63389f8 100644
+--- a/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/NativeTrackPlayer.d.ts
+@@ -48,6 +48,7 @@ export interface Spec extends TurboModule {
+         CAPABILITY_SKIP_TO_NEXT: number;
+         CAPABILITY_SKIP_TO_PREVIOUS: number;
+         CAPABILITY_SET_RATING: number;
++    CAPABILITY_LIKE: number;
+         CAPABILITY_JUMP_FORWARD: number;
+         CAPABILITY_JUMP_BACKWARD: number;
+         STATE_NONE: string;
+@@ -86,6 +87,7 @@ export declare const Constants: {
+     CAPABILITY_SKIP_TO_NEXT: number;
+     CAPABILITY_SKIP_TO_PREVIOUS: number;
+     CAPABILITY_SET_RATING: number;
++    CAPABILITY_LIKE: number;
+     CAPABILITY_JUMP_FORWARD: number;
+     CAPABILITY_JUMP_BACKWARD: number;
+     STATE_NONE: string;
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts b/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts
+index 4840110..a0bc554 100644
+--- a/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/constants/Capability.d.ts
+@@ -10,6 +10,7 @@ export declare enum Capability {
+     SkipToPrevious,
+     JumpForward,
+     JumpBackward,
+-    SetRating
++    SetRating,
++    Like
+ }
+ //# sourceMappingURL=Capability.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts b/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts
+index b273a9e..8e47562 100644
+--- a/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/interfaces/NowPlayingMetadata.d.ts
+@@ -1,5 +1,9 @@
+ import type { TrackMetadataBase } from './TrackMetadataBase';
+ export interface NowPlayingMetadata extends TrackMetadataBase {
+     elapsedTime?: number;
++    /** Android: update only the heart for this exact queue entry, without replacing its media item. */
++    favoriteTrackId?: string;
++    isFavorite?: boolean;
++    favoriteEnabled?: boolean;
+ }
+ //# sourceMappingURL=NowPlayingMetadata.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts b/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
 index 85d300f..0ab7ba7 100644
 --- a/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
@@ -458,7 +848,7 @@ index 85d300f..0ab7ba7 100644
   * Sets the queue.
   *
 diff --git a/node_modules/react-native-track-player/src/NativeTrackPlayer.ts b/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
-index a5dcd75..7367a05 100644
+index a5dcd75..1e4c5d0 100644
 --- a/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
 +++ b/node_modules/react-native-track-player/src/NativeTrackPlayer.ts
 @@ -20,6 +20,7 @@ export interface Spec extends TurboModule {
@@ -469,6 +859,37 @@ index a5dcd75..7367a05 100644
    getProgress(): Promise<UnsafeObject>;
    getPlaybackState(): Promise<UnsafeObject>;
    retry(): Promise<void>;
+@@ -65,6 +66,7 @@ export interface Spec extends TurboModule {
+     CAPABILITY_SKIP_TO_NEXT: number;
+     CAPABILITY_SKIP_TO_PREVIOUS: number;
+     CAPABILITY_SET_RATING: number;
++    CAPABILITY_LIKE: number;
+     CAPABILITY_JUMP_FORWARD: number;
+     CAPABILITY_JUMP_BACKWARD: number;
+ 
+diff --git a/node_modules/react-native-track-player/src/constants/Capability.ts b/node_modules/react-native-track-player/src/constants/Capability.ts
+index d9ed3b1..1fed129 100644
+--- a/node_modules/react-native-track-player/src/constants/Capability.ts
++++ b/node_modules/react-native-track-player/src/constants/Capability.ts
+@@ -13,4 +13,5 @@ export enum Capability {
+   JumpForward = Constants?.CAPABILITY_JUMP_FORWARD ?? 10,
+   JumpBackward = Constants?.CAPABILITY_JUMP_BACKWARD ?? 11,
+   SetRating = Constants?.CAPABILITY_SET_RATING ?? 12,
++  Like = Constants?.CAPABILITY_LIKE ?? 13,
+ }
+diff --git a/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts b/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
+index 400b3fa..5a6a753 100644
+--- a/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
++++ b/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
+@@ -2,4 +2,8 @@ import type { TrackMetadataBase } from './TrackMetadataBase';
+ 
+ export interface NowPlayingMetadata extends TrackMetadataBase {
+   elapsedTime?: number;
++  /** Android: update only the heart for this exact queue entry, without replacing its media item. */
++  favoriteTrackId?: string;
++  isFavorite?: boolean;
++  favoriteEnabled?: boolean;
+ }
 diff --git a/node_modules/react-native-track-player/src/trackPlayer.ts b/node_modules/react-native-track-player/src/trackPlayer.ts
 index 0b188b7..eaca4de 100644
 --- a/node_modules/react-native-track-player/src/trackPlayer.ts
@@ -489,3 +910,69 @@ index 0b188b7..eaca4de 100644
  /**
   * Sets the queue.
   *
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
+new file mode 100644
+index 0000000..0cf68b2
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
+@@ -0,0 +1,45 @@
++package com.doublesymmetry.kotlinaudio.players.components
++
++import android.net.Uri
++import androidx.media3.common.MediaItem
++import androidx.media3.common.Format
++import androidx.media3.common.Metadata
++import androidx.media3.extractor.Extractor
++import androidx.media3.extractor.ExtractorOutput
++import androidx.media3.extractor.ExtractorsFactory
++import androidx.media3.extractor.TrackOutput
++import androidx.media3.extractor.metadata.id3.InternalFrame
++
++/** Bind DB fallback tags to this source's decoded Format, never a UI transition event. */
++class ReplayGainExtractorsFactory(item: MediaItem, private val delegate: ExtractorsFactory) : ExtractorsFactory {
++    private val extras = item.mediaMetadata.extras
++    // The markers are also present when tags are missing. A new track must clear
++    // the old explicit values before any of its samples enter the audio processor.
++    private val metadata = Metadata(
++        InternalFrame("mmplayer.replaygain", "gain", number("replayGain")),
++        InternalFrame("mmplayer.replaygain", "peak", number("replayPeak"))
++    )
++    private fun number(key: String): String =
++        if (extras?.containsKey(key) == true) extras.getDouble(key).toString() else ""
++
++    override fun createExtractors(): Array<Extractor> = delegate.createExtractors().map(::wrap).toTypedArray()
++    override fun createExtractors(uri: Uri, responseHeaders: Map<String, List<String>>): Array<Extractor> =
++        delegate.createExtractors(uri, responseHeaders).map(::wrap).toTypedArray()
++
++    private fun wrap(extractor: Extractor): Extractor = object : Extractor by extractor {
++        override fun init(output: ExtractorOutput) {
++            extractor.init(object : ExtractorOutput by output {
++                override fun track(id: Int, type: Int): TrackOutput {
++                    val track = output.track(id, type)
++                    return object : TrackOutput by track {
++                        override fun format(format: Format) {
++                            track.format(format.buildUpon().setMetadata(
++                                format.metadata?.copyWithAppendedEntriesFrom(metadata) ?: metadata
++                            ).build())
++                        }
++                    }
++                }
++            })
++        }
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
+index f8b9ca1..91fc6ef 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
+@@ -115,8 +115,8 @@ class MediaFactory (
+         factory: DataSource.Factory
+     ): ProgressiveMediaSource {
+         return ProgressiveMediaSource.Factory(
+-            factory, DefaultExtractorsFactory()
+-                .setConstantBitrateSeekingEnabled(true)
++            factory, ReplayGainExtractorsFactory(mediaItem, DefaultExtractorsFactory()
++                .setConstantBitrateSeekingEnabled(true))
+         )
+             .createMediaSource(mediaItem)
+     }

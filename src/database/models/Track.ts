@@ -21,6 +21,7 @@ export default class Track extends Model {
     @field('disc_number') discNumber: number | null;
     @field('last_modified') lastModified: number;
     @field('replay_gain') replayGain: number | null;
+    @field('replay_peak') replayPeak: number | null;
     @field('lyrics_lrc') lyricsLRC: string | null;
     @field('lyrics_fetch_failed') lyricsFetchFailed: boolean;
     @text('bg_video') bgVideo: string | null;

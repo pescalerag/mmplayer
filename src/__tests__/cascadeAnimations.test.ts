@@ -1,5 +1,7 @@
 import {
   getItemFadeIn,
+  createCascadeEntry,
+  CASCADE_ANIMATION_CONSTANTS,
   getRowFadeIn,
   getRowStaggerDelay,
   getSectionFadeIn,
@@ -7,12 +9,26 @@ import {
   getTagFadeIn,
 } from '../utils/cascadeAnimations';
 
+jest.mock('react-native-reanimated', () => ({
+  Easing: { quad: 'quad', out: (value: string) => `out:${value}` },
+  ReduceMotion: { System: 'system' },
+  FadeIn: {
+    duration: (duration: number) => ({
+      delay: (delay: number) => ({
+        easing: (easing: string) => ({
+          reduceMotion: (reduceMotion: string) => ({ duration, delay, easing, reduceMotion }),
+        }),
+      }),
+    }),
+  },
+}));
+
 describe('cascadeAnimations utility', () => {
   describe('getStaggerDelay', () => {
     it('returns index * staggerMs when index < maxItems', () => {
       expect(getStaggerDelay(0)).toBe(0);
       expect(getStaggerDelay(2, 50, 15)).toBe(100);
-      expect(getStaggerDelay(14, 50, 15)).toBe(700);
+      expect(getStaggerDelay(14, 50, 15)).toBe(240);
     });
 
     it('returns 0 when index >= maxItems', () => {
@@ -49,9 +65,9 @@ describe('cascadeAnimations utility', () => {
       expect(anim).toBeDefined();
     });
 
-    it('creates FadeIn animation without delay when index >= maxItems', () => {
+    it('renders directly when index >= maxItems', () => {
       const anim = getItemFadeIn(20);
-      expect(anim).toBeDefined();
+      expect(anim).toBeUndefined();
     });
   });
 
@@ -61,9 +77,9 @@ describe('cascadeAnimations utility', () => {
       expect(anim).toBeDefined();
     });
 
-    it('creates FadeIn animation without delay when index >= maxItems', () => {
+    it('renders directly when index >= maxItems', () => {
       const anim = getRowFadeIn(16, 3);
-      expect(anim).toBeDefined();
+      expect(anim).toBeUndefined();
     });
   });
 
@@ -73,9 +89,9 @@ describe('cascadeAnimations utility', () => {
       expect(anim).toBeDefined();
     });
 
-    it('creates FadeIn animation without delay when index >= maxItems', () => {
+    it('renders directly when index >= maxItems', () => {
       const anim = getTagFadeIn(30, 40, 25);
-      expect(anim).toBeDefined();
+      expect(anim).toBeUndefined();
     });
   });
 
@@ -86,5 +102,32 @@ describe('cascadeAnimations utility', () => {
       expect(anim0).toBeDefined();
       expect(anim2).toBeDefined();
     });
+  });
+});
+
+describe('cascade entry lifetime', () => {
+  it('starts when content arrives and stops animating later scroll or refresh mounts', () => {
+    let now = 0;
+    const entry = createCascadeEntry(() => now);
+    now = 5000;
+    expect(entry.item(0)).toBeDefined();
+    now += CASCADE_ANIMATION_CONSTANTS.ENTRY_WINDOW_MS + 1;
+    expect(entry.item(1)).toBeUndefined();
+    expect(entry.row(0, 3)).toBeUndefined();
+    expect(entry.tag(0)).toBeUndefined();
+    expect(entry.section(0)).toBeUndefined();
+  });
+
+  it('bounds the whole fade and respects reduced motion', () => {
+    expect(getSectionFadeIn(11)).toMatchObject({
+      duration: 320, delay: 240, easing: 'out:quad', reduceMotion: 'system',
+    });
+    expect(getTagFadeIn(11)).toMatchObject({ duration: 320, delay: 240 });
+    expect(getRowFadeIn(3, 3)).toMatchObject({ delay: 40 });
+    expect(getRowFadeIn(4, 3)).toMatchObject({ delay: 40 });
+    expect(getRowFadeIn(5, 3)).toMatchObject({ delay: 40 });
+    expect(getItemFadeIn(-1)).toBeUndefined();
+    expect(getItemFadeIn(1.5)).toBeUndefined();
+    expect(getItemFadeIn(12)).toBeUndefined();
   });
 });

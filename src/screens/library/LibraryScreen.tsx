@@ -1,12 +1,10 @@
 import { openAlbumMenu, openArtistMenu, openFolderMenu, openLibraryTabsOrder, openPlaylistMenu, openPlaylistSelectorCreate, openSortModal } from '@/store/useUIStore';
 
 import LibraryCard from '@/components/cards/LibraryCard';
-import { SkeletonLibraryGrid, SkeletonLibraryList } from '@/components/common/Skeleton';
 import ContextualSpotlightTutorial from '@/components/modals/ContextualSpotlightTutorial';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import TrackRow from '@/components/player/TrackRow';
-import { useDelayedLoader } from '@/hooks/useDelayedLoader';
-import { getItemFadeIn, getRowFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -20,8 +18,8 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { combineLatest, of } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -48,6 +46,8 @@ import { safeDecodeURIComponent } from '../../utils/safeDecode';
 
 
 // ----- CONSTANTES COMPARTIDAS -----
+const nameCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
 const { width } = Dimensions.get('window');
 type GridAlignment = 'flex-start' | 'center' | 'flex-end';
 const cardWidth = (width - 70) / 3;
@@ -111,7 +111,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
         return [...tracks].sort((a, b) => {
             const titleA = a.title || '';
             const titleB = b.title || '';
-            const cmp = titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
+            const cmp = nameCollator.compare(titleA, titleB);
             return isDesc ? -cmp : cmp;
         });
     }, [tracks, sortOption]);
@@ -150,34 +150,19 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
         );
     };
 
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
+    const cascade = useCascadeEntry();
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
-
-    const renderItem = React.useCallback((info: { item: Track; index: number }) => {
-        const { item, index } = info;
+    const renderItem = React.useCallback((info: { item: Track; index: number; target?: string }) => {
+        const { item, index, target } = info;
         return (
             <Animated.View
-                entering={getItemFadeIn(index)}
+                entering={target === 'Cell' ? cascade.item(index) : undefined}
                 style={{ minHeight: 64, width: '100%' }}
             >
                 <EnhancedTrackCard track={item} />
             </Animated.View>
         );
-    }, []);
-
-    if (!isReady) {
-        if (showLoader) {
-            return <SkeletonLibraryList topOffset={topOffset} />;
-        }
-        return null;
-    }
+    }, [cascade]);
 
     return (
         <FlashList
@@ -186,7 +171,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
             keyExtractor={t => t.id}
             renderItem={renderItem}
             contentContainerStyle={[styles.trackListContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
-            ListHeaderComponent={renderHeader}
+            ListHeaderComponent={renderHeader()}
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="musical-notes-outline"
@@ -243,15 +228,7 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 
 const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
+    const cascade = useCascadeEntry();
 
     const sortedAlbums = React.useMemo(() => {
         if (sortOption === 'year_asc' || sortOption === 'year_desc') {
@@ -264,24 +241,17 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             }
             const titleA = a.title || '';
             const titleB = b.title || '';
-            const cmp = titleA.localeCompare(titleB, undefined, { sensitivity: 'base', numeric: true });
+            const cmp = nameCollator.compare(titleA, titleB);
             return isDesc ? -cmp : cmp;
         });
     }, [albums, sortOption]);
-
-    if (!isReady) {
-        if (showLoader) {
-            return <SkeletonLibraryGrid topOffset={topOffset} type="album" />;
-        }
-        return null;
-    }
 
     return (
         <FlashList
             ref={scrollRef}
             data={sortedAlbums}
             keyExtractor={a => a.id}
-            renderItem={({ item, index }) => {
+            renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
                 const rem = index % 3;
                 if (rem === 0) {
@@ -291,7 +261,7 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
                 }
                 return (
                     <Animated.View
-                        entering={getRowFadeIn(index, 3)}
+                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
                         <EnhancedAlbumCard
@@ -361,15 +331,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
     const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
     const setArtistFilter = useLibraryStore(state => state.setArtistFilter);
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
+    const cascade = useCascadeEntry();
 
     const sortedArtists = React.useMemo(() => {
         const isDesc = sortOption === 'name_desc';
@@ -379,17 +341,10 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
             }
             const nameA = a.name || '';
             const nameB = b.name || '';
-            const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+            const cmp = nameCollator.compare(nameA, nameB);
             return isDesc ? -cmp : cmp;
         });
     }, [artists, sortOption]);
-
-    if (!isReady) {
-        if (showLoader) {
-            return <SkeletonLibraryGrid topOffset={topOffset} type="artist" />;
-        }
-        return null;
-    }
 
     return (
         <FlashList
@@ -398,7 +353,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
             data={sortedArtists}
             extraData={artistFilter}
             keyExtractor={a => a.id}
-            renderItem={({ item, index }) => {
+            renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
                 const rem = index % 3;
                 if (rem === 0) {
@@ -408,7 +363,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
                 }
                 return (
                     <Animated.View
-                        entering={getRowFadeIn(index, 3)}
+                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
                         <EnhancedArtistCard
@@ -637,118 +592,41 @@ const SmartListCardBase = memo(function SmartListCardBase({
     );
 });
 
-const RatingSmartListCard = withObservables(
-    ['smartListId'],
-    ({ smartListId }: { smartListId: string }) => ({
-        tracks: getRatingQuery(smartListId).observe().pipe(catchError(() => of([]))),
-    })
-)(function RatingSmartListCardWrapper({
-    smartList,
-    tracks,
-    colIndex,
-    onPress,
-}: {
-    smartList: SmartList;
-    tracks: Track[];
-    colIndex: number;
-    onPress: () => void;
-}) {
-    return (
-        <SmartListCardBase
-            smartList={smartList}
-            tracks={tracks}
-            colIndex={colIndex}
-            onPress={onPress}
-        />
-    );
-});
-
-const getGenreQuery = (genre: string) => {
-    return database.collections.get<Track>('tracks').query(
-        Q.where('genre', genre),
-        Q.sortBy('title', Q.asc)
-    );
-};
-
-const GenreSmartListCard = withObservables(
-    ['genre'],
-    ({ genre }: { genre: string }) => ({
-        tracks: getGenreQuery(genre).observe().pipe(catchError(() => of([]))),
-    })
-)(function GenreSmartListCardWrapper({
-    smartList,
-    tracks,
-    colIndex,
-    onPress,
-}: {
-    smartList: SmartList;
-    tracks: Track[];
-    colIndex: number;
-    onPress: () => void;
-}) {
-    return (
-        <SmartListCardBase
-            smartList={smartList}
-            tracks={tracks}
-            colIndex={colIndex}
-            onPress={onPress}
-        />
-    );
-});
-
-const HistorySmartListCard = withObservables(
-    ['smartListId'],
-    ({ smartListId }: { smartListId: string }) => ({
-        history: database.collections.get<PlaybackHistory>('playback_history').query().observe().pipe(catchError(() => of([]))),
-    })
-)(function HistorySmartListCardWrapper({
-    smartList,
-    history,
-    colIndex,
-    onPress,
-}: {
-    smartList: SmartList;
-    history: PlaybackHistory[];
-    colIndex: number;
-    onPress: () => void;
-}) {
-    const [tracks, setTracks] = useState<Track[]>([]);
-
+// Resolve each complete group before exposing its heading and cards to the grid.
+// History is observed once, and switchMap discards an outdated asynchronous load.
+function useSmartPlaylistTracks(lists: SmartList[], enabled: boolean) {
+    const [tracksByList, setTracksByList] = useState<Record<string, Track[]>>({});
     useEffect(() => {
-        let isMounted = true;
-        void smartList.getTracks()
-            .then(resolved => {
-                if (isMounted) setTracks(resolved);
-            })
-            .catch(() => { });
-        return () => { isMounted = false; };
-    }, [smartList, history]);
-
-    return (
-        <SmartListCardBase
-            smartList={smartList}
-            tracks={tracks}
-            colIndex={colIndex}
-            onPress={onPress}
-        />
-    );
-});
+        if (!enabled) return;
+        const listening = lists.filter(list => list.group === 'listening');
+        const ratings = lists.filter(list => list.group === 'rating');
+        const publish = (group: SmartList[], tracks: Track[][]) => {
+            const resolved = Object.fromEntries(group.map((list, index) => [list.id, tracks[index]]));
+            setTracksByList(previous => ({ ...previous, ...resolved }));
+        };
+        const ratingsSubscription = combineLatest(ratings.map(list =>
+            getRatingQuery(list.id).observe().pipe(catchError(() => of([] as Track[])))
+        )).subscribe(tracks => publish(ratings, tracks));
+        const historySubscription = database.collections.get<PlaybackHistory>('playback_history')
+            .query().observe().pipe(
+                catchError(() => of([])),
+                switchMap(() => Promise.all(listening.map(list => list.getTracks().catch(() => [] as Track[]))))
+            ).subscribe(tracks => publish(listening, tracks));
+        return () => {
+            ratingsSubscription.unsubscribe();
+            historySubscription.unsubscribe();
+        };
+    }, [lists, enabled]);
+    return tracksByList;
+}
 
 const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { playlists: Playlist[], genreTracks?: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { colors } = useAppTheme();
     const navigation = useNavigation<LibraryNavigationProp>();
     const playlistFilter = useLibraryStore(state => state.playlistFilter);
     const setPlaylistFilter = useLibraryStore(state => state.setPlaylistFilter);
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
+    const cascade = useCascadeEntry(playlistFilter);
 
     const handleCreatePlaylist = React.useCallback(() => {
         openPlaylistSelectorCreate();
@@ -784,6 +662,17 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
         }));
     }, [genreTracks, t]);
 
+    const smartLists = React.useMemo(() => SmartListService.getSmartLists(i18n.language), [i18n.language]);
+    const smartTracks = useSmartPlaylistTracks(smartLists, playlistFilter === 'smart');
+    const genreTracksByList = React.useMemo(() => {
+        const groups: Record<string, Track[]> = {};
+        for (const track of genreTracks || []) {
+            const genre = track.genre?.trim();
+            if (genre) (groups[`genre_${encodeURIComponent(genre)}`] ??= []).push(track);
+        }
+        return groups;
+    }, [genreTracks]);
+
     const sortedPlaylists = React.useMemo(() => {
         if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
             return playlists;
@@ -795,14 +684,16 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
             }
             const nameA = a.name || '';
             const nameB = b.name || '';
-            const cmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+            const cmp = nameCollator.compare(nameA, nameB);
             return isDesc ? -cmp : cmp;
         });
     }, [playlists, sortOption]);
 
     const data = React.useMemo(() => {
         if (playlistFilter === 'smart') {
-            const allSmartLists = SmartListService.getSmartLists();
+            // Publish the initial grid in its final order, without inserting late groups above it.
+            if (smartLists.some(list => smartTracks[list.id] === undefined)) return [];
+            const allSmartLists = smartLists;
             const listeningLists = allSmartLists.filter(l => l.group === 'listening');
             const ratingLists = allSmartLists.filter(l => l.group === 'rating');
 
@@ -811,6 +702,8 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
 
             const appendSmartGroup = (headerId: string, headerTitle: string, lists: SmartList[]) => {
                 if (lists.length === 0) return;
+                const tracksByList = lists[0].group === 'genre' ? genreTracksByList : smartTracks;
+                if (lists.some(list => tracksByList[list.id] === undefined)) return;
                 smartItems.push({
                     id: headerId,
                     isHeader: true,
@@ -822,6 +715,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                     smartItems.push({
                         id: `smart_${list.id}`,
                         smartList: list,
+                        tracks: tracksByList[list.id],
                         colIndex: idx % 3,
                         isSmart: true,
                         rowIndex: currentRow + groupRow,
@@ -841,46 +735,16 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
             { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
             ...sortedPlaylists
         ];
-    }, [playlistFilter, sortedPlaylists, genreLists, t]);
+    }, [playlistFilter, sortedPlaylists, genreLists, smartLists, smartTracks, genreTracksByList, t]);
 
-    if (!isReady) {
-        if (showLoader) {
-            return <SkeletonLibraryGrid topOffset={topOffset} type="playlist" />;
-        }
-        return null;
-    }
-
-    const renderSmartCard = (list: SmartList, colIndex: number) => {
-        const handlePress = () => navigation.navigate('SmartListDetail', { smartListId: list.id });
-        if (list.id.startsWith('rating_')) {
-            return (
-                <RatingSmartListCard
-                    smartListId={list.id}
-                    smartList={list}
-                    colIndex={colIndex}
-                    onPress={handlePress}
-                />
-            );
-        }
-        if (list.id.startsWith('genre_')) {
-            return (
-                <GenreSmartListCard
-                    genre={list.genre || decodeURIComponent(list.id.replace('genre_', ''))}
-                    smartList={list}
-                    colIndex={colIndex}
-                    onPress={handlePress}
-                />
-            );
-        }
-        return (
-            <HistorySmartListCard
-                smartListId={list.id}
-                smartList={list}
-                colIndex={colIndex}
-                onPress={handlePress}
-            />
-        );
-    };
+    const renderSmartCard = (list: SmartList, colIndex: number, tracks: Track[]) => (
+        <SmartListCardBase
+            smartList={list}
+            tracks={tracks}
+            colIndex={colIndex}
+            onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id })}
+        />
+    );
 
     const renderPlaylistContent = (item: any) => {
         if ('isCreateNew' in item) {
@@ -958,14 +822,14 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                     layout.span = 1;
                 }
             }}
-            renderItem={({ item, index }) => {
+            renderItem={({ item, index, target }) => {
                 if (!item) return null;
 
                 if ('isHeader' in item && item.isHeader) {
                     const rowIndex = item.rowIndex ?? Math.floor(index / 3);
                     return (
                         <Animated.View
-                            entering={getRowFadeIn(rowIndex, 1)}
+                            entering={target === 'Cell' ? cascade.row(rowIndex, 1) : undefined}
                             style={styles.smartSectionHeaderContainer}
                         >
                             <Text style={styles.smartSectionHeaderTitle}>{item.title}</Text>
@@ -976,15 +840,15 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                 if ('isSmart' in item && item.isSmart) {
                     const rowIndex = item.rowIndex ?? Math.floor(index / 3);
                     return (
-                        <Animated.View entering={getRowFadeIn(rowIndex, 1)}>
-                            {renderSmartCard(item.smartList, item.colIndex)}
+                        <Animated.View entering={target === 'Cell' ? cascade.row(rowIndex, 1) : undefined}>
+                            {renderSmartCard(item.smartList, item.colIndex, item.tracks)}
                         </Animated.View>
                     );
                 }
 
                 return (
                     <Animated.View
-                        entering={getRowFadeIn(index, 3)}
+                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems: getAlignment(index) }}
                     >
                         {renderPlaylistContent(item)}
@@ -1029,13 +893,13 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                     </TouchableOpacity>
                 </View>
             }
-            ListEmptyComponent={
+            ListEmptyComponent={playlistFilter === 'smart' ? null : (
                 <LibraryEmptyState
                     icon="list-outline"
                     title={t('library.empty_playlists')}
                     description={t('library.empty_playlists_desc')}
                 />
-            }
+            )}
         />
     );
 };
@@ -1061,7 +925,7 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
         genreTracks: database.collections.get<Track>('tracks').query(
             Q.where('genre', Q.notEq(null)),
             Q.where('genre', Q.notEq(''))
-        ).observe().pipe(catchError(() => of([]))),
+        ).observeWithColumns(['genre']).pipe(catchError(() => of([]))),
     };
 })(PlaylistsList);
 
@@ -1087,15 +951,7 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
+    const cascade = useCascadeEntry();
 
     // Get unique leaf folders that directly contain tracks
     const folders = React.useMemo(() => {
@@ -1117,19 +973,12 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                 });
             }
         }
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+        return Array.from(map.values()).sort((a, b) => nameCollator.compare(a.name, b.name));
     }, [tracks]);
 
     const handleOpenFolder = React.useCallback((folder: Folder) => {
         navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name });
     }, [navigation]);
-
-    if (!isReady) {
-        if (showLoader) {
-            return <SkeletonLibraryGrid topOffset={topOffset} type="folder" />;
-        }
-        return null;
-    }
 
     return (
         <FlashList
@@ -1137,7 +986,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             ref={scrollRef}
             data={folders}
             keyExtractor={f => f.path}
-            renderItem={({ item, index }) => {
+            renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
                 const rem = index % 3;
                 if (rem === 0) {
@@ -1147,7 +996,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                 }
                 return (
                     <Animated.View
-                        entering={getRowFadeIn(index, 3)}
+                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
                         <FolderCard

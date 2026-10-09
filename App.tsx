@@ -23,6 +23,7 @@ import GlobalToast from "./src/components/common/GlobalToast";
 import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import MigrationBlockingModal from "./src/components/modals/MigrationBlockingModal";
+import PortugueseLanguageModal from "./src/components/modals/PortugueseLanguageModal";
 import TagFormModal from "./src/components/modals/TagFormModal";
 import UpdatedAppModal from "./src/components/modals/UpdatedAppModal";
 import WelcomeModal from "./src/components/modals/WelcomeModal";
@@ -332,6 +333,7 @@ export default function App() {
             <BackupBlockingModal />
             <ZipProgressModal />
             <MigrationBlockingModal />
+            <PortugueseLanguageModal />
             <TagFormModal />
             <ActivityCustomDateModal />
           </NavigationContainer>

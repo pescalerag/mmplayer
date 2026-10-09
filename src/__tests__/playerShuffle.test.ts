@@ -85,6 +85,7 @@ const createMockAlbum = (id: string, title: string, isExcludedFromShuffle = fals
 };
 
 describe('Player & Shuffle Comprehensive Test Suite', () => {
+  afterEach(() => jest.restoreAllMocks());
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -289,7 +290,9 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
       await usePlayerStore.getState().skipToNext();
 
       expect(getEligibleSpy).not.toHaveBeenCalled();
-      expect(TrackPlayer.skipToNext).not.toHaveBeenCalled();
+      // Without random autoplay, the native player handles the end of its queue.
+      expect(TrackPlayer.skipToNext).toHaveBeenCalledTimes(1);
+      expect(TrackPlayer.getTrack).not.toHaveBeenCalled();
 
       getEligibleSpy.mockRestore();
     });

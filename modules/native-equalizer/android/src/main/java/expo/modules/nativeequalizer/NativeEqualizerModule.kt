@@ -137,6 +137,15 @@ class NativeEqualizerModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
 
+        AsyncFunction("setReplayGainSettings") { enabled: Boolean, preamp: Double, fallback: Double ->
+            require(preamp.isFinite() && fallback.isFinite()) { "Invalid ReplayGain settings" }
+            val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")
+            // Persist before resolving, including before the player's first decoded buffer.
+            check(context.getSharedPreferences("mmplayer_replay_gain", android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean("enabled", enabled).putFloat("preamp", preamp.toFloat())
+                .putFloat("fallback", fallback.toFloat()).commit()) { "Could not persist ReplayGain settings" }
+        }
+
         AsyncFunction("initialize") { audioSessionId: Int ->
             releaseEffects()
             val resolvedSessionId = if (audioSessionId == 0) {

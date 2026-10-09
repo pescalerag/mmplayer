@@ -12,7 +12,7 @@ import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AppState,
     AppStateStatus,
@@ -48,14 +48,17 @@ import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
+import { PlayerArtwork } from '@/components/player/PlayerArtwork';
 import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import { useTranslation } from 'react-i18next';
 import { of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, startWith } from 'rxjs/operators';
+import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
+import { usePlayerLyricsAnimation } from '../../hooks/usePlayerLyricsAnimation';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -232,90 +235,7 @@ const CanvasVideo = React.memo(({
 });
 CanvasVideo.displayName = 'CanvasVideo';
 
-interface PlayerArtworkProps {
-    coverUrl?: string | null;
-    size: number;
-    borderRadius?: number;
-    shadowStyle?: any;
-    cardBackgroundColor: string;
-    textSecondaryColor: string;
-}
 
-const PlayerArtwork = ({
-    coverUrl,
-    size,
-    borderRadius = 10,
-    shadowStyle,
-    cardBackgroundColor,
-    textSecondaryColor,
-}: PlayerArtworkProps) => {
-    const [hasError, setHasError] = useState(false);
-    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-
-    // Mirror BlurredBackground: keep lastValidUriRef so null intermediates
-    // (during track change while observable resolves) never flash a placeholder.
-    const lastValidUriRef = useRef<string | null>(coverUrl || null);
-
-    useEffect(() => {
-        setHasError(false);
-        if (coverUrl) {
-            lastValidUriRef.current = coverUrl;
-        } else {
-            // If coverUrl stays null (genuine no-cover track), clear previous image after short grace period
-            const timer = setTimeout(() => {
-                lastValidUriRef.current = null;
-                forceUpdate();
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [coverUrl]);
-
-    if (coverUrl) {
-        lastValidUriRef.current = coverUrl;
-    }
-    const effectiveUri = coverUrl || lastValidUriRef.current;
-    const showPlaceholder = !effectiveUri || hasError;
-
-    const imageSource = useMemo(
-        () => (effectiveUri ? { uri: effectiveUri } : null),
-        [effectiveUri]
-    );
-
-    return (
-        <View
-            style={[
-                {
-                    width: size,
-                    height: size,
-                    borderRadius,
-                    overflow: 'hidden',
-                    backgroundColor: cardBackgroundColor,
-                },
-                shadowStyle,
-            ]}
-        >
-            {showPlaceholder ? (
-                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: cardBackgroundColor }]}>
-                    <Ionicons
-                        name="musical-notes"
-                        size={Math.min(80, Math.floor(size * 0.25))}
-                        color={textSecondaryColor}
-                    />
-                </View>
-            ) : (
-                <Image
-                    source={imageSource}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    transition={250}
-                    cachePolicy="memory-disk"
-                    onError={() => setHasError(true)}
-                />
-            )}
-        </View>
-    );
-};
-PlayerArtwork.displayName = 'PlayerArtwork';
 
 
 
@@ -355,10 +275,14 @@ const resolveAdjacentTrackPair = async (queue: any[], activeIndex: number | null
         if (!nextItem) nextItem = queue[0];
     }
 
-    const prevM = prevItem ? await getCleanTrackModel(prevItem) : null;
-    const nextM = nextItem ? await getCleanTrackModel(nextItem) : null;
     const prevArtwork = (prevItem?.artwork as string) || null;
     const nextArtwork = (nextItem?.artwork as string) || null;
+    const artworkToPreload = [prevArtwork, nextArtwork].filter((url): url is string => Boolean(url));
+    if (artworkToPreload.length) void Image.prefetch(artworkToPreload).catch(() => {});
+    const [prevM, nextM] = await Promise.all([
+        prevItem ? getCleanTrackModel(prevItem) : null,
+        nextItem ? getCleanTrackModel(nextItem) : null,
+    ]);
 
     return { prevM, nextM, prevArtwork, nextArtwork };
 };
@@ -378,18 +302,19 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
         let isMounted = true;
         const syncAdjacent = async () => {
             try {
-                const queue = await TrackPlayer.getQueue();
-                const activeIndex = await TrackPlayer.getActiveTrackIndex();
+                const [queue, activeIndex] = await Promise.all([
+                    TrackPlayer.getQueue(), TrackPlayer.getActiveTrackIndex(),
+                ]);
                 const { prevM, nextM, prevArtwork, nextArtwork } = await resolveAdjacentTrackPair(queue, activeIndex);
                 if (isMounted) {
                     setPrevTrackModel(prevM);
                     setNextTrackModel(nextM);
+                    setPrevCoverUrl(prevArtwork);
+                    setNextCoverUrl(nextArtwork);
                     if (prevArtwork) {
-                        setPrevCoverUrl(prevArtwork);
                         getOrExtractColor(prevArtwork).catch(() => {});
                     }
                     if (nextArtwork) {
-                        setNextCoverUrl(nextArtwork);
                         getOrExtractColor(nextArtwork).catch(() => {});
                     }
                 }
@@ -430,7 +355,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         nextCoverUrlRef.current = nextCoverUrl;
-        if (nextCoverUrl) void Image.prefetch(nextCoverUrl);
+        if (nextCoverUrl) void Image.prefetch(nextCoverUrl).catch(() => {});
     }, [nextCoverUrl]);
 
     useEffect(() => {
@@ -439,7 +364,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         prevCoverUrlRef.current = prevCoverUrl;
-        if (prevCoverUrl) void Image.prefetch(prevCoverUrl);
+        if (prevCoverUrl) void Image.prefetch(prevCoverUrl).catch(() => {});
     }, [prevCoverUrl]);
 
     return {
@@ -523,17 +448,19 @@ const usePlayerCover = (
     prevCoverUrl: string | null,
     defaultBackground: string
 ) => {
-    const [asyncCoverUrl, setAsyncCoverUrl] = useState<string | null>(null);
+    const [asyncCover, setAsyncCover] = useState<{ trackId: string; url: string } | null>(null);
+    const nativeCover = usePlaybackSnapshotStore(snapshot =>
+        snapshot.trackId === track.id.toString() ? snapshot.artwork : null);
 
     useEffect(() => {
         let isMounted = true;
-        setAsyncCoverUrl(null);
+        setAsyncCover(null);
 
         const loadCover = async () => {
             try {
                 const alb: any = await track.album.fetch();
                 if (isMounted && alb?.coverUrl) {
-                    setAsyncCoverUrl(alb.coverUrl);
+                    setAsyncCover({ trackId: track.id, url: alb.coverUrl });
                     return;
                 }
             } catch {
@@ -542,8 +469,8 @@ const usePlayerCover = (
 
             try {
                 const tp: any = await TrackPlayer.getActiveTrack();
-                if (isMounted && tp?.artwork) {
-                    setAsyncCoverUrl(tp.artwork);
+                if (isMounted && tp?.artwork && tp.id?.toString().split('-')[0] === track.id.toString()) {
+                    setAsyncCover({ trackId: track.id, url: tp.artwork });
                 }
             } catch {
                 // Ignore active track fetch error
@@ -556,7 +483,8 @@ const usePlayerCover = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track.id]);
 
-    const rawCoverUrl = album?.coverUrl || asyncCoverUrl || null;
+    const rawCoverUrl = nativeCover || album?.coverUrl ||
+        (asyncCover?.trackId === track.id ? asyncCover.url : null);
     const initialCover = rawCoverUrl || resolveAdjacentCoverFallback(
         track.id,
         nextTrackModel,
@@ -572,8 +500,8 @@ const usePlayerCover = (
 
     if (stableCoverRef.current.trackId !== track.id) {
         stableCoverRef.current = { trackId: track.id, url: initialCover };
-    } else if (!stableCoverRef.current.url && rawCoverUrl) {
-        stableCoverRef.current = { ...stableCoverRef.current, url: rawCoverUrl };
+    } else if (initialCover && stableCoverRef.current.url !== initialCover) {
+        stableCoverRef.current = { ...stableCoverRef.current, url: initialCover };
     }
 
     const currentCoverUrl: string | null = stableCoverRef.current.url;
@@ -707,91 +635,6 @@ const useScreenTransition = (isFocused: boolean, navigation: any) => {
     }, [isFocused, navigation]);
 
     return isTransitioning;
-};
-
-const useLyricsAnimation = (
-    trackId: string,
-    hasLyrics: boolean,
-    showPlayerLyrics: boolean,
-    currentPhrase: string
-) => {
-    const lyricsHeight = useSharedValue(hasLyrics ? 46 : 0);
-    const lyricsOpacity = useSharedValue(hasLyrics ? 1 : 0);
-
-    useEffect(() => {
-        lyricsHeight.value = withTiming(hasLyrics ? 46 : 0, { duration: 200 });
-        lyricsOpacity.value = withTiming(hasLyrics ? 1 : 0, { duration: 200 });
-    }, [hasLyrics, lyricsHeight, lyricsOpacity]);
-
-    const lyricsAnimatedStyle = useAnimatedStyle(() => ({
-        height: lyricsHeight.value,
-        opacity: lyricsOpacity.value,
-    }));
-
-    const [displayedPhrase, setDisplayedPhrase] = useState(currentPhrase);
-    const lyricTextOpacity = useSharedValue(hasLyrics && currentPhrase.trim() !== '' ? 1 : 0);
-    const prevTrackIdRef = React.useRef(trackId);
-
-    useEffect(() => {
-        // Caso 1: Cambio de canción
-        if (prevTrackIdRef.current !== trackId) {
-            prevTrackIdRef.current = trackId;
-            cancelAnimation(lyricTextOpacity);
-            setDisplayedPhrase(currentPhrase);
-            lyricTextOpacity.value = (hasLyrics && currentPhrase.trim() !== '') ? 1 : 0;
-            return;
-        }
-
-        // Caso 2: No hay letras o la visualización está desactivada
-        if (!hasLyrics || !showPlayerLyrics) {
-            cancelAnimation(lyricTextOpacity);
-            lyricTextOpacity.value = 0;
-            setDisplayedPhrase('');
-            return;
-        }
-
-        // Caso 3: La frase no ha cambiado
-        if (currentPhrase === displayedPhrase) {
-            if (displayedPhrase.trim() !== '' && lyricTextOpacity.value < 0.9) {
-                lyricTextOpacity.value = withTiming(1, { duration: 150 });
-            }
-            return;
-        }
-
-        // Caso 4: Transición hacia silencio o instrumental (frase vacía)
-        if (currentPhrase.trim() === '') {
-            lyricTextOpacity.value = withTiming(0, { duration: 150 }, (finished) => {
-                if (finished) {
-                    scheduleOnRN(setDisplayedPhrase, '');
-                }
-            });
-            return;
-        }
-
-        // Caso 5: Transición desde silencio a una nueva frase
-        if (displayedPhrase.trim() === '') {
-            setDisplayedPhrase(currentPhrase);
-            lyricTextOpacity.value = withTiming(1, { duration: 200 });
-            return;
-        }
-
-        // Caso 6: Transición normal de frase A a frase B
-        cancelAnimation(lyricTextOpacity);
-        setDisplayedPhrase(currentPhrase);
-        lyricTextOpacity.value = 1;
-    }, [trackId, showPlayerLyrics, hasLyrics, currentPhrase, displayedPhrase, lyricTextOpacity]);
-
-    const activeLyricText = currentPhrase.trim() !== '' ? currentPhrase : displayedPhrase;
-
-    const textAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: lyricTextOpacity.value,
-    }));
-
-    return {
-        lyricsAnimatedStyle,
-        textAnimatedStyle,
-        activeLyricText,
-    };
 };
 
 const usePlayerArtworkSize = (
@@ -2638,18 +2481,21 @@ const PlayerScreenUI = ({
     const isCasting = isLocalCastActive || isChromecastConnected;
 
     // Progress & Lyrics
-    const { position, duration } = useProgress();
+    const progress = useProgress();
+    const progressTrackId = usePlaybackSnapshotStore(snapshot => snapshot.trackId);
+    const isCurrentProgress = progressTrackId === track.id.toString();
+    const position = isCurrentProgress ? progress.position : 0;
+    const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track, position);
     const hasLyrics = !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
     const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
         ? parsedLyrics[activeIndex].text
         : '';
 
-    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = useLyricsAnimation(
-        track.id,
+    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = usePlayerLyricsAnimation(
         hasLyrics,
-        showPlayerLyrics,
-        currentPhrase
+        currentPhrase,
+        isFocused
     );
 
     // Dynamic artwork sizing
@@ -3007,10 +2853,11 @@ const PlayerScreenUI = ({
 
 const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
     track: trackModel.observe(),
-    album: trackModel.album.observe().pipe(catchError(() => of(null))),
-    artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
-    artists: trackModel.queryCollaborators.observe() as any,
-    tags: trackModel.queryTags.observe(),
+    // Render transport immediately; relations enrich the screen as they arrive.
+    album: trackModel.album.observe().pipe(startWith(null), catchError(() => of(null))),
+    artist: trackModel.artist.observe().pipe(startWith(null), catchError(() => of(null))),
+    artists: trackModel.queryCollaborators.observe().pipe(startWith([])),
+    tags: trackModel.queryTags.observe().pipe(startWith([])),
 }))(PlayerScreenUI);
 
 function KeepAwakeController() {

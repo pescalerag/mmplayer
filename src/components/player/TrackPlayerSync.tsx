@@ -1,75 +1,26 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import TrackPlayer, {
     Event,
-    State,
     useTrackPlayerEvents
 } from 'react-native-track-player';
-import { LocalCastService } from '../../services/LocalCastService';
-import { useCastStore } from '../../store/useCastStore';
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { consumeUserQueueTransition, usePlayerStore } from '../../store/usePlayerStore';
+import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStore';
+import { subscribeToQueueSnapshot } from '../../store/useQueueSnapshotStore';
 
-// Module-level variable to track if the player was playing before a track transition.
-// Since transitions (loading/buffering) are non-playing states, we preserve the last known
-// active state (playing vs paused/stopped/etc.).
-let wasPlayingBeforeTransition = false;
-
-const isPlayingState = (state: any) => {
-    return state === 'playing' || state === State.Playing;
-};
-
-const isPausedOrStoppedState = (state: any) => {
-    return state === 'paused' || state === State.Paused ||
-        state === 'stopped' || state === State.Stopped ||
-        state === 'none' || state === State.None ||
-        state === 'ended' || state === State.Ended;
-};
-
-const handlePlaybackStateEvent = (state: any) => {
-    if (isPlayingState(state)) {
-        wasPlayingBeforeTransition = true;
-    } else if (isPausedOrStoppedState(state)) {
-        wasPlayingBeforeTransition = false;
-    }
-};
-
-const isTrackChangeIgnored = (track: any): boolean => {
-    if (!track?.id) return false;
-    
-    const cleanEventId = track.id.split('-')[0];
-    const playerState = usePlayerStore.getState();
-    
-    if (playerState.isQueueLoading && playerState.activeTrack) {
-        const cleanActiveId = playerState.activeTrack.id.toString();
-        if (cleanEventId !== cleanActiveId) {
-            console.log(`[Sync] Ignorando cambio de track temporal a "${track.title}" durante carga de cola.`);
-            return true;
-        }
-    }
-    
-    return false;
-};
-
-const handleCastOrLocalPlay = async (track: any) => {
+const resumeTrackPlayback = async (track: any) => {
     const isRestoring = usePlayerStore.getState().isRestoring;
+    // Restore v2.3.2: moving to another song starts playback even from pause.
+    // Restoration itself still respects the saved paused state.
     if (!isRestoring && track?.id) {
         await TrackPlayer.play();
     }
 };
 
-const updateUserQueueSlot = (index?: number, lastIndex?: number) => {
-    // Si avanzamos hacia adelante, consumimos los slots correspondientes de la user queue
-    if (index !== undefined && lastIndex !== undefined && index > lastIndex) {
-        const { userQueueSize } = usePlayerStore.getState();
-        if (userQueueSize > 0) {
-            const steps = index - lastIndex;
-            const newSize = Math.max(0, userQueueSize - steps);
-            usePlayerStore.setState({ userQueueSize: newSize });
-        }
-    }
-};
+let trackEventRevision = 0;
 
-const handleActiveTrackChangedEvent = async (event: any) => {
+export const handleActiveTrackChangedEvent = async (event: any) => {
+    const revision = ++trackEventRevision;
     let { index, lastIndex, track } = event;
 
     if (!track?.id) {
@@ -82,27 +33,31 @@ const handleActiveTrackChangedEvent = async (event: any) => {
         } catch {}
     }
 
-    if (isTrackChangeIgnored(track)) {
-        return;
+    if (revision !== trackEventRevision) return;
+
+    // Consume manual slots immediately on a real song change, not after DB metadata.
+    // Insertions before the playing entry can change its index without changing the song.
+    if (!event.lastTrack?.id || event.lastTrack.id !== track?.id) {
+        consumeUserQueueTransition({ ...event, track, index, lastIndex });
     }
 
-    await handleCastOrLocalPlay(track);
-
-    if (track?.id) {
-        await usePlayerStore.getState().setActiveTrackById(track.id, (track as any)?.instanceId);
-    }
-
-    if (index !== undefined) {
-        await usePlayerStore.getState().updateQueueStatus(index);
-    }
-
-    updateUserQueueSlot(index, lastIndex);
+    await Promise.all([
+        resumeTrackPlayback(track),
+        track?.id
+            ? usePlayerStore.getState().setActiveTrackById(track.id, track.instanceId)
+            : Promise.resolve(),
+        index !== undefined
+            ? usePlayerStore.getState().updateQueueStatus(index)
+            : Promise.resolve(),
+    ]);
 
     // Guardar estado en disco tras cada cambio de track
     await usePlayerStore.getState().savePlaybackState();
 };
 
 export const TrackPlayerSync = () => {
+    useEffect(subscribeToPlaybackSnapshot, []);
+    useEffect(subscribeToQueueSnapshot, []);
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {
@@ -118,12 +73,8 @@ export const TrackPlayerSync = () => {
         Event.RemoteNext,
         Event.RemotePrevious,
         Event.PlaybackActiveTrackChanged,
-        Event.PlaybackState,
     ], async (event) => {
         switch (event.type) {
-            case Event.PlaybackState:
-                handlePlaybackStateEvent(event.state);
-                break;
             case Event.PlaybackActiveTrackChanged:
                 await handleActiveTrackChangedEvent(event);
                 break;

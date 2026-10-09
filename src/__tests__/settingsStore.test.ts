@@ -73,6 +73,8 @@ describe('useSettingsStore', () => {
 
     const createMockState = (overrides: any = {}) => ({
       language: 'es',
+      portugueseLanguageOffer: 'unseen',
+      setPortugueseLanguageOffer: jest.fn(),
       activeAppTheme: 'none',
       appTabsOrder: ['Inicio', 'Biblioteca'],
       initialAppRoute: 'Inicio',

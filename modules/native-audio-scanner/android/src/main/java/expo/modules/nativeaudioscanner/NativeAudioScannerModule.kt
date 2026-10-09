@@ -910,6 +910,14 @@ class NativeAudioScannerModule : Module() {
         val audioList = mutableListOf<Map<String, Any?>>()
         val validAlbumArts = mutableMapOf<Long, String?>()
         val stalePaths = mutableListOf<String>()
+        val replayCachePreferences = if (shouldScanReplay) {
+          context.getSharedPreferences("replay_gain_scan_cache", Context.MODE_PRIVATE)
+        } else null
+        val pendingReplayCache = mutableMapOf<String, String>()
+        val replayCache = ReplayGainScanCache(
+          get = { path -> pendingReplayCache[path] ?: replayCachePreferences?.getString(path, null) },
+          put = { path, value -> pendingReplayCache[path] = value }
+        )
         
         val supportsAlbumArtist = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
         val supportsGenre = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
@@ -1026,7 +1034,9 @@ class NativeAudioScannerModule : Module() {
                 validAlbumArts[albumId] = finalCoverUrl
             }
             
-            val replayGain: Double? = null
+            val replayTags = if (shouldScanReplay) replayCache.read(file) else null
+            val replayGain: Double? = replayTags?.gain
+            val replayPeak: Double? = replayTags?.peak
             
             val fileMap = mapOf(
               "id" to id.toString(),
@@ -1044,7 +1054,8 @@ class NativeAudioScannerModule : Module() {
               "albumArtist" to albumArtist,
               "genre" to genre,
               "lastModified" to (dateModifiedSec * 1000),
-              "replayGain" to replayGain
+              "replayGain" to replayGain,
+              "replayPeak" to replayPeak
             )
             audioList.add(fileMap)
           }
@@ -1057,11 +1068,23 @@ class NativeAudioScannerModule : Module() {
             Log.w("NativeAudioScanner", "Failed to trigger rescan for stale paths: ${e.message}")
           }
         }
+
+        if (pendingReplayCache.isNotEmpty()) {
+          replayCachePreferences?.edit()?.apply {
+            pendingReplayCache.forEach { (path, value) -> putString(path, value) }
+          }?.apply()
+        }
         
         return@AsyncFunction audioList
       } catch (e: Exception) {
         throw Exception("Error scanning MediaStore: ${e.message}", e)
       }
+    }
+
+    AsyncFunction("getReplayGainMetadata") { uri: String ->
+      val path = if (uri.startsWith("file://")) Uri.parse(uri).path ?: uri else uri
+      val tags = ReplayGainReader.readTags(path)
+      mapOf("gain" to tags.gain, "peak" to tags.peak)
     }
 
     AsyncFunction("getReplayGain") { uri: String ->

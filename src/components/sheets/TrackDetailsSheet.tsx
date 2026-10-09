@@ -167,6 +167,7 @@ export default function TrackDetailsSheet() {
   const channels = track.channels ?? null;
   const lastModified = track.lastModified ?? null;
   const replayGain = track.replayGain ?? null;
+  const replayPeak = track.replayPeak ?? null;
   const trackNumber = track.trackNumber ?? null;
   const discNumber = track.discNumber ?? null;
   const genre = track.genre ?? null;
@@ -205,7 +206,7 @@ export default function TrackDetailsSheet() {
         {rating !== null && (<DetailRow label={t('track_details.rating')} value={`${rating.toFixed(1)} / 5`} colors={colors} fonts={fonts} />)}
 
         {/* TECNICO */}
-        {(duration !== null || bitrate !== null || sampleRate !== null || replayGain !== null) && (
+        {(duration !== null || bitrate !== null || sampleRate !== null || replayGain !== null || replayPeak !== null) && (
           <SectionHeader title={t('track_details.section_technical')} colors={colors} fonts={fonts} />
         )}
         {duration !== null && (<DetailRow label={t('track_details.duration')} value={formatDuration(duration)} colors={colors} fonts={fonts} />)}
@@ -213,6 +214,7 @@ export default function TrackDetailsSheet() {
         {sampleRate !== null && sampleRate > 0 && (<DetailRow label={t('track_details.sample_rate')} value={`${(sampleRate / 1000).toFixed(1)} kHz`} colors={colors} fonts={fonts} />)}
         {channels !== null && channels > 0 && (<DetailRow label={t('track_details.channels')} value={formatChannels(channels)} colors={colors} fonts={fonts} />)}
         {replayGain !== null && (<DetailRow label={t('track_details.replay_gain')} value={`${replayGain.toFixed(2)} dB`} colors={colors} fonts={fonts} />)}
+        {replayPeak !== null && (<DetailRow label={t('track_details.replay_peak')} value={replayPeak.toFixed(6)} colors={colors} fonts={fonts} />)}
       </ScrollView>
     </View>
   );

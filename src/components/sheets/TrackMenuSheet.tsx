@@ -3,8 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Alert, View, Text, TouchableOpacity, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
-import Album from '../../database/models/Album';
-import Artist from '../../database/models/Artist';
 import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
 import { PlaylistService } from '../../services/PlaylistService';
 import { ScannerService } from '../../services/ScannerService';
@@ -15,6 +13,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useSheetProps } from '@/hooks/useSheetProps';
+import type { TrackMenuMetadata } from '@/store/useUIStore';
 import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
@@ -158,16 +157,16 @@ TrackRatingRow.displayName = 'TrackRatingRow';
 export default function TrackMenuSheet() {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
-  const { props: { track: selectedTrack, callbacks: navCallbacks, playlistId }, close: closeMenu } = useSheetProps<{ track: any; callbacks?: any; playlistId?: string }>('track-menu');
+  const { props: { track: selectedTrack, callbacks: navCallbacks = {}, playlistId, metadata }, close: closeMenu } = useSheetProps<{ track: any; callbacks?: any; playlistId?: string; metadata?: TrackMenuMetadata }>('track-menu');
   const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
   const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
   const excludeSong = useSettingsStore(state => state.excludeSong);
 
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [artistName, setArtistName] = useState(t('actions.unknown'));
-  const [albumId, setAlbumId] = useState<string | null>(null);
-  const [artistId, setArtistId] = useState<string | null>(null);
-  const [artistsList, setArtistsList] = useState<Artist[]>([]);
+  const imageUrl = metadata?.coverUrl ?? selectedTrack?.coverUrl ?? null;
+  const artistName = metadata?.artistName || selectedTrack?.artistName || t('actions.unknown');
+  const albumId = metadata?.albumId ?? null;
+  const artistsList = metadata?.artists ?? [];
+  const artistId = artistsList[0]?.id ?? null;
   const [isFavorite, setIsFavorite] = useState(selectedTrack?.isFavorite ?? false);
   const [isExcludedFromShuffle, setIsExcludedFromShuffle] = useState(selectedTrack?.isExcludedFromShuffle ?? false);
 
@@ -177,24 +176,6 @@ export default function TrackMenuSheet() {
       setIsExcludedFromShuffle(!!selectedTrack.isExcludedFromShuffle);
     }
   }, [selectedTrack]);
-
-  // Load basic metadata for the menu header
-  useEffect(() => {
-    if (!selectedTrack) return;
-
-    const loadMetadata = async () => {
-      const [album, artists] = await Promise.all([
-        selectedTrack.album.fetch() as Promise<Album | null>,
-        selectedTrack.queryCollaborators.fetch() as Promise<Artist[]>
-      ]);
-      setImageUrl(album?.coverUrl || null);
-      setArtistName(artists.length > 0 ? artists.map((a: Artist) => a.name).join(', ') : t('actions.unknown'));
-      setAlbumId(album?.id || null);
-      setArtistId(artists[0]?.id || null);
-      setArtistsList(artists);
-    };
-    loadMetadata();
-  }, [selectedTrack, t]);
 
   if (!selectedTrack) return null;
 
@@ -209,6 +190,7 @@ export default function TrackMenuSheet() {
         title={selectedTrack.title}
         subtitle={displayArtist}
         coverUrl={displayCover}
+        imageTransition={0}
         placeholderIcon="musical-notes"
       >
         <MenuSeparator />
@@ -295,6 +277,7 @@ export default function TrackMenuSheet() {
       title={selectedTrack.title}
       subtitle={artistName}
       coverUrl={imageUrl}
+      imageTransition={0}
       placeholderIcon="musical-notes"
     >
       <MenuSeparator />

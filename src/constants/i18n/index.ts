@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import es from './es.json';
 import en from './en.json';
+import pt from './pt.json';
 
 // eslint-disable-next-line import/no-named-as-default-member
 i18n
@@ -10,6 +11,7 @@ i18n
     resources: {
       es: { translation: es },
       en: { translation: en },
+      pt: { translation: pt },
     },
     lng: 'en', // default language before hydration/detection
     fallbackLng: 'en',

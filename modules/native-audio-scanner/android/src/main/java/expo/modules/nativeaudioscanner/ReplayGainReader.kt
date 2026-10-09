@@ -1,291 +1,206 @@
 package expo.modules.nativeaudioscanner
 
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Locale
 
+data class ReplayGainTags(var gain: Double? = null, var peak: Double? = null) {
+    internal var readSucceeded = true
+    fun accept(key: String, value: String) {
+        val number = value.trim().replace(Regex("(?i)\\s*dB$"), "").trim().trimEnd('\u0000')
+            .toDoubleOrNull()?.takeIf { it.isFinite() } ?: return
+        when (key.trim().uppercase(Locale.ROOT)) {
+            "REPLAYGAIN_TRACK_GAIN" -> gain = number
+            "REPLAYGAIN_TRACK_PEAK" -> if (number > 0) peak = number
+            "REPLAYGAIN_ALBUM_GAIN" -> if (gain == null) gain = number
+            "REPLAYGAIN_ALBUM_PEAK" -> if (peak == null && number > 0) peak = number
+        }
+    }
+}
+
+/** Reads stored tags; it does not estimate loudness or peaks from decoded audio. */
 object ReplayGainReader {
-    fun readReplayGain(filePath: String): Double? {
-        val file = File(filePath)
-        if (!file.exists()) return null
-        
+    private const val MAX_METADATA = 32 * 1024 * 1024
+    fun readReplayGain(filePath: String): Double? = readTags(filePath).gain
+
+    fun readTags(filePath: String): ReplayGainTags {
+        val tags = ReplayGainTags()
         try {
-            RandomAccessFile(file, "r").use { raf ->
-                // Check format by reading magic bytes
+            RandomAccessFile(File(filePath), "r").use { file ->
                 val magic = ByteArray(4)
-                raf.readFully(magic)
-                
-                if (magic[0] == 'I'.toByte() && magic[1] == 'D'.toByte() && magic[2] == '3'.toByte()) {
-                    // MP3 ID3v2
-                    return readMp3ReplayGain(raf)
-                } else if (magic[0] == 'f'.toByte() && magic[1] == 'L'.toByte() && magic[2] == 'a'.toByte() && magic[3] == 'C'.toByte()) {
-                    // FLAC
-                    return readFlacReplayGain(raf)
-                } else if (magic[0] == 'O'.toByte() && magic[1] == 'g'.toByte() && magic[2] == 'g'.toByte() && magic[3] == 'S'.toByte()) {
-                    // OGG Container (Opus / Vorbis)
-                    return readOggReplayGain(raf)
+                file.readFully(magic)
+                when {
+                    String(magic, 0, 3, Charsets.US_ASCII) == "ID3" -> readId3(file, tags)
+                    String(magic, Charsets.US_ASCII) == "fLaC" -> readFlac(file, tags)
+                    String(magic, Charsets.US_ASCII) == "OggS" -> readOgg(file, tags)
+                    else -> readMp4(file, 0, file.length(), tags, 0)
                 }
             }
-        } catch (e: Exception) {
-            // Log or ignore
+        } catch (_: Exception) {
+            // Keep playback tolerant of malformed metadata, but don't cache a failed file read.
+            tags.readSucceeded = false
         }
-        return null
+        return tags
     }
 
-    private fun readMp3ReplayGain(raf: RandomAccessFile): Double? {
-        // ID3 header is 10 bytes: "ID3" (3) + version (2) + flags (1) + size (4)
-        // We already read 4 bytes ("ID3" + version major)
-        raf.seek(3)
-        val majorVersion = raf.read()
-        val minorVersion = raf.read()
-        val flags = raf.read()
-        
-        val sizeBytes = ByteArray(4)
-        raf.readFully(sizeBytes)
-        
-        // Size is synchsafe (4 bytes, 7 bits per byte)
-        val id3Size = ((sizeBytes[0].toInt() and 0x7F) shl 21) or
-                      ((sizeBytes[1].toInt() and 0x7F) shl 14) or
-                      ((sizeBytes[2].toInt() and 0x7F) shl 7) or
-                      (sizeBytes[3].toInt() and 0x7F)
-                      
-        var position = 10
-        val endPosition = 10 + id3Size
-        
-        // Only support ID3v2.3 and ID3v2.4 for TXXX
-        if (majorVersion != 3 && majorVersion != 4) return null
-        
-        while (position < endPosition) {
-            // Frame header: 10 bytes (ID: 4, Size: 4, Flags: 2)
-            if (position + 10 > endPosition) break
-            raf.seek(position.toLong())
-            
-            val frameIdBytes = ByteArray(4)
-            raf.readFully(frameIdBytes)
-            val frameId = String(frameIdBytes, Charsets.US_ASCII)
-            
-            val frameSizeBytes = ByteArray(4)
-            raf.readFully(frameSizeBytes)
-            
-            val frameSize = if (majorVersion == 4) {
-                // ID3v2.4 uses synchsafe integers for frame size
-                ((frameSizeBytes[0].toInt() and 0x7F) shl 21) or
-                ((frameSizeBytes[1].toInt() and 0x7F) shl 14) or
-                ((frameSizeBytes[2].toInt() and 0x7F) shl 7) or
-                (frameSizeBytes[3].toInt() and 0x7F)
-            } else {
-                // ID3v2.3 uses regular 32-bit int
-                ((frameSizeBytes[0].toInt() and 0xFF) shl 24) or
-                ((frameSizeBytes[1].toInt() and 0xFF) shl 16) or
-                ((frameSizeBytes[2].toInt() and 0xFF) shl 8) or
-                (frameSizeBytes[3].toInt() and 0xFF)
+    // iTunes freeform atoms: moov/udta/meta/ilst/----/{mean,name,data}.
+    // Walk bounded atom ranges, skipping mdat so large audio payloads are never read.
+    private fun readMp4(file: RandomAccessFile, start: Long, end: Long, tags: ReplayGainTags, depth: Int) {
+        if (depth > 8) return
+        var position = start
+        while (position <= end - 8) {
+            file.seek(position)
+            var size = file.readInt().toLong() and 0xffffffffL
+            val type = ByteArray(4).also(file::readFully).toString(Charsets.ISO_8859_1)
+            var headerSize = 8L
+            if (size == 1L) {
+                if (position > end - 16) return
+                size = file.readLong()
+                headerSize = 16L
+            } else if (size == 0L) size = end - position
+            if (size < headerSize || size > end - position) return
+            val body = position + headerSize
+            val atomEnd = position + size
+            when (type) {
+                "moov", "udta", "ilst" -> readMp4(file, body, atomEnd, tags, depth + 1)
+                "meta" -> if (atomEnd - body >= 4) readMp4(file, body + 4, atomEnd, tags, depth + 1)
+                "----" -> readMp4Freeform(file, body, atomEnd, tags)
             }
-            
-            val flags1 = raf.read()
-            val flags2 = raf.read()
-            
-            position += 10
-            if (frameSize <= 0 || position + frameSize > endPosition) break
-            
-            if (frameId == "TXXX") {
-                // Read TXXX body
-                val body = ByteArray(frameSize)
-                raf.readFully(body)
-                
-                val gain = parseTxxxReplayGain(body)
-                if (gain != null) return gain
-            }
-            
-            position += frameSize
-        }
-        return null
-    }
-
-    private fun parseTxxxReplayGain(body: ByteArray): Double? {
-        if (body.isEmpty()) return null
-        val encoding = body[0].toInt()
-        
-        // Find the description string (terminated by null)
-        val descriptionEnd = findNullTerminator(body, 1, encoding)
-        if (descriptionEnd == -1) return null
-        
-        val descBytes = body.copyOfRange(1, descriptionEnd)
-        val description = decodeString(descBytes, encoding)
-        
-        if (description.equals("replaygain_track_gain", ignoreCase = true)) {
-            val valueStart = descriptionEnd + (if (encoding == 1 || encoding == 2) 2 else 1)
-            if (valueStart < body.size) {
-                val valueBytes = body.copyOfRange(valueStart, body.size)
-                val valueStr = decodeString(valueBytes, encoding).trim()
-                return parseGainString(valueStr)
-            }
-        }
-        return null
-    }
-
-    private fun findNullTerminator(body: ByteArray, start: Int, encoding: Int): Int {
-        var i = start
-        if (encoding == 1 || encoding == 2) {
-            // UTF-16 (2 bytes null terminator)
-            while (i < body.size - 1) {
-                if (body[i] == 0.toByte() && body[i+1] == 0.toByte()) {
-                    return i
-                }
-                i += 2
-            }
-        } else {
-            // Latin-1 / UTF-8 (1 byte null terminator)
-            while (i < body.size) {
-                if (body[i] == 0.toByte()) {
-                    return i
-                }
-                i++
-            }
-        }
-        return -1
-    }
-
-    private fun decodeString(bytes: ByteArray, encoding: Int): String {
-        return when (encoding) {
-            1 -> {
-                // UTF-16 with BOM
-                String(bytes, Charsets.UTF_16)
-            }
-            2 -> {
-                // UTF-16BE without BOM
-                String(bytes, Charsets.UTF_16BE)
-            }
-            3 -> {
-                // UTF-8
-                String(bytes, Charsets.UTF_8)
-            }
-            else -> {
-                // Latin-1 (ISO-8859-1)
-                String(bytes, Charsets.ISO_8859_1)
-            }
+            position = atomEnd
         }
     }
 
-    private fun readFlacReplayGain(raf: RandomAccessFile): Double? {
-        // We already read 4 bytes ("fLaC"). Now we parse metadata blocks.
-        raf.seek(4)
-        
-        var isLastBlock = false
-        while (!isLastBlock) {
-            val header = raf.read()
-            if (header == -1) break
-            
-            isLastBlock = (header and 0x80) != 0
-            val blockType = header and 0x7F
-            
-            // Read 24-bit length
-            val length = (raf.read() shl 16) or (raf.read() shl 8) or raf.read()
-            
-            val startPos = raf.filePointer
-            
-            if (blockType == 4) {
-                // VORBIS_COMMENT block
-                val blockBytes = ByteArray(length)
-                raf.readFully(blockBytes)
-                
-                val gain = parseVorbisCommentReplayGain(blockBytes)
-                if (gain != null) return gain
-            } else {
-                // Skip block
-                raf.seek(startPos + length)
+    private fun readMp4Freeform(file: RandomAccessFile, start: Long, end: Long, tags: ReplayGainTags) {
+        var position = start
+        var domain: String? = null
+        var name: String? = null
+        var value: String? = null
+        while (position <= end - 8) {
+            file.seek(position)
+            val size = file.readInt().toLong() and 0xffffffffL
+            val type = ByteArray(4).also(file::readFully).toString(Charsets.ISO_8859_1)
+            if (size < 8 || size > end - position) return
+            val skip = if (type == "data") 8 else 4 // data type + locale, or full-box flags
+            val length = size - 8 - skip
+            if (type in listOf("mean", "name", "data") && length in 0..MAX_METADATA.toLong()) {
+                file.seek(position + 8 + skip)
+                val text = ByteArray(length.toInt()).also(file::readFully).toString(Charsets.UTF_8).trimEnd('\u0000')
+                when (type) { "mean" -> domain = text; "name" -> name = text; "data" -> value = text }
             }
+            position += size
         }
-        return null
+        if (domain == "com.apple.iTunes" && name != null && value != null) tags.accept(name, value)
     }
 
-    private fun parseVorbisCommentReplayGain(bytes: ByteArray): Double? {
-        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-        if (bytes.size < 4) return null
-        
-        // 1. Vendor string length
-        val vendorLength = buffer.int
-        if (bytes.size < 4 + vendorLength + 4) return null
-        
-        // Skip vendor string
-        buffer.position(buffer.position() + vendorLength)
-        
-        // 2. User comment list length
-        val userCommentListLength = buffer.int
-        
-        for (i in 0 until userCommentListLength) {
-            if (buffer.remaining() < 4) break
-            val commentLength = buffer.int
-            if (buffer.remaining() < commentLength) break
-            
-            val commentBytes = ByteArray(commentLength)
-            buffer.get(commentBytes)
-            val comment = String(commentBytes, Charsets.UTF_8)
-            
-            val parts = comment.split('=', limit = 2)
-            if (parts.size == 2) {
-                val key = parts[0].trim()
-                val value = parts[1].trim()
-                if (key.equals("REPLAYGAIN_TRACK_GAIN", ignoreCase = true)) {
-                    return parseGainString(value)
+    private fun synchsafe(bytes: ByteArray, offset: Int): Int =
+        ((bytes[offset].toInt() and 127) shl 21) or ((bytes[offset + 1].toInt() and 127) shl 14) or
+            ((bytes[offset + 2].toInt() and 127) shl 7) or (bytes[offset + 3].toInt() and 127)
+
+    private fun deUnsync(bytes: ByteArray): ByteArray {
+        val output = ByteArrayOutputStream()
+        var i = 0
+        while (i < bytes.size) {
+            val value = bytes[i++]
+            output.write(value.toInt())
+            if (value == 0xff.toByte() && i < bytes.size && bytes[i] == 0.toByte()) i++
+        }
+        return output.toByteArray()
+    }
+
+    private fun readId3(file: RandomAccessFile, tags: ReplayGainTags) {
+        file.seek(0)
+        val header = ByteArray(10).also(file::readFully)
+        val version = header[3].toInt()
+        if (version != 3 && version != 4) return
+        val size = synchsafe(header, 6)
+        if (size !in 1..MAX_METADATA || size > file.length() - 10) return
+        var bytes = ByteArray(size).also(file::readFully)
+        if (version == 3 && header[5].toInt() and 128 != 0) bytes = deUnsync(bytes)
+        val data = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+        if (header[5].toInt() and 64 != 0) {
+            val extendedSize = if (version == 4) synchsafe(bytes, 0) else data.getInt(0) + 4
+            if (extendedSize !in 4..bytes.size) return
+            data.position(extendedSize)
+        }
+        while (data.remaining() >= 10) {
+            val id = ByteArray(4).also(data::get).toString(Charsets.US_ASCII)
+            val length = if (version == 4) synchsafe(bytes, data.position()).also { data.position(data.position() + 4) } else data.int
+            data.get() // status flags
+            val flags = data.get().toInt() and 255
+            if (length <= 0 || length > data.remaining()) break
+            if (id != "TXXX" || (version == 3 && flags and 0xe0 != 0) || (version == 4 && flags and 0x4d != 0)) {
+                data.position(data.position() + length)
+                continue
+            }
+            var body = ByteArray(length).also(data::get)
+            if (version == 4 && (flags and 2 != 0 || header[5].toInt() and 128 != 0)) body = deUnsync(body)
+            val encoding = body[0].toInt()
+            val wide = encoding == 1 || encoding == 2
+            var end = 1
+            while (end < body.size && !(body[end] == 0.toByte() && (!wide || end + 1 < body.size && body[end + 1] == 0.toByte()))) end += if (wide) 2 else 1
+            val start = end + if (wide) 2 else 1
+            if (start >= body.size) continue
+            val charset = when (encoding) { 1 -> Charsets.UTF_16; 2 -> Charsets.UTF_16BE; 3 -> Charsets.UTF_8; else -> Charsets.ISO_8859_1 }
+            tags.accept(String(body, 1, end - 1, charset), String(body, start, body.size - start, charset).trimEnd('\u0000'))
+        }
+    }
+
+    private fun readFlac(file: RandomAccessFile, tags: ReplayGainTags) {
+        file.seek(4)
+        while (file.filePointer + 4 <= file.length()) {
+            val header = file.readUnsignedByte()
+            val length = (file.readUnsignedByte() shl 16) or (file.readUnsignedByte() shl 8) or file.readUnsignedByte()
+            if (length > file.length() - file.filePointer) return
+            if (header and 127 == 4) readComments(ByteArray(length).also(file::readFully), tags)
+            else file.seek(file.filePointer + length)
+            if (header and 128 != 0) return
+        }
+    }
+
+    private fun readComments(bytes: ByteArray, tags: ReplayGainTags) {
+        val data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        if (data.remaining() < 4) return
+        val vendorSize = data.int
+        if (vendorSize < 0 || vendorSize > data.remaining() - 4) return
+        data.position(data.position() + vendorSize)
+        val count = data.int
+        if (count < 0) return
+        repeat(count.coerceAtMost(bytes.size / 4)) {
+            if (data.remaining() < 4) return
+            val size = data.int
+            if (size < 0 || size > data.remaining()) return
+            val comment = ByteArray(size).also(data::get).toString(Charsets.UTF_8)
+            val separator = comment.indexOf('=')
+            if (separator > 0) tags.accept(comment.substring(0, separator), comment.substring(separator + 1))
+        }
+    }
+
+    private fun readOgg(file: RandomAccessFile, tags: ReplayGainTags) {
+        file.seek(0)
+        val packet = ByteArrayOutputStream()
+        var serial: Int? = null
+        while (file.filePointer < minOf(file.length(), MAX_METADATA.toLong())) {
+            val header = ByteArray(27).also(file::readFully)
+            if (String(header, 0, 4, Charsets.US_ASCII) != "OggS") return
+            val pageSerial = ByteBuffer.wrap(header, 14, 4).order(ByteOrder.LITTLE_ENDIAN).int
+            if (serial == null) serial = pageSerial
+            val lacing = ByteArray(header[26].toInt() and 255).also(file::readFully)
+            for (lace in lacing) {
+                val segment = ByteArray(lace.toInt() and 255).also(file::readFully)
+                if (pageSerial != serial) continue
+                packet.write(segment)
+                if (packet.size() > MAX_METADATA) return
+                if (segment.size < 255) {
+                    val bytes = packet.toByteArray()
+                    val prefix = bytes.take(8).toByteArray().toString(Charsets.US_ASCII)
+                    val offset = when { prefix == "OpusTags" -> 8; prefix.startsWith("\u0003vorbis") -> 7; else -> 0 }
+                    if (offset > 0) { readComments(bytes.copyOfRange(offset, bytes.size), tags); return }
+                    packet.reset()
                 }
             }
         }
-        return null
-    }
-
-    private fun readOggReplayGain(raf: RandomAccessFile): Double? {
-        raf.seek(0)
-        
-        // Search for the Vorbis comments in the first few pages.
-        // We read up to 64KB, which usually contains headers for both Opus and Vorbis.
-        val maxHeaderSearch = 65536
-        val fileLength = raf.length()
-        val searchLimit = Math.min(fileLength, maxHeaderSearch.toLong()).toInt()
-        
-        val buffer = ByteArray(searchLimit)
-        raf.readFully(buffer)
-        
-        // Search for OpusTags first
-        val opusTagsIndex = indexOf(buffer, "OpusTags".toByteArray(Charsets.US_ASCII))
-        if (opusTagsIndex != -1) {
-            // Opus comment header starts with "OpusTags" (8 bytes)
-            // Followed directly by the Vorbis comment structure
-            val vorbisCommentStart = opusTagsIndex + 8
-            val vorbisCommentBytes = buffer.copyOfRange(vorbisCommentStart, buffer.size)
-            return parseVorbisCommentReplayGain(vorbisCommentBytes)
-        }
-        
-        // Search for vorbis comment block which starts with byte 0x03 followed by "vorbis"
-        val vorbisPattern = byteArrayOf(0x03, 'v'.toByte(), 'o'.toByte(), 'r'.toByte(), 'b'.toByte(), 'i'.toByte(), 's'.toByte())
-        val vorbisIndex = indexOf(buffer, vorbisPattern)
-        if (vorbisIndex != -1) {
-            // Vorbis comment header starts with 0x03 + "vorbis" (7 bytes)
-            // Followed by Vorbis comment structure
-            val vorbisCommentStart = vorbisIndex + 7
-            val vorbisCommentBytes = buffer.copyOfRange(vorbisCommentStart, buffer.size)
-            return parseVorbisCommentReplayGain(vorbisCommentBytes)
-        }
-        
-        return null
-    }
-
-    private fun indexOf(outer: ByteArray, target: ByteArray): Int {
-        for (i in 0..outer.size - target.size) {
-            var found = true
-            for (j in target.indices) {
-                if (outer[i + j] != target[j]) {
-                    found = false
-                    break
-                }
-            }
-            if (found) return i
-        }
-        return -1
-    }
-
-    private fun parseGainString(value: String): Double? {
-        val cleaned = value.replace("dB", "", ignoreCase = true).trim()
-        return cleaned.toDoubleOrNull()
     }
 }

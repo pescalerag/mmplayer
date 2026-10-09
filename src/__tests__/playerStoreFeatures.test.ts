@@ -1,10 +1,94 @@
 import TrackPlayer, { RepeatMode } from 'react-native-track-player';
 import { createMMKV } from 'react-native-mmkv';
-import { usePlayerStore } from '../store/usePlayerStore';
+import { consumeUserQueueTransition, usePlayerStore } from '../store/usePlayerStore';
 import { ShuffleService } from '../services/ShuffleService';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import Album from '../database/models/Album';
+import { useSettingsStore } from '../store/useSettingsStore';
+
+describe('Player transport responsiveness', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Off);
+    usePlayerStore.setState({ hasPrevious: false, hasNext: false });
+  });
+
+  it('enables navigation before adjacent metadata finishes loading', async () => {
+    let finishMetadata!: (track: any) => void;
+    const pending = new Promise(resolve => { finishMetadata = resolve; });
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockReturnValue(pending) });
+    const update = usePlayerStore.getState().updateQueueStatus(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(usePlayerStore.getState()).toMatchObject({ hasPrevious: true, hasNext: true });
+    finishMetadata({ id: 'adjacent' });
+    await update;
+  });
+
+  it('ignores an older queue update after a newer one has completed', async () => {
+    let finishQueue!: (queue: any[]) => void;
+    (TrackPlayer.getQueue as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finishQueue = resolve; }));
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ id: 'b' }) });
+    const oldUpdate = usePlayerStore.getState().updateQueueStatus(0);
+    await usePlayerStore.getState().updateQueueStatus(2);
+    const newest = usePlayerStore.getState();
+    finishQueue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    await oldUpdate;
+    expect(usePlayerStore.getState().hasNext).toBe(newest.hasNext);
+    expect(usePlayerStore.getState().nextTrack).toBe(newest.nextTrack);
+  });
+
+  it('ignores an older active track lookup after a rapid second skip', async () => {
+    let finishTrack!: (track: any) => void;
+    const newest = { id: 'c' };
+    const find = jest.fn()
+      .mockReturnValueOnce(new Promise(resolve => { finishTrack = resolve; }))
+      .mockResolvedValueOnce(newest);
+    (database.get as jest.Mock).mockReturnValue({ find });
+    const first = usePlayerStore.getState().setActiveTrackById('b');
+    await usePlayerStore.getState().setActiveTrackById('c');
+    finishTrack({ id: 'b' });
+    await first;
+    expect(usePlayerStore.getState().activeTrack).toBe(newest);
+  });
+
+  it('consumes a manual queue entry once when the service and UI receive the same transition', () => {
+    usePlayerStore.setState({ userQueueSize: 5 });
+    const event = { track: { id: 'manual-next' }, lastTrack: { id: 'manual-previous' }, index: 2, lastIndex: 1 };
+    consumeUserQueueTransition(event);
+    consumeUserQueueTransition({ ...event });
+    expect(usePlayerStore.getState().userQueueSize).toBe(4);
+  });
+
+  it('does not consume a manual entry when insertion only moves the current track index', () => {
+    usePlayerStore.setState({ userQueueSize: 5 });
+    consumeUserQueueTransition({ track: { id: 'same-entry' }, lastTrack: { id: 'same-entry' }, index: 2, lastIndex: 1 });
+    expect(usePlayerStore.getState().userQueueSize).toBe(5);
+  });
+
+  it('skips directly without reading the full queue when random autoplay is disabled', async () => {
+    useSettingsStore.setState({ shuffleOnQueueEnd: false });
+    await usePlayerStore.getState().skipToNext();
+    expect(TrackPlayer.skipToNext).toHaveBeenCalledTimes(1);
+    expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
+    expect(TrackPlayer.getActiveTrackIndex).not.toHaveBeenCalled();
+    expect(TrackPlayer.getRepeatMode).not.toHaveBeenCalled();
+  });
+
+  it('only checks the adjacent track for random autoplay and preserves queue repeat', async () => {
+    useSettingsStore.setState({ shuffleOnQueueEnd: true });
+    (TrackPlayer as any).getTrack = jest.fn().mockResolvedValue(undefined);
+    (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(2);
+    (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Queue);
+    await usePlayerStore.getState().skipToNext();
+    expect(TrackPlayer.getTrack).toHaveBeenCalledWith(3);
+    expect(TrackPlayer.skipToNext).toHaveBeenCalledTimes(1);
+    expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
+    useSettingsStore.setState({ shuffleOnQueueEnd: false });
+  });
+});
 
 describe('Player Store Features & Shuffle Helpers', () => {
   const createTestTrack = (id: string, overrides: any = {}) => {

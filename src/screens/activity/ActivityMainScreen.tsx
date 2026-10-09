@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import { openCustomDateModal } from '../../store/useCustomDateModalStore';
 import { SkeletonActivityScreen } from '@/components/common/Skeleton';
 import ActivitySpotlightTutorial from '../../components/modals/ActivitySpotlightTutorial';
 import Animated from 'react-native-reanimated';
-import { getSectionFadeIn } from '@/utils/cascadeAnimations';
+import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 
 // Activity components
 import { ActivityHeader } from '../../components/activity/ActivityHeader';
@@ -48,6 +48,7 @@ async function playTrack(trackId: string, context: string) {
 }
 
 export default function ActivityMainScreen() {
+  const cascade = useCascadeEntry();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -259,11 +260,11 @@ export default function ActivityMainScreen() {
       />
 
       {(() => {
-        if (showLoader) {
+        if (isLoading && showLoader) {
           return <SkeletonActivityScreen topOffset={12} />;
         }
         if (isLoading) {
-          return null;
+          return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={colors.accent} /></View>;
         }
         return (
           <ScrollView
@@ -282,7 +283,7 @@ export default function ActivityMainScreen() {
           >
             {hasActivity ? (
               <>
-                <Animated.View entering={getSectionFadeIn(0)}>
+                <Animated.View entering={cascade.section(0)}>
                   <ActivityHeroCard
                     metric={metric}
                     totalHours={stats.totalHours}
@@ -293,7 +294,7 @@ export default function ActivityMainScreen() {
                   />
                 </Animated.View>
 
-                <Animated.View entering={getSectionFadeIn(1)}>
+                <Animated.View entering={cascade.section(1)}>
                   <ActivityOptionTabs
                     activeOption={activeOption}
                     onSelectOption={setActiveOption}
@@ -302,10 +303,7 @@ export default function ActivityMainScreen() {
                   />
                 </Animated.View>
 
-                <Animated.View
-                  key={`activity-tab-${activeOption}-${period}-${dateRangeInfo.label}-${metric}`}
-                  entering={getSectionFadeIn(2)}
-                >
+                <View>
                   <ActivityTabContent
                     activeOption={activeOption}
                     sectionLabel={sectionLabel}
@@ -326,7 +324,7 @@ export default function ActivityMainScreen() {
                     onAlbumSelect={handleAlbumSelect}
                     onArtistSelect={handleArtistSelect}
                   />
-                </Animated.View>
+                </View>
               </>
             ) : (
               <ActivityEmptyState />

@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { PermissionService } from './PermissionService';
 import { Platform, Image as RNImage } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGain, readMetadata } from '../../modules/native-audio-scanner';
+import { findAndScanUnindexedAudioFiles, getAudioFiles, getReplayGainMetadata, readMetadata } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Album from '../database/models/Album';
 import Artist from '../database/models/Artist';
@@ -418,6 +418,12 @@ const prepareTrackRecords = (
         t.artist.set(primaryArtist);
         t.lastModified = meta.lastModified;
         t.genre = meta.genre || null;
+        if (file.replayGain !== undefined && file.replayGain !== null) {
+            t.replayGain = file.replayGain;
+        }
+        if (file.replayPeak !== undefined && file.replayPeak !== null) {
+            t.replayPeak = file.replayPeak;
+        }
     });
     ops.push(track);
 
@@ -804,7 +810,7 @@ export const ScannerService = {
             }
 
             onProgress?.(0, 0, i18n.t('scanner.searching_files'));
-            let audioFiles = await getAudioFiles(false);
+            let audioFiles = await getAudioFiles(true);
             if (!audioFiles || audioFiles.length === 0) {
                 if (!isSilent) {
                     showToastNotification(0, 0, 0);
@@ -889,7 +895,7 @@ export const ScannerService = {
                         const unindexedFiles = await findAndScanUnindexedAudioFiles(knownUris);
                         if (unindexedFiles.length > 0) {
                             useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
-                            const refreshedAudio = await getAudioFiles(false);
+                            const refreshedAudio = await getAudioFiles(true);
                             if (refreshedAudio && refreshedAudio.length > 0) {
                                 audioFiles = refreshedAudio;
                                 activeAudioFiles = populateActiveAudioFiles(audioFiles);
@@ -920,10 +926,14 @@ export const ScannerService = {
             const forcedMetaMap = forcedFileUrls instanceof Map ? forcedFileUrls : undefined;
 
             const archivos_modificados: { track: Track; file: any; isForced?: boolean }[] = [];
+            const replayGainUpdates: { track: Track; file: any }[] = [];
             for (const file of activeAudioFiles) {
                 const existing = trackMap.get(file.uri) || (file.uri.includes('#') ? trackMap.get(file.uri.replace(/#/g, '%23')) : undefined);
                 if (existing) {
                     const dbLastModified = existing.lastModified || 0;
+                    const needsReplayGainUpdate =
+                        existing.replayGain !== (file.replayGain ?? null) ||
+                        existing.replayPeak !== (file.replayPeak ?? null);
                     const needsGenreBackfill = (existing.genre === null || existing.genre === undefined) && !!file.genre;
                     const isForced = !!(forcedUrlsSet && (
                         forcedUrlsSet.has(file.uri) ||
@@ -936,6 +946,8 @@ export const ScannerService = {
                             file.lastModified = Date.now();
                         }
                         archivos_modificados.push({ track: existing, file, isForced });
+                    } else if (needsReplayGainUpdate) {
+                        replayGainUpdates.push({ track: existing, file });
                     }
                 }
             }
@@ -1036,7 +1048,7 @@ export const ScannerService = {
                 // Si aún quedan huérfanas y es un lote masivo (>= 30), esperar brevemente y re-consultar MediaStore por si hubo latencia de escritura en disco
                 if (remainingOrphans.length > 0 && isMigrationBatch) {
                     await new Promise(resolve => setTimeout(resolve, 800));
-                    const refreshedAudio = await getAudioFiles(false);
+                    const refreshedAudio = await getAudioFiles(true);
                     if (refreshedAudio && refreshedAudio.length > 0) {
                         audioFiles = refreshedAudio;
                         activeAudioFiles = populateActiveAudioFiles(audioFiles);
@@ -1076,7 +1088,7 @@ export const ScannerService = {
                             if (unindexedFiles.length > 0) {
                                 useMigrationStore.getState().setPhase('indexing', i18n.t('migration.indexing_system'));
                                 await new Promise(resolve => setTimeout(resolve, 500));
-                                const refreshedAudio = await getAudioFiles(false);
+                                const refreshedAudio = await getAudioFiles(true);
                                 if (refreshedAudio && refreshedAudio.length > 0) {
                                     audioFiles = refreshedAudio;
                                     activeAudioFiles = populateActiveAudioFiles(audioFiles);
@@ -1184,6 +1196,8 @@ export const ScannerService = {
                                 t.title = meta.title;
                                 t.normalizedTitle = normalizeText(meta.title);
                                 t.duration = meta.durationInSeconds;
+                                t.replayGain = file.replayGain ?? null;
+                                t.replayPeak = file.replayPeak ?? null;
                                 t.trackNumber = file.trackNumber || 0;
                                 t.discNumber = file.discNumber || 1;
                                 t.album.set(album);
@@ -1246,6 +1260,17 @@ export const ScannerService = {
                 tracksCreated = result.added;
             }
 
+            // Backfill or clear gain/peak without rebuilding unchanged album/artist relations.
+            for (let i = 0; i < replayGainUpdates.length; i += 500) {
+                const chunk = replayGainUpdates.slice(i, i + 500);
+                await database.write(async () => {
+                    await database.batch(chunk.map(({ track, file }) => track.prepareUpdate(t => {
+                        t.replayGain = file.replayGain ?? null;
+                        t.replayPeak = file.replayPeak ?? null;
+                    })));
+                });
+            }
+
             // --- Fase de Limpieza Final ---
             if (deletedTrackIds.length > 0 || tracksReconciled > 0 || tracksUpdated > 0) {
                 onProgress?.(audioFiles.length, audioFiles.length, i18n.t('scanner.cleaning_database'));
@@ -1280,7 +1305,7 @@ export const ScannerService = {
             await usePlayerStore.getState().refreshRecentsFromDatabase().catch(() => {});
 
             // Actualizar pistas modificadas en el reproductor si están en cola o activas
-            for (const item of archivos_modificados) {
+            for (const item of [...archivos_modificados, ...replayGainUpdates]) {
                 await usePlayerStore.getState().updateTrackMetadata(item.track.id).catch(() => {});
             }
 
@@ -1915,19 +1940,20 @@ export const ScannerService = {
     ): Promise<number> => {
         try {
             const tracksCollection = database.collections.get<Track>('tracks');
-            // Buscamos solo canciones que no tengan replay_gain asignado
+            // Include previously scanned tracks whose peak has not been read yet.
             const tracksWithoutGain = await tracksCollection.query(
-                Q.where('replay_gain', Q.eq(null as any))
+                Q.or(Q.where('replay_gain', Q.eq(null as any)), Q.where('replay_peak', Q.eq(null as any)))
             ).fetch();
 
             if (tracksWithoutGain.length === 0) {
                 return 0;
             }
 
-            console.log(`[ReplayGain Deep Scan] Encontradas ${tracksWithoutGain.length} canciones sin ReplayGain.`);
+            console.log(`[ReplayGain Deep Scan] Encontradas ${tracksWithoutGain.length} canciones sin ganancia o pico ReplayGain.`);
 
             const CHUNK_SIZE = 10;
             let processed = 0;
+            let updated = 0;
 
             for (let i = 0; i < tracksWithoutGain.length; i += CHUNK_SIZE) {
                 const chunk = tracksWithoutGain.slice(i, i + CHUNK_SIZE);
@@ -1938,13 +1964,14 @@ export const ScannerService = {
 
                 await Promise.all(chunk.map(async (track) => {
                     try {
-                        const gain = await getReplayGain(track.fileUrl);
-                        if (gain !== null && gain !== undefined) {
-                            const parsedGain = typeof gain === 'number' ? gain : parseFloat(gain);
-                            const updateOp = track.prepareUpdate((t: any) => {
-                                t.replayGain = parsedGain;
-                            });
-                            batchOps.push(updateOp);
+                        const metadata = await getReplayGainMetadata(track.fileUrl);
+                        const gain = typeof metadata.gain === 'number' && Number.isFinite(metadata.gain) ? metadata.gain : null;
+                        const peak = typeof metadata.peak === 'number' && Number.isFinite(metadata.peak) && metadata.peak > 0 ? metadata.peak : null;
+                        if (gain !== null || peak !== null) {
+                            batchOps.push(track.prepareUpdate(t => {
+                                if (gain !== null) t.replayGain = gain;
+                                if (peak !== null) t.replayPeak = peak;
+                            }));
                         }
                     } catch (err) {
                         console.error(`Error al obtener ReplayGain para ${track.fileUrl}:`, err);
@@ -1955,6 +1982,7 @@ export const ScannerService = {
                     await database.write(async () => {
                         await database.batch(batchOps);
                     });
+                    updated += batchOps.length;
                 }
 
                 processed += chunk.length;
@@ -1963,7 +1991,7 @@ export const ScannerService = {
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
 
-            return tracksWithoutGain.length;
+            return updated;
         } catch (error) {
             console.error("Error en runDeepReplayGainScan:", error);
             throw error;

@@ -1,3 +1,4 @@
+import { APP_LANGUAGES } from '../../constants/languages';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -27,35 +28,20 @@ export default function SettingsLanguageScreen() {
                 >
                     <View style={styles.sectionCard}>
                         <View style={styles.languageContainer}>
+                        {APP_LANGUAGES.map(option => (
                             <TouchableOpacity
-                                style={[
-                                    styles.languageButton,
-                                    language === 'es' && { backgroundColor: colors.accentAlpha15, borderColor: colors.accent }
-                                ]}
-                                onPress={() => setLanguage('es')}
+                                key={option.code}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: language === option.code }}
+                                style={[styles.languageButton, language === option.code && { backgroundColor: colors.accentAlpha15, borderColor: colors.accent }]}
+                                onPress={() => setLanguage(option.code)}
                                 activeOpacity={0.7}
                             >
-                                <Text style={styles.flagEmoji}>🇪🇸</Text>
-                                <Text style={[
-                                    styles.languageText,
-                                    language === 'es' && { color: colors.accent, fontWeight: '700' }
-                                ]}>Español</Text>
+                                <Text style={styles.flagEmoji}>{option.emoji}</Text>
+                                <Text style={[styles.languageText, language === option.code && { color: colors.accent, fontWeight: '700' }]}>{option.name}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.languageButton,
-                                    language === 'en' && { backgroundColor: colors.accentAlpha15, borderColor: colors.accent }
-                                ]}
-                                onPress={() => setLanguage('en')}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.flagEmoji}>🇬🇧</Text>
-                                <Text style={[
-                                    styles.languageText,
-                                    language === 'en' && { color: colors.accent, fontWeight: '700' }
-                                ]}>English</Text>
-                            </TouchableOpacity>
-                        </View>
+                        ))}
+                    </View>
                     </View>
                 </ScrollView>
             )}
@@ -74,12 +60,12 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     languageContainer: {
-        flexDirection: 'row',
+        flexDirection: 'column',
         gap: 12,
         marginTop: 4,
     },
     languageButton: {
-        flex: 1,
+        width: '100%',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

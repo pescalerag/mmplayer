@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import { initializeReplayGain } from './ReplayGainService';
 import TrackPlayer, {
     AppKilledPlaybackBehavior,
     Capability,
@@ -5,6 +7,7 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 
 export async function setupPlayer() {
+    await initializeReplayGain();
     let isSetup = false;
     try {
         await TrackPlayer.getActiveTrack();
@@ -28,6 +31,7 @@ export async function setupPlayer() {
             Capability.SkipToPrevious,
             Capability.SeekTo,
             Capability.PlayFromSearch,
+            ...(Platform.OS === 'android' ? [Capability.Like] : []),
         ],
         notificationCapabilities: [
             Capability.Play,
@@ -35,6 +39,7 @@ export async function setupPlayer() {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
             Capability.SeekTo,
+            ...(Platform.OS === 'android' ? [Capability.Like] : []),
         ],
     });
 

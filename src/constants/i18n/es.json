@@ -465,7 +465,7 @@
     "delete_canvas_videos_msg": "Se eliminarán todos los vídeos de fondo Canva asociados a las canciones.",
     "canvas_videos_deleted": "Vídeos Canva eliminados",
     "language": "Idioma",
-    "language_desc": "Selecciona el idioma de la aplicación (Español / Inglés)",
+    "language_desc": "Selecciona el idioma de la aplicación (español, inglés o portugués)",
     "artist_images_title": "Imágenes de artistas",
     "artist_images_desc": "Configura la descarga automática de imágenes de artistas",
     "artist_images_mode": "Modo de descarga",
@@ -606,9 +606,9 @@
     "fallback_gain": "Ganancia fallback",
     "fallback_gain_desc": "Volumen a aplicar si la canción no tiene datos de normalización",
     "scan_replaygain": "Escanear ganancias de volumen",
-    "scan_replaygain_desc": "Busca y analiza el volumen (ReplayGain) de tus archivos de audio para nivelarlos",
+    "scan_replaygain_desc": "Lee la ganancia y el pico ReplayGain guardados en tus archivos de audio",
     "scan_replaygain_alert_title": "Analizar volumen de canciones",
-    "scan_replaygain_alert_desc": "Este proceso buscará y analizará las canciones de tu biblioteca que aún no tengan una ganancia de volumen asignada. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?",
+    "scan_replaygain_alert_desc": "Este proceso leerá las etiquetas de las canciones que aún no tengan ganancia o pico ReplayGain. Esto puede tomar unos minutos en colecciones grandes. ¿Deseas continuar?",
     "scan_replaygain_success": "Se han analizado y guardado las ganancias de {{count}} canciones.",
     "fade": "Atenuación suave (Fade)",
     "fade_desc": "Baja y sube el volumen suavemente (500ms) al pausar y reproducir",
@@ -799,7 +799,8 @@
     "bitrate": "Bitrate",
     "sample_rate": "Frecuencia de muestreo",
     "channels": "Canales",
-    "replay_gain": "Replay Gain"
+    "replay_gain": "Replay Gain",
+    "replay_peak": "Pico ReplayGain"
   },
   "toasts": {
     "syncing": "Sincronizando Biblioteca...",
@@ -1605,5 +1606,26 @@
     "settings_app_update": "Actualizaciones de la app",
     "settings_app_update_desc": "Avisar cuando haya una nueva versión disponible",
     "save_preferences": "Guardar preferencias"
+  },
+  "language_offer": {
+    "title": "MMPlayer ahora habla portugués",
+    "message": "El idioma de tu dispositivo es portugués. ¿Quieres cambiar el idioma de MMPlayer a portugués? Puedes cambiarlo cuando quieras en los ajustes.",
+    "confirm": "Cambiar a portugués",
+    "keep": "Mantener mi idioma actual"
+  },
+  "smart_playlists": {
+    "week_title": "Tu Semana",
+    "week_desc": "Tus 50 canciones más escuchadas de esta semana",
+    "month_title": "Mes de {{month}}",
+    "month_desc": "Tus 50 canciones más escuchadas en {{month}}",
+    "all_title": "Tus más escuchadas",
+    "all_desc": "Tus 50 canciones más escuchadas en MMPlayer",
+    "unrated_title": "Sin puntuar",
+    "unrated_desc": "Canciones que aún no han sido valoradas",
+    "rating_title": "{{range}} estrellas",
+    "rating_desc": "Canciones valoradas entre {{min}} y {{max}} estrellas",
+    "rating_top_desc": "Canciones con valoración de 4 a 5 estrellas",
+    "perfect_title": "5 estrellas",
+    "perfect_desc": "Canciones con valoración perfecta de 5 estrellas"
   }
 }

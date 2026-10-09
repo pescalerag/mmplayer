@@ -3,9 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Animated, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
-import TrackPlayer from 'react-native-track-player';
-import { database } from '../../database';
-import Track from '../../database/models/Track';
 import { ScannerService } from '../../services/ScannerService';
 import { EqualizerService } from '../../services/EqualizerService';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -82,30 +79,7 @@ export default function SettingsAudioScreen() {
                             </View>
                             <Switch
                                 value={isNormalizationEnabled}
-                                onValueChange={async (value) => {
-                                    setNormalizationEnabled(value);
-                                    try {
-                                        if (value) {
-                                            const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-                                            if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
-                                                const track = await TrackPlayer.getTrack(activeTrackIndex);
-                                                if (track && track.id) {
-                                                    const cleanId = track.id.toString().split('-')[0];
-                                                    const trackModel = await database.get<Track>('tracks').find(cleanId);
-                                                    const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
-                                                    const totalTargetDB = trackGainDB + preampLevel;
-                                                    let linearVolume = Math.pow(10, totalTargetDB / 20);
-                                                    linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
-                                                    await TrackPlayer.setVolume(linearVolume);
-                                                }
-                                            }
-                                        } else {
-                                            await TrackPlayer.setVolume(1.0);
-                                        }
-                                    } catch (err) {
-                                        console.error("Error actualizando volumen al activar/desactivar normalización:", err);
-                                    }
-                                }}
+                                onValueChange={setNormalizationEnabled}
                                 trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={isNormalizationEnabled ? '#FFFFFF' : '#888888'}
                                 ios_backgroundColor="#282828"
@@ -132,26 +106,7 @@ export default function SettingsAudioScreen() {
                                         maximumValue={6}
                                         step={0.5}
                                         value={preampLevel}
-                                        onValueChange={async (value) => {
-                                            setPreampLevel(value);
-                                            try {
-                                                const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-                                                if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
-                                                    const track = await TrackPlayer.getTrack(activeTrackIndex);
-                                                    if (track && track.id) {
-                                                        const cleanId = track.id.toString().split('-')[0];
-                                                        const trackModel = await database.get<Track>('tracks').find(cleanId);
-                                                        const trackGainDB = trackModel.replayGain ?? fallbackGainDB;
-                                                        const totalTargetDB = trackGainDB + value;
-                                                        let linearVolume = Math.pow(10, totalTargetDB / 20);
-                                                        linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
-                                                        await TrackPlayer.setVolume(linearVolume);
-                                                    }
-                                                }
-                                            } catch (err) {
-                                                console.error("Error actualizando volumen en tiempo real:", err);
-                                            }
-                                        }}
+                                        onValueChange={setPreampLevel}
                                         minimumTrackTintColor={colors.accent}
                                         maximumTrackTintColor="#282828"
                                         thumbTintColor="#FFFFFF"
@@ -176,27 +131,7 @@ export default function SettingsAudioScreen() {
                                         maximumValue={0}
                                         step={1}
                                         value={fallbackGainDB}
-                                        onValueChange={async (value) => {
-                                            setFallbackGain(value);
-                                            try {
-                                                const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-                                                if (activeTrackIndex !== null && activeTrackIndex !== undefined) {
-                                                    const track = await TrackPlayer.getTrack(activeTrackIndex);
-                                                    if (track && track.id) {
-                                                        const cleanId = track.id.toString().split('-')[0];
-                                                        const trackModel = await database.get<Track>('tracks').find(cleanId);
-                                                        if (trackModel.replayGain === null || trackModel.replayGain === undefined) {
-                                                            const totalTargetDB = value + preampLevel;
-                                                            let linearVolume = Math.pow(10, totalTargetDB / 20);
-                                                            linearVolume = Math.min(Math.max(linearVolume, 0), 1.0);
-                                                            await TrackPlayer.setVolume(linearVolume);
-                                                        }
-                                                    }
-                                                }
-                                            } catch (err) {
-                                                console.error("Error actualizando volumen fallback en tiempo real:", err);
-                                            }
-                                        }}
+                                        onValueChange={setFallbackGain}
                                         minimumTrackTintColor={colors.accent}
                                         maximumTrackTintColor="#282828"
                                         thumbTintColor="#FFFFFF"

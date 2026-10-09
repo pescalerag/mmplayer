@@ -28,6 +28,9 @@ export const HorizontalCarousel: React.FC<HorizontalCarouselProps> = ({
       {data.length > 0 ? (
         <FlatList
           horizontal
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={3}
           showsHorizontalScrollIndicator={false}
           data={data}
           renderItem={renderItem}

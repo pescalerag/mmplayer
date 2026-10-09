@@ -465,7 +465,7 @@
     "delete_canvas_videos_msg": "All Canva background videos associated with tracks will be deleted.",
     "canvas_videos_deleted": "Canva videos deleted",
     "language": "Language",
-    "language_desc": "Select application language (English / Spanish)",
+    "language_desc": "Select application language (Spanish, English or Portuguese)",
     "artist_images_title": "Artist Images",
     "artist_images_desc": "Configure automatic downloading of artist images",
     "artist_images_mode": "Download Mode",
@@ -606,9 +606,9 @@
     "fallback_gain": "Fallback gain",
     "fallback_gain_desc": "Volume to apply if the song does not have normalization data",
     "scan_replaygain": "Scan volume gains",
-    "scan_replaygain_desc": "Scan and analyze the volume (ReplayGain) of your audio files to level them",
+    "scan_replaygain_desc": "Read the ReplayGain gain and peak tags stored in your audio files",
     "scan_replaygain_alert_title": "Analyze Track Volume",
-    "scan_replaygain_alert_desc": "This process will scan and analyze tracks in your library that do not have volume gain assigned. This might take a few minutes for larger libraries. Do you wish to continue?",
+    "scan_replaygain_alert_desc": "This process will read tags from tracks that do not have ReplayGain gain or peak values yet. This might take a few minutes for larger libraries. Do you wish to continue?",
     "scan_replaygain_success": "Successfully analyzed and saved volume gains of {{count}} tracks.",
     "fade": "Playback Fade Effect",
     "fade_desc": "Lower and raise volume smoothly (500ms) on pause and play",
@@ -799,7 +799,8 @@
     "bitrate": "Bitrate",
     "sample_rate": "Sample rate",
     "channels": "Channels",
-    "replay_gain": "Replay Gain"
+    "replay_gain": "Replay Gain",
+    "replay_peak": "ReplayGain peak"
   },
   "toasts": {
     "syncing": "Syncing Library...",
@@ -1605,5 +1606,26 @@
     "settings_app_update": "App updates",
     "settings_app_update_desc": "Notify when a new version of MMPlayer is available",
     "save_preferences": "Save preferences"
+  },
+  "language_offer": {
+    "title": "MMPlayer now speaks Portuguese",
+    "message": "Your device language is Portuguese. Would you like to switch MMPlayer to Portuguese? You can change it anytime in Settings.",
+    "confirm": "Switch to Portuguese",
+    "keep": "Keep my current language"
+  },
+  "smart_playlists": {
+    "week_title": "Your Week",
+    "week_desc": "Your 50 most played tracks this week",
+    "month_title": "{{month}} Month",
+    "month_desc": "Your 50 most played tracks in {{month}}",
+    "all_title": "Your Most Listened",
+    "all_desc": "Your 50 most listened tracks in MMPlayer",
+    "unrated_title": "Unrated",
+    "unrated_desc": "Songs without a rating",
+    "rating_title": "{{range}} Stars",
+    "rating_desc": "Songs rated {{min}} to {{max}} stars",
+    "rating_top_desc": "Songs rated between 4 and 5 stars",
+    "perfect_title": "5 Stars",
+    "perfect_desc": "Songs with perfect 5-star rating"
   }
 }

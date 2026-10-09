@@ -16,11 +16,20 @@ import {
 import { database } from '../../database';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { BackupService } from '../../services/BackupService';
+import { startWith, tap } from 'rxjs/operators';
+
+const libraryCounts: Record<'tracks' | 'albums' | 'artists', number | null> = {
+    tracks: null, albums: null, artists: null,
+};
+const observeLibraryCount = (table: keyof typeof libraryCounts) => database.get(table).query().observeCount().pipe(
+    tap(count => { libraryCounts[table] = count; }),
+    startWith(libraryCounts[table]),
+);
 
 interface SettingsProps {
-    readonly tracksCount: number;
-    readonly albumsCount: number;
-    readonly artistsCount: number;
+    readonly tracksCount: number | null;
+    readonly albumsCount: number | null;
+    readonly artistsCount: number | null;
 }
 
 function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsProps) {
@@ -52,17 +61,17 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                         <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <Text style={[styles.statValue, { color: colors.accent }]}>{tracksCount}</Text>
+                                <Text style={[styles.statValue, { color: colors.accent }]}>{tracksCount ?? '…'}</Text>
                                 <Text style={styles.statLabel}>{t('library.songs')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={[styles.statValue, { color: colors.accent }]}>{albumsCount}</Text>
+                                <Text style={[styles.statValue, { color: colors.accent }]}>{albumsCount ?? '…'}</Text>
                                 <Text style={styles.statLabel}>{t('library.albums')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={[styles.statValue, { color: colors.accent }]}>{artistsCount}</Text>
+                                <Text style={[styles.statValue, { color: colors.accent }]}>{artistsCount ?? '…'}</Text>
                                 <Text style={styles.statLabel}>{t('library.artists')}</Text>
                             </View>
                         </View>
@@ -558,9 +567,9 @@ const styles = StyleSheet.create({
 });
 
 const SettingsScreen = withObservables([], () => ({
-    tracksCount: database.get('tracks').query().observeCount(),
-    albumsCount: database.get('albums').query().observeCount(),
-    artistsCount: database.get('artists').query().observeCount(),
+    tracksCount: observeLibraryCount('tracks'),
+    albumsCount: observeLibraryCount('albums'),
+    artistsCount: observeLibraryCount('artists'),
 }))(SettingsContent);
 
 SettingsScreen.displayName = 'SettingsScreen';
