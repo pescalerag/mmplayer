@@ -1252,6 +1252,10 @@
       "all": "All"
     },
     "charts": {
+      "artist_statistics": "Statistics",
+      "totals": "Period totals",
+      "previous_period": "Previous period",
+      "next_period": "Next period",
       "average_minutes": "Average minutes per day",
       "average_plays": "Average plays per day",
       "listening_clock": "Your listening hours",

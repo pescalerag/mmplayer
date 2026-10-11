@@ -10,6 +10,7 @@ import { Period } from '../../../screens/activity/utils/activityDateUtils';
 import { ActivityChartAverages } from './ActivityChartAverages';
 import { ActivityListeningClock } from './ActivityListeningClock';
 import { ActivityChartTimeline } from './ActivityChartTimeline';
+import { ActivityChartTotals } from './ActivityChartTotals';
 
 interface Props {
   readonly from: Date | null;
@@ -19,19 +20,21 @@ interface Props {
   readonly refreshKey: number;
 }
 
-function ChartContent({ stats, period, metric }: { readonly stats: ActivityChartStats; readonly period: Period; readonly metric: ChartMetric }) {
+function ChartContent({ stats, period, metric, showTotals }: { readonly stats: ActivityChartStats; readonly period: Period; readonly metric: ChartMetric; readonly showTotals?: boolean }) {
   const cascade = useCascadeEntry();
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
+  const contentOffset = showTotals ? 1 : 0;
   return (
     <View style={styles.content}>
-      <Animated.View entering={cascade.section(0)}><ActivityChartAverages stats={stats} /></Animated.View>
-      {stats.days.length === 0 ? (
+      {showTotals && <Animated.View entering={cascade.section(0)}><ActivityChartTotals stats={stats} /></Animated.View>}
+      <Animated.View entering={cascade.section(contentOffset)}><ActivityChartAverages stats={stats} /></Animated.View>
+      {stats.hours.every(hour => hour.plays === 0) ? (
         <Text style={{ color: colors.textSecondary, fontFamily: fonts.regular }}>{t('activity.charts.empty')}</Text>
       ) : (
         <>
-          <Animated.View entering={cascade.section(1)}><ActivityListeningClock hours={stats.hours} metric={metric} /></Animated.View>
-          <Animated.View entering={cascade.section(2)}><ActivityChartTimeline stats={stats} period={period} metric={metric} /></Animated.View>
+          <Animated.View entering={cascade.section(contentOffset + 1)}><ActivityListeningClock hours={stats.hours} metric={metric} /></Animated.View>
+          <Animated.View entering={cascade.section(contentOffset + 2)}><ActivityChartTimeline stats={stats} period={period} metric={metric} /></Animated.View>
         </>
       )}
     </View>
@@ -40,6 +43,22 @@ function ChartContent({ stats, period, metric }: { readonly stats: ActivityChart
 
 export function ActivityChartsTab({ from, to, period, metric, refreshKey }: Props) {
   const { data, error, isLoading, showLoader, reload } = useActivityCharts(from, to, refreshKey);
+  return <ActivityChartsResult data={data} error={error} isLoading={isLoading} showLoader={showLoader} reload={reload} period={period} metric={metric} contentKey={`${from?.getTime()}:${to.getTime()}:${refreshKey}`} />;
+}
+
+interface ResultProps {
+  readonly data: ActivityChartStats | null;
+  readonly error: boolean;
+  readonly isLoading: boolean;
+  readonly showLoader: boolean;
+  readonly reload: () => Promise<void>;
+  readonly period: Period;
+  readonly metric: ChartMetric;
+  readonly contentKey: string;
+  readonly showTotals?: boolean;
+}
+
+export function ActivityChartsResult({ data, error, isLoading, showLoader, reload, period, metric, contentKey, showTotals }: ResultProps) {
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
   if (isLoading) {
@@ -56,7 +75,7 @@ export function ActivityChartsTab({ from, to, period, metric, refreshKey }: Prop
     );
   }
   if (!data) return null;
-  return <ChartContent key={`${from?.getTime()}:${to.getTime()}:${refreshKey}`} stats={data} period={period} metric={metric} />;
+  return <ChartContent key={contentKey} stats={data} period={period} metric={metric} showTotals={showTotals} />;
 }
 
 const styles = StyleSheet.create({

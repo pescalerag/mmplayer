@@ -114,6 +114,10 @@ export function getMonthDays(days: readonly ChartBucket[], monthKey: number): Ch
   });
 }
 
+export function getChartTotals(buckets: readonly ChartBucket[]): { seconds: number; plays: number } {
+  return buckets.reduce((sum, bucket) => ({ seconds: sum.seconds + bucket.seconds, plays: sum.plays + bucket.plays }), { seconds: 0, plays: 0 });
+}
+
 export function formatChartBucket(key: number, granularity: ChartGranularity, locale: string): string {
   if (granularity === 'hour') return `${String(key).padStart(2, '0')}:00`;
   const options: Intl.DateTimeFormatOptions = granularity === 'month'

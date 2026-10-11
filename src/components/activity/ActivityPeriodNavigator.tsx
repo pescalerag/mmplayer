@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { useTranslation } from 'react-i18next';
 
 interface ActivityPeriodNavigatorProps {
   readonly formattedPeriodText: string;
@@ -19,6 +20,7 @@ export function ActivityPeriodNavigator({
   onNextPeriod,
 }: ActivityPeriodNavigatorProps) {
   const { fonts } = useAppTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={styles.periodNavigatorRow}>
@@ -28,7 +30,7 @@ export function ActivityPeriodNavigator({
         disabled={!canGoPrev}
         activeOpacity={0.7}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Anterior"
+        accessibilityLabel={t('activity.charts.previous_period')}
       >
         <Ionicons
           name="chevron-back"
@@ -53,7 +55,7 @@ export function ActivityPeriodNavigator({
         disabled={!canGoNext}
         activeOpacity={0.7}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="Siguiente"
+        accessibilityLabel={t('activity.charts.next_period')}
       >
         <Ionicons
           name="chevron-forward"

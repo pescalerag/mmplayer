@@ -1,12 +1,17 @@
 import {
   calculateActivityCharts, EMPTY_CHART_STATS, formatChartBucket, getChartValues,
-  getClockSegmentPath, getMonthDays,
+  getClockSegmentPath, getMonthDays, getChartTotals,
 } from '../utils/activityCharts';
 
 const date = (day: number, hour = 0) => new Date(2026, 9, day, hour);
 const record = (day: number, hour: number, durationPlayed: number | null) => ({ playedAt: date(day, hour), durationPlayed });
 
 describe('activity chart calculations', () => {
+  it('sums exact totals for the displayed scope, including an empty scope', () => {
+    expect(getChartTotals([])).toEqual({ seconds: 0, plays: 0 });
+    const stats = calculateActivityCharts([record(1, 8, 120), record(3, 9, 60)], date(1), date(3, 23), date(4));
+    expect(getChartTotals(stats.hours)).toEqual({ seconds: 180, plays: 2 });
+  });
   it('includes silent days, counts today, and excludes future days and records', () => {
     const stats = calculateActivityCharts([record(1, 8, 120), record(3, 8, 60), record(4, 9, 600)], date(1), date(7), date(3, 18));
     expect(stats.dayCount).toBe(3);

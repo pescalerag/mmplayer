@@ -48,10 +48,10 @@ function createHarness() {
     });
   });
   return {
-    render: function useChartsRender(from: Date | null, to: Date, refreshKey = 0) {
+    render: function useChartsRender(from: Date | null, to: Date, refreshKey = 0, artistId?: string, enabled?: boolean) {
       stateIndex = refIndex = callbackIndex = effectIndex = 0;
       pending = [];
-      const result = useActivityCharts(from, to, refreshKey);
+      const result = useActivityCharts(from, to, refreshKey, artistId, enabled);
       pending.forEach(effect => effect());
       return result;
     },
@@ -92,6 +92,44 @@ describe('chart loading lifecycle', () => {
     await jest.advanceTimersByTimeAsync(500);
     expect(harness.render(from, to).showLoader).toBe(false);
     expect(ActivityChartsService.getStats).toHaveBeenCalledTimes(1);
+  });
+
+  it('queries nothing while folded and reloads the artist when reopened', async () => {
+    expect(harness.render(from, to, 0, 'artist-a', false).isLoading).toBe(false);
+    await jest.advanceTimersByTimeAsync(500);
+    expect(ActivityChartsService.getStats).not.toHaveBeenCalled();
+    await harness.render(from, to, 0, 'artist-a', false).reload();
+    expect(ActivityChartsService.getStats).not.toHaveBeenCalled();
+    harness.render(from, to, 0, 'artist-a');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(ActivityChartsService.getStats).toHaveBeenLastCalledWith(from, to, new Date(to.getTime() + 500), 'artist-a');
+    expect(harness.render(from, to, 0, 'artist-a').data).toBe(stats);
+    harness.render(from, to, 0, 'artist-a', false);
+    expect(harness.render(from, to, 0, 'artist-a').data).toBeNull();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(ActivityChartsService.getStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reload all-time charts when first-listen metadata updates the displayed date range', async () => {
+    harness.render(null, to, 0, 'artist-a');
+    await jest.advanceTimersByTimeAsync(1);
+    const changedEnd = new Date(to.getTime() + 1);
+    expect(harness.render(null, changedEnd, 0, 'artist-a').data).toBe(stats);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(ActivityChartsService.getStats).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards artist data arriving after folding or switching artist', async () => {
+    const old = deferred<typeof stats>();
+    (ActivityChartsService.getStats as jest.Mock).mockReturnValueOnce(old.promise);
+    harness.render(from, to, 0, 'artist-a');
+    harness.render(from, to, 0, 'artist-a', false);
+    harness.render(from, to, 0, 'artist-b');
+    await jest.advanceTimersByTimeAsync(0);
+    old.resolve({ ...stats, averageMinutes: 99 });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(harness.render(from, to, 0, 'artist-b').data).toBe(stats);
+    expect(ActivityChartsService.getStats).toHaveBeenLastCalledWith(from, to, to, 'artist-b');
   });
 
   it('shows the loader at 250ms and removes it when the slow query finishes', async () => {
