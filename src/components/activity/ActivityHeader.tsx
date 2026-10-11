@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
 interface ActivityHeaderProps {
+  readonly includeTopInset?: boolean;
   readonly isFromProfile: boolean;
   readonly onBack: () => void;
   readonly onHelp: () => void;
@@ -16,6 +17,7 @@ interface ActivityHeaderProps {
 }
 
 export function ActivityHeader({
+  includeTopInset = true,
   isFromProfile,
   onBack,
   onHelp,
@@ -35,7 +37,7 @@ export function ActivityHeader({
   };
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 12 }]}>
+    <View style={[styles.header, { paddingTop: (includeTopInset ? insets.top : 0) + 10, paddingBottom: 12 }]}>
       {isFromProfile && (
         <TouchableOpacity
           onPress={onBack}

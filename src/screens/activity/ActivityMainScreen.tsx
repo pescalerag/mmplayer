@@ -58,6 +58,7 @@ export default function ActivityMainScreen() {
 
   const [metric, setMetric] = useState<Metric>('duration');
   const [activeOption, setActiveOption] = useState<ActivityOption>('highlights');
+  const [chartsRefreshKey, setChartsRefreshKey] = useState(0);
   const activeMetricRef = useRef(metric);
   activeMetricRef.current = metric;
 
@@ -91,6 +92,11 @@ export default function ActivityMainScreen() {
   } = useActivityData(period, metric, dateRangeInfo.from, dateRangeInfo.to);
 
   loadingSetterRef.current = setIsLoading;
+
+  const refreshActivity = useCallback(() => {
+    setChartsRefreshKey(value => value + 1);
+    void handleRefresh();
+  }, [handleRefresh]);
 
   const {
     isTutorialVisible,
@@ -217,7 +223,7 @@ export default function ActivityMainScreen() {
   );
 
   return (
-    <View ref={refs.rootRef} style={[styles.root, { backgroundColor: colors.background }]}>
+    <View ref={refs.rootRef} style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <LinearGradient
         colors={[colors.accentAlpha15, 'transparent']}
         start={{ x: 0, y: 0 }}
@@ -225,64 +231,66 @@ export default function ActivityMainScreen() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      <ActivityHeader
-        isFromProfile={isFromProfile}
-        onBack={() => navigation.goBack()}
-        onHelp={() => setIsTutorialVisible(true)}
-        onHistory={() => navigation.navigate('ActivityHistory')}
-        onShare={handleSharePress}
-        shareButtonRef={refs.shareButtonRef}
-        shareButtonLayout={layouts.shareButtonLayout}
-      />
-
-      <ActivityPeriodTabs
-        period={period}
-        onPeriodChange={handlePeriodChange}
-        periodTabsRef={refs.periodTabsRef}
-        periodTabsLayout={layouts.periodTabsLayout}
-      />
-
-      <ActivityPeriodNavigator
-        formattedPeriodText={dateRangeInfo.label}
-        canGoPrev={dateRangeInfo.canGoPrev}
-        canGoNext={dateRangeInfo.canGoNext}
-        onPrevPeriod={handlePrevPeriod}
-        onNextPeriod={handleNextPeriod}
-      />
-
-      <ActivityControlsRow
-        period={period}
-        metric={metric}
-        onOpenCustomDate={handleOpenCustomDate}
-        onMetricChange={handleMetricChange}
-        metricToggleRef={refs.metricToggleRef}
-        metricToggleLayout={layouts.metricToggleLayout}
-      />
-
-      {(() => {
-        if (isLoading && showLoader) {
-          return <SkeletonActivityScreen topOffset={12} />;
+      <ScrollView
+        ref={refs.scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 160 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshActivity}
+            tintColor={colors.accentLight || colors.accent}
+            colors={[colors.accent]}
+          />
         }
-        if (isLoading) {
-          return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color={colors.accent} /></View>;
-        }
-        return (
-          <ScrollView
-            ref={refs.scrollViewRef}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 160 }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor={colors.accentLight || colors.accent}
-                colors={[colors.accent]}
-              />
-            }
-          >
-            {hasActivity ? (
-              <>
+      >
+        <ActivityHeader
+          includeTopInset={false}
+          isFromProfile={isFromProfile}
+          onBack={() => navigation.goBack()}
+          onHelp={() => setIsTutorialVisible(true)}
+          onHistory={() => navigation.navigate('ActivityHistory')}
+          onShare={handleSharePress}
+          shareButtonRef={refs.shareButtonRef}
+          shareButtonLayout={layouts.shareButtonLayout}
+        />
+
+        <ActivityPeriodTabs
+          period={period}
+          onPeriodChange={handlePeriodChange}
+          periodTabsRef={refs.periodTabsRef}
+          periodTabsLayout={layouts.periodTabsLayout}
+        />
+
+        <ActivityPeriodNavigator
+          formattedPeriodText={dateRangeInfo.label}
+          canGoPrev={dateRangeInfo.canGoPrev}
+          canGoNext={dateRangeInfo.canGoNext}
+          onPrevPeriod={handlePrevPeriod}
+          onNextPeriod={handleNextPeriod}
+        />
+
+        <ActivityControlsRow
+          period={period}
+          metric={metric}
+          onOpenCustomDate={handleOpenCustomDate}
+          onMetricChange={handleMetricChange}
+          metricToggleRef={refs.metricToggleRef}
+          metricToggleLayout={layouts.metricToggleLayout}
+        />
+
+        {(() => {
+          if (activeOption !== 'charts' && isLoading && showLoader) {
+            return <SkeletonActivityScreen topOffset={12} />;
+          }
+          if (activeOption !== 'charts' && isLoading) {
+            return <View style={styles.loading}><ActivityIndicator color={colors.accent} /></View>;
+          }
+          return (
+            <View style={styles.scrollContent}>
+              {hasActivity && (
                 <Animated.View entering={cascade.section(0)}>
                   <ActivityHeroCard
                     metric={metric}
@@ -293,18 +301,24 @@ export default function ActivityMainScreen() {
                     heroCardLayout={layouts.heroCardLayout}
                   />
                 </Animated.View>
+              )}
 
-                <Animated.View entering={cascade.section(1)}>
-                  <ActivityOptionTabs
-                    activeOption={activeOption}
-                    onSelectOption={setActiveOption}
-                    highlightsCardRef={refs.highlightsCardRef}
-                    highlightsCardLayout={layouts.highlightsCardLayout}
-                  />
-                </Animated.View>
+              <Animated.View entering={cascade.section(1)}>
+                <ActivityOptionTabs
+                  activeOption={activeOption}
+                  onSelectOption={setActiveOption}
+                  highlightsCardRef={refs.highlightsCardRef}
+                  highlightsCardLayout={layouts.highlightsCardLayout}
+                />
+              </Animated.View>
 
+              {hasActivity || activeOption === 'charts' ? (
                 <View>
                   <ActivityTabContent
+                    period={period}
+                    from={dateRangeInfo.from}
+                    to={dateRangeInfo.to}
+                    chartsRefreshKey={chartsRefreshKey}
                     activeOption={activeOption}
                     sectionLabel={sectionLabel}
                     stats={stats}
@@ -325,13 +339,13 @@ export default function ActivityMainScreen() {
                     onArtistSelect={handleArtistSelect}
                   />
                 </View>
-              </>
-            ) : (
-              <ActivityEmptyState />
-            )}
-          </ScrollView>
-        );
-      })()}
+              ) : (
+                <ActivityEmptyState />
+              )}
+            </View>
+          );
+        })()}
+      </ScrollView>
 
       <ActivitySpotlightTutorial
         visible={isTutorialVisible}
@@ -365,4 +379,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     gap: 16,
   },
+  scrollView: { flex: 1 },
+  loading: { minHeight: 220, justifyContent: 'center' },
 });

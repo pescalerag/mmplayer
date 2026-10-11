@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { ActivityOption } from '../../screens/activity/utils/activityStatUtils';
 
-const OPTIONS: ActivityOption[] = ['highlights', 'songs', 'albums', 'artists'];
+const OPTIONS: ActivityOption[] = ['highlights', 'charts', 'songs', 'albums', 'artists'];
 
 interface ActivityOptionTabsProps {
   readonly activeOption: ActivityOption;
@@ -30,11 +30,14 @@ export function ActivityOptionTabs({
 
   return (
     <View ref={highlightsCardRef} onLayout={handleLayout} style={styles.optionTabsRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
       {OPTIONS.map((opt) => {
         const isActive = opt === activeOption;
         return (
           <TouchableOpacity
             key={opt}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
             onPress={() => onSelectOption(opt)}
             activeOpacity={0.75}
             style={[styles.optionTab, isActive && { borderBottomColor: colors.accent }]}
@@ -51,6 +54,7 @@ export function ActivityOptionTabs({
           </TouchableOpacity>
         );
       })}
+      </ScrollView>
     </View>
   );
 }
@@ -62,10 +66,12 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
-    gap: 8,
   },
+  tabsContent: { flexGrow: 1, gap: 8 },
   optionTab: {
     flex: 1,
+    minWidth: 78,
+    paddingHorizontal: 8,
     paddingVertical: 10,
     alignItems: 'center',
     borderBottomWidth: 2,

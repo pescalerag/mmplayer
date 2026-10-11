@@ -20,6 +20,10 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/services/ActivityChartsService.ts',
+    'src/utils/activityCharts.ts',
+    'src/utils/activityChartLayout.ts',
+    'src/hooks/useActivityCharts.ts',
     'src/services/EqualizerService.ts',
     'src/services/ShuffleService.ts',
     'src/services/MediaAssetService.ts',

@@ -77,6 +77,7 @@
     "react-native-restart": "^0.0.28",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1",
     "react-native-tab-view": "^4.3.1",
     "react-native-track-player": "^5.0.0-alpha0-nightly-359af5a12d712d3b685530aed9b9625865a25d74",
     "react-native-view-shot": "^4.0.3",

@@ -1239,6 +1239,7 @@
     "year": "Año",
     "options": {
       "highlights": "Destacados",
+      "charts": "Gráficos",
       "songs": "Top Canciones",
       "albums": "Top Álbumes",
       "artists": "Top Artistas"
@@ -1249,6 +1250,26 @@
       "month": "Mes",
       "year": "Año",
       "all": "Todo"
+    },
+    "charts": {
+      "average_minutes": "Minutos al día de media",
+      "average_plays": "Reproducciones al día de media",
+      "listening_clock": "Tus horas de escucha",
+      "clock_hint": "Toca una hora para ver su actividad. Las escuchas se agrupan según la hora registrada en el historial.",
+      "hour_detail": "{{hour}} · {{value}} {{unit}}",
+      "listening_time": "Tiempo de escucha",
+      "play_count": "Reproducciones",
+      "per_interval": "Por intervalo",
+      "cumulative": "Acumulado",
+      "tap_bar": "Toca una barra para ver su valor",
+      "tap_month": "Toca un mes para ver el detalle diario",
+      "daily_detail": "Detalle diario · {{month}}",
+      "month_cumulative_hint": "El acumulado de este detalle empieza al inicio del mes seleccionado.",
+      "close_detail": "Cerrar detalle",
+      "loading": "Cargando gráficos",
+      "empty": "Todavía no hay escuchas registradas.",
+      "error": "No se han podido cargar los gráficos.",
+      "retry": "Reintentar"
     },
     "share_title": "Compartir Estadísticas",
     "share_preview": "Vista previa de estadísticas",

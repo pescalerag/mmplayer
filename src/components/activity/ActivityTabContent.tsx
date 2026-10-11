@@ -1,6 +1,8 @@
 import React from 'react';
 import { ActivityHighlightsTab } from './ActivityHighlightsTab';
 import { ActivityRankedList } from './ActivityRankedList';
+import { ActivityChartsTab } from './charts/ActivityChartsTab';
+import { Period } from '../../screens/activity/utils/activityDateUtils';
 import {
   ActivityOption,
   DisplayStats,
@@ -10,6 +12,10 @@ import {
 } from '../../screens/activity/utils/activityStatUtils';
 
 interface ActivityTabContentProps {
+  readonly period: Period;
+  readonly from: Date | null;
+  readonly to: Date;
+  readonly chartsRefreshKey: number;
   readonly activeOption: ActivityOption;
   readonly sectionLabel: string;
   readonly stats: DisplayStats;
@@ -31,6 +37,10 @@ interface ActivityTabContentProps {
 }
 
 export function ActivityTabContent({
+  period,
+  from,
+  to,
+  chartsRefreshKey,
   activeOption,
   sectionLabel,
   stats,
@@ -50,6 +60,9 @@ export function ActivityTabContent({
   onAlbumSelect,
   onArtistSelect,
 }: ActivityTabContentProps) {
+  if (activeOption === 'charts') {
+    return <ActivityChartsTab period={period} from={from} to={to} metric={metric} refreshKey={chartsRefreshKey} />;
+  }
   if (activeOption === 'highlights') {
     return (
       <ActivityHighlightsTab

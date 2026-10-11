@@ -1239,6 +1239,7 @@
     "year": "Year",
     "options": {
       "highlights": "Highlights",
+      "charts": "Charts",
       "songs": "Top Songs",
       "albums": "Top Albums",
       "artists": "Top Artists"
@@ -1249,6 +1250,26 @@
       "month": "Month",
       "year": "Year",
       "all": "All"
+    },
+    "charts": {
+      "average_minutes": "Average minutes per day",
+      "average_plays": "Average plays per day",
+      "listening_clock": "Your listening hours",
+      "clock_hint": "Tap an hour to see its activity. Plays are grouped by the time recorded in your history.",
+      "hour_detail": "{{hour}} · {{value}} {{unit}}",
+      "listening_time": "Listening time",
+      "play_count": "Plays",
+      "per_interval": "Per interval",
+      "cumulative": "Cumulative",
+      "tap_bar": "Tap a bar to see its value",
+      "tap_month": "Tap a month to see its daily breakdown",
+      "daily_detail": "Daily breakdown · {{month}}",
+      "month_cumulative_hint": "This breakdown accumulates from the start of the selected month.",
+      "close_detail": "Close breakdown",
+      "loading": "Loading charts",
+      "empty": "No listening history yet.",
+      "error": "Charts could not be loaded.",
+      "retry": "Retry"
     },
     "share_title": "Share Statistics",
     "share_preview": "Statistics Preview",
