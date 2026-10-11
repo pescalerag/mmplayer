@@ -39,8 +39,10 @@ export function ActivityChartTimeline({ stats, period, metric }: Props) {
   const [cumulative, setCumulative] = useState(false);
   const [month, setMonth] = useState<number | null>(null);
   const monthly = period === 'year' || period === 'all';
-  const granularity = monthly ? 'month' : period === 'day' ? 'hour' : 'day';
-  const buckets = monthly ? stats.months : period === 'day' ? stats.hours : stats.days;
+  const periodGranularity = period === 'day' ? 'hour' : 'day';
+  const periodBuckets = period === 'day' ? stats.hours : stats.days;
+  const granularity = monthly ? 'month' : periodGranularity;
+  const buckets = monthly ? stats.months : periodBuckets;
   const title = metric === 'duration' ? t('activity.charts.listening_time') : t('activity.charts.play_count');
   return (
     <View style={styles.root}>
