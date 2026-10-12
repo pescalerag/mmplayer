@@ -1336,6 +1336,12 @@
     "chromecast_connect_error": "Erro ao conectar ao Chromecast"
   },
   "localcast_client": {
+    "queue_title": "Fila",
+    "queue_current": "A reproduzir",
+    "queue_empty": "Não há músicas na fila",
+    "queue_more": "A mostrar as próximas 50 de {count} músicas",
+    "shuffle_enabled": "Modo aleatório no fim da fila: ativado",
+    "shuffle_disabled": "Modo aleatório no fim da fila: desativado",
     "app_title": "MMPlayer LocalCast",
     "no_song": "Nenhuma música em reprodução",
     "no_lyrics": "Nenhuma letra disponível",

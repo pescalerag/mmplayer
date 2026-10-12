@@ -320,6 +320,7 @@ export const HistoryService = {
     trackId: string,
     durationPlayed: number,
     context: "manual" | "queue" = "queue",
+    existingRecord?: PlaybackHistory,
   ) {
     try {
       if (durationPlayed < 10) return;
@@ -340,7 +341,13 @@ export const HistoryService = {
         cappedDuration = Math.min(durationPlayed, 600);
       }
 
-      await database.write(async () => {
+      const savedRecord = await database.write(async () => {
+        if (existingRecord) {
+          await existingRecord.update(record => {
+            record.durationPlayed = Math.max(record.durationPlayed ?? 0, Math.floor(cappedDuration));
+          });
+          return existingRecord;
+        }
         const snapshot = await PlaybackTagSnapshotService.capture(track);
         const history = database.collections
           .get<PlaybackHistory>("playback_history")
@@ -353,10 +360,12 @@ export const HistoryService = {
             record.tagsCaptured = snapshot !== null;
           });
         await database.batch(history, ...PlaybackTagSnapshotService.prepareRecords(history.id, snapshot));
+        return history;
       });
       console.log(
         `[Historial] Canción ${cleanId} guardada. Tiempo: ${Math.floor(cappedDuration)}s`,
       );
+      return savedRecord;
     } catch (error) {
       console.error("Error guardando en base de datos:", error);
     }

@@ -1,6 +1,7 @@
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Track from '../database/models/Track';
+import PlaybackHistory from '../database/models/PlaybackHistory';
 import { HistoryService } from '../services/HistoryService';
 import { PlaybackTagSnapshotService } from '../services/PlaybackTagSnapshotService';
 
@@ -54,6 +55,28 @@ describe('playback tag snapshots', () => {
     expect(committed[1].tagId).toBe('new-tag');
     expect(trackQuery).toHaveBeenCalledWith(Q.where('track_id', 'song'));
     expect(albumQuery).toHaveBeenCalledWith(Q.where('album_id', 'album'));
+  });
+
+  it('updates the saved duration without creating another playback or changing its tag snapshot', async () => {
+    const existing = { id: 'saved', durationPlayed: 100, playedAt: new Date(2026, 9, 12), tagsCaptured: true };
+    const update = jest.fn(async callback => { callback(existing); });
+    const model = { ...existing, update } as unknown as PlaybackHistory;
+    const result = await HistoryService.logToDatabase('song-instance', 140, 'queue', model);
+    expect(result).toBe(model);
+    expect(existing).toMatchObject({ durationPlayed: 140, playedAt: new Date(2026, 9, 12), tagsCaptured: true });
+    expect(trackQuery).not.toHaveBeenCalled();
+    expect(albumQuery).not.toHaveBeenCalled();
+    expect(prepareHistory).not.toHaveBeenCalled();
+    expect(database.batch).not.toHaveBeenCalled();
+    await HistoryService.logToDatabase('song-instance', 90, 'queue', model);
+    expect(existing.durationPlayed).toBe(140);
+  });
+
+  it('can update a checkpoint whose saved duration is missing', async () => {
+    const row = { durationPlayed: null as number | null };
+    const model = { update: jest.fn(async callback => { callback(row); }) } as unknown as PlaybackHistory;
+    await HistoryService.logToDatabase('song', 100, 'queue', model);
+    expect(row.durationPlayed).toBe(100);
   });
 
   it('deduplicates each scope while allowing the same tag to credit both independently', async () => {

@@ -33,7 +33,7 @@ index 0000000..8cd16b8
 +	</filteredResources>
 +</projectDescription>
 diff --git a/node_modules/react-native-http-bridge-refurbished/android/src/main/java/at/alwinschuster/HttpServer/Server.java b/node_modules/react-native-http-bridge-refurbished/android/src/main/java/at/alwinschuster/HttpServer/Server.java
-index c35c36e..7039f79 100644
+index c35c36e..e3aac67 100644
 --- a/node_modules/react-native-http-bridge-refurbished/android/src/main/java/at/alwinschuster/HttpServer/Server.java
 +++ b/node_modules/react-native-http-bridge-refurbished/android/src/main/java/at/alwinschuster/HttpServer/Server.java
 @@ -29,10 +29,233 @@ public class Server extends NanoHTTPD {
@@ -283,7 +283,7 @@ index c35c36e..7039f79 100644
          }
  
          this.sendEvent(reactContext, SERVER_EVENT_ID, request);
-@@ -60,7 +285,11 @@ public class Server extends NanoHTTPD {
+@@ -60,12 +285,21 @@ public class Server extends NanoHTTPD {
      }
  
      public void respond(String requestId, int code, String type, String body) {
@@ -296,6 +296,17 @@ index c35c36e..7039f79 100644
      }
  
      private WritableMap fillRequestMap(IHTTPSession session, String requestId) throws Exception {
+         Method method = session.getMethod();
+         WritableMap request = Arguments.createMap();
+-        request.putString("url", session.getUri());
++        String requestUrl = session.getUri();
++        String queryString = session.getQueryParameterString();
++        if (queryString != null && !queryString.isEmpty()) {
++            requestUrl += "?" + queryString;
++        }
++        request.putString("url", requestUrl);
+         request.putString("type", method.name());
+         request.putString("requestId", requestId);
 diff --git a/node_modules/react-native-http-bridge-refurbished/ios/RCTHttpServer.m b/node_modules/react-native-http-bridge-refurbished/ios/RCTHttpServer.m
 index 8e5c1aa..798366a 100644
 --- a/node_modules/react-native-http-bridge-refurbished/ios/RCTHttpServer.m
