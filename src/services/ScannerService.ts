@@ -175,12 +175,12 @@ const removeEmptyEntities = async (
 
             const playbackHistoryCollection = database.collections.get('playback_history');
             const playbackHistory = await playbackHistoryCollection.query(Q.where('item_type', itemType), Q.where('item_id', Q.oneOf(batchIds))).fetch();
-            extraOps.push(...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory));
-
             await database.write(async () => {
+                const historyOps = await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory);
                 const batchOps = [
                     ...entitiesToDelete.map((e: any) => e.prepareDestroyPermanently()),
-                    ...extraOps
+                    ...extraOps,
+                    ...historyOps
                 ];
                 await database.batch(batchOps);
             });

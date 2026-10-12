@@ -138,9 +138,9 @@ function TagDetailContent({
     albums,
     tracks,
 }: {
-    tag: Tag;
-    albums: Album[];
-    tracks: Track[];
+    readonly tag: Tag;
+    readonly albums: Album[];
+    readonly tracks: Track[];
 }) {
     const { colors } = useAppTheme();
     const insets = useSafeAreaInsets();
