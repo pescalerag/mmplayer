@@ -1253,6 +1253,9 @@
     },
     "charts": {
       "artist_statistics": "Estatísticas",
+      "tag_scopes": { "track": "Músicas", "album": "Álbuns" },
+      "tag_history_notice": "Só são incluídas escutas com etiquetas registadas ao guardar. O histórico anterior a esta funcionalidade não é incluído.",
+      "tag_album_notice": "São contadas escutas de músicas de álbuns com esta etiqueta, não álbuns completos ouvidos.",
       "totals": "Totais do período",
       "previous_period": "Período anterior",
       "next_period": "Próximo período",

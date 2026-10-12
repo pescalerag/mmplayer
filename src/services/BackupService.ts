@@ -19,7 +19,8 @@ const COLLECTIONS_TO_BACKUP = [
     'album_tags',
     'track_collaborators',
     'search_history',
-    'playback_history'
+    'playback_history',
+    'playback_history_tags'
 ];
 
 // ─────────────────────────────────────────────────────────────

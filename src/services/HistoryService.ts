@@ -4,6 +4,7 @@ import { database } from "../database";
 import Album from "../database/models/Album";
 import PlaybackHistory from "../database/models/PlaybackHistory";
 import Track from "../database/models/Track";
+import { PlaybackTagSnapshotService } from './PlaybackTagSnapshotService';
 import { usePlayerStore } from "../store/usePlayerStore";
 
 export type UIHistoryPayload = {
@@ -327,8 +328,9 @@ export const HistoryService = {
 
       // Límite de seguridad: ninguna reproducción individual puede superar la duración de la canción
       let cappedDuration = durationPlayed;
+      let track: Track | null = null;
       try {
-        const track = await database.get<Track>('tracks').find(cleanId);
+        track = await database.get<Track>('tracks').find(cleanId);
         if (track?.duration && track.duration > 0) {
           cappedDuration = Math.min(durationPlayed, track.duration);
         } else {
@@ -339,15 +341,18 @@ export const HistoryService = {
       }
 
       await database.write(async () => {
-        await database.collections
+        const snapshot = await PlaybackTagSnapshotService.capture(track);
+        const history = database.collections
           .get<PlaybackHistory>("playback_history")
-          .create((record) => {
+          .prepareCreate((record) => {
             record.itemId = cleanId;
             record.itemType = "track";
             record.playContext = context;
             record.durationPlayed = Math.floor(cappedDuration);
             record.playedAt = new Date();
+            record.tagsCaptured = snapshot !== null;
           });
+        await database.batch(history, ...PlaybackTagSnapshotService.prepareRecords(history.id, snapshot));
       });
       console.log(
         `[Historial] Canción ${cleanId} guardada. Tiempo: ${Math.floor(cappedDuration)}s`,
@@ -377,11 +382,11 @@ export const HistoryService = {
                   r.durationPlayed = track?.duration ? Math.floor(track.duration) : 300;
                 });
               } catch {
-                return rec.prepareDestroyPermanently();
+                return PlaybackTagSnapshotService.prepareHistoryDeletion([rec]);
               }
             })
           );
-          await database.batch(...ops);
+          await database.batch(...ops.flat());
         });
         console.log(`[Historial] Sanitizados ${corrupted.length} registros con duraciones anómalas.`);
       }

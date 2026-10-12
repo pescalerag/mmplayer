@@ -1,6 +1,6 @@
 import React from 'react';
 import { useActivityCharts } from '../hooks/useActivityCharts';
-import { ActivityChartsService } from '../services/ActivityChartsService';
+import { ActivityChartsService, TagChartFilter } from '../services/ActivityChartsService';
 import { calculateActivityCharts } from '../utils/activityCharts';
 
 jest.mock('../services/ActivityChartsService', () => ({ ActivityChartsService: { getStats: jest.fn() } }));
@@ -48,10 +48,10 @@ function createHarness() {
     });
   });
   return {
-    render: function useChartsRender(from: Date | null, to: Date, refreshKey = 0, artistId?: string, enabled?: boolean) {
+    render: function useChartsRender(from: Date | null, to: Date, refreshKey = 0, artistId?: string, enabled?: boolean, tagFilter?: TagChartFilter) {
       stateIndex = refIndex = callbackIndex = effectIndex = 0;
       pending = [];
-      const result = useActivityCharts(from, to, refreshKey, artistId, enabled);
+      const result = useActivityCharts(from, to, refreshKey, artistId, enabled, tagFilter);
       pending.forEach(effect => effect());
       return result;
     },
@@ -92,6 +92,24 @@ describe('chart loading lifecycle', () => {
     await jest.advanceTimersByTimeAsync(500);
     expect(harness.render(from, to).showLoader).toBe(false);
     expect(ActivityChartsService.getStats).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads a tag scope lazily, keeps stable filters and rejects data from the previous scope', async () => {
+    const song = { tagId: 'rock', scope: 'track' as const };
+    const album = { tagId: 'rock', scope: 'album' as const };
+    const old = deferred<typeof stats>();
+    harness.render(from, to, 0, undefined, false, song);
+    expect(ActivityChartsService.getStats).not.toHaveBeenCalled();
+    (ActivityChartsService.getStats as jest.Mock).mockReturnValueOnce(old.promise);
+    harness.render(from, to, 0, undefined, true, song);
+    harness.render(from, to, 0, undefined, true, { ...song });
+    expect(ActivityChartsService.getStats).toHaveBeenCalledTimes(1);
+    harness.render(from, to, 0, undefined, true, album);
+    await jest.advanceTimersByTimeAsync(0);
+    old.resolve({ ...stats, averageMinutes: 99 });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(harness.render(from, to, 0, undefined, true, album).data).toBe(stats);
+    expect(ActivityChartsService.getStats).toHaveBeenLastCalledWith(from, to, to, undefined, album);
   });
 
   it('queries nothing while folded and reloads the artist when reopened', async () => {

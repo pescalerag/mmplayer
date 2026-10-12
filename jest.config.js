@@ -21,6 +21,13 @@ module.exports = {
   },
   collectCoverageFrom: [
     'src/services/ActivityChartsService.ts',
+    'src/services/PlaybackTagSnapshotService.ts',
+    'src/services/BackupService.ts',
+    'src/database/schema.ts',
+    'src/database/index.ts',
+    'src/database/migrations.ts',
+    'src/database/models/PlaybackHistory.ts',
+    'src/database/models/PlaybackHistoryTag.ts',
     'src/utils/activityCharts.ts',
     'src/utils/activityChartLayout.ts',
     'src/hooks/useActivityCharts.ts',

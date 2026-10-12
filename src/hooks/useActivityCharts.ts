@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityChartsService, ActivityChartResult } from '../services/ActivityChartsService';
+import { ActivityChartsService, ActivityChartResult, TagChartFilter } from '../services/ActivityChartsService';
 import { useDelayedLoader } from './useDelayedLoader';
 
 interface ChartSnapshot {
@@ -10,10 +10,18 @@ interface ChartSnapshot {
   loading: boolean;
 }
 
-export function useActivityCharts(from: Date | null, to: Date, refreshKey: number, artistId?: string, enabled = true) {
+async function fetchChartStats(from: Date | null, to: Date, artistId?: string, tagFilter?: TagChartFilter) {
+  if (tagFilter) return ActivityChartsService.getStats(from, to, new Date(), undefined, tagFilter);
+  if (artistId !== undefined) return ActivityChartsService.getStats(from, to, new Date(), artistId);
+  return ActivityChartsService.getStats(from, to);
+}
+
+export function useActivityCharts(from: Date | null, to: Date, refreshKey: number, artistId?: string, enabled = true, tagFilter?: TagChartFilter) {
   const fromTime = from?.getTime() ?? null;
   const toTime = fromTime === null ? 0 : to.getTime();
-  const key = `${fromTime}:${toTime}:${refreshKey}:${artistId}:${enabled}`;
+  const tagId = tagFilter?.tagId;
+  const tagScope = tagFilter?.scope;
+  const key = `${fromTime}:${toTime}:${refreshKey}:${artistId}:${enabled}:${tagId}:${tagScope}`;
   const [snapshot, setSnapshot] = useState<ChartSnapshot>({ key, data: null, error: false, loading: true });
   const requestId = useRef(0);
   const isCurrent = snapshot.key === key;
@@ -30,14 +38,13 @@ export function useActivityCharts(from: Date | null, to: Date, refreshKey: numbe
     try {
       const fromDate = fromTime === null ? null : new Date(fromTime);
       const endDate = fromTime === null ? new Date() : new Date(toTime);
-      const data = artistId === undefined
-        ? await ActivityChartsService.getStats(fromDate, endDate)
-        : await ActivityChartsService.getStats(fromDate, endDate, new Date(), artistId);
+      const filter = tagId !== undefined && tagScope !== undefined ? { tagId, scope: tagScope } : undefined;
+      const data = await fetchChartStats(fromDate, endDate, artistId, filter);
       if (id === requestId.current) setSnapshot({ key, data, error: false, loading: false });
     } catch {
       if (id === requestId.current) setSnapshot({ key, data: null, error: true, loading: false });
     }
-  }, [key, fromTime, toTime, artistId, enabled]);
+  }, [key, fromTime, toTime, artistId, enabled, tagId, tagScope]);
 
   useFocusEffect(useCallback(() => {
     void load();

@@ -18,12 +18,14 @@ import TrackCollaborator from './models/TrackCollaborator'; // Nueva tabla pivot
 import SearchHistory from './models/SearchHistory';
 import AlbumTag from './models/AlbumTag';
 import PlaybackHistory from './models/PlaybackHistory';
+import PlaybackHistoryTag from './models/PlaybackHistoryTag';
 import AppNotification from './models/AppNotification';
 
 // 1. Elegimos el Adaptador correcto dependiendo de la Plataforma
 const adapter = Platform.OS === 'web'
     ? new LokiJSAdapter({
           schema: mySchema,
+          migrations: myMigrations,
           useWebWorker: false,
           useIncrementalIndexedDB: true,
           onSetUpError: error => {
@@ -55,6 +57,7 @@ export const database = new Database({
         SearchHistory,
         AlbumTag,
         PlaybackHistory,
+        PlaybackHistoryTag,
         AppNotification,
     ],
 });

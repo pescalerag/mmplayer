@@ -1253,6 +1253,9 @@
     },
     "charts": {
       "artist_statistics": "Statistics",
+      "tag_scopes": { "track": "Songs", "album": "Albums" },
+      "tag_history_notice": "Only listens with tags captured when saved are included. History from before this feature is excluded.",
+      "tag_album_notice": "Counts listens to songs from albums with this tag, not full album listens.",
       "totals": "Period totals",
       "previous_period": "Previous period",
       "next_period": "Next period",
