@@ -31,6 +31,7 @@ import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { ArtistStatisticsSection } from '@/components/activity/charts/ArtistStatisticsSection';
 import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
@@ -228,6 +229,8 @@ const ArtistHeader = memo(function ArtistHeader({
                     </>
                 )}
             />
+
+            <ArtistStatisticsSection key={artist.id} artistId={artist.id} />
 
             {(albums.length > 0 || isLoadingContent) && (
                 <View style={{ marginBottom: 16 }}>

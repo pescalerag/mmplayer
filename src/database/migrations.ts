@@ -213,5 +213,19 @@ export const myMigrations = schemaMigrations({
       toVersion: 19,
       steps: [addColumns({ table: "tracks", columns: [{ name: "replay_peak", type: "number", isOptional: true }] })],
     },
+    {
+      toVersion: 20,
+      steps: [
+        addColumns({ table: 'playback_history', columns: [{ name: 'tags_captured', type: 'boolean', isOptional: true }] }),
+        createTable({
+          name: 'playback_history_tags',
+          columns: [
+            { name: 'history_id', type: 'string', isIndexed: true },
+            { name: 'tag_id', type: 'string', isIndexed: true },
+            { name: 'scope', type: 'string', isIndexed: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

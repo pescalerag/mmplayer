@@ -1,7 +1,7 @@
 import { Period } from './activityDateUtils';
 
 export type Metric = 'duration' | 'plays';
-export type ActivityOption = 'highlights' | 'songs' | 'albums' | 'artists';
+export type ActivityOption = 'highlights' | 'charts' | 'songs' | 'albums' | 'artists';
 
 export interface DetailedStats {
   totalHours: number;

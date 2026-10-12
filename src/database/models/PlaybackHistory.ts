@@ -3,10 +3,14 @@ import { date, field, text } from '@nozbe/watermelondb/decorators';
 
 export default class PlaybackHistory extends Model {
     static readonly table = 'playback_history';
+    static readonly associations = {
+        playback_history_tags: { type: 'has_many' as const, foreignKey: 'history_id' },
+    };
 
     @field('item_id') itemId: string;
     @field('item_type') itemType: string;
     @text('play_context') playContext: string; 
     @field('duration_played') durationPlayed: number | null; 
     @date('played_at') playedAt: Date;
+    @field('tags_captured') tagsCaptured: boolean | null;
 }

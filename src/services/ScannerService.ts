@@ -18,6 +18,7 @@ import { useMigrationStore } from '../store/useMigrationStore';
 import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
 import { HistoryService } from './HistoryService';
+import { PlaybackTagSnapshotService } from './PlaybackTagSnapshotService';
 import { MediaAssetService } from './MediaAssetService';
 import { NotificationService } from './NotificationService';
 
@@ -101,7 +102,7 @@ const removeMissingTracks = async (tracksCollection: any, onProgress?: (phase: s
                     ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
                     ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
                     ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
-                    ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                    ...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory)
                 ];
                 await database.batch(batchOps);
             });
@@ -174,12 +175,12 @@ const removeEmptyEntities = async (
 
             const playbackHistoryCollection = database.collections.get('playback_history');
             const playbackHistory = await playbackHistoryCollection.query(Q.where('item_type', itemType), Q.where('item_id', Q.oneOf(batchIds))).fetch();
-            extraOps.push(...playbackHistory.map((r: any) => r.prepareDestroyPermanently()));
-
             await database.write(async () => {
+                const historyOps = await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory);
                 const batchOps = [
                     ...entitiesToDelete.map((e: any) => e.prepareDestroyPermanently()),
-                    ...extraOps
+                    ...extraOps,
+                    ...historyOps
                 ];
                 await database.batch(batchOps);
             });
@@ -568,7 +569,7 @@ const performDeleteTracks = async (tracks: Track[]) => {
             ...playlistTracks.map(r => r.prepareDestroyPermanently()),
             ...trackTags.map(r => r.prepareDestroyPermanently()),
             ...trackCollaborators.map(r => r.prepareDestroyPermanently()),
-            ...playbackHistory.map(r => r.prepareDestroyPermanently())
+            ...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory)
         ];
         await database.batch(batchOps);
     });
@@ -1243,7 +1244,7 @@ export const ScannerService = {
                             ...playlistTracks.map(r => r.prepareDestroyPermanently()),
                             ...trackTags.map(r => r.prepareDestroyPermanently()),
                             ...trackCollaborators.map(r => r.prepareDestroyPermanently()),
-                            ...playbackHistory.map(r => r.prepareDestroyPermanently())
+                            ...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory)
                         );
                     }
 
@@ -1714,7 +1715,7 @@ export const ScannerService = {
                             ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
                             ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
                             ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
-                            ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                            ...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory)
                         ];
                         await database.batch(batchOps);
                     });
@@ -1789,7 +1790,7 @@ export const ScannerService = {
                         ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
                         ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
                         ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
-                        ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                        ...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory)
                     ];
                     await database.batch(batchOps);
                 });
@@ -1859,7 +1860,7 @@ export const ScannerService = {
                         ...playlistTracks.map((r: any) => r.prepareDestroyPermanently()),
                         ...trackTags.map((r: any) => r.prepareDestroyPermanently()),
                         ...trackCollaborators.map((r: any) => r.prepareDestroyPermanently()),
-                        ...playbackHistory.map((r: any) => r.prepareDestroyPermanently())
+                        ...await PlaybackTagSnapshotService.prepareHistoryDeletion(playbackHistory)
                     ];
                     await database.batch(batchOps);
                 });

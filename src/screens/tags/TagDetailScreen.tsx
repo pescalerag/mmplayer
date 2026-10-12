@@ -24,6 +24,7 @@ import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { useTranslation } from 'react-i18next';
 import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { TagStatisticsSection } from '@/components/activity/charts/TagStatisticsSection';
 import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
@@ -121,23 +122,30 @@ function TagDetailErrorFallback() {
     );
 }
 
-function TagDetailScreen({
+interface TagDetailProps {
+    readonly tag: Tag | null;
+    readonly albums: Album[];
+    readonly tracks: Track[];
+}
+
+function TagDetailScreen({ tag, albums, tracks }: TagDetailProps) {
+    if (!tag) return <TagDetailErrorFallback />;
+    return <TagDetailContent tag={tag} albums={albums} tracks={tracks} />;
+}
+
+function TagDetailContent({
     tag,
     albums,
     tracks,
 }: {
-    tag: Tag | null;
-    albums: Album[];
-    tracks: Track[];
+    readonly tag: Tag;
+    readonly albums: Album[];
+    readonly tracks: Track[];
 }) {
     const { colors } = useAppTheme();
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
     const { t } = useTranslation();
-
-    if (!tag) {
-        return <TagDetailErrorFallback />;
-    }
 
     const tagColor = tag.color || colors.accent;
 
@@ -249,6 +257,8 @@ function TagDetailScreen({
                         </>
                     )}
                 </View>
+
+                <TagStatisticsSection key={tag.id} tagId={tag.id} />
 
                 {/* Sección Álbumes */}
                 {albums.length > 0 && (
