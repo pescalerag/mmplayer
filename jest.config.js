@@ -20,6 +20,10 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/services/AlbumRankingService.ts',
+    'src/hooks/useAlbumRanking.ts',
+    'src/utils/albumRanking.ts',
+    'src/store/useLibraryStore.ts',
     'src/services/ActivityChartsService.ts',
     'src/services/PlaybackTagSnapshotService.ts',
     'src/services/BackupService.ts',

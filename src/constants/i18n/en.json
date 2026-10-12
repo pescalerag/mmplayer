@@ -35,7 +35,8 @@
     "empty_smart_playlists": "Play some tracks to activate your smart playlists",
     "empty_explore": "No albums available to explore",
     "no_tracks_to_shuffle": "No tracks available to play",
-    "shuffling_library": "Playing library in shuffle mode"
+    "shuffling_library": "Playing library in shuffle mode",
+    "top_rated_albums": "Top rated albums"
   },
   "welcome": {
     "title": "Welcome to MMPlayer!",
@@ -1460,7 +1461,9 @@
     "duration_desc": "Longest Duration",
     "duration_asc": "Shortest Duration",
     "recent_desc": "Most recent",
-    "recent_asc": "Oldest"
+    "recent_asc": "Oldest",
+    "rating_desc": "Highest rated",
+    "rating_asc": "Lowest rated"
   },
   "backup": {
     "preparing": "Preparing data for backup...",
@@ -1655,5 +1658,12 @@
     "rating_top_desc": "Songs rated between 4 and 5 stars",
     "perfect_title": "5 Stars",
     "perfect_desc": "Songs with perfect 5-star rating"
+  },
+  "album_ranking": {
+    "rated_count": "{{rated}} of {{total}} songs rated",
+    "empty": "Rate songs to discover your top rated albums.",
+    "load_error": "Could not load the ranking. Tap to retry.",
+    "view_all": "View all",
+    "unrated": "Unrated"
   }
 }

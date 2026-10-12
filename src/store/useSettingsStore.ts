@@ -153,7 +153,7 @@ export type QueueAddBehavior = 'user_queue' | 'context_queue';
 export type SwipeAction = 'add_next' | 'add_last' | 'toggle_favorite' | 'add_to_playlist' | 'none';
 export type LibraryTabType = 'albums' | 'artists' | 'tracks' | 'playlists' | 'folders';
 export type AppTabType = 'Inicio' | 'Biblioteca' | 'Buscar' | 'Etiquetas' | 'Actividad';
-export type HomeSection = 'recent_media' | 'stats' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'explore' | 'shuffle_button';
+export type HomeSection = 'recent_media' | 'stats' | 'smart_playlists' | 'recent_playlists' | 'recently_added' | 'most_played' | 'top_rated_albums' | 'explore' | 'shuffle_button';
 
 function initLanguage(state: SettingsState): void {
     const systemLanguage = Localization.getLocales()[0]?.languageCode ?? 'es';
@@ -198,10 +198,17 @@ function insertStatsSection(order: HomeSection[]): void {
     }
 }
 
+function insertAlbumRankingSection(order: HomeSection[]): boolean {
+    if (order.includes('top_rated_albums')) return false;
+    order.splice(order.indexOf('most_played') + 1, 0, 'top_rated_albums');
+    return true;
+}
+
 function migrateHomeSectionsV2(state: SettingsState): void {
     let newOrder = state.homeSectionsOrder ? [...state.homeSectionsOrder] : [];
     newOrder = newOrder.filter((s) => s !== 'stats' && s !== 'shuffle_button');
     insertStatsSection(newOrder);
+    insertAlbumRankingSection(newOrder);
     newOrder.push('shuffle_button');
     state.setHomeSectionsOrder(newOrder);
 
@@ -217,7 +224,7 @@ function ensureHomeSections(state: SettingsState): void {
     if (!state.homeSectionsOrder) return;
 
     const currentOrder = [...state.homeSectionsOrder];
-    let changed = false;
+    let changed = insertAlbumRankingSection(currentOrder);
 
     if (!currentOrder.includes('stats')) {
         insertStatsSection(currentOrder);
@@ -234,6 +241,7 @@ function ensureHomeSections(state: SettingsState): void {
 
 function initHomeSections(state: SettingsState): void {
     state.showHomeGreeting ??= true;
+    state.homeSectionsVisibility = { ...state.homeSectionsVisibility, top_rated_albums: state.homeSectionsVisibility.top_rated_albums ?? true };
     if (state.homeSectionsVersion !== 2) {
         migrateHomeSectionsV2(state);
     } else {
@@ -275,7 +283,7 @@ export const useSettingsStore = create<SettingsState>()(
             setAppTabsOrder: (order) => set({ appTabsOrder: order }),
             initialAppRoute: 'Inicio',
             setInitialAppRoute: (route) => set({ initialAppRoute: route }),
-            homeSectionsOrder: ['recent_media', 'stats', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'explore', 'shuffle_button'],
+            homeSectionsOrder: ['recent_media', 'stats', 'smart_playlists', 'recent_playlists', 'recently_added', 'most_played', 'top_rated_albums', 'explore', 'shuffle_button'],
             setHomeSectionsOrder: (order) => set({ homeSectionsOrder: order }),
             homeSectionsVersion: 2,
             setHomeSectionsVersion: (version) => set({ homeSectionsVersion: version }),
@@ -286,6 +294,7 @@ export const useSettingsStore = create<SettingsState>()(
                 recent_playlists: true,
                 recently_added: true,
                 most_played: true,
+                top_rated_albums: true,
                 explore: true,
                 shuffle_button: true,
             },

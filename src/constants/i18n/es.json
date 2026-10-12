@@ -35,7 +35,8 @@
     "empty_smart_playlists": "Escucha música para activar tus listas inteligentes",
     "empty_explore": "No hay álbumes para explorar",
     "no_tracks_to_shuffle": "No hay canciones para reproducir",
-    "shuffling_library": "Reproduciendo biblioteca aleatoriamente"
+    "shuffling_library": "Reproduciendo biblioteca aleatoriamente",
+    "top_rated_albums": "Álbumes mejor valorados"
   },
   "welcome": {
     "title": "¡Bienvenido a MMPlayer!",
@@ -1460,7 +1461,9 @@
     "duration_desc": "Mayor Duración",
     "duration_asc": "Menor Duración",
     "recent_desc": "Más recientes",
-    "recent_asc": "Más antiguas"
+    "recent_asc": "Más antiguas",
+    "rating_desc": "Mejor valorados",
+    "rating_asc": "Peor valorados"
   },
   "backup": {
     "preparing": "Preparando datos para la copia de seguridad...",
@@ -1655,5 +1658,12 @@
     "rating_top_desc": "Canciones con valoración de 4 a 5 estrellas",
     "perfect_title": "5 estrellas",
     "perfect_desc": "Canciones con valoración perfecta de 5 estrellas"
+  },
+  "album_ranking": {
+    "rated_count": "{{rated}} de {{total}} canciones valoradas",
+    "empty": "Valora canciones para descubrir tus álbumes mejor valorados.",
+    "load_error": "No se pudo cargar el ranking. Toca para reintentar.",
+    "view_all": "Ver todos",
+    "unrated": "Sin valorar"
   }
 }

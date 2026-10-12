@@ -10,7 +10,9 @@ export type SortOption =
     | 'duration_desc'
     | 'duration_asc'
     | 'year_desc'
-    | 'year_asc';
+    | 'year_asc'
+    | 'rating_desc'
+    | 'rating_asc';
 
 interface LibraryState {
     albumSort: SortOption;

@@ -25,7 +25,7 @@ export type ActivityStackParamList = {
 };
 
 export type LibraryStackParamList = {
-    Library: undefined;
+    Library: { tab?: 'albums' } | undefined;
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     TagDetail: { tagId: string; tagName: string; tagColor: string };

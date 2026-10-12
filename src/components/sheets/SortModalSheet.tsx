@@ -17,6 +17,8 @@ type SortOptionItem = { value: SortOption; labelKey: string };
 
 const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
   albums: [
+    { value: "rating_desc", labelKey: "sort.rating_desc" },
+    { value: "rating_asc", labelKey: "sort.rating_asc" },
     { value: "name_asc", labelKey: "sort.az" },
     { value: "name_desc", labelKey: "sort.za" },
     { value: "year_desc", labelKey: "sort.year_desc" },
