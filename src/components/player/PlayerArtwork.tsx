@@ -106,6 +106,7 @@ export const PlayerArtwork = ({
                 <Image
                     ref={imageRef}
                     source={imageSource}
+                    recyclingKey={effectiveUri}
                     style={StyleSheet.absoluteFill}
                     contentFit="cover"
                     transition={0}

@@ -150,6 +150,7 @@ const BlurredBackground = ({
                 <>
                     <Image
                         source={imageSource}
+                        recyclingKey={effectiveUri}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"
                         transition={200}

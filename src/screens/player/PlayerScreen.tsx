@@ -58,6 +58,7 @@ import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { getPlayerLyricsPresentation } from '../../utils/playerLyricsPresentation';
+import { usePlayerVisualRecovery } from '../../hooks/usePlayerVisualRecovery';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -482,7 +483,7 @@ const usePlayerCover = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track.id]);
 
-    const rawCoverUrl = nativeCover || album?.coverUrl ||
+    const rawCoverUrl = album?.coverUrl || nativeCover ||
         (asyncCover?.trackId === track.id ? asyncCover.url : null);
     const initialCover = rawCoverUrl || resolveAdjacentCoverFallback(
         track.id,
@@ -2462,6 +2463,7 @@ const PlayerScreenUI = ({
     );
 
     const isTransitioning = useScreenTransition(isFocused, navigation);
+    const visualRevision = usePlayerVisualRecovery(isFocused);
 
     // Settings
     const showTagColors = useSettingsStore(state => state.showTagColors);
@@ -2611,6 +2613,7 @@ const PlayerScreenUI = ({
                 ]}
             >
                 <PlayerBackground
+                    key={`background-${visualRevision}`}
                     width={width}
                     bgSwipeAnimatedStyle={bgSwipeAnimatedStyle}
                     prevTrackModel={prevTrackModel}
@@ -2657,6 +2660,7 @@ const PlayerScreenUI = ({
                     />
 
                     <PlayerArtworkStage
+                        key={`artwork-${visualRevision}`}
                         artworkRef={artworkRef}
                         artworkLayout={artworkLayout}
                         onArtworkHeightMeasured={setMeasuredArtworkHeight}
