@@ -10,7 +10,7 @@ import { FlashList } from '@shopify/flash-list';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
-import * as DocumentPicker from "expo-document-picker";
+import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -446,10 +446,7 @@ function PlaylistDetailContent({
   const handlePickPhoto = useCallback(async () => {
     let result;
     try {
-      result = await DocumentPicker.getDocumentAsync({
-        type: "image/*",
-        copyToCacheDirectory: true,
-      });
+      result = await pickDocumentForCopy('image/*');
     } catch (error) {
       console.error("PickPhoto: Error al lanzar explorador:", error);
       Alert.alert(t('actions.error'), t('actions.pick_photo_error'));
@@ -460,7 +457,7 @@ function PlaylistDetailContent({
     if (!asset) return;
 
     try {
-      const newPath = await MediaAssetService.savePlaylistCover(playlist.id, asset.uri);
+      const newPath = await MediaAssetService.savePlaylistCover(playlist.id, asset.uri, asset.name);
 
       await database.write(async () => {
         await playlist.update((p) => {

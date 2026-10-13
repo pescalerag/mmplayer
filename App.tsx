@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import TrackPlayer, { State } from "react-native-track-player";
 import { clearLaunchAudioUri, getLaunchAudioUri } from "./modules/native-audio-scanner";
 import GlobalToast from "./src/components/common/GlobalToast";
@@ -294,7 +294,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <ImageBackground
           source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
           style={{ flex: 1, backgroundColor: "#000000" }}

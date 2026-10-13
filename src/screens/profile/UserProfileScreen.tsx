@@ -12,7 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
-import * as DocumentPicker from 'expo-document-picker';
+import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import withObservables from '@nozbe/with-observables';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -138,15 +138,12 @@ function UserProfileScreenBase({
     // Pick / Delete Photo
     const performPickPhoto = useCallback(async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: 'image/*',
-                copyToCacheDirectory: true,
-            });
+            const result = await pickDocumentForCopy('image/*');
 
             const asset = result.assets?.[0];
             if (!asset) return;
 
-            const permanentUri = await MediaAssetService.saveUserAvatar(asset.uri);
+            const permanentUri = await MediaAssetService.saveUserAvatar(asset.uri, asset.name);
             setUserAvatarUri(permanentUri);
             Alert.alert(t('actions.success'), t('profile.photo_updated') || 'Foto de perfil actualizada correctamente.');
         } catch (error) {

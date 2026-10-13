@@ -59,6 +59,7 @@ import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { getPlayerLyricsPresentation } from '../../utils/playerLyricsPresentation';
 import { usePlayerVisualRecovery } from '../../hooks/usePlayerVisualRecovery';
+import { usePlayerArtworkLayout } from '../../hooks/usePlayerArtworkLayout';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -635,29 +636,6 @@ const useScreenTransition = (isFocused: boolean, navigation: any) => {
     }, [isFocused, navigation]);
 
     return isTransitioning;
-};
-
-const usePlayerArtworkSize = (
-    measuredArtworkHeight: number,
-    windowWidth: number,
-    windowHeight: number,
-    insets: { top: number; bottom: number },
-    hasLyrics: boolean
-): number => {
-    const baseArtworkSize = windowWidth - 64;
-    const nonArtworkSpace = insets.top + insets.bottom + (hasLyrics ? 490 : 430);
-    const estimatedAvailableHeight = windowHeight - nonArtworkSpace;
-
-    return useMemo(() => {
-        const availableHeight = measuredArtworkHeight > 0
-            ? measuredArtworkHeight - 28
-            : estimatedAvailableHeight;
-
-        if (availableHeight > 0 && availableHeight < baseArtworkSize) {
-            return Math.max(140, Math.floor(availableHeight));
-        }
-        return baseArtworkSize;
-    }, [measuredArtworkHeight, estimatedAvailableHeight, baseArtworkSize]);
 };
 
 const useDiscSpinAnimation = (playerCoverStyle: string, isPlaying: boolean) => {
@@ -1408,7 +1386,8 @@ const PlayerArtworkStage = ({
             style={[
                 styles.artworkContainer,
                 isAltDisplay && { paddingHorizontal: 0 },
-                isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
+                isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 },
+                { minHeight: artworkSize + 28, flexShrink: 0 },
             ]}
         >
             <GestureDetector gesture={composedGesture}>
@@ -2375,7 +2354,7 @@ const PlayerScreenUI = ({
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
-    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
 
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
@@ -2498,22 +2477,17 @@ const PlayerScreenUI = ({
         currentPhrase
     );
 
-    // Dynamic artwork sizing
-    const [measuredArtworkHeight, setMeasuredArtworkHeight] = useState<number>(0);
-    const artworkSize = usePlayerArtworkSize(
-        measuredArtworkHeight,
-        windowWidth,
-        windowHeight,
-        insets,
-        hasLyrics
-    );
+    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
+    const artworkLayoutConfig = useMemo(() => ({
+        width: windowWidth, height: windowHeight, topInset: insets.top, bottomInset: insets.bottom,
+        fontScale,
+    }), [windowWidth, windowHeight, insets.top, insets.bottom, fontScale]);
+    const { artworkSize, measuredArtworkHeight, onArtworkHeightMeasured } = usePlayerArtworkLayout(artworkLayoutConfig);
 
     const styles = useMemo(
         () => getStyles({ colors, fonts, layout, spacing, radii, fontWeights, shadows }, artworkSize),
         [colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize]
     );
-
-    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
 
     // AB Repeat
     const pointA = useABRepeatStore(state => state.pointA);
@@ -2663,7 +2637,7 @@ const PlayerScreenUI = ({
                         key={`artwork-${visualRevision}`}
                         artworkRef={artworkRef}
                         artworkLayout={artworkLayout}
-                        onArtworkHeightMeasured={setMeasuredArtworkHeight}
+                        onArtworkHeightMeasured={onArtworkHeightMeasured}
                         measuredArtworkHeight={measuredArtworkHeight}
                         isAltDisplay={isAltDisplay}
                         isImmersive={isImmersive}
@@ -2694,19 +2668,21 @@ const PlayerScreenUI = ({
                         styles={styles}
                     />
 
-                    {hasLyrics && (
-                        <TouchableOpacity
-                            activeOpacity={0.8}
-                            disabled={isLocalCastActive}
-                            onPress={() => navigation.navigate('Lyrics')}
-                        >
-                            <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                                <Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
-                                    {activeLyricText}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                        style={styles.lyricsSlot}
+                        activeOpacity={0.8}
+                        disabled={!hasLyrics}
+                        accessible={hasLyrics}
+                        accessibilityElementsHidden={!hasLyrics}
+                        importantForAccessibility={hasLyrics ? 'auto' : 'no-hide-descendants'}
+                        onPress={() => navigation.navigate('Lyrics')}
+                    >
+                        <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                            <Text numberOfLines={2} ellipsizeMode="tail" style={[styles.lyricText, textAnimatedStyle]}>
+                                {activeLyricText}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
 
                     <PlayerInfoSection
                         track={track}
@@ -2990,6 +2966,12 @@ const getStyles = (
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: colors.cardBackground,
+    },
+    lyricsSlot: {
+        height: 58,
+        flexShrink: 1,
+        minHeight: 0,
+        overflow: 'hidden',
     },
     lyricsContainer: {
         width: '100%',

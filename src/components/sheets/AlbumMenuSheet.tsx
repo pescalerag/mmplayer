@@ -2,7 +2,7 @@ import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/Ba
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { openPlaylistSelector, openTagManager } from '@/store/useUIStore';
 import { Q } from '@nozbe/watermelondb';
-import * as DocumentPicker from 'expo-document-picker';
+import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,16 +28,13 @@ export default function AlbumMenuSheet() {
 
   const handleChangeCDImage = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-        copyToCacheDirectory: true,
-      });
+      const result = await pickDocumentForCopy('image/*');
       if (result.canceled || !result.assets || result.assets.length === 0) {
         return;
       }
 
       const asset = result.assets[0];
-      const destUri = await MediaAssetService.saveAlbumCDCover(selectedAlbum.id, asset.uri);
+      const destUri = await MediaAssetService.saveAlbumCDCover(selectedAlbum.id, asset.uri, asset.name);
 
       await database.write(async () => {
         await selectedAlbum.update((a: any) => {

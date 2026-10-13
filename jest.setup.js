@@ -165,6 +165,7 @@ const mockFileSystem = {
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024, md5: 'mock-md5' }),
   makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
   copyAsync: jest.fn().mockResolvedValue(undefined),
+  moveAsync: jest.fn().mockResolvedValue(undefined),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
   readDirectoryAsync: jest.fn().mockResolvedValue([]),
   writeAsStringAsync: jest.fn().mockResolvedValue(undefined),

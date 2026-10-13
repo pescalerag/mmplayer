@@ -41,7 +41,7 @@ describe('PlayerScreen lyric visibility', () => {
         getPlayerLyricsPresentation(true, 'Old song');
         const result = getPlayerLyricsPresentation(false, 'Old song');
         expect(result.activeLyricText).toBe('');
-        expect(result.lyricsAnimatedStyle).toEqual({ height: 0, opacity: 0 });
+        expect(result.lyricsAnimatedStyle).toEqual({ height: 46, opacity: 0 });
         expect(result.textAnimatedStyle.opacity).toBe(0);
     });
 });
