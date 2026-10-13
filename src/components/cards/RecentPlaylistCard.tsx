@@ -49,7 +49,7 @@ export const RecentPlaylistCardBase = React.memo(function RecentPlaylistCard({ i
             </LinearGradient>
 
             <View style={styles.imageSection}>
-                <PlaylistCover playlistId={id} isFavorites={id === 'favorites'} width={90} height={90} borderRadius={0} customCoverUrl={customCoverUrl} />
+                <PlaylistCover playlistId={id} isFavorites={id === 'favorites'} width={90} height={90} borderRadius={0} customCoverUrl={playlist?.coverCustomUrl || playlist?.coverUrl || customCoverUrl} />
             </View>
         </TouchableOpacity>
     );

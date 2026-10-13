@@ -227,5 +227,12 @@ export const myMigrations = schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 21,
+      steps: [addColumns({ table: 'playlists', columns: [
+        { name: 'cover_url', type: 'string', isOptional: true },
+        { name: 'cover_initialized', type: 'boolean', isOptional: true },
+      ] })],
+    },
   ],
 });

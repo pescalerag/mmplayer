@@ -1,27 +1,18 @@
-import * as DocumentPicker from 'expo-document-picker';
+import { pickDocumentForCopy } from './DocumentPickerService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import RNRestart from 'react-native-restart';
 import { database } from '../database';
+import { mySchema } from '../database/schema';
 import { useBackupStore } from '../store/useBackupStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { ScannerService } from './ScannerService';
 import i18n from '../constants/i18n';
+import { initializeExistingPlaylistCovers } from './PlaylistCoverService';
 
-const COLLECTIONS_TO_BACKUP = [
-    'tracks',
-    'albums',
-    'artists',
-    'playlists',
-    'playlist_tracks',
-    'tags',
-    'track_tags',
-    'album_tags',
-    'track_collaborators',
-    'search_history',
-    'playback_history',
-    'playback_history_tags'
-];
+// Use the database schema for both export and restore so new tables cannot be
+// accidentally omitted from backups (as happened with notifications).
+const COLLECTIONS_TO_BACKUP = Object.keys(mySchema.tables);
 
 // ─────────────────────────────────────────────────────────────
 // Helpers de I/O: Lectura y escritura directa en UTF-8 seguro.
@@ -114,10 +105,7 @@ export const BackupService = {
         const store = useBackupStore.getState();
         const cachedUri = FileSystem.cacheDirectory + 'import_backup_tmp.json';
         try {
-            const pickerResult = await DocumentPicker.getDocumentAsync({
-                type: 'application/json',
-                copyToCacheDirectory: true,
-            });
+            const pickerResult = await pickDocumentForCopy('application/json');
 
             if (pickerResult.canceled || !pickerResult.assets || pickerResult.assets.length === 0) {
                 return;
@@ -207,6 +195,7 @@ export const BackupService = {
                 (phase) => store.setReconciling(i18n.t('backup.reconciling_phase', { phase }))
             );
 
+            await initializeExistingPlaylistCovers();
             store.setSuccess(i18n.t('backup.import_success'));
 
             // Limpiar archivo temporal

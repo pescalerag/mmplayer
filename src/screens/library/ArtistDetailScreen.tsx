@@ -8,7 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 import { FlashList } from '@shopify/flash-list';
-import * as DocumentPicker from 'expo-document-picker';
+import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { MediaAssetService } from '../../services/MediaAssetService';
@@ -333,10 +333,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 
         // Step A: Pick the document
         try {
-            result = await DocumentPicker.getDocumentAsync({
-                type: 'image/*',
-                copyToCacheDirectory: true,
-            });
+            result = await pickDocumentForCopy('image/*');
         } catch (error) {
             console.error('PickPhoto: Error al lanzar explorador:', error);
             Alert.alert(t('actions.error'), t('actions.pick_photo_error'));
@@ -349,7 +346,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 
         // Step B: Process the file and update the database
         try {
-            const permanentUri = await MediaAssetService.saveArtistImage(artist.id, asset.uri);
+            const permanentUri = await MediaAssetService.saveArtistImage(artist.id, asset.uri, asset.name);
 
             setImageError(false);
             await database.write(async () => {

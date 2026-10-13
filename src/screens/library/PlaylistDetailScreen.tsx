@@ -8,10 +8,9 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
-import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system/legacy";
+import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MediaAssetService } from "../../services/MediaAssetService";
@@ -277,21 +276,7 @@ function PlaylistDetailContent({
     const loadTracks = async () => {
       setLoadingTracks(true);
       try {
-        const resolved = await Promise.all(
-          localPlaylistTracks.map(async (pt) => {
-            try {
-              const track = await pt.track.fetch();
-              return track ? { track, playlistTrackId: pt.id } : null;
-            } catch (e) {
-              console.warn("Error cargando pista huerfana en playlist", e);
-              return null;
-            }
-          }),
-        );
-
-        const validItems = resolved.filter(
-          (item): item is { track: Track; playlistTrackId: string } => item !== null,
-        );
+        const validItems = await PlaylistService.resolvePlaylistTracks(localPlaylistTracks);
 
         if (isMounted) {
           setResolvedItems(validItems);
@@ -386,7 +371,7 @@ function PlaylistDetailContent({
         context: "manual",
         title: playlist.name,
         subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
-        imageUrl: playlist.coverCustomUrl || null,
+        imageUrl: playlist.coverCustomUrl || playlist.coverUrl || null,
       });
 
       let targetIndex = -1;
@@ -406,7 +391,7 @@ function PlaylistDetailContent({
           .loadQueue(tracks, targetIndex, playlistContextId, instanceIds);
       }
     },
-    [tracks, instanceIds, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, t],
+    [tracks, instanceIds, playlistContextId, playlist.id, playlist.name, playlist.description, playlist.coverCustomUrl, playlist.coverUrl, t],
   );
 
   const handleFabPress = async () => {
@@ -416,7 +401,7 @@ function PlaylistDetailContent({
       context: "manual",
       title: playlist.name,
       subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
-      imageUrl: playlist.coverCustomUrl || null,
+      imageUrl: playlist.coverCustomUrl || playlist.coverUrl || null,
     });
     if (isCurrentPlaylist) {
       if (isPlaying) {
@@ -437,7 +422,7 @@ function PlaylistDetailContent({
         context: "manual",
         title: playlist.name,
         subtitle: playlist.description || t('actions.custom_playlist_subtitle'),
-        imageUrl: playlist.coverCustomUrl || null,
+        imageUrl: playlist.coverCustomUrl || playlist.coverUrl || null,
       });
       usePlayerStore.getState().startShuffled(tracks, playlistContextId, instanceIds);
     }
@@ -446,10 +431,7 @@ function PlaylistDetailContent({
   const handlePickPhoto = useCallback(async () => {
     let result;
     try {
-      result = await DocumentPicker.getDocumentAsync({
-        type: "image/*",
-        copyToCacheDirectory: true,
-      });
+      result = await pickDocumentForCopy('image/*');
     } catch (error) {
       console.error("PickPhoto: Error al lanzar explorador:", error);
       Alert.alert(t('actions.error'), t('actions.pick_photo_error'));
@@ -460,7 +442,7 @@ function PlaylistDetailContent({
     if (!asset) return;
 
     try {
-      const newPath = await MediaAssetService.savePlaylistCover(playlist.id, asset.uri);
+      const newPath = await MediaAssetService.savePlaylistCover(playlist.id, asset.uri, asset.name);
 
       await database.write(async () => {
         await playlist.update((p) => {
@@ -499,7 +481,7 @@ function PlaylistDetailContent({
         renderCover={() => (
           <PlaylistCover
             playlistId={playlist.id}
-            customCoverUrl={playlist.coverCustomUrl}
+            customCoverUrl={playlist.coverCustomUrl || playlist.coverUrl}
             width={width}
             height={380}
             borderRadius={0}

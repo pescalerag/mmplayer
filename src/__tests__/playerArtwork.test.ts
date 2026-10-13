@@ -78,12 +78,13 @@ describe('player artwork across navigation and track changes', () => {
         const focused = render('file:///cover.jpg', true);
         onAppState('active');
         const recovered = render('file:///cover.jpg');
+        expect(first.props.recyclingKey).toBe('file:///cover.jpg');
         for (const image of [focused, recovered]) {
             expect(image.type).toBe(first.type);
             expect(image.key).toBe(first.key);
             expect(image.props.ref).toBe(first.props.ref);
             expect(image.props.source).toEqual(first.props.source);
-            expect(image.props.recyclingKey).toBeUndefined();
+            expect(image.props.recyclingKey).toBe(first.props.recyclingKey);
         }
         expect(reload).not.toHaveBeenCalled();
     });
@@ -93,10 +94,13 @@ describe('player artwork across navigation and track changes', () => {
         const pending = render(null);
         expect(pending.type).toBe(Image);
         expect(pending.props.source.uri).toBe('file:///first.jpg');
+        expect(pending.props.recyclingKey).toBe(first.props.recyclingKey);
         const second = render('file:///second.jpg');
         expect(second.key).toBe(first.key);
         expect(second.props.ref).toBe(first.props.ref);
         expect(second.props.source.uri).toBe('file:///second.jpg');
+        expect(second.props.recyclingKey).toBe('file:///second.jpg');
+        expect(second.props.recyclingKey).not.toBe(first.props.recyclingKey);
         expect(second.props.transition).toBe(0);
     });
 

@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 20,
+    version: 21,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -61,6 +61,8 @@ export const mySchema = appSchema({
                 { name: 'name', type: 'string' },
                 { name: 'description', type: 'string', isOptional: true },
                 { name: 'cover_custom_url', type: 'string', isOptional: true }, // Tu cover custom (MVP)
+                { name: 'cover_url', type: 'string', isOptional: true },
+                { name: 'cover_initialized', type: 'boolean', isOptional: true },
                 { name: 'header_custom_url', type: 'string', isOptional: true }, // Tu header custom (MVP)
                 { name: 'created_at', type: 'number' },
                 { name: 'is_pinned', type: 'boolean', isOptional: true },

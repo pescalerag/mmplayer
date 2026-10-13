@@ -5,6 +5,8 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { ScannerService } from '../../services/ScannerService';
 import { EqualizerService } from '../../services/EqualizerService';
+import { changeEqualizerBandFromTouch } from '../../utils/equalizerControls';
+import TrackPlayer, { Event } from 'react-native-track-player';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
@@ -25,12 +27,9 @@ export default function SettingsAudioScreen() {
         isFadeEnabled,
         setIsFadeEnabled,
         isEqualizerEnabled,
-        setIsEqualizerEnabled,
         equalizerBands,
-        setEqualizerBand,
         setEqualizerBands,
         bassBoostStrength,
-        setBassBoostStrength,
         queueAddBehavior,
         setQueueAddBehavior,
     } = useSettingsStore();
@@ -38,20 +37,24 @@ export default function SettingsAudioScreen() {
     const [bandFreqs, setBandFreqs] = useState<number[]>([]);
     const [bandRange, setBandRange] = useState<{ min: number; max: number }>({ min: -1500, max: 1500 });
     const [scrollEnabled, setScrollEnabled] = useState(true);
-    const eqInitialized = useRef(false);
+    const bandTouchHeights = useRef<Record<number, number>>({});
 
     useEffect(() => {
-        if (!eqInitialized.current) {
-            eqInitialized.current = true;
-            EqualizerService.initialize().then(() => {
+        let mounted = true;
+        const refresh = () => {
+            void EqualizerService.initialize().then(ready => {
+                if (!mounted) return;
                 setBandFreqs(EqualizerService.getBandFrequencies());
                 setBandRange(EqualizerService.getBandLevelRange());
-                if (isEqualizerEnabled) {
-                    EqualizerService.applyCurrentSettings();
+                if (ready && useSettingsStore.getState().isEqualizerEnabled) {
+                    void EqualizerService.applyCurrentSettings();
                 }
             });
-        }
-    }, [isEqualizerEnabled]);
+        };
+        refresh();
+        const subscription = TrackPlayer.addEventListener(Event.PlaybackState, refresh);
+        return () => { mounted = false; subscription.remove(); };
+    }, []);
 
     return (
         <ScreenHeaderLayout title={t('settings.audio_section') || 'Audio y reproducción'}>
@@ -270,11 +273,7 @@ export default function SettingsAudioScreen() {
                             <Switch
                                 value={isEqualizerEnabled}
                                 onValueChange={async (value) => {
-                                    setIsEqualizerEnabled(value);
                                     await EqualizerService.setEnabled(value);
-                                    if (value) {
-                                        await EqualizerService.applyCurrentSettings();
-                                    }
                                 }}
                                 trackColor={{ false: '#282828', true: colors.accent }}
                                 thumbColor={isEqualizerEnabled ? '#FFFFFF' : '#888888'}
@@ -338,26 +337,15 @@ export default function SettingsAudioScreen() {
                                                         />
                                                     </View>
                                                     <View style={styles.eqTouchArea}
+                                                        onLayout={event => { bandTouchHeights.current[index] = event.nativeEvent.layout.height; }}
                                                         onStartShouldSetResponder={() => true}
                                                         onMoveShouldSetResponder={() => true}
                                                         onResponderGrant={(e) => {
                                                             setScrollEnabled(false);
-                                                            const { pageY: touchY } = e.nativeEvent;
-                                                            e.target.measure((_x, _y, _w, h, _px, pageY) => {
-                                                                const ratio = 1 - Math.max(0, Math.min(1, (touchY - pageY) / h));
-                                                                const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
-                                                                setEqualizerBand(index, newLevel);
-                                                                EqualizerService.setBandLevel(index, newLevel);
-                                                            });
+                                                            void changeEqualizerBandFromTouch(index, e.nativeEvent.locationY, bandTouchHeights.current[index], bandRange);
                                                         }}
                                                         onResponderMove={(e) => {
-                                                            const { pageY: touchY } = e.nativeEvent;
-                                                            e.target.measure((_x, _y, _w, h, _px, pageY) => {
-                                                                const ratio = 1 - Math.max(0, Math.min(1, (touchY - pageY) / h));
-                                                                const newLevel = Math.round(bandRange.min + ratio * (bandRange.max - bandRange.min));
-                                                                setEqualizerBand(index, newLevel);
-                                                                EqualizerService.setBandLevel(index, newLevel);
-                                                            });
+                                                            void changeEqualizerBandFromTouch(index, e.nativeEvent.locationY, bandTouchHeights.current[index], bandRange);
                                                         }}
                                                         onResponderRelease={() => setScrollEnabled(true)}
                                                         onResponderTerminate={() => setScrollEnabled(true)}
@@ -386,7 +374,6 @@ export default function SettingsAudioScreen() {
                                         step={10}
                                         value={bassBoostStrength}
                                         onValueChange={async (value) => {
-                                            setBassBoostStrength(value);
                                             await EqualizerService.setBassBoost(value);
                                         }}
                                         minimumTrackTintColor={colors.accent}

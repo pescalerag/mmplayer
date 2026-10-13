@@ -12,6 +12,7 @@ describe('MediaAssetService - Image Assets & Maintenance', () => {
     (Platform as any).OS = 'android';
     (FileSystem.makeDirectoryAsync as jest.Mock).mockResolvedValue(undefined);
     (FileSystem.copyAsync as jest.Mock).mockResolvedValue(undefined);
+    (FileSystem.moveAsync as jest.Mock).mockResolvedValue(undefined);
     (FileSystem.deleteAsync as jest.Mock).mockResolvedValue(undefined);
     (FileSystem.readDirectoryAsync as jest.Mock).mockResolvedValue([]);
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
@@ -41,6 +42,55 @@ describe('MediaAssetService - Image Assets & Maintenance', () => {
     it('does not delete if not a temp cache path', async () => {
       await cleanupTempSource('file:///storage/emulated/0/Music/song.mp3');
       expect(FileSystem.deleteAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('custom image persistence', () => {
+    it.each([
+      ['artist', 'artist_images/artist_entity.png', (uri: string, name?: string) => MediaAssetService.saveArtistImage('entity', uri, name)],
+      ['playlist', 'playlist_covers/playlist_entity.png', (uri: string, name?: string) => MediaAssetService.savePlaylistCover('entity', uri, name)],
+      ['CD', 'cd_covers/album_cd_entity.png', (uri: string, name?: string) => MediaAssetService.saveAlbumCDCover('entity', uri, name)],
+      ['avatar', 'user_avatar/user_avatar.png', (uri: string, name?: string) => MediaAssetService.saveUserAvatar(uri, name)],
+    ] as const)('copies a %s image from the provider once, using its actual extension and only its directory', async (_label, relative, save) => {
+      const uri = 'content://provider/document/123';
+      const destination = `${FileSystem.documentDirectory}media_assets/${relative}`;
+      const result = await save(uri, 'photo.PNG');
+      expect(result).toContain(`${destination}?t=`);
+      expect(FileSystem.copyAsync).toHaveBeenCalledTimes(1);
+      expect(FileSystem.copyAsync).toHaveBeenCalledWith({ from: uri, to: expect.stringContaining(`${destination}.pending-`) });
+      expect(FileSystem.moveAsync).toHaveBeenCalledWith({ from: expect.stringContaining('.pending-'), to: destination });
+      const expectedDirectory = destination.slice(0, destination.lastIndexOf('/') + 1);
+      expect((FileSystem.getInfoAsync as jest.Mock).mock.calls.every(([dir]) => dir === expectedDirectory)).toBe(true);
+      expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(uri, expect.anything());
+    });
+
+    it('does not delete an image when saving its own persistent URI', async () => {
+      const destination = `${FileSystem.documentDirectory}media_assets/artist_images/artist_entity.jpg`;
+      const result = await MediaAssetService.saveArtistImage('entity', `${destination}?t=old`);
+      expect(result).toContain(destination);
+      expect(result).not.toContain('?t=old');
+      expect(FileSystem.copyAsync).not.toHaveBeenCalled();
+      expect(FileSystem.deleteAsync).not.toHaveBeenCalled();
+      expect(FileSystem.readDirectoryAsync).not.toHaveBeenCalled();
+    });
+
+    it('keeps the previous image if reading the selected provider file fails', async () => {
+      (FileSystem.copyAsync as jest.Mock).mockRejectedValueOnce(new Error('Provider unavailable'));
+      await expect(MediaAssetService.savePlaylistCover('entity', 'content://provider/123', 'image.png')).rejects.toThrow('Provider unavailable');
+      expect(FileSystem.moveAsync).not.toHaveBeenCalled();
+      expect(FileSystem.readDirectoryAsync).not.toHaveBeenCalled();
+      expect(FileSystem.deleteAsync).toHaveBeenCalledTimes(1);
+      expect(FileSystem.deleteAsync).toHaveBeenCalledWith(expect.stringContaining('.pending-'), { idempotent: true });
+    });
+
+    it('removes obsolete formats only after the replacement has been saved', async () => {
+      (FileSystem.readDirectoryAsync as jest.Mock).mockResolvedValueOnce(['artist_entity.jpg', 'artist_entity.png', 'artist_other.jpg']);
+      await MediaAssetService.saveArtistImage('entity', 'content://provider/123', 'photo.png');
+      const directory = `${FileSystem.documentDirectory}media_assets/artist_images/`;
+      expect(FileSystem.deleteAsync).toHaveBeenCalledWith(`${directory}artist_entity.jpg`, { idempotent: true });
+      expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(`${directory}artist_entity.png`, expect.anything());
+      expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(`${directory}artist_other.jpg`, expect.anything());
+      expect((FileSystem.moveAsync as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((FileSystem.deleteAsync as jest.Mock).mock.invocationCallOrder[0]);
     });
   });
 

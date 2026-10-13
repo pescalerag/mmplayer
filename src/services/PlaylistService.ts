@@ -2,7 +2,9 @@ import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Playlist from '../database/models/Playlist';
 import PlaylistTrack from '../database/models/PlaylistTrack';
+import Track from '../database/models/Track';
 import { MediaAssetService } from './MediaAssetService';
+import { readInitialPlaylistCover } from './PlaylistCoverService';
 
 export const PlaylistService = {
     /**
@@ -45,20 +47,7 @@ export const PlaylistService = {
      * Add a single track to a playlist.
      */
     async addTrackToPlaylist(playlistId: string, trackId: string): Promise<void> {
-        await database.write(async () => {
-            const playlistTracksCollection = database.collections.get<PlaylistTrack>('playlist_tracks');
-            const existingTracks = await playlistTracksCollection
-                .query(Q.where('playlist_id', playlistId))
-                .fetch();
-
-            const maxOrder = existingTracks.reduce((max, pt) => pt.order > max ? pt.order : max, 0);
-
-            await playlistTracksCollection.create(pt => {
-                pt.playlist.id = playlistId;
-                pt.track.id = trackId;
-                pt.order = maxOrder + 1;
-            });
-        });
+        await PlaylistService.addMultipleTracksToPlaylist(playlistId, [trackId]);
     },
 
     /**
@@ -75,7 +64,7 @@ export const PlaylistService = {
 
             let maxOrder = existingTracks.reduce((max, pt) => pt.order > max ? pt.order : max, 0);
 
-            const operations = trackIds.map(trackId => {
+            const operations: (PlaylistTrack | Playlist)[] = trackIds.map(trackId => {
                 maxOrder += 1;
                 return playlistTracksCollection.prepareCreate(pt => {
                     pt.playlist.id = playlistId;
@@ -84,7 +73,28 @@ export const PlaylistService = {
                 });
             });
 
+            const playlist = await database.get<Playlist>('playlists').find(playlistId);
+            if (!playlist.coverInitialized) {
+                const firstExisting = [...existingTracks].sort((a, b) => a.order - b.order)[0];
+                const cover = await readInitialPlaylistCover(firstExisting?.track.id || trackIds[0]);
+                operations.push(playlist.prepareUpdate(p => {
+                    p.coverUrl = cover;
+                    p.coverInitialized = true;
+                }));
+            }
+
             await database.batch(...operations);
+        });
+    },
+
+    async resolvePlaylistTracks(playlistTracks: PlaylistTrack[]): Promise<{ track: Track; playlistTrackId: string }[]> {
+        if (!playlistTracks.length) return [];
+        const ids = [...new Set(playlistTracks.map(item => item.track.id as string))];
+        const tracks = await database.get<Track>('tracks').query(Q.where('id', Q.oneOf(ids))).fetch();
+        const byId = new Map(tracks.map(track => [track.id, track]));
+        return playlistTracks.flatMap(item => {
+            const track = byId.get(item.track.id);
+            return track ? [{ track, playlistTrackId: item.id }] : [];
         });
     },
 

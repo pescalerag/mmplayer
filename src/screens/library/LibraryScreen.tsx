@@ -526,7 +526,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
             playlistId={playlist.id}
             title={playlist.name}
             subtitle={playlist.description || t('library.playlist_singular')}
-            customCoverUrl={playlist.coverCustomUrl}
+            customCoverUrl={playlist.coverCustomUrl || playlist.coverUrl}
             isPinned={playlist.isPinned}
             onPress={handlePress}
             onLongPress={() => {

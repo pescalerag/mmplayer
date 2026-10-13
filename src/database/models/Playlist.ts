@@ -11,6 +11,8 @@ export default class Playlist extends Model {
     @text('name') name: string;
     @text('description') description: string | null;        // isOptional en schema
     @text('cover_custom_url') coverCustomUrl: string | null;   // isOptional en schema
+    @text('cover_url') coverUrl: string | null;
+    @field('cover_initialized') coverInitialized: boolean | null;
     @text('header_custom_url') headerCustomUrl: string | null; // isOptional en schema
     @field('is_pinned') isPinned: boolean;
 

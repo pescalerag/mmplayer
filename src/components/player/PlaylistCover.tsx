@@ -2,11 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Q } from '@nozbe/watermelondb';
 import { LinearGradient } from 'expo-linear-gradient';
-import { database } from '../../database';
-import PlaylistTrack from '../../database/models/PlaylistTrack';
-import Playlist from '../../database/models/Playlist';
+import { getStoredPlaylistCover } from '../../services/PlaylistCoverService';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { SmartListService } from '../../services/SmartListService';
 
@@ -40,62 +37,27 @@ export default function PlaylistCover({
     const isSmartList = playlistId.startsWith('smart-list-');
 
     useEffect(() => {
+        let mounted = true;
+        setFirstCover(null);
         if (isFavorites || customCoverUrl || isSmartList) {
             setLoading(false);
             return;
         }
-
-        const loadCover = async () => {
-            try {
-                try {
-                    const playlist = await database.get<Playlist>('playlists').find(playlistId);
-                    if (playlist?.coverCustomUrl && playlist.coverCustomUrl !== 'null') {
-                        setFirstCover(playlist.coverCustomUrl);
-                        setLoading(false);
-                        return;
-                    }
-                } catch {
-                    // Ignoramos si no se encuentra (ej: id 'favorites')
-                }
-
-                const pts = await database.collections.get<PlaylistTrack>('playlist_tracks')
-                    .query(Q.where('playlist_id', playlistId), Q.sortBy('order', Q.asc))
-                    .fetch();
-
-                for (const pt of pts) {
-                    const track = await pt.track.fetch();
-                    if (track) {
-                        const album = await track.album.fetch();
-                        const url = album?.coverUrl;
-                        if (url && url !== 'null' && url.trim() !== '') {
-                            setFirstCover(url);
-                            break; // Paramos con la primera cover real
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('Error al cargar carátula para PlaylistCover:', e);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadCover();
+        setLoading(true);
+        void getStoredPlaylistCover(playlistId)
+            .then(url => { if (mounted) setFirstCover(url); })
+            .catch(error => console.error('Error loading stored playlist cover:', error))
+            .finally(() => { if (mounted) setLoading(false); });
+        return () => { mounted = false; };
     }, [playlistId, isFavorites, customCoverUrl, isSmartList]);
 
     const customSource = React.useMemo(() => {
         if (!customCoverUrl) return null;
-        if (customCoverUrl.startsWith('file://') && !customCoverUrl.includes('?t=')) {
-            return { uri: `${customCoverUrl}?t=${Date.now()}` };
-        }
         return { uri: customCoverUrl };
     }, [customCoverUrl]);
 
     const firstCoverSource = React.useMemo(() => {
         if (!firstCover) return null;
-        if (firstCover.startsWith('file://') && !firstCover.includes('?t=')) {
-            return { uri: `${firstCover}?t=${Date.now()}` };
-        }
         return { uri: firstCover };
     }, [firstCover]);
 

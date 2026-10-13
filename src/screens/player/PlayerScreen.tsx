@@ -53,12 +53,13 @@ import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import { useTranslation } from 'react-i18next';
-import { of } from 'rxjs';
-import { catchError, startWith } from 'rxjs/operators';
+import { observePlayerTrack } from '../../utils/observePlayerTrack';
 import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
-import { usePlayerLyricsAnimation } from '../../hooks/usePlayerLyricsAnimation';
+import { getPlayerLyricsPresentation } from '../../utils/playerLyricsPresentation';
+import { usePlayerVisualRecovery } from '../../hooks/usePlayerVisualRecovery';
+import { usePlayerArtworkLayout } from '../../hooks/usePlayerArtworkLayout';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -483,7 +484,7 @@ const usePlayerCover = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track.id]);
 
-    const rawCoverUrl = nativeCover || album?.coverUrl ||
+    const rawCoverUrl = album?.coverUrl || nativeCover ||
         (asyncCover?.trackId === track.id ? asyncCover.url : null);
     const initialCover = rawCoverUrl || resolveAdjacentCoverFallback(
         track.id,
@@ -635,29 +636,6 @@ const useScreenTransition = (isFocused: boolean, navigation: any) => {
     }, [isFocused, navigation]);
 
     return isTransitioning;
-};
-
-const usePlayerArtworkSize = (
-    measuredArtworkHeight: number,
-    windowWidth: number,
-    windowHeight: number,
-    insets: { top: number; bottom: number },
-    hasLyrics: boolean
-): number => {
-    const baseArtworkSize = windowWidth - 64;
-    const nonArtworkSpace = insets.top + insets.bottom + (hasLyrics ? 490 : 430);
-    const estimatedAvailableHeight = windowHeight - nonArtworkSpace;
-
-    return useMemo(() => {
-        const availableHeight = measuredArtworkHeight > 0
-            ? measuredArtworkHeight - 28
-            : estimatedAvailableHeight;
-
-        if (availableHeight > 0 && availableHeight < baseArtworkSize) {
-            return Math.max(140, Math.floor(availableHeight));
-        }
-        return baseArtworkSize;
-    }, [measuredArtworkHeight, estimatedAvailableHeight, baseArtworkSize]);
 };
 
 const useDiscSpinAnimation = (playerCoverStyle: string, isPlaying: boolean) => {
@@ -1330,8 +1308,6 @@ const AdjacentArtworkSlot = ({
 interface PlayerArtworkStageProps {
     artworkRef: React.RefObject<View | null>;
     artworkLayout: React.RefObject<any>;
-    onArtworkHeightMeasured: (h: number) => void;
-    measuredArtworkHeight: number;
     isAltDisplay: boolean;
     isImmersive: boolean;
     composedGesture: any;
@@ -1364,8 +1340,6 @@ interface PlayerArtworkStageProps {
 const PlayerArtworkStage = ({
     artworkRef,
     artworkLayout,
-    onArtworkHeightMeasured,
-    measuredArtworkHeight,
     isAltDisplay,
     isImmersive,
     composedGesture,
@@ -1400,15 +1374,12 @@ const PlayerArtworkStage = ({
             collapsable={false}
             onLayout={(e) => {
                 artworkLayout.current = e.nativeEvent.layout;
-                const h = e.nativeEvent.layout.height;
-                if (h > 0 && Math.abs(h - measuredArtworkHeight) > 2) {
-                    onArtworkHeightMeasured(h);
-                }
             }}
             style={[
                 styles.artworkContainer,
                 isAltDisplay && { paddingHorizontal: 0 },
-                isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 }
+                isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 },
+                { minHeight: 0 },
             ]}
         >
             <GestureDetector gesture={composedGesture}>
@@ -1949,6 +1920,7 @@ const PlayerControls = ({
 };
 
 interface PlayerFooterProps {
+    hasTrackLyrics: boolean;
     insetsBottom: number;
     isServerRunning: boolean;
     isSleepTimerActive: boolean;
@@ -1985,6 +1957,7 @@ interface PlayerFooterProps {
 }
 
 const PlayerFooter = ({
+    hasTrackLyrics,
     insetsBottom,
     isServerRunning,
     isSleepTimerActive,
@@ -2107,7 +2080,7 @@ const PlayerFooter = ({
                         <Ionicons
                             name="mic-outline"
                             size={24}
-                            color={isLocalCastActive ? colors.disabled : colors.textSecondary}
+                            color={hasTrackLyrics ? colors.accent : colors.textSecondary}
                         />
                     </TouchableOpacity>
                 </View>
@@ -2375,7 +2348,7 @@ const PlayerScreenUI = ({
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
-    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
 
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
@@ -2463,6 +2436,7 @@ const PlayerScreenUI = ({
     );
 
     const isTransitioning = useScreenTransition(isFocused, navigation);
+    const visualRevision = usePlayerVisualRecovery(isFocused);
 
     // Settings
     const showTagColors = useSettingsStore(state => state.showTagColors);
@@ -2492,28 +2466,23 @@ const PlayerScreenUI = ({
         ? parsedLyrics[activeIndex].text
         : '';
 
-    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = usePlayerLyricsAnimation(
+    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = getPlayerLyricsPresentation(
         hasLyrics,
-        currentPhrase,
-        isFocused
+        currentPhrase
     );
 
-    // Dynamic artwork sizing
-    const [measuredArtworkHeight, setMeasuredArtworkHeight] = useState<number>(0);
-    const artworkSize = usePlayerArtworkSize(
-        measuredArtworkHeight,
-        windowWidth,
-        windowHeight,
-        insets,
-        hasLyrics
-    );
+    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
+    const artworkPadding = (spacing.md || 16) + (spacing.sm || 8);
+    const artworkLayoutConfig = useMemo(() => ({
+        width: windowWidth, height: windowHeight, topInset: insets.top, bottomInset: insets.bottom,
+        fontScale, artworkPadding,
+    }), [windowWidth, windowHeight, insets.top, insets.bottom, fontScale, artworkPadding]);
+    const { artworkSize, lyricsSlotHeight, isLayoutReady, onArtworkHeightMeasured } = usePlayerArtworkLayout(artworkLayoutConfig);
 
     const styles = useMemo(
         () => getStyles({ colors, fonts, layout, spacing, radii, fontWeights, shadows }, artworkSize),
         [colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize]
     );
-
-    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
 
     // AB Repeat
     const pointA = useABRepeatStore(state => state.pointA);
@@ -2613,6 +2582,7 @@ const PlayerScreenUI = ({
                 ]}
             >
                 <PlayerBackground
+                    key={`background-${visualRevision}`}
                     width={width}
                     bgSwipeAnimatedStyle={bgSwipeAnimatedStyle}
                     prevTrackModel={prevTrackModel}
@@ -2658,53 +2628,59 @@ const PlayerScreenUI = ({
                         trackId={track.id}
                     />
 
-                    <PlayerArtworkStage
-                        artworkRef={artworkRef}
-                        artworkLayout={artworkLayout}
-                        onArtworkHeightMeasured={setMeasuredArtworkHeight}
-                        measuredArtworkHeight={measuredArtworkHeight}
-                        isAltDisplay={isAltDisplay}
-                        isImmersive={isImmersive}
-                        composedGesture={composedGesture}
-                        swipeAnimatedStyle={swipeAnimatedStyle}
-                        width={width}
-                        prevTrackModel={prevTrackModel}
-                        prevCoverUrl={prevCoverUrl}
-                        showCanvas={showCanvas}
-                        artworkSize={artworkSize}
-                        radiiMd={radii.md || 10}
-                        shadowsLg={shadows.lg}
-                        cardBackgroundColor={colors.cardBackground}
-                        textSecondaryColor={colors.textSecondary}
-                        showPlayerVisualizer={showPlayerVisualizer}
-                        playerVisualizerType={playerVisualizerType}
-                        playerVisualizerColorMode={playerVisualizerColorMode}
-                        currentCoverUrl={currentCoverUrl}
-                        accentLightColor={colors.accentLight}
-                        track={track}
-                        playerCoverStyle={playerCoverStyle}
-                        album={album}
-                        spinStyle={spinStyle}
-                        coverColor={coverColor}
-                        nextTrackModel={nextTrackModel}
-                        nextCoverUrl={nextCoverUrl}
-                        shuffleOnQueueEnd={shuffleOnQueueEnd}
-                        styles={styles}
-                    />
+                    <View
+                        style={{ flex: 1, minHeight: 0, opacity: isLayoutReady ? 1 : 0 }}
+                        onLayout={event => onArtworkHeightMeasured(event.nativeEvent.layout.height)}
+                    >
+                        <PlayerArtworkStage
+                            key={`artwork-${visualRevision}`}
+                            artworkRef={artworkRef}
+                            artworkLayout={artworkLayout}
+                            isAltDisplay={isAltDisplay}
+                            isImmersive={isImmersive}
+                            composedGesture={composedGesture}
+                            swipeAnimatedStyle={swipeAnimatedStyle}
+                            width={width}
+                            prevTrackModel={prevTrackModel}
+                            prevCoverUrl={prevCoverUrl}
+                            showCanvas={showCanvas}
+                            artworkSize={artworkSize}
+                            radiiMd={radii.md || 10}
+                            shadowsLg={shadows.lg}
+                            cardBackgroundColor={colors.cardBackground}
+                            textSecondaryColor={colors.textSecondary}
+                            showPlayerVisualizer={showPlayerVisualizer}
+                            playerVisualizerType={playerVisualizerType}
+                            playerVisualizerColorMode={playerVisualizerColorMode}
+                            currentCoverUrl={currentCoverUrl}
+                            accentLightColor={colors.accentLight}
+                            track={track}
+                            playerCoverStyle={playerCoverStyle}
+                            album={album}
+                            spinStyle={spinStyle}
+                            coverColor={coverColor}
+                            nextTrackModel={nextTrackModel}
+                            nextCoverUrl={nextCoverUrl}
+                            shuffleOnQueueEnd={shuffleOnQueueEnd}
+                            styles={styles}
+                        />
 
-                    {hasLyrics && (
                         <TouchableOpacity
+                            style={[styles.lyricsSlot, { height: lyricsSlotHeight }]}
                             activeOpacity={0.8}
-                            disabled={isLocalCastActive}
+                            disabled={!hasLyrics}
+                            accessible={hasLyrics}
+                            accessibilityElementsHidden={!hasLyrics}
+                            importantForAccessibility={hasLyrics ? 'auto' : 'no-hide-descendants'}
                             onPress={() => navigation.navigate('Lyrics')}
                         >
-                            <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                                <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
+                            <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                                <Text numberOfLines={2} ellipsizeMode="tail" style={[styles.lyricText, textAnimatedStyle]}>
                                     {activeLyricText}
-                                </Animated.Text>
-                            </Animated.View>
+                                </Text>
+                            </View>
                         </TouchableOpacity>
-                    )}
+                    </View>
 
                     <PlayerInfoSection
                         track={track}
@@ -2777,6 +2753,7 @@ const PlayerScreenUI = ({
                         />
 
                         <PlayerFooter
+                            hasTrackLyrics={Boolean(track.lyricsLRC?.trim())}
                             insetsBottom={insets.bottom}
                             isServerRunning={isServerRunning}
                             isSleepTimerActive={isSleepTimerActive}
@@ -2851,14 +2828,9 @@ const PlayerScreenUI = ({
     );
 };
 
-const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
-    track: trackModel.observe(),
-    // Render transport immediately; relations enrich the screen as they arrive.
-    album: trackModel.album.observe().pipe(startWith(null), catchError(() => of(null))),
-    artist: trackModel.artist.observe().pipe(startWith(null), catchError(() => of(null))),
-    artists: trackModel.queryCollaborators.observe().pipe(startWith([])),
-    tags: trackModel.queryTags.observe().pipe(startWith([])),
-}))(PlayerScreenUI);
+const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) =>
+    observePlayerTrack(trackModel)
+)(PlayerScreenUI);
 
 function KeepAwakeController() {
     useKeepAwake();
@@ -2993,6 +2965,12 @@ const getStyles = (
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: colors.cardBackground,
+    },
+    lyricsSlot: {
+        height: 58,
+        flexShrink: 1,
+        minHeight: 0,
+        overflow: 'hidden',
     },
     lyricsContainer: {
         width: '100%',

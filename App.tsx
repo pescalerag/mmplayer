@@ -16,7 +16,8 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
+import { initializeExistingPlaylistCovers } from './src/services/PlaylistCoverService';
 import TrackPlayer, { State } from "react-native-track-player";
 import { clearLaunchAudioUri, getLaunchAudioUri } from "./modules/native-audio-scanner";
 import GlobalToast from "./src/components/common/GlobalToast";
@@ -94,6 +95,7 @@ export default function App() {
         // Ejecutar migración y Garbage Collector de archivos multimedia en segundo plano
         void MediaAssetService.migrateLegacyCacheAssets();
         void MediaAssetService.runGarbageCollector();
+        void initializeExistingPlaylistCovers().catch(err => console.warn('Playlist cover initialization:', err));
 
         // Ejecutar migración de last_modified en segundo plano para legacy tracks
         ScannerService.migrateLastModifiedIfNeeded().catch((err) => {
@@ -294,7 +296,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <ImageBackground
           source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
           style={{ flex: 1, backgroundColor: "#000000" }}

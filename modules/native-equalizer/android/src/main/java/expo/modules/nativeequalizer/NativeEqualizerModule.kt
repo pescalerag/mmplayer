@@ -9,6 +9,7 @@ import android.media.audiofx.Equalizer
 import android.media.audiofx.Visualizer
 import android.util.Log
 import expo.modules.kotlin.AppContext
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -18,6 +19,44 @@ class NativeEqualizerModule : Module() {
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
     private var isEnabled = false
+    private var effectsSessionId = 0
+    private val bandLevels = mutableMapOf<Int, Int>()
+    private var bassStrength = 0
+
+    private fun ensureEffects(requestedSessionId: Int = 0): Boolean {
+        val sessionId = if (requestedSessionId > 0) requestedSessionId else getAudioSessionId(appContext)
+        if (sessionId <= 0) {
+            releaseEffects()
+            return false
+        }
+        if (effectsSessionId == sessionId && equalizer?.hasControl() == true &&
+            (bassBoost == null || bassBoost?.hasControl() == true)) return true
+        releaseEffects()
+        try {
+            val eq = Equalizer(0, sessionId)
+            equalizer = eq
+            // Some devices support EQ but have no separate BassBoost engine.
+            bassBoost = try { BassBoost(0, sessionId) } catch (error: Exception) {
+                Log.w(TAG, "BassBoost unavailable for session $sessionId", error)
+                null
+            }
+            val range = eq.bandLevelRange
+            bandLevels.forEach { (band, level) ->
+                if (band in 0 until eq.numberOfBands.toInt()) {
+                    eq.setBandLevel(band.toShort(), level.coerceIn(range[0].toInt(), range[1].toInt()).toShort())
+                }
+            }
+            bassBoost?.setStrength(bassStrength.toShort())
+            eq.enabled = isEnabled
+            bassBoost?.enabled = isEnabled
+            effectsSessionId = sessionId
+            return true
+        } catch (error: Exception) {
+            releaseEffects()
+            Log.e(TAG, "Failed to attach audio effects to session $sessionId", error)
+            throw error
+        }
+    }
 
     companion object {
         var sharedVisualizer: Visualizer? = null
@@ -147,57 +186,45 @@ class NativeEqualizerModule : Module() {
         }
 
         AsyncFunction("initialize") { audioSessionId: Int ->
-            releaseEffects()
-            val resolvedSessionId = if (audioSessionId == 0) {
-                val extracted = getAudioSessionId(appContext)
-                if (extracted != 0) extracted else audioSessionId
-            } else {
-                audioSessionId
-            }
-
-            try {
-                if (resolvedSessionId != 0) {
-                    equalizer = Equalizer(0, resolvedSessionId).apply {
-                        enabled = isEnabled
-                    }
-                    bassBoost = BassBoost(0, resolvedSessionId).apply {
-                        enabled = isEnabled
-                    }
-                    initSharedVisualizer(resolvedSessionId)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize Equalizer/BassBoost with sessionId $resolvedSessionId: ${e.message}")
-            }
-        }
+            ensureEffects(audioSessionId)
+            Unit
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("setEnabled") { enabled: Boolean ->
             isEnabled = enabled
+            ensureEffects()
             equalizer?.enabled = enabled
             bassBoost?.enabled = enabled
-        }
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("setBandLevel") { band: Int, levelMb: Int ->
+            bandLevels[band] = levelMb
+            ensureEffects()
             val eq = equalizer ?: return@AsyncFunction
             val numBands = eq.numberOfBands.toInt()
             if (band < 0 || band >= numBands) return@AsyncFunction
             val range = eq.bandLevelRange
             val clamped = levelMb.coerceIn(range[0].toInt(), range[1].toInt())
             eq.setBandLevel(band.toShort(), clamped.toShort())
-        }
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("setBassBoost") { strength: Int ->
-            bassBoost?.setStrength(strength.toShort())
-        }
+            bassStrength = strength.coerceIn(0, 1000)
+            ensureEffects()
+            bassBoost?.setStrength(bassStrength.toShort())
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("getBandFrequencies") {
+            if (!ensureEffects()) return@AsyncFunction emptyList<Double>()
             val eq = equalizer ?: return@AsyncFunction emptyList<Double>()
             val numBands = eq.numberOfBands.toInt()
             (0 until numBands).map { i ->
                 eq.getCenterFreq(i.toShort()).toDouble() / 1000.0
             }
-        }
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("getBandLevelRange") {
+            ensureEffects()
             val eq = equalizer
             if (eq == null) {
                 mapOf("min" to -1500, "max" to 1500)
@@ -207,15 +234,15 @@ class NativeEqualizerModule : Module() {
                     "max" to eq.bandLevelRange[1].toInt()
                 )
             }
-        }
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("getNumberOfBands") {
-            equalizer?.numberOfBands?.toInt() ?: 0
-        }
+            if (ensureEffects()) equalizer?.numberOfBands?.toInt() ?: 0 else 0
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("release") {
             releaseEffects()
-        }
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("extractColorFromImage") { url: String ->
             var resultColor = "#8B5CF6"
@@ -265,5 +292,6 @@ class NativeEqualizerModule : Module() {
         try { bassBoost?.release() } catch (_: Exception) {}
         equalizer = null
         bassBoost = null
+        effectsSessionId = 0
     }
 }

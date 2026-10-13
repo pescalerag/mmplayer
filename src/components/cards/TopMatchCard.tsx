@@ -147,7 +147,7 @@ const TopMatchPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
         <TopMatchCardLayout
             title={playlist.name}
             subtitle="Playlist"
-            imageUrl={playlist.coverCustomUrl}
+            imageUrl={playlist.coverCustomUrl || playlist.coverUrl}
             type="album"
             onPress={onPress}
             onLongPress={() => {

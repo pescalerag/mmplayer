@@ -87,6 +87,8 @@ export const PlayerArtwork = ({
                 {
                     width: size,
                     height: size,
+                    maxHeight: '100%',
+                    maxWidth: '100%',
                     borderRadius,
                     overflow: 'hidden',
                     backgroundColor: cardBackgroundColor,
@@ -106,8 +108,9 @@ export const PlayerArtwork = ({
                 <Image
                     ref={imageRef}
                     source={imageSource}
+                    recyclingKey={effectiveUri}
                     style={StyleSheet.absoluteFill}
-                    contentFit="cover"
+                    contentFit="contain"
                     transition={0}
                     cachePolicy="memory-disk"
                     onError={() => {

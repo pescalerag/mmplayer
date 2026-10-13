@@ -266,7 +266,7 @@ export default function PlaylistSelectorModal() {
                     ]}
                     onPress={() => handleSelectPlaylist(pl.id)}
                   >
-                    <PlaylistCover playlistId={pl.id} size={48} customCoverUrl={pl.coverCustomUrl} />
+                    <PlaylistCover playlistId={pl.id} size={48} customCoverUrl={pl.coverCustomUrl || pl.coverUrl} />
                     <View style={styles.playlistInfo}>
                       <Text style={styles.playlistName} numberOfLines={1}>{pl.name}</Text>
                       <Text style={styles.playlistDesc} numberOfLines={1}>

@@ -40,12 +40,12 @@ const ensureDirectoryExists = async (dirPath: string) => {
     }
 };
 
-const purgeEntityFiles = async (dirPath: string, filePrefix: string) => {
+const purgeEntityFiles = async (dirPath: string, filePrefix: string, keepFile?: string) => {
     try {
         await ensureDirectoryExists(dirPath);
         const files = await FileSystem.readDirectoryAsync(dirPath);
         const filesToDelete = files
-            .filter(file => file.startsWith(filePrefix))
+            .filter(file => file.startsWith(filePrefix) && file !== keepFile && !file.includes('.pending-'))
             .map(file => FileSystem.deleteAsync(`${dirPath}${file}`, { idempotent: true }));
         await Promise.all(filesToDelete);
     } catch (e) {
@@ -71,6 +71,33 @@ export const cleanupTempSource = async (sourceUri: string) => {
             console.warn('[MediaAssetService] Error limpiando archivo temporal:', e);
         }
     }
+};
+
+let imageSaveSequence = 0;
+
+const saveImageAsset = async (dir: string, prefix: string, sourceUri: string, fileName?: string): Promise<string> => {
+    if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+    const ext = getFileExtension(fileName || sourceUri, 'jpg');
+    const destFile = `${prefix}${ext}`;
+    const destPath = `${dir}${destFile}`;
+    const version = `${Date.now()}-${++imageSaveSequence}`;
+    const cleanSource = sourceUri.startsWith('file://') ? sourceUri.split('?')[0] : sourceUri;
+    if (cleanSource === destPath) return `${destPath}?t=${version}`;
+
+    // Initialize only this asset's directory. Keep the existing photo intact
+    // until the selected file has been copied successfully.
+    await ensureDirectoryExists(dir);
+    const pendingPath = `${destPath}.pending-${version}`;
+    try {
+        await FileSystem.copyAsync({ from: cleanSource, to: pendingPath });
+        await FileSystem.moveAsync({ from: pendingPath, to: destPath });
+    } catch (error) {
+        await FileSystem.deleteAsync(pendingPath, { idempotent: true }).catch(() => {});
+        throw error;
+    }
+    await purgeEntityFiles(dir, prefix, destFile);
+    await cleanupTempSource(cleanSource);
+    return `${destPath}?t=${version}`;
 };
 
 const ensureCanvasThumbnail = async (uri: string, thumbPath: string, fileName: string): Promise<boolean> => {
@@ -204,88 +231,32 @@ export const MediaAssetService = {
         await ensureDirectoryExists(USER_AVATAR_DIR);
     },
 
-    saveUserAvatar: async (sourceUri: string): Promise<string> => {
-        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
-        await MediaAssetService.init();
-
-        const ext = getFileExtension(sourceUri, 'jpg');
-        const prefix = `user_avatar.`;
-        await purgeEntityFiles(USER_AVATAR_DIR, prefix);
-
-        const destPath = `${USER_AVATAR_DIR}user_avatar.${ext}`;
-
-        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
-
-        await FileSystem.copyAsync({ from: sourceUri, to: destPath });
-        await cleanupTempSource(sourceUri);
-        return `${destPath}?t=${Date.now()}`;
-    },
+    saveUserAvatar: (sourceUri: string, fileName?: string): Promise<string> =>
+        saveImageAsset(USER_AVATAR_DIR, 'user_avatar.', sourceUri, fileName),
 
     removeUserAvatar: async (): Promise<void> => {
         if (Platform.OS === 'web') return;
         await purgeEntityFiles(USER_AVATAR_DIR, `user_avatar.`);
     },
 
-    saveArtistImage: async (artistId: string, sourceUri: string): Promise<string> => {
-        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
-        await MediaAssetService.init();
-
-        const ext = getFileExtension(sourceUri, 'jpg');
-        const prefix = `artist_${artistId}.`;
-        await purgeEntityFiles(ARTIST_DIR, prefix);
-
-        const destPath = `${ARTIST_DIR}artist_${artistId}.${ext}`;
-
-        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
-
-        await FileSystem.copyAsync({ from: sourceUri, to: destPath });
-        await cleanupTempSource(sourceUri);
-        return `${destPath}?t=${Date.now()}`;
-    },
+    saveArtistImage: (artistId: string, sourceUri: string, fileName?: string): Promise<string> =>
+        saveImageAsset(ARTIST_DIR, `artist_${artistId}.`, sourceUri, fileName),
 
     removeArtistImage: async (artistId: string): Promise<void> => {
         if (Platform.OS === 'web') return;
         await purgeEntityFiles(ARTIST_DIR, `artist_${artistId}.`);
     },
 
-    savePlaylistCover: async (playlistId: string, sourceUri: string): Promise<string> => {
-        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
-        await MediaAssetService.init();
-
-        const ext = getFileExtension(sourceUri, 'jpg');
-        const prefix = `playlist_${playlistId}.`;
-        await purgeEntityFiles(PLAYLIST_DIR, prefix);
-
-        const destPath = `${PLAYLIST_DIR}playlist_${playlistId}.${ext}`;
-
-        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
-
-        await FileSystem.copyAsync({ from: sourceUri, to: destPath });
-        await cleanupTempSource(sourceUri);
-        return `${destPath}?t=${Date.now()}`;
-    },
+    savePlaylistCover: (playlistId: string, sourceUri: string, fileName?: string): Promise<string> =>
+        saveImageAsset(PLAYLIST_DIR, `playlist_${playlistId}.`, sourceUri, fileName),
 
     removePlaylistCover: async (playlistId: string): Promise<void> => {
         if (Platform.OS === 'web') return;
         await purgeEntityFiles(PLAYLIST_DIR, `playlist_${playlistId}.`);
     },
 
-    saveAlbumCDCover: async (albumId: string, sourceUri: string): Promise<string> => {
-        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
-        await MediaAssetService.init();
-
-        const ext = getFileExtension(sourceUri, 'jpg');
-        const prefix = `album_cd_${albumId}.`;
-        await purgeEntityFiles(CD_DIR, prefix);
-
-        const destPath = `${CD_DIR}album_cd_${albumId}.${ext}`;
-
-        if (sourceUri === destPath) return `${destPath}?t=${Date.now()}`;
-
-        await FileSystem.copyAsync({ from: sourceUri, to: destPath });
-        await cleanupTempSource(sourceUri);
-        return `${destPath}?t=${Date.now()}`;
-    },
+    saveAlbumCDCover: (albumId: string, sourceUri: string, fileName?: string): Promise<string> =>
+        saveImageAsset(CD_DIR, `album_cd_${albumId}.`, sourceUri, fileName),
 
     removeAlbumCDCover: async (albumId: string): Promise<void> => {
         if (Platform.OS === 'web') return;
