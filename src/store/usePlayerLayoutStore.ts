@@ -8,6 +8,7 @@ export interface PlayerArtworkLayoutConfig {
     topInset: number;
     bottomInset: number;
     fontScale: number;
+    artworkPadding?: number;
 }
 
 interface ArtworkLayout {
@@ -16,16 +17,20 @@ interface ArtworkLayout {
 }
 
 export const getPlayerArtworkLayoutKey = (config: PlayerArtworkLayoutConfig) => [
-    config.width, config.height, config.topInset, config.bottomInset, config.fontScale,
+    config.width, config.height, config.topInset, config.bottomInset, config.fontScale, config.artworkPadding ?? 28,
 ].join(':');
 
-export function calculatePlayerArtworkSize(config: PlayerArtworkLayoutConfig) {
-    const baseSize = config.width - 64;
-    // Reserve transport/info space, but never shrink the cover to fit lyrics.
-    const availableHeight = config.height - config.topInset - config.bottomInset - 430;
-    return availableHeight > 0 && availableHeight < baseSize
-        ? Math.max(140, Math.floor(availableHeight))
-        : baseSize;
+export function calculatePlayerArtworkSize(config: PlayerArtworkLayoutConfig, availableHeight?: number) {
+    // The normal artwork width is screen width minus 32 points on each side.
+    // A guessed height for the controls must not permanently shrink the cover;
+    // the lyrics slot yields space instead.
+    const preferred = Math.max(0, config.width - 64);
+    return availableHeight === undefined ? preferred
+        : Math.min(preferred, Math.max(0, availableHeight - (config.artworkPadding ?? 28)));
+}
+
+export function calculatePlayerLyricsSlotHeight(config: PlayerArtworkLayoutConfig, size: number, availableHeight: number) {
+    return Math.min(58, Math.max(0, availableHeight - size - (config.artworkPadding ?? 28)));
 }
 
 // Read synchronously before the first player render, including after an app
@@ -53,18 +58,20 @@ export const usePlayerLayoutStore = create<PlayerLayoutState>()(persist((set) =>
         if (!Number.isFinite(height) || height <= 0) return state;
         const key = getPlayerArtworkLayoutKey(config);
         const previous = state.artworkLayouts[key];
-        // Once calibrated, retain the size until the device geometry changes.
-        // onLayout also fires during song changes and visual transitions.
-        if (previous && previous.measuredHeight > 0) return state;
+        // This is the combined artwork/lyrics region. Its height is independent
+        // of whether the current song has lyrics.
+        if (previous && Math.abs(previous.measuredHeight - height) <= 2) return state;
         return {
             artworkLayouts: cacheLayout(state.artworkLayouts, key, {
-                size: previous?.size ?? calculatePlayerArtworkSize(config), measuredHeight: height,
+                size: calculatePlayerArtworkSize(config, height), measuredHeight: height,
             }),
         };
     }),
 }), {
     name: 'player-artwork-layout',
-    version: 1,
+    version: 3,
+    // Older measurements were of the artwork alone, not its available region.
+    migrate: () => ({ artworkLayouts: {} }),
     storage: createJSONStorage(() => ({
         getItem: key => storage.getString(key) ?? null,
         setItem: (key, value) => storage.set(key, value),

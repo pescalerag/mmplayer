@@ -407,7 +407,7 @@ function UserProfileScreenBase({
                                 type="playlist"
                                 title={playlist.name}
                                 subtitle={playlist.description || t('library.playlist_singular')}
-                                customCoverUrl={playlist.coverCustomUrl}
+                                customCoverUrl={playlist.coverCustomUrl || playlist.coverUrl}
                                 onPress={() => handlePlaylistPress(playlist.id)}
                             />
                         ))}

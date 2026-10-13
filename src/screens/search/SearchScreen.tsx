@@ -224,7 +224,7 @@ const SearchPlaylistCardBase = memo(function SearchPlaylistCardBase({
       <LibraryCard
         title={playlist.name}
         subtitle={t('library.playlist_singular')}
-        imageUrl={playlist.coverCustomUrl}
+        imageUrl={playlist.coverCustomUrl || playlist.coverUrl}
         placeholderIcon="musical-notes"
         onPress={handlePress}
         onLongPress={handleLongPress}

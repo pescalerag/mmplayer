@@ -91,7 +91,7 @@ export default function PlaylistMenuSheet() {
         <PlaylistCover
           playlistId={selectedPlaylist.id}
           isFavorites={selectedPlaylist.id === 'favorites'}
-          customCoverUrl={selectedPlaylist.coverCustomUrl}
+          customCoverUrl={selectedPlaylist.coverCustomUrl || selectedPlaylist.coverUrl}
           size={56}
           borderRadius={8}
         />

@@ -8,6 +8,7 @@ import { useBackupStore } from '../store/useBackupStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { ScannerService } from './ScannerService';
 import i18n from '../constants/i18n';
+import { initializeExistingPlaylistCovers } from './PlaylistCoverService';
 
 // Use the database schema for both export and restore so new tables cannot be
 // accidentally omitted from backups (as happened with notifications).
@@ -194,6 +195,7 @@ export const BackupService = {
                 (phase) => store.setReconciling(i18n.t('backup.reconciling_phase', { phase }))
             );
 
+            await initializeExistingPlaylistCovers();
             store.setSuccess(i18n.t('backup.import_success'));
 
             // Limpiar archivo temporal

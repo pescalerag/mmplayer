@@ -1308,8 +1308,6 @@ const AdjacentArtworkSlot = ({
 interface PlayerArtworkStageProps {
     artworkRef: React.RefObject<View | null>;
     artworkLayout: React.RefObject<any>;
-    onArtworkHeightMeasured: (h: number) => void;
-    measuredArtworkHeight: number;
     isAltDisplay: boolean;
     isImmersive: boolean;
     composedGesture: any;
@@ -1342,8 +1340,6 @@ interface PlayerArtworkStageProps {
 const PlayerArtworkStage = ({
     artworkRef,
     artworkLayout,
-    onArtworkHeightMeasured,
-    measuredArtworkHeight,
     isAltDisplay,
     isImmersive,
     composedGesture,
@@ -1378,16 +1374,12 @@ const PlayerArtworkStage = ({
             collapsable={false}
             onLayout={(e) => {
                 artworkLayout.current = e.nativeEvent.layout;
-                const h = e.nativeEvent.layout.height;
-                if (h > 0 && Math.abs(h - measuredArtworkHeight) > 2) {
-                    onArtworkHeightMeasured(h);
-                }
             }}
             style={[
                 styles.artworkContainer,
                 isAltDisplay && { paddingHorizontal: 0 },
                 isImmersive && { flex: 1, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, marginVertical: 0 },
-                { minHeight: artworkSize + 28, flexShrink: 0 },
+                { minHeight: 0 },
             ]}
         >
             <GestureDetector gesture={composedGesture}>
@@ -2478,11 +2470,12 @@ const PlayerScreenUI = ({
     );
 
     const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
+    const artworkPadding = (spacing.md || 16) + (spacing.sm || 8);
     const artworkLayoutConfig = useMemo(() => ({
         width: windowWidth, height: windowHeight, topInset: insets.top, bottomInset: insets.bottom,
-        fontScale,
-    }), [windowWidth, windowHeight, insets.top, insets.bottom, fontScale]);
-    const { artworkSize, measuredArtworkHeight, onArtworkHeightMeasured } = usePlayerArtworkLayout(artworkLayoutConfig);
+        fontScale, artworkPadding,
+    }), [windowWidth, windowHeight, insets.top, insets.bottom, fontScale, artworkPadding]);
+    const { artworkSize, lyricsSlotHeight, isLayoutReady, onArtworkHeightMeasured } = usePlayerArtworkLayout(artworkLayoutConfig);
 
     const styles = useMemo(
         () => getStyles({ colors, fonts, layout, spacing, radii, fontWeights, shadows }, artworkSize),
@@ -2633,56 +2626,59 @@ const PlayerScreenUI = ({
                         trackId={track.id}
                     />
 
-                    <PlayerArtworkStage
-                        key={`artwork-${visualRevision}`}
-                        artworkRef={artworkRef}
-                        artworkLayout={artworkLayout}
-                        onArtworkHeightMeasured={onArtworkHeightMeasured}
-                        measuredArtworkHeight={measuredArtworkHeight}
-                        isAltDisplay={isAltDisplay}
-                        isImmersive={isImmersive}
-                        composedGesture={composedGesture}
-                        swipeAnimatedStyle={swipeAnimatedStyle}
-                        width={width}
-                        prevTrackModel={prevTrackModel}
-                        prevCoverUrl={prevCoverUrl}
-                        showCanvas={showCanvas}
-                        artworkSize={artworkSize}
-                        radiiMd={radii.md || 10}
-                        shadowsLg={shadows.lg}
-                        cardBackgroundColor={colors.cardBackground}
-                        textSecondaryColor={colors.textSecondary}
-                        showPlayerVisualizer={showPlayerVisualizer}
-                        playerVisualizerType={playerVisualizerType}
-                        playerVisualizerColorMode={playerVisualizerColorMode}
-                        currentCoverUrl={currentCoverUrl}
-                        accentLightColor={colors.accentLight}
-                        track={track}
-                        playerCoverStyle={playerCoverStyle}
-                        album={album}
-                        spinStyle={spinStyle}
-                        coverColor={coverColor}
-                        nextTrackModel={nextTrackModel}
-                        nextCoverUrl={nextCoverUrl}
-                        shuffleOnQueueEnd={shuffleOnQueueEnd}
-                        styles={styles}
-                    />
-
-                    <TouchableOpacity
-                        style={styles.lyricsSlot}
-                        activeOpacity={0.8}
-                        disabled={!hasLyrics}
-                        accessible={hasLyrics}
-                        accessibilityElementsHidden={!hasLyrics}
-                        importantForAccessibility={hasLyrics ? 'auto' : 'no-hide-descendants'}
-                        onPress={() => navigation.navigate('Lyrics')}
+                    <View
+                        style={{ flex: 1, minHeight: 0, opacity: isLayoutReady ? 1 : 0 }}
+                        onLayout={event => onArtworkHeightMeasured(event.nativeEvent.layout.height)}
                     >
-                        <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                            <Text numberOfLines={2} ellipsizeMode="tail" style={[styles.lyricText, textAnimatedStyle]}>
-                                {activeLyricText}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
+                        <PlayerArtworkStage
+                            key={`artwork-${visualRevision}`}
+                            artworkRef={artworkRef}
+                            artworkLayout={artworkLayout}
+                            isAltDisplay={isAltDisplay}
+                            isImmersive={isImmersive}
+                            composedGesture={composedGesture}
+                            swipeAnimatedStyle={swipeAnimatedStyle}
+                            width={width}
+                            prevTrackModel={prevTrackModel}
+                            prevCoverUrl={prevCoverUrl}
+                            showCanvas={showCanvas}
+                            artworkSize={artworkSize}
+                            radiiMd={radii.md || 10}
+                            shadowsLg={shadows.lg}
+                            cardBackgroundColor={colors.cardBackground}
+                            textSecondaryColor={colors.textSecondary}
+                            showPlayerVisualizer={showPlayerVisualizer}
+                            playerVisualizerType={playerVisualizerType}
+                            playerVisualizerColorMode={playerVisualizerColorMode}
+                            currentCoverUrl={currentCoverUrl}
+                            accentLightColor={colors.accentLight}
+                            track={track}
+                            playerCoverStyle={playerCoverStyle}
+                            album={album}
+                            spinStyle={spinStyle}
+                            coverColor={coverColor}
+                            nextTrackModel={nextTrackModel}
+                            nextCoverUrl={nextCoverUrl}
+                            shuffleOnQueueEnd={shuffleOnQueueEnd}
+                            styles={styles}
+                        />
+
+                        <TouchableOpacity
+                            style={[styles.lyricsSlot, { height: lyricsSlotHeight }]}
+                            activeOpacity={0.8}
+                            disabled={!hasLyrics}
+                            accessible={hasLyrics}
+                            accessibilityElementsHidden={!hasLyrics}
+                            importantForAccessibility={hasLyrics ? 'auto' : 'no-hide-descendants'}
+                            onPress={() => navigation.navigate('Lyrics')}
+                        >
+                            <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                                <Text numberOfLines={2} ellipsizeMode="tail" style={[styles.lyricText, textAnimatedStyle]}>
+                                    {activeLyricText}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
 
                     <PlayerInfoSection
                         track={track}

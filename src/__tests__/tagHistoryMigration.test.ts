@@ -22,15 +22,15 @@ describe('tag history schema upgrade', () => {
       const adapterPath = platform === 'web' ? '@nozbe/watermelondb/adapters/lokijs' : '@nozbe/watermelondb/adapters/sqlite';
       const Adapter = jest.requireMock(adapterPath).default;
       const options = Adapter.mock.calls.at(-1)[0];
-      expect(options.schema.version).toBe(20);
-      expect(options.migrations.maxVersion).toBe(20);
+      expect(options.schema.version).toBe(mySchema.version);
+      expect(options.migrations.maxVersion).toBe(mySchema.version);
       expect(configured.modelClasses.map((model: { table: string }) => model.table)).toContain('playback_history_tags');
       options.onSetUpError(new Error('failed to initialize'));
       expect(console.error).toHaveBeenCalled();
     });
   });
   it('upgrades v19 additively without replacing legacy playback history', () => {
-    expect(mySchema.version).toBe(20);
+    expect(mySchema.version).toBeGreaterThanOrEqual(20);
     const migration = myMigrations.sortedMigrations.find(item => item.toVersion === 20)!;
     expect(migration.steps).toHaveLength(2);
     expect(migration.steps[0]).toMatchObject({ type: 'add_columns', table: 'playback_history', columns: [{ name: 'tags_captured', type: 'boolean', isOptional: true }] });

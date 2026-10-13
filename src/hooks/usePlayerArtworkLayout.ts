@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import {
-    calculatePlayerArtworkSize, getPlayerArtworkLayoutKey, PlayerArtworkLayoutConfig,
+    calculatePlayerArtworkSize, calculatePlayerLyricsSlotHeight, getPlayerArtworkLayoutKey, PlayerArtworkLayoutConfig,
     usePlayerLayoutStore,
 } from '../store/usePlayerLayoutStore';
 
@@ -21,5 +21,10 @@ export function usePlayerArtworkLayout(config: PlayerArtworkLayoutConfig) {
         usePlayerLayoutStore.getState().recordMeasurement(config, height);
     }, [config]);
 
-    return { artworkSize: layout.size, measuredArtworkHeight: layout.measuredHeight, onArtworkHeightMeasured };
+    return {
+        artworkSize: layout.size,
+        lyricsSlotHeight: calculatePlayerLyricsSlotHeight(config, layout.size, layout.measuredHeight),
+        isLayoutReady: layout.measuredHeight > 0,
+        onArtworkHeightMeasured,
+    };
 }
