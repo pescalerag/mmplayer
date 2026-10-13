@@ -52,6 +52,9 @@ import { getDynamicTagTextColor } from '../../utils/color';
 
 import { useDelayedLoader } from "@/hooks/useDelayedLoader";
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
+import { useSearchBrowseTags } from '../../hooks/useSearchBrowseTags';
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
+import type { Subscription } from 'rxjs';
 import { useTranslation } from "react-i18next";
 import Animated from 'react-native-reanimated';
 import { HistoryService } from "../../services/HistoryService";
@@ -739,11 +742,9 @@ const SearchListEmpty = ({
 
 // --- MAIN SCREEN ---
 
-interface SearchScreenProps {
-  readonly tags: Tag[];
-}
-
-function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
+export default function SearchScreen() {
+  const loadedTags = useSearchBrowseTags();
+  const tags = loadedTags ?? [];
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<SearchNavigationProp>();
   const { t } = useTranslation();
@@ -755,46 +756,48 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
   const [genreTracks, setGenreTracks] = useState<Record<string, Track[]>>({});
 
   useEffect(() => {
-    const sub = database.collections.get<Track>('tracks')
-      .query(
-        Q.where('genre', Q.notEq(null)),
-        Q.where('genre', Q.notEq(''))
-      )
-      .observeWithColumns(['genre'])
-      .pipe(catchError(() => of([])))
-      .subscribe((tracks) => {
-        const genreSet = new Set<string>();
-        for (const t of tracks) {
-          const g = t.genre?.trim();
-          if (g) {
-            genreSet.add(g);
+    let sub: Subscription | undefined;
+    const cancel = scheduleScreenRefresh(() => {
+      sub = database.collections.get<Track>('tracks')
+        .query(
+          Q.where('genre', Q.notEq(null)),
+          Q.where('genre', Q.notEq(''))
+        )
+        .observeWithColumns(['genre'])
+        .pipe(catchError(() => of([])))
+        .subscribe((tracks) => {
+          const genreSet = new Set<string>();
+          for (const t of tracks) {
+            const g = t.genre?.trim();
+            if (g) {
+              genreSet.add(g);
+            }
           }
-        }
-        const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
-        const lists: SmartList[] = sortedGenres.map(genre => ({
-          id: `genre_${encodeURIComponent(genre)}`,
-          name: genre,
-          description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
-          placeholderIcon: 'disc-outline',
-          group: 'genre' as const,
-          genre,
-          getTracks: async () => {
-            return database.collections.get<Track>('tracks').query(
-              Q.where('genre', genre),
-              Q.sortBy('title', Q.asc)
-            ).fetch();
+          const sortedGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+          const lists: SmartList[] = sortedGenres.map(genre => ({
+            id: `genre_${encodeURIComponent(genre)}`,
+            name: genre,
+            description: t('library.smart_genre_desc', { genre }) || `Canciones del género ${genre}`,
+            placeholderIcon: 'disc-outline',
+            group: 'genre' as const,
+            genre,
+            getTracks: async () => {
+              return database.collections.get<Track>('tracks').query(
+                Q.where('genre', genre),
+                Q.sortBy('title', Q.asc)
+              ).fetch();
+            }
+          }));
+          const tracksByGenre: Record<string, Track[]> = Object.create(null);
+          for (const track of tracks) {
+            const genre = track.genre?.trim();
+            if (genre) (tracksByGenre[genre] ??= []).push(track);
           }
-        }));
-        const tracksByGenre: Record<string, Track[]> = Object.create(null);
-        for (const track of tracks) {
-          const genre = track.genre?.trim();
-          if (genre) (tracksByGenre[genre] ??= []).push(track);
-        }
-        setGenreTracks(tracksByGenre);
-        setGenreLists(lists);
-      });
-
-    return () => sub.unsubscribe();
+          setGenreTracks(tracksByGenre);
+          setGenreLists(lists);
+        });
+    });
+    return () => { cancel(); sub?.unsubscribe(); };
   }, [t]);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -1140,7 +1143,7 @@ function SearchScreen({ tags }: Readonly<SearchScreenProps>) {
       )}
 
       {/* Explorar por etiquetas (en lugar de sugerencias genéricas) */}
-      {!isCurrentlySearching && (
+      {!isCurrentlySearching && loadedTags !== null && (
         <View style={styles.tagsSection}>
           <View style={styles.tagsSectionHeader}>
             <Text style={styles.tagsSectionTitle}>{t('search.explore_tags')}</Text>
@@ -1854,7 +1857,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
-export default withObservables([], () => ({
-  tags: database.collections.get<Tag>("tags").query().observe(),
-}))(SearchScreen);

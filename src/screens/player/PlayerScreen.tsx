@@ -1920,6 +1920,7 @@ const PlayerControls = ({
 };
 
 interface PlayerFooterProps {
+    hasTrackLyrics: boolean;
     insetsBottom: number;
     isServerRunning: boolean;
     isSleepTimerActive: boolean;
@@ -1956,6 +1957,7 @@ interface PlayerFooterProps {
 }
 
 const PlayerFooter = ({
+    hasTrackLyrics,
     insetsBottom,
     isServerRunning,
     isSleepTimerActive,
@@ -2078,7 +2080,7 @@ const PlayerFooter = ({
                         <Ionicons
                             name="mic-outline"
                             size={24}
-                            color={isLocalCastActive ? colors.disabled : colors.textSecondary}
+                            color={hasTrackLyrics ? colors.accent : colors.textSecondary}
                         />
                     </TouchableOpacity>
                 </View>
@@ -2751,6 +2753,7 @@ const PlayerScreenUI = ({
                         />
 
                         <PlayerFooter
+                            hasTrackLyrics={Boolean(track.lyricsLRC?.trim())}
                             insetsBottom={insets.bottom}
                             isServerRunning={isServerRunning}
                             isSleepTimerActive={isSleepTimerActive}
