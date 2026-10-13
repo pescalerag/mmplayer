@@ -1,6 +1,22 @@
 import { DelayedLoaderController } from '../utils/delayedLoader';
 
 describe('DelayedLoaderController (Delayed Loader Pattern & Minimum Display Time)', () => {
+  it('cancels a pending hide when a new load starts and avoids restarting the visible loader', () => {
+    jest.useFakeTimers();
+    const changes = jest.fn();
+    const controller = new DelayedLoaderController(changes);
+    controller.startLoading(); controller.startLoading();
+    jest.advanceTimersByTime(250);
+    controller.stopLoading(); controller.stopLoading();
+    controller.startLoading();
+    jest.advanceTimersByTime(600);
+    expect(controller.isShowing).toBe(true);
+    expect(changes.mock.calls).toEqual([[true]]);
+    controller.stopLoading();
+    expect(controller.isShowing).toBe(false);
+    expect(changes.mock.calls).toEqual([[true], [false]]);
+    controller.destroy();
+  });
   beforeEach(() => {
     jest.useFakeTimers();
   });

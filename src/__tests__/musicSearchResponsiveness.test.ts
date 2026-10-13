@@ -111,6 +111,49 @@ describe('search responsiveness', () => {
         expect(harness.render('cd').isLoadingMore).toBe(false);
     });
 
+    it.each([
+        ['artists', 'artist', 'ab'], ['albums', 'album', 'ab'], ['playlists', 'playlist', 'ab'],
+        ['artists', 'artist', 'ab prefix'], ['albums', 'album', 'ab prefix'], ['playlists', 'playlist', 'ab prefix'],
+        ['artists', 'artist', 'contains ab'], ['albums', 'album', 'contains ab'], ['playlists', 'playlist', 'contains ab'],
+    ])('selects the best %s match (%s, %s) when no title matches', async (table, type, title) => {
+        const item = { id: 'match', name: title, title };
+        (database.collections.get as jest.Mock).mockImplementation(name => ({
+            query: () => ({ fetch: async () => name === table ? [item] : [] }),
+        }));
+        harness.render('ab');
+        jest.advanceTimersByTime(180); await settle();
+        expect(harness.render('ab').topMatch).toEqual({ type, item });
+    });
+
+    it('returns lyric-only matches once and adds the best track relations', async () => {
+        const song = track('song', 'abc');
+        const artist = { id: 'artist', name: 'Artist' }; const album = { id: 'album', title: 'Album' };
+        song.artist.fetch.mockResolvedValue(artist as any); song.album.fetch.mockResolvedValue(album as any);
+        const lyric = track('lyric', 'Other song');
+        (database.collections.get as jest.Mock).mockImplementation(name => ({
+            query: (...clauses: any[]) => ({ fetch: async () => name === 'tracks'
+                ? (clauses.some(clause => clause.left === 'lyrics_lrc') ? [song, lyric] : [song]) : [] }),
+        }));
+        harness.render('abc'); jest.advanceTimersByTime(180); await settle();
+        const result = harness.render('abc');
+        expect(result.results.tracks.map(song => song.id)).toEqual(['song', 'lyric']);
+        expect((result.results.tracks[1] as any).isLyricMatch).toBe(true);
+        expect(result.results.artists).toEqual([artist]); expect(result.results.albums).toEqual([album]);
+    });
+
+    it('finishes loading after a search failure and allows a later query to succeed', async () => {
+        const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            trackFetch.mockRejectedValueOnce(Error('Unavailable'));
+            harness.render('ab'); jest.advanceTimersByTime(180); await settle();
+            expect(harness.render('ab').isLoading).toBe(false);
+            expect(errors).toHaveBeenCalled();
+            trackFetch.mockResolvedValue([track('next', 'cd')]);
+            harness.render('cd'); jest.advanceTimersByTime(180); await settle();
+            expect(harness.render('cd').results.tracks[0].id).toBe('next');
+        } finally { errors.mockRestore(); }
+    });
+
     it('shares one pagination request when onEndReached fires twice', async () => {
         trackFetch.mockResolvedValue(Array.from({ length: 50 }, (_, index) => track(`${index}`, 'ab')));
         harness.render('ab');

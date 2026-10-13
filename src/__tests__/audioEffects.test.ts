@@ -8,6 +8,7 @@ import {
   getEqualizerBandLevelRange,
   getEqualizerNumberOfBands,
   releaseEqualizer,
+  setReplayGainSettings,
   extractColorFromImage,
 } from '../../modules/native-equalizer';
 import { usePlayerStore } from '../store/usePlayerStore';
@@ -34,6 +35,10 @@ describe('Audio Equalization & Effects Test Suite', () => {
   });
 
   describe('1. Módulo Nativo de Ecualización (native-equalizer)', () => {
+    it('passes normalization, preamp and fallback settings to the native audio processor', async () => {
+      await setReplayGainSettings(true, 3, -6);
+      expect(nativeModuleMock.setReplayGainSettings).toHaveBeenCalledWith(true, 3, -6);
+    });
     it('debe inicializar el ecualizador con el audioSessionId correcto', async () => {
       await initializeEqualizer(42);
       expect(nativeModuleMock.initialize).toHaveBeenCalledWith(42);

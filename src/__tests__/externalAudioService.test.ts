@@ -17,6 +17,7 @@ jest.mock('../../modules/native-audio-scanner', () => ({
 }));
 
 describe('ExternalAudioService', () => {
+  let externalRequest = 0;
   const showToastSpy = jest.fn();
   const playSingleTrackSpy = jest.fn().mockResolvedValue(undefined);
 
@@ -165,6 +166,33 @@ describe('ExternalAudioService', () => {
       expect(playSingleTrackSpy).toHaveBeenCalledWith(existingTrack, 'external_file');
       expect(navigationRef.navigate).toHaveBeenCalledWith('Player');
       expect(NativeScanner.clearLaunchAudioUri).toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ gain: -4, peak: 0.8 }, -4, 0.8],
+      [{ gain: NaN, peak: 0 }, null, null],
+      [{ gain: Infinity, peak: -1 }, null, null],
+      [null, null, null],
+    ])('validates ReplayGain metadata before playing an external track: %j', async (metadata, gain, peak) => {
+      (NativeScanner.resolveAudioUriInfo as jest.Mock).mockResolvedValue({ fileUrl: 'file:///external.flac', originalUri: 'content://external', title: 'External' });
+      (NativeScanner.getReplayGainMetadata as jest.Mock).mockResolvedValueOnce(metadata);
+      (database.collections.get as jest.Mock).mockReturnValue({ query: () => ({ fetch: async () => [] }) });
+      (waitForNavigationReady as jest.Mock).mockResolvedValue(true);
+      expect(await ExternalAudioService.handleOpenedAudioUrl('content://external/' + ++externalRequest)).toBe(true);
+      expect(playSingleTrackSpy).toHaveBeenLastCalledWith(expect.objectContaining({ replayGain: gain, replayPeak: peak }), 'external_file');
+    });
+
+    it('still plays external audio when ReplayGain metadata cannot be read', async () => {
+      const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        (NativeScanner.resolveAudioUriInfo as jest.Mock).mockResolvedValue({ fileUrl: 'file:///external.mp3', originalUri: 'content://external', title: 'External' });
+        (NativeScanner.getReplayGainMetadata as jest.Mock).mockRejectedValueOnce(Error('Metadata unavailable'));
+        (database.collections.get as jest.Mock).mockReturnValue({ query: () => ({ fetch: async () => [] }) });
+        (waitForNavigationReady as jest.Mock).mockResolvedValue(true);
+        expect(await ExternalAudioService.handleOpenedAudioUrl('content://external/' + ++externalRequest)).toBe(true);
+        expect(playSingleTrackSpy).toHaveBeenCalled();
+        expect(warning).toHaveBeenCalled();
+      } finally { warning.mockRestore(); }
     });
 
     it('creates and plays external track when not found in database', async () => {
