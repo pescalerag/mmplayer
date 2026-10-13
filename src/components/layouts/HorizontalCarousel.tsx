@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
 interface HorizontalCarouselProps {
@@ -8,6 +8,8 @@ interface HorizontalCarouselProps {
   renderItem: ({ item, index }: { item: any, index: number }) => React.ReactElement;
   emptyText?: string;
   keyExtractor?: (item: any, index: number) => string;
+  readonly onSeeAll?: () => void;
+  readonly seeAllLabel?: string;
 }
 
 export const HorizontalCarousel: React.FC<HorizontalCarouselProps> = ({
@@ -16,14 +18,21 @@ export const HorizontalCarousel: React.FC<HorizontalCarouselProps> = ({
   renderItem,
   emptyText,
   keyExtractor,
+  onSeeAll,
+  seeAllLabel,
 }) => {
   const { colors, fonts, spacing, fontWeights } = useAppTheme();
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: colors.text, fontFamily: fonts.regular, fontWeight: fontWeights.bold, paddingHorizontal: spacing.lg || 20 }]}>
-        {title}
-      </Text>
+      <View style={[styles.header, { paddingHorizontal: spacing.lg || 20 }]}>
+        <Text style={[styles.title, { color: colors.text, fontFamily: fonts.regular, fontWeight: fontWeights.bold }]}>
+          {title}
+        </Text>
+        {onSeeAll && <TouchableOpacity onPress={onSeeAll} hitSlop={8}>
+          <Text style={{ color: colors.accent, fontFamily: fonts.regular, fontSize: 14, fontWeight: '700' }}>{seeAllLabel}</Text>
+        </TouchableOpacity>}
+      </View>
 
       {data.length > 0 ? (
         <FlatList
@@ -56,6 +65,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 12,
   },
   listContent: {

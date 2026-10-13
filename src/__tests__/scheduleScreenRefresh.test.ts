@@ -60,6 +60,17 @@ describe('screen refresh scheduling', () => {
         expect(InteractionManager.runAfterInteractions).not.toHaveBeenCalled();
     });
 
+    it('ignores an already queued animation frame after focus is lost', () => {
+        const refresh = jest.fn();
+        const dispose = scheduleScreenRefresh(refresh);
+        paintFrame();
+        const secondFrame = [...frames.values()][0];
+        dispose();
+        secondFrame(0);
+        expect(InteractionManager.runAfterInteractions).not.toHaveBeenCalled();
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
     it('ignores even a queued interaction callback after navigating away', () => {
         const refresh = jest.fn();
         const dispose = scheduleScreenRefresh(refresh);

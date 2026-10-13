@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { LocalCastService } from '../services/LocalCastService';
+import { LocalCastPlaybackService } from '../services/LocalCastPlaybackService';
 import * as Network from 'expo-network';
 import TrackPlayer from 'react-native-track-player';
 import { useABRepeatStore } from './useABRepeatStore';
@@ -20,7 +21,7 @@ interface CastState {
     isCastPlaying: boolean;
     castVolume: number;
 
-    setCastPlayback: (pos: number, isPlaying: boolean, dur?: number) => void;
+    setCastPlayback: (pos: number, isPlaying: boolean | undefined, dur?: number) => void;
     setCastPlaying: (isPlaying: boolean) => void;
     setCastVolume: (volume: number) => void;
     setSelectedMode: (mode: 'local' | 'chromecast' | null) => void;
@@ -201,8 +202,17 @@ export const useCastStore = create<CastState>((set, get) => ({
             }
         } catch (e) {}
 
-        LocalCastService.setInitialResumePosition(nativePos, activeCleanId);
-        const url = await get().startServer();
+        const activeIndex = await TrackPlayer.getActiveTrackIndex();
+        const nativeTrack = activeIndex == null ? null : await TrackPlayer.getTrack(activeIndex);
+        await (TrackPlayer.pause as (bypassFade: boolean) => Promise<void>)(true);
+        let url: string;
+        try {
+            url = await get().startServer();
+        } catch (error) {
+            if (isPlaying) await TrackPlayer.play();
+            throw error;
+        }
+        LocalCastPlaybackService.begin(LocalCastService.createSessionId(), String(nativeTrack?.id ?? activeCleanId ?? ''), nativePos, isPlaying);
         set({ 
             isLocalCastActive: true, 
             selectedMode: 'local',
@@ -215,8 +225,12 @@ export const useCastStore = create<CastState>((set, get) => ({
     stopLocalCast: async () => {
         try {
             // 1. Capture current playback position, playing state, and volume before stopping
-            const currentCastPos = get().castPosition;
-            const wasPlaying = get().isCastPlaying;
+            const finalReport = await LocalCastPlaybackService.requestStop();
+            const currentCastPos = finalReport?.position ?? get().castPosition;
+            const wasPlaying = finalReport?.playing ?? get().isCastPlaying;
+            await LocalCastPlaybackService.saveListen().catch(error => {
+                console.error('[useCastStore] Error saving LocalCast listen:', error);
+            });
             const prevVol = (get().previousVolume !== undefined && get().previousVolume > 0.05)
                 ? get().previousVolume
                 : 1.0;
@@ -228,9 +242,7 @@ export const useCastStore = create<CastState>((set, get) => ({
             set({ isLocalCastActive: false, isCastPlaying: false });
 
             // 4. Seek native TrackPlayer to the exact point the song was at on the PC
-            if (currentCastPos > 0) {
-                await TrackPlayer.seekTo(currentCastPos);
-            }
+            await TrackPlayer.seekTo(currentCastPos);
 
             // 5. Restore volume on the mobile
             await TrackPlayer.setVolume(prevVol);
@@ -245,7 +257,7 @@ export const useCastStore = create<CastState>((set, get) => ({
             // 7. Grace period for PC to receive the final STOP event before shutting down the socket.
             // Since the PC polls every 1.5s - 2.5s, we need to keep the server alive slightly longer 
             // in the background so it can respond with 'isStopped: true'
-            await new Promise((resolve) => setTimeout(resolve, 2500));
+            if (!finalReport) await new Promise((resolve) => setTimeout(resolve, 2500));
 
             // 8. Shut down HTTP server and clear all cast caches
             if (!get().isChromecastConnected) {

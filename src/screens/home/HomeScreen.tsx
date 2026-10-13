@@ -1,3 +1,4 @@
+import { TopRatedAlbumsSection } from '@/components/home/TopRatedAlbumsSection';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { openAlbumMenu, openArtistMenu, openHomeSections, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
@@ -618,6 +619,9 @@ export default function HomeScreen() {
                         keyExtractor={(item) => `most-played-${item.id}`}
                     />
                 );
+
+            case 'top_rated_albums':
+                return <TopRatedAlbumsSection />;
 
             case 'explore':
                 return (

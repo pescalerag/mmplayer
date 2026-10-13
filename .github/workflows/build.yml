@@ -24,6 +24,8 @@ jobs:
         run: ./node_modules/.bin/patch-package
       - name: Run tests with coverage
         run: npm run test:coverage
+      - name: Run LocalCast native bridge tests
+        run: npm run test:localcast-native
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
         env:

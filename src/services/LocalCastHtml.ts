@@ -1,3 +1,6 @@
+import { castReplayGainSource, castReplayGainMathSource } from './generated/LocalCastReplayGainSource';
+import { localCastAudioSource } from './generated/LocalCastAudioSource';
+import { localCastQueueSource, localCastLyricsSource } from './generated/LocalCastViewSource';
 import { LocalCastTheme } from '../store/useSettingsStore';
 
 export interface LocalCastTranslations {
@@ -11,6 +14,12 @@ export interface LocalCastTranslations {
     clickToUnmuteLong?: string;
     brandName?: string;
     lang?: string;
+    queueTitle?: string;
+    queueCurrent?: string;
+    queueEmpty?: string;
+    queueMore?: string;
+    shuffleEnabled?: string;
+    shuffleDisabled?: string;
 }
 
 const THEME_CSS: Record<LocalCastTheme, string> = {
@@ -204,6 +213,12 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         clickToUnmuteLong: 'Haga clic para activar audio',
         brandName: 'MMPlayer',
         lang: 'es',
+        queueTitle: 'Cola',
+        queueCurrent: 'Reproduciendo',
+        queueEmpty: 'No hay canciones en la cola',
+        queueMore: 'Mostrando las próximas 50 de {count} canciones',
+        shuffleEnabled: 'Aleatoria al finalizar: activada',
+        shuffleDisabled: 'Aleatoria al finalizar: desactivada',
         ...customTranslations,
     };
 
@@ -266,6 +281,29 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             z-index: 1;
         }
 
+        .cast-layout { display: flex; gap: 20px; width: 94vw; max-width: 1680px; height: 85vh; z-index: 2; }
+        .cast-layout .main-container { width: auto; flex: 1; min-width: 0; height: 100%; gap: 32px; padding: 32px; }
+        .queue-panel { width: 300px; flex-shrink: 0; background: var(--panel-bg); border: var(--panel-border); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; min-height: 0; backdrop-filter: blur(24px); box-shadow: var(--panel-shadow); }
+        .queue-panel h2 { margin: 0 0 12px; font-size: 22px; }
+        .queue-status, .queue-count { color: rgba(255,255,255,.65); font-size: 12px; line-height: 1.5; }
+        .queue-list { overflow-y: auto; min-height: 0; flex: 1; margin-top: 16px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
+        .queue-list::-webkit-scrollbar { width: 6px; }
+        .queue-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 6px; }
+        .queue-item { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px; color: white; border: 1px solid transparent; background: transparent; border-radius: 12px; cursor: pointer; }
+        .queue-item:hover, .queue-item:focus-visible { background: rgba(255,255,255,.08); }
+        .queue-item.current { border-color: var(--play-btn-border); background: var(--play-btn-bg); }
+        .queue-item-cover { width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: rgba(255,255,255,.08); }
+        .queue-item-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .queue-item-title { font-size: 14px; overflow-wrap: anywhere; }
+        .queue-item-detail { font-size: 12px; color: rgba(255,255,255,.6); }
+        .control-btn:disabled { opacity: .3; cursor: default; }
+        @media (max-width: 1100px) {
+            body { overflow-y: auto; overflow-x: hidden; padding: 24px 0; height: auto; min-height: 100vh; }
+            .cast-layout { flex-direction: column; height: auto; }
+            .cast-layout .main-container { flex: none; width: 100%; min-height: 75vh; }
+            .queue-panel { width: 100%; height: 380px; }
+        }
+
         .main-container {
             display: flex;
             flex-direction: row;
@@ -283,34 +321,6 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             z-index: 2;
             overflow: hidden;
             transition: max-width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), padding 0.45s ease;
-        }
-
-        .main-container.no-lyrics {
-            max-width: 560px;
-            justify-content: center;
-            align-items: center;
-            padding: 48px 40px;
-            gap: 0;
-        }
-
-        .main-container.no-lyrics .right-column {
-            display: none;
-        }
-
-        .main-container.no-lyrics .left-column {
-            flex: 1;
-            max-width: 100%;
-            width: 100%;
-            align-items: center;
-        }
-
-        .main-container.no-lyrics .artwork-wrapper {
-            width: 340px;
-            height: 340px;
-        }
-
-        .main-container.no-lyrics .status-wrapper {
-            align-self: center !important;
         }
 
         .left-column {
@@ -618,6 +628,9 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
+        .lyrics-scroller.empty { height: 100%; padding: 20px; justify-content: center; }
+        .lyrics-empty { font-size: 24px; font-weight: 700; color: rgba(255,255,255,.5); text-align: center; }
+
         .lyric-line {
             font-size: 24px;
             font-weight: 700;
@@ -664,6 +677,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     <div id="background-blur"></div>
     <div id="background-overlay"></div>
 
+    <div class="cast-layout">
     <div class="main-container">
         <div class="left-column">
             <div class="artwork-wrapper">
@@ -715,7 +729,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                             </svg>
                         </button>
                         <div class="volume-slider-wrapper">
-                            <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="1" class="volume-slider">
+                            <input id="volume-slider" type="range" min="0" max="1.5" step="0.01" value="1" class="volume-slider">
                         </div>
                         <span id="volume-percent" class="volume-percent">100%</span>
                     </div>
@@ -729,15 +743,21 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         </div>
 
         <div class="right-column">
-            <div id="lyrics-scroller" class="lyrics-scroller">
-                <div class="lyric-line" style="text-align: center;">${t.noLyrics}</div>
+            <div id="lyrics-scroller" class="lyrics-scroller empty">
+                <div class="lyrics-empty">${t.noLyrics}</div>
             </div>
         </div>
     </div>
 
+    <aside class="queue-panel">
+        <h2>${t.queueTitle}</h2>
+        <div id="queue-status" class="queue-status" aria-live="polite"></div>
+        <div id="queue-list" class="queue-list"></div>
+        <div id="queue-count" class="queue-count" aria-live="polite"></div>
+    </aside>
+    </div>
     <script>
         const i18n             = ${JSON.stringify(t)};
-        const mainContainer    = document.querySelector('.main-container');
         const audioPlayer      = document.getElementById('audio-player');
         const titleEl          = document.getElementById('title');
         const artistEl         = document.getElementById('artist');
@@ -757,6 +777,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         const playIcon         = document.getElementById('play-icon');
         const pauseIcon        = document.getElementById('pause-icon');
         const nextBtn          = document.getElementById('next-btn');
+        const castReplayGain = (${castReplayGainSource})(audioPlayer, (${castReplayGainMathSource}),
+            () => new (window.AudioContext || window.webkitAudioContext)(), handleAutoplayBlock);
 
         function updatePlayPauseUI(isPlaying) {
             if (isPlaying) {
@@ -770,7 +792,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
 
         playPauseBtn.addEventListener('click', () => {
             if (audioPlayer.paused) {
-                audioPlayer.play().then(() => {
+                castReplayGain.play().then(() => {
                     updatePlayPauseUI(true);
                     fetch('/api/play', { method: 'POST' }).catch(() => {});
                 }).catch(handleAutoplayBlock);
@@ -782,7 +804,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         });
 
         prevBtn.addEventListener('click', () => {
-            fetch('/api/previous', { method: 'POST' })
+            fetch('/api/previous?report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { method: 'POST' })
                 .catch(() => {})
                 .finally(() => {
                     triggerImmediateUpdate();
@@ -790,23 +812,23 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         });
 
         nextBtn.addEventListener('click', () => {
-            fetch('/api/next', { method: 'POST' })
+            fetch('/api/next?report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { method: 'POST' })
                 .catch(() => {})
                 .finally(() => {
                     triggerImmediateUpdate();
                 });
         });
 
-        audioPlayer.onplay = () => updatePlayPauseUI(true);
+        audioPlayer.onplay = () => { isAutoplayBlocked = false; updatePlayPauseUI(true); };
         audioPlayer.onpause = () => updatePlayPauseUI(false);
 
         // Local browser-only volume persistence
         let savedVol = localStorage.getItem('mmplayer_cast_volume');
         let initialVolume = savedVol !== null ? parseFloat(savedVol) : 1.0;
-        if (isNaN(initialVolume) || initialVolume < 0 || initialVolume > 1) {
+        if (!Number.isFinite(initialVolume) || initialVolume < 0 || initialVolume > 1.5) {
             initialVolume = 1.0;
         }
-        audioPlayer.volume = initialVolume;
+        let currentVolume = castReplayGain.setVolume(initialVolume);
         volumeSlider.value = initialVolume;
         let lastNonZeroVolume = initialVolume > 0 ? initialVolume : 1.0;
         updateVolumeUI(initialVolume);
@@ -814,7 +836,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         function updateVolumeUI(vol) {
             const pct = Math.round(vol * 100);
             volumePercent.innerText = pct + '%';
-            const percentage = vol * 100;
+            const percentage = (vol / 1.5) * 100;
             volumeSlider.style.background = 'linear-gradient(to right, #FFFFFF ' + percentage + '%, rgba(255, 255, 255, 0.12) ' + percentage + '%)';
 
             if (vol === 0) {
@@ -829,28 +851,19 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             }
         }
 
-        volumeSlider.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            audioPlayer.volume = val;
-            if (val > 0) lastNonZeroVolume = val;
-            localStorage.setItem('mmplayer_cast_volume', val.toString());
-            updateVolumeUI(val);
-        });
+        function applyVolume(value) {
+            currentVolume = castReplayGain.setVolume(value);
+            if (currentVolume > 0) lastNonZeroVolume = currentVolume;
+            volumeSlider.value = currentVolume;
+            localStorage.setItem('mmplayer_cast_volume', currentVolume.toString());
+            updateVolumeUI(currentVolume);
+        }
+
+        volumeSlider.addEventListener('input', (e) => applyVolume(parseFloat(e.target.value)));
 
         volumeBtn.addEventListener('click', () => {
-            if (audioPlayer.volume > 0) {
-                lastNonZeroVolume = audioPlayer.volume;
-                audioPlayer.volume = 0;
-                volumeSlider.value = 0;
-                localStorage.setItem('mmplayer_cast_volume', '0');
-                updateVolumeUI(0);
-            } else {
-                const target = lastNonZeroVolume || 1.0;
-                audioPlayer.volume = target;
-                volumeSlider.value = target;
-                localStorage.setItem('mmplayer_cast_volume', target.toString());
-                updateVolumeUI(target);
-            }
+            if (currentVolume > 0) applyVolume(0);
+            else applyVolume(lastNonZeroVolume || 1.0);
         });
 
         const progressBarContainer = document.querySelector('.progress-bar-container');
@@ -877,11 +890,34 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         let currentCoverFileName   = null;
         let lastHandledCmdId       = 0;
         let pollTimeoutId          = null;
-        let pendingSeek            = 0;
         let currentSessionId       = null;
         let consecutiveErrors      = 0;
-
+        const castAudio = (${localCastAudioSource})(audioPlayer, (report) => {
+            fetch('/api/ended?token=' + encodeURIComponent(report.token) + '&report=' + encodeURIComponent(JSON.stringify(report)), { method: 'POST' })
+                .catch(() => {}).finally(() => scheduleNextPoll(500));
+        }, handleAutoplayBlock, Date.now, castReplayGain.play);
+        let currentLyricsToken = null;
+        let queueVersion = '';
+        const castLyrics = (${localCastLyricsSource})(lyricsScroller,
+            (hasLyrics) => lyricsScroller.classList.toggle('empty', !hasLyrics), parseLRC, i18n.noLyrics);
         const FALLBACK_COVER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2'><rect width='20' height='20' x='2' y='2' rx='2'/><circle cx='12' cy='12' r='4'/></svg>";
+        const castQueue = (${localCastQueueSource})(document.getElementById('queue-list'),
+            document.getElementById('queue-status'), document.getElementById('queue-count'),
+            { enabled: i18n.shuffleEnabled, disabled: i18n.shuffleDisabled, current: i18n.queueCurrent, empty: i18n.queueEmpty, more: i18n.queueMore },
+            (row, version) => {
+                fetch('/api/queue/select?index=' + row.index + '&id=' + encodeURIComponent(row.id) + '&version=' + encodeURIComponent(version)
+                    + '&report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { method: 'POST' })
+                    .catch(() => {}).finally(() => { queueVersion = ''; triggerImmediateUpdate(); });
+            }, FALLBACK_COVER, async (url) => {
+                const response = await fetch(url);
+                if (!response.ok) return null;
+                return (await response.json()).coverUrl;
+            });
+        audioPlayer.addEventListener('loadedmetadata', () => syncLyrics(audioPlayer.currentTime));
+        setInterval(() => castAudio.checkConnection(), 500);
+
+
+
 
         function scheduleNextPoll(delayMs) {
             if (pollTimeoutId) {
@@ -948,7 +984,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         if ('mediaSession' in navigator) {
             try {
                 navigator.mediaSession.setActionHandler('play', () => {
-                    audioPlayer.play().then(() => {
+                    castReplayGain.play().then(() => {
                         updatePlayPauseUI(true);
                         fetch('/api/play', { method: 'POST' }).catch(() => {});
                     }).catch(handleAutoplayBlock);
@@ -959,10 +995,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     fetch('/api/pause', { method: 'POST' }).catch(() => {});
                 });
                 navigator.mediaSession.setActionHandler('previoustrack', () => {
-                    fetch('/api/previous', { method: 'POST' }).catch(() => {}).finally(triggerImmediateUpdate);
+                    fetch('/api/previous?report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { method: 'POST' }).catch(() => {}).finally(triggerImmediateUpdate);
                 });
                 navigator.mediaSession.setActionHandler('nexttrack', () => {
-                    fetch('/api/next', { method: 'POST' }).catch(() => {}).finally(triggerImmediateUpdate);
+                    fetch('/api/next?report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { method: 'POST' }).catch(() => {}).finally(triggerImmediateUpdate);
                 });
                 navigator.mediaSession.setActionHandler('seekto', (details) => {
                     if (details.seekTime !== undefined && audioPlayer.duration) {
@@ -987,6 +1023,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             artistEl.innerText = "";
             updateCover(null);
             updatePlayPauseUI(false);
+            currentLyricsToken = null;
             renderLyrics('');
             progressFill.style.width = '0%';
             timeCurrentEl.innerText  = '0:00';
@@ -1055,55 +1092,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             return mins + ':' + (secs < 10 ? '0' : '') + secs;
         }
 
-        function renderLyrics(lrcText) {
-            lyrics = parseLRC(lrcText);
-            currentActiveIndex = -1;
-            lyricsScroller.innerHTML = '';
-            lyricsScroller.style.transform = 'translateY(0px)';
-
-            if (!lyrics || lyrics.length === 0) {
-                mainContainer.classList.add('no-lyrics');
-                return;
-            }
-            mainContainer.classList.remove('no-lyrics');
-            lyrics.forEach((item, index) => {
-                const div = document.createElement('div');
-                div.className = 'lyric-line';
-                div.id = 'lyric-' + index;
-                div.innerText = item.text;
-                lyricsScroller.appendChild(div);
-            });
-        }
-
+        function renderLyrics(lrcText) { castLyrics.select(currentLyricsToken, lrcText || ''); }
         function syncLyrics(currentTime) {
-            if (!lyrics || lyrics.length === 0) return;
-            let activeIndex = -1;
-            for (let i = 0; i < lyrics.length; i++) {
-                if (currentTime >= lyrics[i].time) {
-                    activeIndex = i;
-                } else {
-                    break;
-                }
-            }
-
-            if (activeIndex === currentActiveIndex) return;
-            currentActiveIndex = activeIndex;
-
-            const lines = lyricsScroller.children;
-            for (let i = 0; i < lines.length; i++) {
-                if (i === activeIndex) {
-                    lines[i].classList.add('active');
-                    const containerHeight = lyricsScroller.parentElement.clientHeight;
-                    const lineOffsetTop  = lines[i].offsetTop;
-                    const lineHeight     = lines[i].clientHeight;
-                    const targetY        = -(lineOffsetTop - (containerHeight / 2) + (lineHeight / 2));
-                    lyricsScroller.style.transform = 'translateY(' + targetY + 'px)';
-                } else {
-                    lines[i].classList.remove('active');
-                }
-            }
+            if (castAudio.isReady(currentLyricsToken)) castLyrics.sync(currentTime);
         }
-
         function handleAutoplayBlock(err) {
             if (err && err.name === 'NotAllowedError') {
                 isAutoplayBlocked = true;
@@ -1113,9 +1105,17 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
 
         function tryPlayAudio() {
             isAutoplayBlocked = false;
-            audioPlayer.play().then(() => {
+            castReplayGain.play().then(() => {
                 setStatusActive(i18n.playing);
             }).catch(handleAutoplayBlock);
+        }
+
+        function syncCastPlayback(state) {
+            if (!state.mediaFileName || !state.playbackToken) return;
+            if (!castAudio.isReady(state.playbackToken)) audioPlayer.pause();
+            if (state.replayGain) castReplayGain.update(state.replayGain);
+            castAudio.sync(state);
+            currentLoadedMediaFile = state.mediaFileName;
         }
 
         document.body.addEventListener('click', () => {
@@ -1142,7 +1142,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     }
                     const isAudioPlaying = !audioPlayer.paused && !audioPlayer.ended && audioPlayer.readyState > 2;
                     const audioDur = (audioPlayer.duration || 0).toFixed(1);
-                    response = await fetch('/api/state?pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || ''), { signal: controller.signal });
+                    response = await fetch('/api/state?queueVersion=' + encodeURIComponent(queueVersion) + '&pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || '') + '&report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { signal: controller.signal });
                 } finally {
                     clearTimeout(timeoutId);
                 }
@@ -1150,6 +1150,9 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 if (!response.ok) throw new Error('Response not OK: ' + response.status);
 
                 const state = await response.json();
+                if (state.queueVersion) queueVersion = state.queueVersion;
+                if (typeof state.hasNext === 'boolean') nextBtn.disabled = !state.hasNext;
+                if (typeof state.shuffleOnQueueEnd === 'boolean') castQueue.update(state);
 
                 if (currentSessionId !== null && currentSessionId !== state.sessionId) {
                     currentLoadedMediaFile = null; 
@@ -1158,8 +1161,16 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     currentSessionId = state.sessionId;
                 }
 
+                if (state.handoff) {
+                    const finalReport = castAudio.stop();
+                    resetToIdle(i18n.noSong);
+                    await fetch('/api/report?stopped=true&report=' + encodeURIComponent(JSON.stringify(finalReport)), { method: 'POST' });
+                    return;
+                }
+
                 // ── Explicit Stop from Mobile ──────────────────────────────────
                 if (state.isStopped) {
+                    castAudio.stop();
                     resetToIdle(i18n.noSong);
                     nextPollInterval = 2000;
                     return;
@@ -1175,18 +1186,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 if (state.command && state.command.id > lastHandledCmdId) {
                     lastHandledCmdId = state.command.id;
                     if (state.command.type === 'SEEK' && typeof state.command.position === 'number') {
-                        audioPlayer.currentTime = state.command.position;
+                        castAudio.seek(state.command.position);
                         if (audioPlayer.duration) {
                             progressFill.style.width = ((state.command.position / audioPlayer.duration) * 100) + '%';
                             timeCurrentEl.innerText  = formatTime(state.command.position);
-                        }
-                    } else if (state.command.type === 'PLAY') {
-                        if (audioPlayer.paused && !isAutoplayBlocked) {
-                            audioPlayer.play().catch(handleAutoplayBlock);
-                        }
-                    } else if (state.command.type === 'PAUSE') {
-                        if (!audioPlayer.paused) {
-                            audioPlayer.pause();
                         }
                     } else if (state.command.type === 'STOP') {
                         audioPlayer.pause();
@@ -1213,50 +1216,15 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 updateMediaSession(state.title, state.artist, resolvedCover ? '/static/' + resolvedCover : null);
 
                 // ── Lyrics ────────────────────────────────────────────────────
-                if (currentLyricsLRC !== state.lyricsLRC) {
+                if (currentLyricsToken !== state.playbackToken || currentLyricsLRC !== state.lyricsLRC) {
+                    currentLyricsToken = state.playbackToken;
                     currentLyricsLRC = state.lyricsLRC;
                     renderLyrics(state.lyricsLRC);
                     syncLyrics(audioPlayer.currentTime);
                 }
 
-                // ── Audio Media Loading (Autonomous audio decoding on PC) ─────
-                if (state.mediaFileName && currentLoadedMediaFile !== state.mediaFileName) {
-                    currentLoadedMediaFile = state.mediaFileName;
-                    isAutoplayBlocked = false;
-                    const mediaUrl = '/static/' + state.mediaFileName + '?t=' + Date.now();
-                    audioPlayer.pause();
-                    audioPlayer.src = mediaUrl;
-                    audioPlayer.load();
-
-                    if (state.position > 0) {
-                        pendingSeek = state.position;
-                        const onLoaded = () => {
-                            if (pendingSeek > 0) {
-                                audioPlayer.currentTime = pendingSeek;
-                                pendingSeek = 0;
-                            }
-                            audioPlayer.removeEventListener('loadedmetadata', onLoaded);
-                        };
-                        audioPlayer.addEventListener('loadedmetadata', onLoaded);
-                        try { audioPlayer.currentTime = state.position; } catch(e){}
-                    }
-
-                    if (state.isPlaying) {
-                        audioPlayer.play().then(() => {
-                            setStatusActive(i18n.streaming);
-                        }).catch(handleAutoplayBlock);
-                    }
-                    nextPollInterval = 1000;
-                }
-
-                // ── Sync Play/Pause with Mobile Remote State ──────────────────
-                if (currentLoadedMediaFile && !isAutoplayBlocked && !audioPlayer.error) {
-                    if (state.isPlaying && audioPlayer.paused) {
-                        audioPlayer.play().catch(handleAutoplayBlock);
-                    } else if (!state.isPlaying && !audioPlayer.paused) {
-                        audioPlayer.pause();
-                    }
-                }
+                // The browser owns loading, initial seeking, and playback completion.
+                syncCastPlayback(state);
 
                 if (!isAutoplayBlocked && !audioPlayer.error && state.isPlaying) {
                     setStatusActive(i18n.streaming);
@@ -1290,32 +1258,13 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             syncLyrics(current);
         };
 
-        audioPlayer.oncanplay = () => {
-            if (!isAutoplayBlocked && audioPlayer.paused) {
-                audioPlayer.play().catch(() => {});
-            }
-        };
-
-        audioPlayer.onended = () => {
-            fetch('/api/next', { method: 'POST' })
-                .catch(() => {})
-                .finally(() => {
-                    // Schedule next poll smoothly so the new track is loaded without tearing down
-                    scheduleNextPoll(500);
-                });
-        };
-
         audioPlayer.onerror = () => {
             const err = audioPlayer.error;
             console.warn("[AudioErrorEvent] Audio player error:", err ? err.code : 'unknown');
             setStatusError(i18n.retryingAudio);
             setTimeout(() => {
                 if (currentLoadedMediaFile) {
-                    audioPlayer.src = '/static/' + currentLoadedMediaFile + '?retry=' + Date.now();
-                    audioPlayer.load();
-                    if (!audioPlayer.paused || !isAutoplayBlocked) {
-                        audioPlayer.play().catch(handleAutoplayBlock);
-                    }
+                    castAudio.retry();
                 }
             }, 1000);
             scheduleNextPoll(2000);

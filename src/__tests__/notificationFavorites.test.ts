@@ -1,4 +1,5 @@
 import { BehaviorSubject } from 'rxjs';
+import { Platform } from 'react-native';
 import TrackPlayer, { Event } from 'react-native-track-player';
 import { database } from '../database';
 import { startNotificationFavoritesSync } from '../services/NotificationFavoritesService';
@@ -61,6 +62,57 @@ describe('event-driven notification favorites', () => {
         stop?.();
         stop = undefined;
         jest.useRealTimers();
+    });
+
+    it('does not register Android notification actions on iOS', () => {
+        const previous = Platform.OS;
+        (Platform as any).OS = 'ios';
+        try {
+            startNotificationFavoritesSync()();
+            expect(TrackPlayer.addEventListener).not.toHaveBeenCalled();
+        } finally { (Platform as any).OS = previous; }
+    });
+
+    it('handles missing active tracks and ignores actions after disposal', async () => {
+        (TrackPlayer.getActiveTrack as jest.Mock).mockResolvedValueOnce(null);
+        stop = startNotificationFavoritesSync();
+        await settle();
+        listeners[Event.RemoteLike](undefined);
+        expect(find).not.toHaveBeenCalled();
+        listeners[Event.PlaybackActiveTrackChanged]({ track: { id: 'a-instance' } });
+        await settle();
+        listeners[Event.RemoteLike](undefined);
+        await settle();
+        expect(a.model.toggleLike).toHaveBeenCalledTimes(1);
+        const dispose = stop;
+        dispose(); dispose();
+        listeners[Event.RemoteLike]({ trackId: 'a-instance' });
+        expect(a.model.toggleLike).toHaveBeenCalledTimes(1);
+    });
+
+    it('disables the heart after observable errors and catches native metadata failures', async () => {
+        const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            (TrackPlayer.updateNowPlayingMetadata as jest.Mock).mockRejectedValueOnce(new Error('Native unavailable'));
+            stop = startNotificationFavoritesSync(); await settle();
+            expect(errors).toHaveBeenCalled();
+            a.changes.error(new Error('Deleted'));
+            await settle();
+            expect(TrackPlayer.updateNowPlayingMetadata).toHaveBeenLastCalledWith({ favoriteTrackId: 'a-instance', isFavorite: false, favoriteEnabled: false });
+            a.model.toggleLike.mockRejectedValueOnce(new Error('Database unavailable'));
+            listeners[Event.RemoteLike]({ trackId: 'a-instance' }); await settle();
+            expect(errors).toHaveBeenCalledTimes(2);
+        } finally { errors.mockRestore(); }
+    });
+
+    it('catches an initial native read failure without creating a favorite subscription', async () => {
+        const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            (TrackPlayer.getActiveTrack as jest.Mock).mockRejectedValueOnce(new Error('Unavailable'));
+            stop = startNotificationFavoritesSync(); await settle();
+            expect(find).not.toHaveBeenCalled();
+            expect(errors).toHaveBeenCalled();
+        } finally { errors.mockRestore(); }
     });
 
     it('reads the initial favorite and sends app like/unlike changes without polling', async () => {

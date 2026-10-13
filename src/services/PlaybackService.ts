@@ -1,6 +1,5 @@
 import TrackPlayer, { Event, State, RemotePlaySearchEvent, PlaybackActiveTrackChangedEvent } from "react-native-track-player";
 import { createMMKV } from "react-native-mmkv";
-import { HistoryService } from "./HistoryService";
 import { database } from "../database";
 import Track from "../database/models/Track";
 import { Q } from "@nozbe/watermelondb";
@@ -11,6 +10,7 @@ import { useABRepeatStore } from "../store/useABRepeatStore";
 import { consumeUserQueueTransition, usePlayerStore } from "../store/usePlayerStore";
 import i18n from "../constants/i18n";
 import { startNotificationFavoritesSync } from './NotificationFavoritesService';
+import { PlaybackListenService } from './PlaybackListenService';
 
 const SKIP_PREVIOUS_THRESHOLD = 3;
 
@@ -24,6 +24,11 @@ let lastKnownDuration = 0;
 let activeTrackEventRevision = 0;
 
 export const PlaybackTimeTracker = {
+  addReportedSeconds(trackId: string, seconds: number) {
+    this.onStateNotPlaying();
+    currentTrackId = trackId;
+    accumulatedTimes[trackId] = (accumulatedTimes[trackId] || 0) + seconds * 1000;
+  },
   onStatePlaying(trackId: string) {
     if (currentTrackId !== trackId) {
       this.onStateNotPlaying();
@@ -130,6 +135,50 @@ export async function syncWidgetState() {
   }
 }
 
+
+async function restoreLyricsSyncTrack(event: PlaybackActiveTrackChangedEvent): Promise<boolean> {
+    const isSyncActive = usePlayerStore.getState().isSyncingLyrics;
+    if (isSyncActive && event.track) {
+        const syncedTrack = usePlayerStore.getState().activeTrack;
+        if (syncedTrack && event.track.id !== syncedTrack.id) {
+            console.log("[PlaybackService] Lyrics sync active. Reverting track change.");
+            const queue = await TrackPlayer.getQueue();
+            const syncedIndex = queue.findIndex(t => t.id?.toString().startsWith(syncedTrack.id.toString()));
+            if (syncedIndex !== -1) {
+                await TrackPlayer.skip(syncedIndex);
+                await TrackPlayer.seekTo(0);
+                await TrackPlayer.pause();
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+async function persistPreviousListen(previousTrackId: string | undefined) {
+  if (!previousTrackId) return;
+  await PlaybackListenService.save(previousTrackId, PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId), true);
+  PlaybackTimeTracker.clearAccumulated(previousTrackId);
+}
+
+function hasPlaybackLooped(position: number, duration: number) {
+  return duration > 0 && lastKnownPosition > 0 && position < lastKnownPosition
+    && lastKnownDuration - lastKnownPosition < 2 && position < 2;
+}
+
+async function persistLoopListen(position: number, duration: number) {
+  if (useCastStore.getState().isLocalCastActive) return;
+  if (!hasPlaybackLooped(position, duration)) return;
+  const index = await TrackPlayer.getActiveTrackIndex();
+  if (index == null) return;
+  const track = await TrackPlayer.getTrack(index);
+  const trackId = track?.id?.toString();
+  if (!trackId || trackId !== PlaybackTimeTracker.getCurrentTrackId()) return;
+  PlaybackTimeTracker.onStateNotPlaying();
+  await persistPreviousListen(trackId);
+  PlaybackTimeTracker.onStatePlaying(trackId);
+}
+
 export const PlaybackService = async function () {
   startNotificationFavoritesSync();
   TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
@@ -205,6 +254,8 @@ export const PlaybackService = async function () {
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
   TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
     try {
+      PlaybackTimeTracker.onStateNotPlaying();
+      await persistPreviousListen(PlaybackTimeTracker.getCurrentTrackId() ?? undefined);
       await usePlayerStore.getState().playRandomQueueOnEnd();
     } catch (e) {
       console.error('[PlaybackService] Error on PlaybackQueueEnded:', e);
@@ -212,7 +263,7 @@ export const PlaybackService = async function () {
   });
   
   TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {
-    if (event.state === State.Playing) {
+    if (event.state === State.Playing && !useCastStore.getState().isLocalCastActive) {
       const trackIndex = await TrackPlayer.getActiveTrackIndex();
       if (trackIndex !== undefined && trackIndex !== null) {
         const track = await TrackPlayer.getTrack(trackIndex);
@@ -242,21 +293,7 @@ export const PlaybackService = async function () {
     Event.PlaybackActiveTrackChanged,
     async (event) => {
       const revision = ++activeTrackEventRevision;
-      const isSyncActive = usePlayerStore.getState().isSyncingLyrics;
-      if (isSyncActive && event.track) {
-        const syncedTrack = usePlayerStore.getState().activeTrack;
-        if (syncedTrack && event.track.id !== syncedTrack.id) {
-          console.log("[PlaybackService] Lyrics sync active. Reverting track change.");
-          const queue = await TrackPlayer.getQueue();
-          const syncedIndex = queue.findIndex(t => t.id?.toString().startsWith(syncedTrack.id.toString()));
-          if (syncedIndex !== -1) {
-            await TrackPlayer.skip(syncedIndex);
-            await TrackPlayer.seekTo(0);
-            await TrackPlayer.pause();
-          }
-          return;
-        }
-      }
+      if (await restoreLyricsSyncTrack(event)) return;
 
       void syncActiveTrackToStore(event, revision);
       consumeUserQueueTransition(event);
@@ -278,7 +315,11 @@ export const PlaybackService = async function () {
       useABRepeatStore.getState().clearAB();
 
       // Reset cast position on track change so new song starts at 0:00
-      useCastStore.setState({ castPosition: 0 });
+      useCastStore.setState({ castPosition: 0, castDuration: 0 });
+      if (nextTrackId && useCastStore.getState().isLocalCastActive) {
+        const { LocalCastPlaybackService } = require('./LocalCastPlaybackService');
+        LocalCastPlaybackService.selectTrack(nextTrackId);
+      }
 
       // Limpiar minutaje y acumulado persistido de la canción anterior
       storage.set("@player_position", 0);
@@ -286,40 +327,11 @@ export const PlaybackService = async function () {
 
       PlaybackTimeTracker.onStateNotPlaying();
 
-      if (previousTrackId) {
-        let durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId);
-        let requiredSeconds = 20;
-        try {
-          const cleanId = previousTrackId.split('-')[0];
-          const track = await database.get<Track>('tracks').find(cleanId);
-          if (track && track.duration) {
-            requiredSeconds = track.duration * 0.5;
-            if (durationPlayed > track.duration) {
-              durationPlayed = track.duration;
-            }
-          } else {
-            durationPlayed = Math.min(durationPlayed, 600);
-          }
-        } catch (e) {
-          console.warn('[PlaybackService] Failed to find previous track for duration:', e);
-          durationPlayed = Math.min(durationPlayed, 600);
-        }
-        if (durationPlayed >= requiredSeconds) {
-          console.log(`[Historial] Guardando en historial. Canción: ${previousTrackId}, Duración: ${Math.floor(durationPlayed)}s.`);
-          await HistoryService.logToDatabase(
-            previousTrackId,
-            durationPlayed,
-            "queue",
-          );
-        } else {
-          console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${Math.floor(requiredSeconds)}s).`);
-        }
-        PlaybackTimeTracker.clearAccumulated(previousTrackId);
-      }
+      await persistPreviousListen(previousTrackId);
 
       // Reiniciar el timer SOLO si el reproductor está efectivamente en estado de reproducción (Playing)
       const currentState = await TrackPlayer.getPlaybackState();
-      if (currentState.state === State.Playing && nextTrackId) {
+      if (currentState.state === State.Playing && nextTrackId && !useCastStore.getState().isLocalCastActive) {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
 
@@ -366,58 +378,8 @@ export const PlaybackService = async function () {
       // Verificar y ejecutar bucle A-B si está activo
       await useABRepeatStore.getState().checkLoop(position);
       
-      if (duration > 0 && lastKnownPosition > 0) {
-        // Detect if position jumped backwards to the start from near the end
-        const isLoopDetected = 
-          position < lastKnownPosition && 
-          (lastKnownDuration - lastKnownPosition) < 2.0 && 
-          position < 2.0;
-          
-        if (isLoopDetected) {
-          const trackIndex = await TrackPlayer.getActiveTrackIndex();
-          if (trackIndex !== undefined && trackIndex !== null) {
-            const track = await TrackPlayer.getTrack(trackIndex);
-            if (track && track.id) {
-              const trackId = track.id.toString();
-              
-              // Only trigger if it is the same track looping
-              if (trackId === PlaybackTimeTracker.getCurrentTrackId()) {
-                PlaybackTimeTracker.onStateNotPlaying();
-                
-                let durationPlayed = PlaybackTimeTracker.getAccumulatedSeconds(trackId);
-                
-                let requiredSeconds = 20;
-                try {
-                  const cleanId = trackId.split('-')[0];
-                  const track = await database.get<Track>('tracks').find(cleanId);
-                  if (track && track.duration) {
-                    requiredSeconds = track.duration * 0.5;
-                    if (durationPlayed > track.duration) {
-                      durationPlayed = track.duration;
-                    }
-                  } else {
-                    durationPlayed = Math.min(durationPlayed, 600);
-                  }
-                } catch (e) {
-                  console.warn('[PlaybackService] Failed to find loop track for duration:', e);
-                  durationPlayed = Math.min(durationPlayed, 600);
-                }
-                
-                if (durationPlayed >= requiredSeconds) {
-                  console.log(`[Historial] Guardando en historial (bucle). Canción: ${trackId}, Duración: ${Math.floor(durationPlayed)}s.`);
-                  await HistoryService.logToDatabase(trackId, durationPlayed, "queue");
-                } else {
-                  console.log(`[Historial] Canción descartada (escuchada ${Math.floor(durationPlayed)}s, requiere ${Math.floor(requiredSeconds)}s).`);
-                }
-                
-                PlaybackTimeTracker.clearAccumulated(trackId);
-                PlaybackTimeTracker.onStatePlaying(trackId);
-              }
-            }
-          }
-        }
-      }
-      
+      await persistLoopListen(position, duration);
+
       lastKnownPosition = position;
       lastKnownDuration = duration;
 

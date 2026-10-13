@@ -29,6 +29,7 @@ const ALL_SECTIONS: SectionItem[] = [
   { id: 'recent_playlists', labelKey: 'home.my_playlists', fallbackLabel: 'Mis listas de reproducción' },
   { id: 'recently_added', labelKey: 'home.recently_added_albums', fallbackLabel: 'Álbumes añadidos recientemente' },
   { id: 'most_played', labelKey: 'home.most_played_songs', fallbackLabel: 'Tus más escuchadas' },
+  { id: 'top_rated_albums', labelKey: 'home.top_rated_albums', fallbackLabel: 'Álbumes mejor valorados' },
   { id: 'explore', labelKey: 'home.explore_albums', fallbackLabel: 'Explorar álbumes aleatorios' },
   { id: 'shuffle_button', labelKey: 'settings.home_section_shuffle', fallbackLabel: 'Botón de reproducción aleatoria' },
 ];

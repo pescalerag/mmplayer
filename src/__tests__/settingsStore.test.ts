@@ -66,6 +66,22 @@ describe('useSettingsStore', () => {
   });
 
   describe('onRehydrateStorage initialization functions', () => {
+    it('inserts the ranking after most played while preserving existing section preferences', () => {
+      const state = useSettingsStore.getState();
+      state.setHomeSectionsOrder(['stats', 'most_played', 'explore', 'shuffle_button']);
+      state.setHomeSectionsVisibility({ ...state.homeSectionsVisibility, explore: false });
+      const fn = getRehydrateFn();
+      fn(useSettingsStore.getState());
+      expect(useSettingsStore.getState().homeSectionsOrder).toEqual(['stats', 'most_played', 'top_rated_albums', 'explore', 'shuffle_button']);
+      expect(useSettingsStore.getState().homeSectionsVisibility.explore).toBe(false);
+      expect(useSettingsStore.getState().homeSectionsVisibility.top_rated_albums).toBe(true);
+      const current = useSettingsStore.getState();
+      current.setHomeSectionsOrder(['top_rated_albums', 'stats', 'shuffle_button']);
+      current.setHomeSectionsVisibility({ ...current.homeSectionsVisibility, top_rated_albums: false });
+      fn(useSettingsStore.getState());
+      expect(useSettingsStore.getState().homeSectionsOrder).toEqual(['top_rated_albums', 'stats', 'shuffle_button']);
+      expect(useSettingsStore.getState().homeSectionsVisibility.top_rated_albums).toBe(false);
+    });
     const getRehydrateFn = () => {
       const options = (useSettingsStore as any).persist?.getOptions();
       return options?.onRehydrateStorage?.(useSettingsStore.getState());
@@ -149,6 +165,7 @@ describe('useSettingsStore', () => {
       const fn = getRehydrateFn();
       fn(mockState);
       expect(mockState.setHomeSectionsOrder).toHaveBeenCalledWith([
+        'top_rated_albums',
         'recent_media',
         'stats',
         'favorites',
@@ -157,6 +174,7 @@ describe('useSettingsStore', () => {
       expect(mockState.setHomeSectionsVisibility).toHaveBeenCalledWith({
         stats: true,
         shuffle_button: true,
+        top_rated_albums: true,
       });
       expect(mockState.setHomeSectionsVersion).toHaveBeenCalledWith(2);
     });
@@ -171,6 +189,7 @@ describe('useSettingsStore', () => {
       const fn = getRehydrateFn();
       fn(mockState);
       expect(mockState.setHomeSectionsOrder).toHaveBeenCalledWith([
+        'top_rated_albums',
         'stats',
         'favorites',
         'shuffle_button',
@@ -178,6 +197,7 @@ describe('useSettingsStore', () => {
       expect(mockState.setHomeSectionsVisibility).toHaveBeenCalledWith({
         stats: true,
         shuffle_button: false,
+        top_rated_albums: true,
       });
     });
 
@@ -190,6 +210,7 @@ describe('useSettingsStore', () => {
       fn(mockState);
       expect(mockState.setHomeSectionsOrder).toHaveBeenCalledWith([
         'stats',
+        'top_rated_albums',
         'favorites',
         'shuffle_button',
       ]);

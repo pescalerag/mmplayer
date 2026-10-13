@@ -4,11 +4,15 @@ import LibraryCard from '@/components/cards/LibraryCard';
 import ContextualSpotlightTutorial from '@/components/modals/ContextualSpotlightTutorial';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import TrackRow from '@/components/player/TrackRow';
+import { useAlbumRanking } from '@/hooks/useAlbumRanking';
+import { RankedAlbum, sortAlbumRatings } from '@/utils/albumRanking';
+import { AlbumRatingCaption } from '@/components/library/AlbumRatingCaption';
+import { RankingLoadState } from '@/components/library/RankingLoadState';
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useIsFocused, useNavigation, useScrollToTop } from '@react-navigation/native';
+import { RouteProp, useIsFocused, useNavigation, useRoute, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
@@ -27,7 +31,7 @@ import PlaybackHistory from '../../database/models/PlaybackHistory';
 import Playlist from '../../database/models/Playlist';
 import Track from '../../database/models/Track';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
-import { LibraryNavigationProp } from '../../navigation/types';
+import { LibraryNavigationProp, LibraryStackParamList } from '../../navigation/types';
 import { ScannerService } from '../../services/ScannerService';
 import { SmartList, SmartListService } from '../../services/SmartListService';
 
@@ -199,7 +203,7 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
 })(TrackList);
 
 // ----- ALBUM ITEMS -----
-const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist | null, onPress?: () => void }) => {
+const AlbumCard = ({ album, artist, onPress, rating }: Readonly<{ album: Album; artist: Artist | null; onPress?: () => void; rating?: RankedAlbum }>) => {
     const { t } = useTranslation();
     const navigation = useNavigation<LibraryNavigationProp>();
 
@@ -217,6 +221,7 @@ const AlbumCard = ({ album, artist, onPress }: { album: Album, artist: Artist | 
             isPinned={album.isPinned}
             onPress={handlePress}
             onLongPress={() => openAlbumMenu(album)}
+            footer={<AlbumRatingCaption rating={rating} />}
         />
     );
 };
@@ -230,7 +235,15 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
     const { t } = useTranslation();
     const cascade = useCascadeEntry();
 
+    const ratingOrder = sortOption === 'rating_desc' || sortOption === 'rating_asc';
+    const ranking = useAlbumRanking(ratingOrder);
+    const ranked = React.useMemo(() => {
+        if (sortOption !== 'rating_desc' && sortOption !== 'rating_asc') return [];
+        return sortAlbumRatings(ranking.data, sortOption, true);
+    }, [ranking.data, sortOption]);
+    const ratingById = React.useMemo(() => new Map(ranked.map(item => [item.album.id, item])), [ranked]);
     const sortedAlbums = React.useMemo(() => {
+        if (ratingOrder) return ranked.map(item => item.album);
         if (sortOption === 'year_asc' || sortOption === 'year_desc') {
             return albums;
         }
@@ -244,8 +257,11 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             const cmp = nameCollator.compare(titleA, titleB);
             return isDesc ? -cmp : cmp;
         });
-    }, [albums, sortOption]);
+    }, [albums, sortOption, ratingOrder, ranked]);
 
+    if (ratingOrder && (ranking.loading || ranking.error)) {
+        return <RankingLoadState showLoader={ranking.showLoader} error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
+    }
     return (
         <FlashList
             ref={scrollRef}
@@ -264,9 +280,7 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
                         entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
-                        <EnhancedAlbumCard
-                            album={item}
-                        />
+                        <EnhancedAlbumCard album={item} rating={ratingById.get(item.id)} />
                     </Animated.View>
                 );
             }}
@@ -1072,6 +1086,14 @@ export default function LibraryScreen() {
         });
     }, [libraryTabsOrder, t]);
 
+    const libraryNavigation = useNavigation<LibraryNavigationProp>();
+    const route = useRoute<RouteProp<LibraryStackParamList, 'Library'>>();
+    useEffect(() => {
+        if (route.params?.tab !== 'albums') return;
+        const albumIndex = routes.findIndex(item => item.key === 'albums');
+        if (albumIndex >= 0) setIndex(albumIndex);
+        libraryNavigation.setParams({ tab: undefined });
+    }, [route.params?.tab, routes, libraryNavigation]);
     const activeTab = routes[index]?.key || 'albums';
 
     // Estado para guardar la altura dinámica del Título + Selectores

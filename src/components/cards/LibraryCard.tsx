@@ -15,6 +15,7 @@ interface LibraryCardProps {
     readonly onLongPress?: () => void;
     readonly isPinned?: boolean;
     readonly smartListId?: string;
+    readonly footer?: React.ReactNode;
 }
 
 const { width } = Dimensions.get('window');
@@ -22,7 +23,7 @@ const { width } = Dimensions.get('window');
 // Dividido entre 3 queda aprox 30-32% del ancho.
 const cardWidth = (width - 70) / 3;
 
-export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned, smartListId }: Readonly<LibraryCardProps>) {
+export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned, smartListId, footer }: Readonly<LibraryCardProps>) {
     const { colors, fonts, layout } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
     const [imageError, setImageError] = useState(false);
@@ -103,6 +104,7 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
             {duration && (
                 <Text style={styles.subtitle} numberOfLines={1}>{duration}</Text>
             )}
+            {footer}
         </Pressable>
     );
 }

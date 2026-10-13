@@ -225,6 +225,45 @@ describe('QueueSheet responsiveness and reconciliation', () => {
         expect(TrackPlayer.move).not.toHaveBeenCalled();
     });
 
+    it('stops playback and publishes an empty queue immediately', async () => {
+        const stopped = QueueActionsService.stop();
+        expect(ids()).toEqual([]);
+        await stopped; await settle();
+        expect(playerState.clearPlayer).toHaveBeenCalledTimes(1);
+        expect(nativeQueue).toEqual([]);
+    });
+
+    it('ignores missing queue entries and refuses to remove the playing entry', async () => {
+        const missing = { id: 'missing', url: 'missing' };
+        await QueueActionsService.play(missing);
+        expect(QueueActionsService.remove(missing, true)).toBeNull();
+        expect(QueueActionsService.remove(entry('a'), true)).toBeNull();
+        expect(TrackPlayer.skip).not.toHaveBeenCalled();
+        const play = QueueActionsService.play(entry('b'));
+        nativeQueue = nativeQueue.filter(track => track.id !== 'b');
+        await play; await settle();
+        expect(TrackPlayer.skip).not.toHaveBeenCalled();
+        expect(ids()).toEqual(['a', 'c', 'd']);
+    });
+
+    it('restores manual counts when clearing fails and keeps the true native queue', async () => {
+        (TrackPlayer.remove as jest.Mock).mockRejectedValueOnce(new Error('Native unavailable'));
+        await expect(QueueActionsService.clear('manual')).rejects.toThrow('Native unavailable');
+        await settle();
+        expect(playerState.userQueueSize).toBe(2);
+        expect(ids()).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('rolls back the undo count if reading the native queue fails', async () => {
+        const removed = QueueActionsService.remove(entry('b'), true)!;
+        await settle();
+        (TrackPlayer.getQueue as jest.Mock).mockRejectedValueOnce(new Error('Native unavailable'));
+        await expect(QueueActionsService.undo([removed])).rejects.toThrow('Native unavailable');
+        await settle();
+        expect(playerState.userQueueSize).toBe(1);
+        expect(ids()).toEqual(['a', 'c', 'd']);
+    });
+
     it('clears the manual or context section immediately while keeping the playing entry', async () => {
         const clearManual = QueueActionsService.clear('manual');
         expect(ids()).toEqual(['a', 'd']);

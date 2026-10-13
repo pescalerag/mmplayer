@@ -32,13 +32,24 @@ import {
   openBatchMenu,
   openTagManagerForBatch,
   openEditAlias,
+  openTagForm,
 } from '../store/useUIStore';
+import { useTagFormStore } from '../store/useTagFormStore';
 
 describe('useUIStore & sheet helpers', () => {
   beforeEach(() => {
     useUIStore.getState().closeSheet();
   });
 
+  it('opens tag creation and editing with the correct completion callback', () => {
+    const saved = jest.fn();
+    openTagForm(null, saved);
+    expect(useTagFormStore.getState()).toMatchObject({ isVisible: true, tag: null, onSaveCallback: saved });
+    const tag = { id: 'tag', name: 'Rock' };
+    openTagForm(tag, saved);
+    expect(useTagFormStore.getState()).toMatchObject({ isVisible: true, tag, onSaveCallback: saved });
+    useTagFormStore.getState().closeForm();
+  });
   it('handles sheet opening and closing', () => {
     const { openSheet, closeSheet } = useUIStore.getState();
     expect(useUIStore.getState().activeSheet).toBeNull();

@@ -35,7 +35,8 @@
     "empty_smart_playlists": "Escucha música para activar tus listas inteligentes",
     "empty_explore": "No hay álbumes para explorar",
     "no_tracks_to_shuffle": "No hay canciones para reproducir",
-    "shuffling_library": "Reproduciendo biblioteca aleatoriamente"
+    "shuffling_library": "Reproduciendo biblioteca aleatoriamente",
+    "top_rated_albums": "Álbumes mejor valorados"
   },
   "welcome": {
     "title": "¡Bienvenido a MMPlayer!",
@@ -1336,6 +1337,12 @@
     "chromecast_connect_error": "Error al conectar con Chromecast"
   },
   "localcast_client": {
+    "queue_title": "Cola",
+    "queue_current": "Reproduciendo",
+    "queue_empty": "No hay canciones en la cola",
+    "queue_more": "Mostrando las próximas 50 de {count} canciones",
+    "shuffle_enabled": "Aleatoria al finalizar: activada",
+    "shuffle_disabled": "Aleatoria al finalizar: desactivada",
     "app_title": "MMPlayer LocalCast",
     "no_song": "No hay canción",
     "no_lyrics": "No hay letras cargadas",
@@ -1460,7 +1467,9 @@
     "duration_desc": "Mayor Duración",
     "duration_asc": "Menor Duración",
     "recent_desc": "Más recientes",
-    "recent_asc": "Más antiguas"
+    "recent_asc": "Más antiguas",
+    "rating_desc": "Mejor valorados",
+    "rating_asc": "Peor valorados"
   },
   "backup": {
     "preparing": "Preparando datos para la copia de seguridad...",
@@ -1655,5 +1664,12 @@
     "rating_top_desc": "Canciones con valoración de 4 a 5 estrellas",
     "perfect_title": "5 estrellas",
     "perfect_desc": "Canciones con valoración perfecta de 5 estrellas"
+  },
+  "album_ranking": {
+    "rated_count": "{{rated}} de {{total}} canciones valoradas",
+    "empty": "Valora canciones para descubrir tus álbumes mejor valorados.",
+    "load_error": "No se pudo cargar el ranking. Toca para reintentar.",
+    "view_all": "Ver todos",
+    "unrated": "Sin valorar"
   }
 }

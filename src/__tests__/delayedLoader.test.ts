@@ -9,6 +9,21 @@ describe('DelayedLoaderController (Delayed Loader Pattern & Minimum Display Time
     jest.useRealTimers();
   });
 
+  it('cancels a pending hide when a new load starts and avoids restarting the visible loader', () => {
+    const changes = jest.fn();
+    const controller = new DelayedLoaderController(changes);
+    controller.startLoading(); controller.startLoading();
+    jest.advanceTimersByTime(250);
+    controller.stopLoading(); controller.stopLoading();
+    controller.startLoading();
+    jest.advanceTimersByTime(600);
+    expect(controller.isShowing).toBe(true);
+    expect(changes.mock.calls).toEqual([[true]]);
+    controller.stopLoading();
+    expect(controller.isShowing).toBe(false);
+    expect(changes.mock.calls).toEqual([[true], [false]]);
+    controller.destroy();
+  });
   it('no muestra el loader si la carga finaliza antes del delay de 250ms (móviles rápidos)', () => {
     const onStateChange = jest.fn();
     const controller = new DelayedLoaderController(onStateChange, {
