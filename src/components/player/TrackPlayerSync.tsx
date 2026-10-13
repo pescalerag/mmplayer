@@ -7,6 +7,7 @@ import TrackPlayer, {
 import { consumeUserQueueTransition, usePlayerStore } from '../../store/usePlayerStore';
 import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStore';
 import { subscribeToQueueSnapshot } from '../../store/useQueueSnapshotStore';
+import { EqualizerService } from '../../services/EqualizerService';
 
 const resumeTrackPlayback = async (track: any) => {
     const isRestoring = usePlayerStore.getState().isRestoring;
@@ -58,6 +59,7 @@ export const handleActiveTrackChangedEvent = async (event: any) => {
 export const TrackPlayerSync = () => {
     useEffect(subscribeToPlaybackSnapshot, []);
     useEffect(subscribeToQueueSnapshot, []);
+    useEffect(() => EqualizerService.subscribeToPlayback(), []);
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {
