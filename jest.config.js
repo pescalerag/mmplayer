@@ -31,7 +31,7 @@ module.exports = {
     'src/utils/scheduleScreenRefresh.ts',
     'src/hooks/useCascadeEntry.ts',
     'src/hooks/useMusicSearch.ts',
-    'src/hooks/usePlayerLyricsAnimation.ts',
+    'src/utils/playerLyricsPresentation.ts',
     'src/store/usePlaybackSnapshotStore.ts',
     'src/store/useQueueSnapshotStore.ts',
     'src/store/useStatsStore.ts',

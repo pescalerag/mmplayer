@@ -53,12 +53,11 @@ import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import { useTranslation } from 'react-i18next';
-import { of } from 'rxjs';
-import { catchError, startWith } from 'rxjs/operators';
+import { observePlayerTrack } from '../../utils/observePlayerTrack';
 import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
 import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
-import { usePlayerLyricsAnimation } from '../../hooks/usePlayerLyricsAnimation';
+import { getPlayerLyricsPresentation } from '../../utils/playerLyricsPresentation';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -2492,10 +2491,9 @@ const PlayerScreenUI = ({
         ? parsedLyrics[activeIndex].text
         : '';
 
-    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = usePlayerLyricsAnimation(
+    const { lyricsAnimatedStyle, textAnimatedStyle, activeLyricText } = getPlayerLyricsPresentation(
         hasLyrics,
-        currentPhrase,
-        isFocused
+        currentPhrase
     );
 
     // Dynamic artwork sizing
@@ -2698,11 +2696,11 @@ const PlayerScreenUI = ({
                             disabled={isLocalCastActive}
                             onPress={() => navigation.navigate('Lyrics')}
                         >
-                            <Animated.View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
-                                <Animated.Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
+                            <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                                <Text numberOfLines={2} style={[styles.lyricText, textAnimatedStyle]}>
                                     {activeLyricText}
-                                </Animated.Text>
-                            </Animated.View>
+                                </Text>
+                            </View>
                         </TouchableOpacity>
                     )}
 
@@ -2851,14 +2849,9 @@ const PlayerScreenUI = ({
     );
 };
 
-const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) => ({
-    track: trackModel.observe(),
-    // Render transport immediately; relations enrich the screen as they arrive.
-    album: trackModel.album.observe().pipe(startWith(null), catchError(() => of(null))),
-    artist: trackModel.artist.observe().pipe(startWith(null), catchError(() => of(null))),
-    artists: trackModel.queryCollaborators.observe().pipe(startWith([])),
-    tags: trackModel.queryTags.observe().pipe(startWith([])),
-}))(PlayerScreenUI);
+const ObservablePlayerScreenUI = withObservables(['trackModel'], ({ trackModel }) =>
+    observePlayerTrack(trackModel)
+)(PlayerScreenUI);
 
 function KeepAwakeController() {
     useKeepAwake();
