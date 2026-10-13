@@ -62,7 +62,7 @@ export function createLocalCastAudio(audio: HTMLAudioElement, onEnded: (report: 
     desiredPlaying = next.isPlaying;
     if (state?.playbackToken !== next.playbackToken) {
       clear();
-      state = Object.assign({}, next, { sessionId: String(next.sessionId) });
+      state = { ...next, sessionId: String(next.sessionId) };
       desiredPlaying = next.isPlaying;
       if (episodeToken !== next.playbackToken) {
         listened = 0;
@@ -79,12 +79,12 @@ export function createLocalCastAudio(audio: HTMLAudioElement, onEnded: (report: 
     else { sample(); audio.pause(); }
   }
   function seek(position: number) {
-    if (loading && state) { state = Object.assign({}, state, { position }); return; }
+    if (loading && state) { state = { ...state, position }; return; }
     sample(); audio.currentTime = position; rebase();
   }
   function retry() {
     if (!state) return;
-    const next = Object.assign({}, state, { position: audio.currentTime, isPlaying: desiredPlaying });
+    const next = { ...state, position: audio.currentTime, isPlaying: desiredPlaying };
     state = null;
     sync(next);
   }

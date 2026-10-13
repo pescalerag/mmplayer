@@ -11,6 +11,8 @@ interface QueueViewState {
   readonly queue?: { readonly version: string; readonly currentIndex: number; readonly remaining: number; readonly items: readonly QueueRow[] };
 }
 
+function duration(seconds: number) { return Math.floor(seconds / 60) + ':' + String(Math.floor(seconds % 60)).padStart(2, '0'); }
+
 export function createLocalCastQueueView(list: HTMLElement, status: HTMLElement, count: HTMLElement,
   labels: { readonly enabled: string; readonly disabled: string; readonly current: string; readonly empty: string; readonly more: string },
   select: (row: QueueRow, version: string) => void, fallbackCover: string,
@@ -36,7 +38,6 @@ export function createLocalCastQueueView(list: HTMLElement, status: HTMLElement,
     });
     pump();
   }, { root: list, rootMargin: '120px' });
-  function duration(seconds: number) { return Math.floor(seconds / 60) + ':' + String(Math.floor(seconds % 60)).padStart(2, '0'); }
   function renderRow(row: QueueRow, current: number, version: string) {
     const button = document.createElement('button');
     button.className = 'queue-item';
@@ -83,7 +84,8 @@ export function createLocalCastLyricsView(scroller: HTMLElement, presence: (hasL
     scroller.style.transition = 'none';
     scroller.style.transform = 'translateY(0px)';
     scroller.parentElement!.scrollTop = 0;
-    void scroller.offsetHeight;
+    // Flush the layout before restoring transitions so the reset stays immediate.
+    Reflect.get(scroller, 'offsetHeight');
     scroller.style.transition = '';
   }
   function select(nextToken: string | null, nextText: string) {

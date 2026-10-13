@@ -43,6 +43,21 @@ describe.each([
 ] as const)('LocalCast views: %s', (_name, lyricsFactory, queueFactory) => {
   beforeEach(() => { Object.assign(globalThis, { document: documentMock, IntersectionObserver: Observer }); });
   afterEach(() => { Reflect.deleteProperty(globalThis, 'document'); Reflect.deleteProperty(globalThis, 'IntersectionObserver'); });
+  it('flushes layout with transitions disabled before restoring lyric animations', () => {
+    const container = new Element(); const scroller = new Element(); container.append(scroller);
+    container.scrollTop = 100;
+    const readHeight = jest.fn(() => {
+      expect(scroller.style.transition).toBe('none');
+      expect(scroller.style.transform).toBe('translateY(0px)');
+      expect(container.scrollTop).toBe(0);
+      return 20;
+    });
+    Object.defineProperty(scroller, 'offsetHeight', { get: readHeight });
+    const view = lyricsFactory(html(scroller), jest.fn(), () => [], 'No lyrics');
+    view.select('new-song', '');
+    expect(readHeight).toHaveBeenCalledTimes(1);
+    expect(scroller.style.transition).toBe('');
+  });
   it('resets translated lyrics immediately for a new song even when both have identical lyrics', () => {
     const container = new Element(); const scroller = new Element(); container.append(scroller);
     const presence = jest.fn();

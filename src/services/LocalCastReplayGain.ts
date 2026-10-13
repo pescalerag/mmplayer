@@ -6,12 +6,13 @@ export interface CastReplayGain {
   readonly fallbackDb: number;
 }
 
+function finite(value: number | null, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
 // Matches the native ReplayGainMath rules, including protection when peak is unknown.
 export function calculateCastReplayGain(settings: CastReplayGain): number {
   if (!settings.enabled) return 1;
-  function finite(value: number | null, fallback: number) {
-    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-  }
   const gain = finite(settings.gainDb, finite(settings.fallbackDb, 0));
   const preamp = finite(settings.preampDb, 0);
   const requested = 10 ** (Math.max(-120, Math.min(60, gain + preamp)) / 20);

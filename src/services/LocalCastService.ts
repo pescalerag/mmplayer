@@ -439,11 +439,11 @@ function preloadCurrentTrack(activeIndex: number | undefined) {
 }
 function respondMissingTrack(res: any, castState: any, command: CastCommand | null) {
     if (activeMetadataCache && !isServerStopping) {
-        res.json(Object.assign({}, activeMetadataCache, {
+        res.json({ ...activeMetadataCache,
             isPlaying: castState.isCastPlaying, position: castState.castPosition,
             mediaFileName: activeMetadataCache.fileName, fileSize: activeMetadataCache.fileSize,
             duration: 0, command, sessionId: String(serverSessionId), isStopped: false, isTransitioning: true,
-        }), 200);
+        }, 200);
         return;
     }
     res.json({ activeTrack: null, isPlaying: false, position: 0, duration: 0, command, isStopped: false }, 200);
@@ -487,7 +487,7 @@ async function respondLocalCastState(res: any, urlObj: URL) {
         mediaFileName: metadata.fileName, command, sessionId: String(serverSessionId), isStopped: false }, 200);
 }
 
-async function respondClientHtml(_req: any, res: any, urlObj: URL) {
+function respondClientHtml(_req: any, res: any, urlObj: URL) {
     const currentLang = i18n.language || 'en';
     const translations: LocalCastTranslations = {
         appTitle: i18n.t('localcast_client.app_title', { defaultValue: 'MMPlayer LocalCast' }),
@@ -511,32 +511,27 @@ async function respondClientHtml(_req: any, res: any, urlObj: URL) {
     const isVip = userTier === 'VIP';
     const localCastTheme = isVip ? (useSettingsStore.getState().localCastTheme || 'default') : 'default';
     res.html(getClientHtml(translations, localCastTheme), 200);
-    return;
 }
 
-async function handleCast(_req: any, res: any, urlObj: URL) {
+function handleCast(_req: any, res: any, urlObj: URL) {
     res.html(getChromecastHtml(), 200);
-    return;
 }
 
 async function handleApiState(_req: any, res: any, urlObj: URL) { await respondLocalCastState(res, urlObj); }
 
-async function handleApiCover(_req: any, res: any, urlObj: URL) {
+function handleApiCover(_req: any, res: any, urlObj: URL) {
     res.json({ cover: null }, 200);
-    return;
 }
 
 async function handleApiPlay(_req: any, res: any, urlObj: URL) {
     playIntent = false;
     await TrackPlayer.play();
     res.json({ success: true }, 200);
-    return;
 }
 
 async function handleApiPause(_req: any, res: any, urlObj: URL) {
     await TrackPlayer.pause();
     res.json({ success: true }, 200);
-    return;
 }
 
 async function handleApiSeek(_req: any, res: any, urlObj: URL) {
@@ -549,14 +544,12 @@ async function handleApiSeek(_req: any, res: any, urlObj: URL) {
         setTimeout(() => { isSeekingFromPc = false; }, 600);
     }
     res.json({ success: true }, 200);
-    return;
 }
 
 async function handleApiNext(_req: any, res: any, urlObj: URL) {
     LocalCastPlaybackService.receive(urlObj.searchParams);
     const success = await LocalCastPlaybackService.advance();
     res.json({ success }, 200);
-    return;
 }
 
 async function handleApiQueueSelect(_req: any, res: any, urlObj: URL) {
@@ -571,9 +564,8 @@ async function handleApiQueueCover(_req: any, res: any, urlObj: URL) {
     res.json({ coverUrl }, 200);
 }
 
-async function handleFavicon(_req: any, res: any, urlObj: URL) {
+function handleFavicon(_req: any, res: any, urlObj: URL) {
     res.send(204, 'image/x-icon', '');
-    return;
 }
 
 async function handleApiPrevious(_req: any, res: any, urlObj: URL) {
@@ -581,10 +573,9 @@ async function handleApiPrevious(_req: any, res: any, urlObj: URL) {
     await TrackPlayer.skipToPrevious();
     await TrackPlayer.play();
     res.json({ success: true }, 200);
-    return;
 }
 
-const localCastRoutes: Record<string, (req: any, res: any, urlObj: URL) => Promise<void>> = {
+const localCastRoutes: Record<string, (req: any, res: any, urlObj: URL) => void | Promise<void>> = {
     "GET /": respondClientHtml,
     "GET /cast": handleCast,
     "GET /chromecast": handleCast,

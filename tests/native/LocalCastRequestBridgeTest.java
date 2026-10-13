@@ -1,13 +1,22 @@
+package mmplayer.localcast.tests;
+
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 // Compile the actual library method, substituting only Android/HTTP bridge types.
 public class LocalCastRequestBridgeTest {
+    private static final Logger LOGGER = Logger.getLogger(LocalCastRequestBridgeTest.class.getName());
+
+    private LocalCastRequestBridgeTest() {}
+
     enum Method { GET, POST }
     static class WritableMap extends HashMap<String, String> {
         void putString(String key, String value) { put(key, value); }
     }
     static class Arguments {
+        private Arguments() {}
+
         static WritableMap createMap() { return new WritableMap(); }
     }
     record IHTTPSession(String uri, String query, Method method, String body) {
@@ -40,6 +49,6 @@ public class LocalCastRequestBridgeTest {
         check("/api/state", "", Method.GET, null);
         check("/api/report", report, Method.POST, "{\"position\":87}");
         check("/api/state", "file=canci%C3%B3n%20%26%20%2B.mp3&value=%2520", Method.GET, null);
-        System.out.println("LocalCast native bridge: 8 checks passed");
+        LOGGER.info("LocalCast native bridge: 8 checks passed");
     }
 }
