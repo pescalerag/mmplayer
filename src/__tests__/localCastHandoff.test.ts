@@ -2,6 +2,7 @@ import TrackPlayer from 'react-native-track-player';
 import { useCastStore } from '../store/useCastStore';
 import { LocalCastService } from '../services/LocalCastService';
 import { LocalCastPlaybackService } from '../services/LocalCastPlaybackService';
+import { usePlayerStore } from '../store/usePlayerStore';
 
 jest.unmock('../store/useCastStore');
 jest.mock('expo-network', () => ({ getNetworkStateAsync: async () => ({ isConnected: true }), getIpAddressAsync: async () => '192.168.1.2' }));
@@ -22,7 +23,35 @@ describe('mobile LocalCast handoff', () => {
     (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(0);
     (TrackPlayer.getTrack as jest.Mock).mockResolvedValue({ id: 'song-instance' });
   });
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
+  it('uses the stored track identity when no native active index is available', async () => {
+    (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValueOnce(undefined);
+    await useCastStore.getState().startLocalCast();
+    expect(TrackPlayer.getTrack).not.toHaveBeenCalled();
+    expect(LocalCastPlaybackService.begin).toHaveBeenCalledWith('session', 'song', 34, true);
+  });
+  it('starts a paused empty session when both native progress and track identity are unavailable', async () => {
+    (TrackPlayer.getProgress as jest.Mock).mockRejectedValueOnce(new Error('Native unavailable'));
+    (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValueOnce(null);
+    await useCastStore.getState().startLocalCast();
+    expect(LocalCastPlaybackService.begin).toHaveBeenCalledWith('session', '', 0, false);
+    expect(useCastStore.getState()).toMatchObject({ isLocalCastActive: true, castPosition: 0, isCastPlaying: false });
+  });
+  it('handles a missing stored track and does not resume playback after a failed paused start', async () => {
+    const state = usePlayerStore.getState();
+    jest.spyOn(usePlayerStore, 'getState').mockReturnValue({ ...state, activeTrack: null });
+    (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValueOnce(null);
+    (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValueOnce({ state: 'paused' });
+    await useCastStore.getState().startLocalCast();
+    expect(LocalCastPlaybackService.begin).toHaveBeenCalledWith('session', '', 34, false);
+    useCastStore.setState({ isServerRunning: false });
+    (LocalCastService.start as jest.Mock).mockRejectedValueOnce(new Error('Server unavailable'));
+    (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValueOnce({ state: 'paused' });
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(useCastStore.getState().startLocalCast()).rejects.toThrow('Server unavailable');
+    expect(TrackPlayer.play).not.toHaveBeenCalled();
+    expect(errors).toHaveBeenCalled();
+  });
   it('pauses the phone and transfers the current position and native track identity', async () => {
     await useCastStore.getState().startLocalCast();
     expect(TrackPlayer.pause).toHaveBeenCalledWith(true);

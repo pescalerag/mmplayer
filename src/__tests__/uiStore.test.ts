@@ -37,6 +37,10 @@ import {
 import { useTagFormStore } from '../store/useTagFormStore';
 
 describe('useUIStore & sheet helpers', () => {
+  beforeEach(() => {
+    useUIStore.getState().closeSheet();
+  });
+
   it('opens tag creation and editing with the correct completion callback', () => {
     const saved = jest.fn();
     openTagForm(null, saved);
@@ -46,10 +50,6 @@ describe('useUIStore & sheet helpers', () => {
     expect(useTagFormStore.getState()).toMatchObject({ isVisible: true, tag, onSaveCallback: saved });
     useTagFormStore.getState().closeForm();
   });
-  beforeEach(() => {
-    useUIStore.getState().closeSheet();
-  });
-
   it('handles sheet opening and closing', () => {
     const { openSheet, closeSheet } = useUIStore.getState();
     expect(useUIStore.getState().activeSheet).toBeNull();

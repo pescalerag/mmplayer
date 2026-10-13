@@ -5,10 +5,10 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 // Compile the actual library method, substituting only Android/HTTP bridge types.
-public class LocalCastRequestBridgeTest {
-    private static final Logger LOGGER = Logger.getLogger(LocalCastRequestBridgeTest.class.getName());
+public class LocalCastRequestBridgeHarness {
+    private static final Logger LOGGER = Logger.getLogger(LocalCastRequestBridgeHarness.class.getName());
 
-    private LocalCastRequestBridgeTest() {}
+    private LocalCastRequestBridgeHarness() {}
 
     enum Method { GET, POST }
     static class WritableMap extends HashMap<String, String> {
@@ -31,7 +31,7 @@ public class LocalCastRequestBridgeTest {
     // NATIVE_REQUEST_METHOD
 
     private static void check(String path, String query, Method method, String body) throws Exception {
-        WritableMap request = new LocalCastRequestBridgeTest().fillRequestMap(new IHTTPSession(path, query, method, body), "request-id");
+        WritableMap request = new LocalCastRequestBridgeHarness().fillRequestMap(new IHTTPSession(path, query, method, body), "request-id");
         String expected = path + (query == null || query.isEmpty() ? "" : "?" + query);
         if (!expected.equals(request.get("url"))) throw new AssertionError("Bridge lost request parameters: " + request.get("url"));
         if (!method.name().equals(request.get("type"))) throw new AssertionError("Incorrect method");

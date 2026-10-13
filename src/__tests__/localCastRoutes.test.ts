@@ -9,6 +9,7 @@ import { LocalCastQueueService } from '../services/LocalCastQueueService';
 import { setQueueSnapshot } from '../store/useQueueSnapshotStore';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSettingsStore } from '../store/useSettingsStore';
+import i18n from '../constants/i18n';
 
 jest.unmock('../services/LocalCastService');
 jest.mock('../services/PlaybackService', () => ({ PlaybackTimeTracker: { addReportedSeconds: jest.fn(), onStateNotPlaying: jest.fn(), getAccumulatedSeconds: jest.fn(() => 100), clearAccumulated: jest.fn() } }));
@@ -49,6 +50,101 @@ describe('LocalCast HTTP integration', () => {
     await handler({ url, type }, res);
     return res;
   }
+  it('prepares the active album cover and sends its cached filename', async () => {
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ lyricsLRC: '[00:01]Song', album: { fetch: async () => ({ coverUrl: 'file:///cover.jpg' }) } }) });
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ coverFileName: 'cast_cover_song.jpg', lyricsLRC: '[00:01]Song' }), 200);
+  });
+  it('responds after the audio preparation timeout without inventing media metadata', async () => {
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+    const response = request('/api/state');
+    await jest.advanceTimersByTimeAsync(5000);
+    expect((await response).json).toHaveBeenCalledWith(expect.objectContaining({ mediaFileName: null, fileSize: 0, mimeType: 'audio/mpeg' }), 200);
+  });
+  it('serves tracks without audio URLs and state without an active cast session', async () => {
+    (TrackPlayer.getTrack as jest.Mock).mockResolvedValueOnce({ id: 'noaudio-instance' });
+    LocalCastPlaybackService.clear();
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ mediaFileName: null, fileSize: 0, position: 0, playbackToken: undefined, handoff: false }), 200);
+  });
+  it('keeps the native track when queue replacement has no matching entry or lookup fails', async () => {
+    usePlayerStore.getState().isQueueLoading = true;
+    (TrackPlayer.getTrack as jest.Mock).mockResolvedValue({ id: 'other-instance', url: 'file:///other.mp3' });
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ mediaFileName: 'cast_track_other.mp3' }), 200);
+    (TrackPlayer.getQueue as jest.Mock).mockRejectedValueOnce(new Error('Queue unavailable'));
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ mediaFileName: 'cast_track_other.mp3' }), 200);
+  });
+  it('keeps the current native track when it already matches the expected loading item', async () => {
+    usePlayerStore.getState().isQueueLoading = true;
+    const response = await request('/api/state');
+    expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ title: 'Song', mediaFileName: 'cast_track_song.mp3' }), 200);
+  });
+  it('exposes the play intent and clears it when the receiver requests playback', async () => {
+    LocalCastService.setPlayIntent(true);
+    expect(LocalCastService.getPlayIntent()).toBe(true);
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ playIntent: true }), 200);
+    await request('/api/play', 'POST');
+    expect(LocalCastService.getPlayIntent()).toBe(false);
+    expect(TrackPlayer.play).toHaveBeenCalled();
+  });
+  it('suppresses seek echoes until the receiver seek grace period expires', async () => {
+    const url = '/api/state?sessionId=' + LocalCastService.getSessionId();
+    LocalCastService.emitSeek(9);
+    await request('/api/seek?position=23', 'POST');
+    LocalCastService.emitSeek(50);
+    expect((await request(url)).json.mock.calls[0][0].command).toMatchObject({ type: 'SEEK', position: 9 });
+    await jest.advanceTimersByTimeAsync(600);
+    LocalCastService.emitSeek(50);
+    expect((await request(url)).json.mock.calls[0][0].command).toMatchObject({ type: 'SEEK', position: 50 });
+  });
+  it('resolves a missing native identity while the expected queue item is loading', async () => {
+    usePlayerStore.getState().isQueueLoading = true;
+    (TrackPlayer.getTrack as jest.Mock).mockResolvedValue({});
+    (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([{ id: 'song-instance', url: 'file:///song.mp3' }]);
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ mediaFileName: 'cast_track_song.mp3' }), 200);
+  });
+  it('returns the Chromecast device while LocalCast is inactive', async () => {
+    useCastStore.setState({ isLocalCastActive: false, isChromecastConnected: true, connectedDeviceName: 'Living room' });
+    expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ title: 'Transmitiendo en Chromecast', artist: 'Living room', isStopped: true }), 200);
+    useCastStore.setState({ isChromecastConnected: false, connectedDeviceName: null });
+  });
+  it('sends commands only to the matching session until their ID is acknowledged', async () => {
+    const session = LocalCastService.getSessionId();
+    LocalCastService.emitPlay();
+    const first = await request('/api/state?sessionId=' + session);
+    const command = first.json.mock.calls[0][0].command;
+    expect(command).toMatchObject({ type: 'PLAY' });
+    expect((await request('/api/state?sessionId=stale')).json.mock.calls[0][0].command).toBeNull();
+    expect((await request('/api/state?sessionId=' + session + '&lastCmdId=' + command.id)).json.mock.calls[0][0].command).toBeNull();
+  });
+  it.each(['dark', undefined])('serves the VIP theme with the language fallback: %s', async theme => {
+    const language = i18n.language;
+    const settings = useSettingsStore.getState();
+    try {
+      i18n.language = '';
+      useSettingsStore.setState({ userTier: 'VIP', localCastTheme: theme } as any);
+      const response = await request('/');
+      expect(response.html).toHaveBeenCalledWith(expect.stringContaining('lang="en"'), 200);
+    } finally {
+      i18n.language = language;
+      useSettingsStore.setState({ userTier: settings.userTier, localCastTheme: settings.localCastTheme });
+    }
+  });
+  it('defaults an omitted seek position to zero and reports handler failures', async () => {
+    await request('/api/seek', 'POST');
+    expect(TrackPlayer.seekTo).toHaveBeenCalledWith(0);
+    (TrackPlayer.play as jest.Mock).mockRejectedValueOnce(undefined);
+    expect((await request('/api/play', 'POST')).json).toHaveBeenCalledWith({ error: 'Server error' }, 500);
+    const response = { json: jest.fn(), html: jest.fn(), send: jest.fn() };
+    await handler({ url: '/api/cover', type: '' }, response);
+    expect(response.json).toHaveBeenCalledWith({ cover: null }, 200);
+  });
+  it('restarts an existing bridge server before listening again', async () => {
+    const first = (BridgeServer as unknown as jest.Mock).mock.results.at(-1)!.value;
+    first.stop.mockRejectedValueOnce(new Error('Already stopped'));
+    await LocalCastService.start(8081);
+    expect(first.stop).toHaveBeenCalledTimes(1);
+    const next = (BridgeServer as unknown as jest.Mock).mock.results.at(-1)!.value;
+    expect(next.listen).toHaveBeenCalledWith(8081);
+  });
   it('sends the initial second and token, keeps them through loading, and accepts browser reports', async () => {
     const first = await request('/api/state');
     expect(first.json.mock.calls[0][0].sessionId).toBe(LocalCastService.getSessionId());

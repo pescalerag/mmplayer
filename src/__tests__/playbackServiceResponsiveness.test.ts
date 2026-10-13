@@ -172,3 +172,94 @@ it('updates the displayed song while history persistence is still pending', asyn
   jest.clearAllTimers();
   jest.useRealTimers();
 });
+
+describe('playback event boundary cases', () => {
+  const listener = (type: Event) => (TrackPlayer.addEventListener as jest.Mock).mock.calls.find(([event]) => event === type)![1];
+
+  beforeEach(() => {
+    jest.useFakeTimers(); jest.clearAllMocks();
+    const current = PlaybackTimeTracker.getCurrentTrackId();
+    if (current) PlaybackTimeTracker.clearAccumulated(current);
+    useCastStore.setState({ isLocalCastActive: false, isServerRunning: false, isChromecastConnected: false });
+    usePlayerStore.getState().isSyncingLyrics = false;
+    (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Paused });
+    (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(0);
+    (TrackPlayer.getTrack as jest.Mock).mockResolvedValue({ id: 'boundary' });
+    (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    const current = PlaybackTimeTracker.getCurrentTrackId();
+    if (current) PlaybackTimeTracker.clearAccumulated(current);
+    usePlayerStore.getState().isSyncingLyrics = false;
+    useCastStore.setState({ isLocalCastActive: false });
+    jest.clearAllTimers(); jest.restoreAllMocks(); jest.useRealTimers();
+  });
+
+  it.each([null, { id: 'boundary' }])('allows a track change when lyrics sync has no conflicting track: %j', async activeTrack => {
+    const state = usePlayerStore.getState();
+    state.isSyncingLyrics = true;
+    (state as any).activeTrack = activeTrack;
+    const saved = jest.spyOn(PlaybackListenService, 'save').mockResolvedValue(undefined);
+    await PlaybackService();
+    await listener(Event.PlaybackActiveTrackChanged)({ track: { id: 'boundary' }, index: 0 });
+    await settle();
+    expect(TrackPlayer.skip).not.toHaveBeenCalled();
+    expect(state.setActiveTrackById).toHaveBeenCalledWith('boundary', undefined);
+    expect(saved).not.toHaveBeenCalled();
+  });
+
+  it('does not seek an unrelated track when the lyrics synchronization target has left the queue', async () => {
+    usePlayerStore.getState().isSyncingLyrics = true;
+    (usePlayerStore.getState() as any).activeTrack = { id: 'missing' };
+    await PlaybackService();
+    await listener(Event.PlaybackActiveTrackChanged)({ track: { id: 'boundary' }, index: 0 });
+    expect(TrackPlayer.skip).not.toHaveBeenCalled();
+    expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().setActiveTrackById).not.toHaveBeenCalled();
+  });
+
+  it('finishes an empty queue without creating a listen record', async () => {
+    const saved = jest.spyOn(PlaybackListenService, 'save').mockResolvedValue(undefined);
+    await PlaybackService();
+    await listener(Event.PlaybackQueueEnded)();
+    expect(saved).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().playRandomQueueOnEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [undefined, { id: 'boundary' }, false],
+    [null, { id: 'boundary' }, false],
+    [0, null, false],
+    [0, {}, false],
+    [0, { id: 'boundary' }, true],
+  ])('starts the native timer only for a valid active track (%s, %j)', async (index, track, expected) => {
+    (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Playing });
+    (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(index);
+    (TrackPlayer.getTrack as jest.Mock).mockResolvedValue(track);
+    await PlaybackService();
+    await listener(Event.PlaybackState)({ state: State.Playing });
+    expect(PlaybackTimeTracker.isTimerRunning()).toBe(expected);
+  });
+
+  it.each([
+    [179, 180, 0, true],
+    [179, 0, 0, false],
+    [0, 180, 0, false],
+    [30, 180, 0, false],
+    [179, 180, 3, false],
+    [179, 180, 179, false],
+  ])('does not treat seeks or LocalCast playback as a completed native repeat (%s, %s, %s, %s)', async (previous, duration, next, cast) => {
+    const saved = jest.spyOn(PlaybackListenService, 'save').mockResolvedValue(undefined);
+    useCastStore.setState({ isLocalCastActive: cast });
+    PlaybackTimeTracker.setAccumulatedSeconds('boundary', 100);
+    await PlaybackService();
+    const progress = listener(Event.PlaybackProgressUpdated);
+    await progress({ position: previous, duration });
+    await progress({ position: next, duration });
+    expect(saved).not.toHaveBeenCalled();
+    expect(PlaybackTimeTracker.getAccumulatedSeconds('boundary')).toBe(100);
+  });
+});
