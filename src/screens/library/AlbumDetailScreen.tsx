@@ -24,6 +24,7 @@ import { usePlaybackState } from "../../hooks/usePlaybackState";
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import { getDynamicTagTextColor } from "../../utils/color";
 import { formatAlbumDuration } from "../../utils/time";
+import { albumYear } from '../../utils/albumFilters';
 
 import SectionHeader from '@/components/common/SectionHeader';
 import TrackRow from '@/components/player/TrackRow';
@@ -276,11 +277,11 @@ function AlbumDetailContent({
           )
         }
         metaInfo={[
-          album.year,
           `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
           !isLoadingTracks && totalDuration > 0
             ? formatAlbumDuration(totalDuration)
             : null,
+          albumYear(album.year),
         ]
           .filter(Boolean)
           .join(" · ")}

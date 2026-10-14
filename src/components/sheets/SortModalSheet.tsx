@@ -8,10 +8,17 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import { SortOption, useLibraryStore } from "../../store/useLibraryStore";
 
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { AlbumFilterControls } from '../library/AlbumFilterControls';
+import { LibraryFilterControls } from '../library/LibraryFilterControls';
+import { FilterSection, createSectionDraft, EMPTY_SECTION_FILTERS, parseSectionDraft } from '../../utils/libraryFilters';
+import { createAlbumFilterDraft, EMPTY_ALBUM_FILTERS, parseAlbumFilterDraft } from '../../utils/albumFilters';
+import { FilterDisclosure } from '../library/FilterDisclosure';
 
 type SortOptionItem = { value: SortOption; labelKey: string };
 
@@ -49,30 +56,50 @@ export default function SortModalSheet() {
   const { props: { activeTab = 'albums', activeSort }, close: closeModal } = useSheetProps<{ activeTab: any; activeSort: any }>('sort-modal');
 
   const options = SORT_OPTIONS[activeTab] ?? [];
-
-  const handleSelect = (value: SortOption) => {
+  const [albumSort, setAlbumSort] = React.useState<SortOption>(activeSort ?? useLibraryStore.getState().albumSort);
+  const { height } = useWindowDimensions();
+  const [albumDraft, setAlbumDraft] = React.useState(() => createAlbumFilterDraft(useLibraryStore.getState().albumFilters));
+  const [sectionDraft, setSectionDraft] = React.useState(() => createSectionDraft(useLibraryStore.getState().sectionFilters[activeTab as FilterSection] ?? EMPTY_SECTION_FILTERS));
+  const [error, setError] = React.useState(false);
+  const sheetHeight = height * 0.70;
+  const apply = () => {
     const store = useLibraryStore.getState();
-    if (activeTab === "albums") store.setAlbumSort(value);
-    else if (activeTab === "artists") store.setArtistSort(value);
-    else if (activeTab === "tracks") store.setTrackSort(value);
-    else if (activeTab === "playlists") store.setPlaylistSort(value);
+    if (activeTab === 'albums') {
+      const filters = parseAlbumFilterDraft(albumDraft);
+      if (!filters) { setError(true); return; }
+      store.setAlbumSort(albumSort); store.setAlbumFilters(filters);
+    } else {
+      const filters = parseSectionDraft(activeTab as FilterSection, sectionDraft);
+      if (!filters) { setError(true); return; }
+      if (activeTab === 'artists') store.setArtistSort(albumSort);
+      else if (activeTab === 'tracks') store.setTrackSort(albumSort);
+      else if (activeTab === 'playlists') store.setPlaylistSort(albumSort);
+      store.setSectionFilters(activeTab as FilterSection, filters);
+    }
     closeModal();
   };
 
+  const handleSelect = (value: SortOption) => {
+    setAlbumSort(value);
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: sheetHeight }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('sort.title')}</Text>
+        <Text style={styles.title}>{t('library_filters.sheet_title')}</Text>
         <Text style={styles.subtitle}>
           {activeTab === "albums" && t('library.albums')}
           {activeTab === "artists" && t('library.artists')}
           {activeTab === "tracks" && t('library.songs')}
           {activeTab === "playlists" && t('library.playlists')}
+          {activeTab === "folders" && t('library.folders')}
         </Text>
       </View>
 
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator bounces={false}>
+      {!!options.length && <FilterDisclosure title={t('sort.title')} summary={t(options.find(option => option.value === albumSort)?.labelKey ?? 'sort.az')}>
       {options.map((opt) => {
-        const isActive = activeSort === opt.value;
+        const isActive = albumSort === opt.value;
         return (
           <TouchableOpacity
             key={opt.value}
@@ -98,6 +125,19 @@ export default function SortModalSheet() {
           </TouchableOpacity>
         );
       })}
+      </FilterDisclosure>}
+      {activeTab === 'albums' && <AlbumFilterControls onApply={apply} draft={albumDraft} setDraft={setAlbumDraft} hideActions />}
+      {activeTab !== 'albums' && <LibraryFilterControls section={activeTab as FilterSection} onApply={apply} draft={sectionDraft} setDraft={setSectionDraft} hideActions />}
+      </ScrollView>
+      {error && <Text accessibilityRole="alert" style={{ color: colors.accent }}>{t('library_filters.invalid')}</Text>}
+      <View style={{ flexDirection: 'row', gap: 12, paddingTop: 12 }}>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 14, alignItems: 'center' }} onPress={() => {
+          setAlbumDraft(createAlbumFilterDraft(EMPTY_ALBUM_FILTERS)); setSectionDraft(createSectionDraft(EMPTY_SECTION_FILTERS)); setError(false);
+        }}><Text style={{ color: colors.text, fontFamily: fonts.bold }}>{t('album_filters.reset')}</Text></TouchableOpacity>
+        <TouchableOpacity style={{ flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 10, backgroundColor: colors.accent }} onPress={apply}>
+          <Text style={{ color: colors.onAccent, fontFamily: fonts.bold }}>{t('album_filters.apply')}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
