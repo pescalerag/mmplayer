@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { AlbumFilters, EMPTY_ALBUM_FILTERS } from '../utils/albumFilters';
+import { EMPTY_SECTION_FILTERS, FilterSection, SectionFilters } from '../utils/libraryFilters';
 
 export type SortOption =
     | 'name_asc'
@@ -15,7 +17,11 @@ export type SortOption =
     | 'rating_asc';
 
 interface LibraryState {
+    sectionFilters: Record<FilterSection, SectionFilters>;
+    setSectionFilters: (section: FilterSection, filters: SectionFilters) => void;
     albumSort: SortOption;
+    albumFilters: AlbumFilters;
+    setAlbumFilters: (filters: AlbumFilters) => void;
     artistSort: SortOption;
     playlistSort: SortOption;
     trackSort: SortOption;
@@ -32,7 +38,11 @@ interface LibraryState {
 export const useLibraryStore = create<LibraryState>()(
     persist(
         (set) => ({
+            sectionFilters: { tracks: { ...EMPTY_SECTION_FILTERS }, playlists: { ...EMPTY_SECTION_FILTERS }, artists: { ...EMPTY_SECTION_FILTERS }, folders: { ...EMPTY_SECTION_FILTERS } },
+            setSectionFilters: (section, filters) => set(state => ({ sectionFilters: { ...state.sectionFilters, [section]: { ...EMPTY_SECTION_FILTERS, ...filters } } })),
             albumSort: 'name_asc',
+            albumFilters: { ...EMPTY_ALBUM_FILTERS },
+            setAlbumFilters: (albumFilters) => set({ albumFilters: { ...EMPTY_ALBUM_FILTERS, ...albumFilters } }),
             artistSort: 'name_asc',
             playlistSort: 'recent_desc',
             trackSort: 'name_asc',
@@ -48,6 +58,12 @@ export const useLibraryStore = create<LibraryState>()(
         {
             name: 'library-storage',
             storage: createJSONStorage(() => AsyncStorage),
+            merge: (persisted, current) => {
+                const saved = persisted as Partial<LibraryState> | undefined;
+                const sectionFilters = { ...current.sectionFilters };
+                for (const section of Object.keys(sectionFilters) as FilterSection[]) sectionFilters[section] = { ...EMPTY_SECTION_FILTERS, ...saved?.sectionFilters?.[section] };
+                return { ...current, ...saved, sectionFilters, albumFilters: { ...EMPTY_ALBUM_FILTERS, ...saved?.albumFilters } };
+            },
         }
     )
 );

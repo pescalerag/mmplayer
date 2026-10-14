@@ -14,7 +14,7 @@ describe('shared album ranking queries', () => {
     const a = AlbumRankingService.observe().subscribe(first);
     const b = AlbumRankingService.observe().subscribe(second);
     expect(query).toHaveBeenCalledTimes(2);
-    expect(albumObserve).toHaveBeenCalledWith(['title', 'is_pinned', 'cover_url']);
+    expect(albumObserve).toHaveBeenCalledWith(['title', 'year', 'is_pinned', 'cover_url']);
     expect(trackObserve).toHaveBeenCalledWith(['rating', 'album_id']);
     const album = { id: 'a', title: 'A', isPinned: false };
     albums.next([album, { ...album, id: 'b' }]);

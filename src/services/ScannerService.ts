@@ -353,24 +353,29 @@ const resolveAlbum = async (
             }
         }
 
-        if (nextArtist || newCover) {
+        const newYear = year !== null && year > 0 && year !== album.year ? year : null;
+        if (nextArtist || newCover || newYear !== null) {
             try {
                 if ((album as any)._status === 'created') {
                     if (nextArtist) album.artist.set(nextArtist);
                     if (newCover) album.coverUrl = newCover;
+                    if (newYear !== null) album.year = newYear;
                 } else {
                     const updateOp = album.prepareUpdate((a: any) => {
                         if (nextArtist) a.artist.set(nextArtist);
                         if (newCover) a.coverUrl = newCover;
+                        if (newYear !== null) a.year = newYear;
                     });
                     newAlbumOps.push(updateOp);
                     if (newCover) (album._raw as any).cover_url = newCover;
                     if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+                    if (newYear !== null) (album._raw as any).year = newYear;
                 }
             } catch (error: any) {
                 if (error.message && error.message.includes('pending changes')) {
                     if (newCover) (album._raw as any).cover_url = newCover;
                     if (nextArtist) (album._raw as any).artist_id = nextArtist.id;
+                    if (newYear !== null) (album._raw as any).year = newYear;
                 } else {
                     throw error;
                 }
