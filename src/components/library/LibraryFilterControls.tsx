@@ -14,7 +14,7 @@ interface Props {
   section: FilterSection; onApply: (filters: SectionFilters) => void;
   draft?: SectionFilterDraft; setDraft?: React.Dispatch<React.SetStateAction<SectionFilterDraft>>; hideActions?: boolean;
 }
-export function LibraryFilterControls({ section, onApply, draft: controlled, setDraft: update, hideActions = false }: Props) {
+export function LibraryFilterControls({ section, onApply, draft: controlled, setDraft: update, hideActions = false }: Readonly<Props>) {
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
   const [local, setLocal] = useState(() => createSectionDraft(useLibraryStore.getState().sectionFilters[section]));
@@ -36,6 +36,8 @@ export function LibraryFilterControls({ section, onApply, draft: controlled, set
   const dates = (prefix: 'played' | 'created') => {
     const from = `${prefix}From` as keyof SectionFilters, to = `${prefix}To` as keyof SectionFilters;
     const start = String(draft[from]), end = String(draft[to]);
+    const fromLabel = t(`library_filters.${from}`);
+    const toLabel = t(`library_filters.${to}`);
     const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const date = (value: string) => value ? new Date(dateBoundary(value)!) : null;
     return <View style={{ gap: 12 }}>
@@ -46,8 +48,8 @@ export function LibraryFilterControls({ section, onApply, draft: controlled, set
         <Text style={{ color: colors.text, fontFamily: fonts.regular }}>{start || end ? `${start || '…'} – ${end || '…'}` : t('filter_controls.choose_dates')}</Text>
       </TouchableOpacity>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {!!start && chip(`${t(`library_filters.${from}`)} ×`, false, () => change(from, ''))}
-        {!!end && chip(`${t(`library_filters.${to}`)} ×`, false, () => change(to, ''))}
+        {!!start && chip(`${fromLabel} ×`, false, () => change(from, ''))}
+        {!!end && chip(`${toLabel} ×`, false, () => change(to, ''))}
       </View>
     </View>;
   };
@@ -80,7 +82,14 @@ export function LibraryFilterControls({ section, onApply, draft: controlled, set
           {choices.map(value => {
             const list = selected.split(',').map(item => item.trim()).filter(Boolean);
             const active = key === 'genre' ? selected === value : list.includes(value);
-            return chip(key === 'formats' ? value.toUpperCase() : value, active, () => change(key, key === 'genre' ? (active ? '' : value) : (active ? list.filter(item => item !== value) : [...list, value]).join(', ')));
+            let nextSelection = value;
+            if (key === 'genre') {
+              if (active) nextSelection = '';
+            } else {
+              const nextFormats = active ? list.filter(item => item !== value) : [...list, value];
+              nextSelection = nextFormats.join(', ');
+            }
+            return chip(key === 'formats' ? value.toUpperCase() : value, active, () => change(key, nextSelection));
           })}
         </View>
         {options.error && <TouchableOpacity onPress={options.retry}><Text style={{ color: colors.accent }}>{t('library_filters.load_error')}</Text></TouchableOpacity>}

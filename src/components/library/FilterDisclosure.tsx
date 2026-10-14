@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
-export function FilterDisclosure({ title, summary, active = false, children }: { title: string; summary?: string; active?: boolean; children: React.ReactNode }) {
+export function FilterDisclosure({ title, summary, active = false, children }: Readonly<{ title: string; summary?: string; active?: boolean; children: React.ReactNode }>) {
   const { colors, fonts } = useAppTheme();
   const [open, setOpen] = useState(active);
   return <View style={[styles.container, { borderColor: colors.cardBackground }]}>

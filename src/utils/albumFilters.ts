@@ -21,23 +21,32 @@ export function createAlbumFilterDraft(filters: AlbumFilters): AlbumFilterDraft 
     minRating: filters.minRating?.toString() ?? '', withoutCover: filters.withoutCover ?? false,
   };
 }
+export function parseFilterNumber(key: string, value: string): number | null {
+  const decimal = /Duration|Rating|Size/.test(key);
+  const pattern = decimal ? /^\d+(?:[.,]\d+)?$/ : /^\d+$/;
+  if (!pattern.test(value)) return null;
+  const number = Number(value.replace(',', '.'));
+  if (!Number.isFinite(number) || number > Number.MAX_SAFE_INTEGER || (!decimal && !Number.isSafeInteger(number))) return null;
+  if (key.endsWith('Year') && (number < 1 || number > 9999)) return null;
+  if (key.endsWith('Rating') && number > 5) return null;
+  return number;
+}
+
+export function validFilterRange(min: number | null, max: number | null): boolean {
+  return !(min !== null && max !== null && min > max);
+}
+
 export function parseAlbumFilterDraft(draft: AlbumFilterDraft): AlbumFilters | null {
   const result = { ...EMPTY_ALBUM_FILTERS, withoutCover: draft.withoutCover };
   for (const key of Object.keys(result).filter(key => key !== 'withoutCover') as NumericAlbumFilter[]) {
     const value = draft[key].trim();
     if (!value) continue;
-    const decimal = key === 'minRating' || key.endsWith('Duration');
-    if (!(decimal ? /^\d+(?:[.,]\d+)?$/ : /^\d+$/).test(value)) return null;
-    const number = Number(value.replace(',', '.'));
-    if (!Number.isFinite(number) || number > Number.MAX_SAFE_INTEGER || (!decimal && !Number.isSafeInteger(number))) return null;
-    if (key.endsWith('Year') && (number < 1 || number > 9999)) return null;
-    if (key === 'minRating' && number > 5) return null;
+    const number = parseFilterNumber(key, value);
+    if (number === null) return null;
     result[key] = number;
   }
-  if (result.minTracks !== null && result.maxTracks !== null && result.minTracks > result.maxTracks) return null;
-  if (result.minYear !== null && result.maxYear !== null && result.minYear > result.maxYear) return null;
-  if (result.minDuration !== null && result.maxDuration !== null && result.minDuration > result.maxDuration) return null;
-  return result;
+  const ranges = [[result.minTracks, result.maxTracks], [result.minYear, result.maxYear], [result.minDuration, result.maxDuration]];
+  return ranges.every(([min, max]) => validFilterRange(min, max)) ? result : null;
 }
 
 export function hasAlbumFilters(filters: AlbumFilters): boolean {
@@ -71,33 +80,43 @@ export function albumYear(year: number | null): number | null {
   return typeof year === 'number' && Number.isInteger(year) && year > 0 ? year : null;
 }
 
+function matchesBounds(value: number, min: number | null, max: number | null, scale = 1): boolean {
+  return !((min !== null && value < min * scale) || (max !== null && value > max * scale));
+}
+
+function matchesYear(year: number | null, filters: AlbumFilters): boolean {
+  if (year === null) return filters.minYear === null && filters.maxYear === null;
+  return matchesBounds(year, filters.minYear, filters.maxYear);
+}
+
+function matchesAlbumRating(stats: AlbumTrackStats | undefined, minimum: number | null): boolean {
+  if (minimum === null) return true;
+  if (!stats || stats.ratedCount === 0) return false;
+  return !(stats.ratingSum / stats.ratedCount < minimum);
+}
+
 export function matchesAlbumFilters(album: { id: string; year: number | null; coverUrl?: string | null }, counts: ReadonlyMap<string, AlbumTrackStats>, filters: AlbumFilters): boolean {
   const stats = counts.get(album.id);
-  const count = stats?.count ?? 0;
-  if (filters.minTracks !== null && count < filters.minTracks) return false;
-  if (filters.maxTracks !== null && count > filters.maxTracks) return false;
-  const year = albumYear(album.year);
-  if (filters.minYear !== null && (year === null || year < filters.minYear)) return false;
-  if (filters.maxYear !== null && (year === null || year > filters.maxYear)) return false;
-  const duration = stats?.duration ?? 0;
-  if (filters.minDuration !== null && duration < filters.minDuration * 60) return false;
-  if (filters.maxDuration !== null && duration > filters.maxDuration * 60) return false;
-  if (filters.minRating !== null) {
-    if (!stats || stats.ratedCount === 0 || stats.ratingSum / stats.ratedCount < filters.minRating) return false;
-  }
-  if (filters.withoutCover && hasAlbumCover(album.coverUrl)) return false;
-  return true;
+  return matchesBounds(stats?.count ?? 0, filters.minTracks, filters.maxTracks)
+    && matchesYear(albumYear(album.year), filters)
+    && matchesBounds(stats?.duration ?? 0, filters.minDuration, filters.maxDuration, 60)
+    && matchesAlbumRating(stats, filters.minRating)
+    && !(filters.withoutCover && hasAlbumCover(album.coverUrl));
 }
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+function compareAlbumYears(a: number | null, b: number | null, order: string): number {
+  const ay = albumYear(a), by = albumYear(b);
+  if (ay === null) return by === null ? 0 : 1;
+  if (by === null) return -1;
+  return order === 'year_asc' ? ay - by : by - ay;
+}
 export function sortLibraryAlbums<T extends { title: string; year: number | null; isPinned: boolean; id: string }>(albums: readonly T[], order: string): T[] {
   return [...albums].sort((a, b) => {
     if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
     if (order === 'year_asc' || order === 'year_desc') {
-      const ay = albumYear(a.year), by = albumYear(b.year);
-      if (ay === null && by !== null) return 1;
-      if (by === null && ay !== null) return -1;
-      if (ay !== null && by !== null && ay !== by) return order === 'year_asc' ? ay - by : by - ay;
+      const yearComparison = compareAlbumYears(a.year, b.year, order);
+      if (yearComparison !== 0) return yearComparison;
     }
     const name = collator.compare(a.title || '', b.title || '') || a.id.localeCompare(b.id);
     return order === 'name_desc' ? -name : name;

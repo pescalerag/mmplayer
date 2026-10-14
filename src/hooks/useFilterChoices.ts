@@ -11,7 +11,7 @@ export function useFilterChoices(enabled: boolean) {
     let mounted = true;
     database.get<Track>('tracks').query().fetch().then(tracks => {
       if (!mounted) return;
-      setChoices({ genres: [...new Set(tracks.map(track => track.genre?.trim()).filter((genre): genre is string => !!genre))].sort((a, b) => a.localeCompare(b)), formats: [...new Set(tracks.map(track => fileFormat(track.fileUrl)).filter(Boolean))].sort(), error: false });
+      setChoices({ genres: [...new Set(tracks.map(track => track.genre?.trim()).filter((genre): genre is string => !!genre))].sort((a, b) => a.localeCompare(b)), formats: [...new Set(tracks.map(track => fileFormat(track.fileUrl)).filter(Boolean))].sort((a, b) => a.localeCompare(b)), error: false });
     }).catch(() => { if (mounted) setChoices(previous => ({ ...previous, error: true })); });
     return () => { mounted = false; };
   }, [enabled, attempt]);

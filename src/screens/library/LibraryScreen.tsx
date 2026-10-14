@@ -1109,6 +1109,7 @@ export default function LibraryScreen() {
     const albumSort = useLibraryStore(state => state.albumSort);
     const albumFilters = useLibraryStore(state => state.albumFilters);
     const sectionFilters = useLibraryStore(state => state.sectionFilters);
+    const hasActiveFilters = activeTab === 'albums' ? hasAlbumFilters(albumFilters) : hasSectionFilters(sectionFilters[activeTab as FilterSection]);
     const artistSort = useLibraryStore(state => state.artistSort);
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
@@ -1258,7 +1259,7 @@ export default function LibraryScreen() {
                                 <Ionicons
                                     name="filter"
                                     size={20}
-                                    color={(activeTab === 'albums' ? hasAlbumFilters(albumFilters) : hasSectionFilters(sectionFilters[activeTab as FilterSection])) ? colors.accent : colors.text}
+                                    color={hasActiveFilters ? colors.accent : colors.text}
                                 />
                             </TouchableOpacity>
                         )}

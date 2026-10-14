@@ -5,11 +5,13 @@ import { createLocalCastAudio } from '../services/LocalCastAudio';
 import { localCastAudioSource } from '../services/generated/LocalCastAudioSource';
 
 const { generateLocalCastAudioSource, outputPath, generateLocalCastViewSource, viewOutputPath, generateLocalCastReplayGainSource, replayGainOutputPath } = require('../../scripts/generate-localcast-audio.cjs');
+// Git checkouts may use CRLF; the generated source must match on Windows and Linux.
+const normalizeLineEndings = (source: string) => source.replace(/\r\n/g, '\n');
 
 it('keeps the generated browser source in sync with the original implementation', () => {
-  expect(readFileSync(outputPath, 'utf8')).toBe(generateLocalCastAudioSource());
-  expect(readFileSync(viewOutputPath, 'utf8')).toBe(generateLocalCastViewSource());
-  expect(readFileSync(replayGainOutputPath, 'utf8')).toBe(generateLocalCastReplayGainSource());
+  expect(normalizeLineEndings(readFileSync(outputPath, 'utf8'))).toBe(normalizeLineEndings(generateLocalCastAudioSource()));
+  expect(normalizeLineEndings(readFileSync(viewOutputPath, 'utf8'))).toBe(normalizeLineEndings(generateLocalCastViewSource()));
+  expect(normalizeLineEndings(readFileSync(replayGainOutputPath, 'utf8'))).toBe(normalizeLineEndings(generateLocalCastReplayGainSource()));
 });
 
 it('does not serialize native functions when Hermes returns bytecode', () => {
