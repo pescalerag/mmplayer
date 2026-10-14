@@ -14,7 +14,7 @@ interface Props {
   setDraft?: React.Dispatch<React.SetStateAction<AlbumFilterDraft>>;
   hideActions?: boolean;
 }
-export function AlbumFilterControls({ onApply, draft: controlled, setDraft: update, hideActions = false }: Props) {
+export function AlbumFilterControls({ onApply, draft: controlled, setDraft: update, hideActions = false }: Readonly<Props>) {
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
   const [local, setLocal] = useState(() => createAlbumFilterDraft(useLibraryStore.getState().albumFilters));

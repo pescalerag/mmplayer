@@ -1,4 +1,4 @@
-import { hasAlbumCover } from './albumFilters';
+import { hasAlbumCover, parseFilterNumber, validFilterRange } from './albumFilters';
 
 export type FilterSection = 'tracks' | 'playlists' | 'artists' | 'folders';
 export type FilterChoice = 'any' | 'yes' | 'no';
@@ -47,41 +47,60 @@ export function inDateRange(time: number, from: string, to: string): boolean {
   return Number.isFinite(time) && (start === null || time >= start) && (end === null || time <= end);
 }
 export type SectionFilterDraft = Record<keyof SectionFilters, string | boolean>;
-export function createSectionDraft(filters: SectionFilters): SectionFilterDraft {
-  return Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, value === null ? '' : typeof value === 'number' ? String(value) : value])) as SectionFilterDraft;
+function draftFieldValue(value: SectionFilters[keyof SectionFilters]): string | boolean {
+  if (value === null) return '';
+  if (typeof value === 'number') return String(value);
+  return value;
 }
+export function createSectionDraft(filters: SectionFilters): SectionFilterDraft {
+  return Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, draftFieldValue(value)])) as SectionFilterDraft;
+}
+
+function parseSectionField(key: keyof SectionFilters, value: string | boolean): SectionFilters[keyof SectionFilters] | undefined {
+  if (key === 'neverPlayed') return value === true;
+  const text = String(value ?? '').trim();
+  if (key.startsWith('min') || key.startsWith('max')) {
+    if (!text) return null;
+    return parseFilterNumber(key, text) ?? undefined;
+  }
+  if (['favorite', 'lyrics', 'image', 'customCover'].includes(key)) {
+    return ['any', 'yes', 'no'].includes(text) ? text : undefined;
+  }
+  if (/From|To/.test(key) && text && dateBoundary(text) === null) return undefined;
+  return text;
+}
+
+function validSectionNumberRanges(filters: SectionFilters): boolean {
+  return ['Tracks', 'Albums', 'Duration', 'Rating', 'Size', 'Plays'].every(suffix => {
+    const min = filters[`min${suffix}` as keyof SectionFilters] as number | null;
+    const max = filters[`max${suffix}` as keyof SectionFilters] as number | null;
+    return validFilterRange(min, max);
+  });
+}
+
+function validSectionDateRange(from: string, to: string): boolean {
+  return !(from && to && from > to);
+}
+
+function normalizedFilterFormats(value: string): string | null {
+  if (!value) return '';
+  const list = formats(value);
+  if (!list.length || list.some(format => !/^[a-z0-9]+$/.test(format))) return null;
+  return list.join(', ');
+}
+
 export function parseSectionDraft(section: FilterSection, draft: SectionFilterDraft): SectionFilters | null {
   const result = { ...EMPTY_SECTION_FILTERS };
   for (const key of SECTION_FIELDS[section]) {
-    const value = draft[key];
-    if (key === 'neverPlayed') { result.neverPlayed = value === true; continue; }
-    const text = String(value ?? '').trim();
-    if (key.startsWith('min') || key.startsWith('max')) {
-      if (!text) continue;
-      const decimal = /Duration|Rating|Size/.test(key);
-      if (!(decimal ? /^\d+(?:[.,]\d+)?$/ : /^\d+$/).test(text)) return null;
-      const number = Number(text.replace(',', '.'));
-      if (!Number.isFinite(number) || number > Number.MAX_SAFE_INTEGER || (/Rating/.test(key) && number > 5)) return null;
-      (result as any)[key] = number;
-    } else if (['favorite', 'lyrics', 'image', 'customCover'].includes(key)) {
-      if (!['any', 'yes', 'no'].includes(text)) return null;
-      (result as any)[key] = text;
-    } else {
-      if (/From|To/.test(key) && text && dateBoundary(text) === null) return null;
-      (result as any)[key] = text;
-    }
+    const value = parseSectionField(key, draft[key]);
+    if (value === undefined) return null;
+    Object.assign(result, { [key]: value });
   }
-  for (const suffix of ['Tracks', 'Albums', 'Duration', 'Rating', 'Size', 'Plays']) {
-    const min = (result as any)[`min${suffix}`], max = (result as any)[`max${suffix}`];
-    if (min !== null && max !== null && min > max) return null;
-  }
-  if ((result.createdFrom && result.createdTo && result.createdFrom > result.createdTo) ||
-      (result.playedFrom && result.playedTo && result.playedFrom > result.playedTo)) return null;
-  if (result.formats) {
-    const list = formats(result.formats);
-    if (!list.length || list.some(format => !/^[a-z0-9]+$/.test(format))) return null;
-    result.formats = list.join(', ');
-  }
+  if (!validSectionNumberRanges(result)) return null;
+  if (!validSectionDateRange(result.createdFrom, result.createdTo) || !validSectionDateRange(result.playedFrom, result.playedTo)) return null;
+  const normalizedFormats = normalizedFilterFormats(result.formats);
+  if (normalizedFormats === null) return null;
+  result.formats = normalizedFormats;
   return result;
 }
 
@@ -179,7 +198,11 @@ export function matchesFolderFilters(tracks: readonly FilterTrack[], filters: Se
   if (filters.formats && !tracks.some(track => formats(filters.formats).includes(fileFormat(track.fileUrl)))) return false;
   if (filters.minSize !== null || filters.maxSize !== null) {
     let size = 0;
-    for (const track of tracks) { const bytes = index.sizes.get(track.id); if (bytes === null || bytes === undefined) return false; size += bytes; }
+    for (const track of tracks) {
+      const bytes = index.sizes.get(track.id);
+      if (bytes === null || bytes === undefined) return false;
+      size += bytes;
+    }
     if (!bounded(size / (1024 * 1024), filters.minSize, filters.maxSize)) return false;
   }
   return true;

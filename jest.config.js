@@ -20,6 +20,12 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/utils/albumFilters.ts',
+    'src/utils/filterSlider.ts',
+    'src/utils/libraryFilters.ts',
+    'src/services/LibraryFilterService.ts',
+    'src/hooks/useFilterChoices.ts',
+    'src/hooks/useLibraryFilters.ts',
     'modules/native-audio-scanner/index.ts',
     'src/constants/languages.ts',
     'src/services/NotificationFavoritesService.ts',

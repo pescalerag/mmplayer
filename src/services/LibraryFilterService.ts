@@ -28,7 +28,10 @@ function readSize(track: FilterTrack): Promise<number | null> {
       if (resolved?.size !== undefined && Number.isFinite(resolved.size) && resolved.size >= 0) return resolved.size;
     }
     return null;
-  })().then(value => { if (value === null) sizes.delete(key); return value; });
+  })().then(value => {
+    if (value === null) sizes.delete(key);
+    return value;
+  });
   if (sizes.size >= 4000) sizes.delete(sizes.keys().next().value!);
   sizes.set(key, request);
   return request;
@@ -37,9 +40,15 @@ function readSize(track: FilterTrack): Promise<number | null> {
 export async function readLibraryFileSizes(tracks: readonly FilterTrack[]): Promise<Map<string, number | null>> {
   const result = new Map<string, number | null>();
   let cursor = 0;
-  await Promise.all(Array.from({ length: Math.min(8, tracks.length) }, async () => {
-    while (cursor < tracks.length) { const track = tracks[cursor++]; result.set(track.id, await readSize(track)); }
-  }));
+  const readNext = (): Promise<void> => {
+    if (cursor >= tracks.length) return Promise.resolve();
+    const track = tracks[cursor++];
+    return readSize(track).then(size => {
+      result.set(track.id, size);
+      return readNext();
+    });
+  };
+  await Promise.all(Array.from({ length: Math.min(8, tracks.length) }, () => readNext()));
   return result;
 }
 

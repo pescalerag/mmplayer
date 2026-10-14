@@ -5,9 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
-export function NumericFilterSlider({ label, value, minimum = 0, maximum, step = 1, expandable = true, expandEarlier = false, onChange }: {
+export function NumericFilterSlider({ label, value, minimum = 0, maximum, step = 1, expandable = true, expandEarlier = false, onChange }: Readonly<{
   label: string; value: number | null; minimum?: number; maximum: number; step?: number; expandable?: boolean; expandEarlier?: boolean; onChange: (value: number | null) => void;
-}) {
+}>) {
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
   const [limits, setLimits] = useState({ min: minimum, max: maximum });
