@@ -12,6 +12,13 @@ describe('useSettingsStore', () => {
   });
 
   describe('Actions', () => {
+    it('defaults the cassette album label off and allows changing its persisted preference', () => {
+      expect(useSettingsStore.getState().showCassetteAlbumName).toBe(false);
+      useSettingsStore.getState().setShowCassetteAlbumName(true);
+      expect(useSettingsStore.getState().showCassetteAlbumName).toBe(true);
+      useSettingsStore.getState().setShowCassetteAlbumName(false);
+    });
+
     it('updates notification preferences', () => {
       const { setNotificationPreferences } = useSettingsStore.getState();
       const newPrefs = {

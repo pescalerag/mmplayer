@@ -1451,6 +1451,8 @@
     "cover_style_cover": "Original Artwork",
     "cover_style_cd": "Spinning CD",
     "cover_style_vinyl": "Spinning Vinyl",
+    "cover_style_cassette": "Cassette",
+    "cassette_album_name": "Show album name on cassette",
     "background_style": "Background Style",
     "background_style_cover": "Blurred Artwork",
     "background_style_gradient": "Color Gradient",

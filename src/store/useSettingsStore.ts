@@ -110,8 +110,10 @@ interface SettingsState {
     setPlayerVisualizerType: (value: 'bars' | 'wave' | 'spectrum' | 'circle') => void;
     playerVisualizerColorMode: 'accent' | 'cover';
     setPlayerVisualizerColorMode: (value: 'accent' | 'cover') => void;
-    playerCoverStyle: 'cover' | 'cd' | 'vinyl';
-    setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl') => void;
+    playerCoverStyle: 'cover' | 'cd' | 'vinyl' | 'cassette';
+    setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl' | 'cassette') => void;
+    showCassetteAlbumName: boolean;
+    setShowCassetteAlbumName: (value: boolean) => void;
     playerBackgroundStyle: 'cover' | 'gradient';
     setPlayerBackgroundStyle: (value: 'cover' | 'gradient') => void;
     showCanvas: boolean;
@@ -338,6 +340,8 @@ export const useSettingsStore = create<SettingsState>()(
             setPlayerVisualizerColorMode: (value) => set({ playerVisualizerColorMode: value }),
             playerCoverStyle: 'cover',
             setPlayerCoverStyle: (value) => set({ playerCoverStyle: value }),
+            showCassetteAlbumName: false,
+            setShowCassetteAlbumName: (value) => set({ showCassetteAlbumName: value }),
             playerBackgroundStyle: 'cover',
             setPlayerBackgroundStyle: (value) => set({ playerBackgroundStyle: value }),
             showCanvas: true,

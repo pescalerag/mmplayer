@@ -1450,6 +1450,8 @@
     "cover_style_cover": "Capa original",
     "cover_style_cd": "CD giratório",
     "cover_style_vinyl": "Vinil giratório",
+    "cover_style_cassette": "Cassete",
+    "cassette_album_name": "Mostrar nome do álbum na cassete",
     "background_style": "Estilo do fundo",
     "background_style_cover": "Capa desfocada",
     "background_style_gradient": "Gradiente de cores",

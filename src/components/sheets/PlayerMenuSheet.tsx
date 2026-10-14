@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BlurredBackground from '../layouts/BlurredBackground';
 import { ScrollView } from 'react-native-gesture-handler';
 import { PlayerDiscArtwork } from '../player/PlayerDiscArtwork';
+import { CassetteArtwork } from '../player/CassetteArtwork';
 import { useSheetProps } from '../../hooks/useSheetProps';
 import { PlayerMenuAppearance } from '../../store/useUIStore';
 import { useTranslation } from 'react-i18next';
@@ -71,6 +72,8 @@ export default function PlayerMenuSheet() {
         setPlayerVisualizerColorMode,
         playerCoverStyle,
         setPlayerCoverStyle,
+        showCassetteAlbumName,
+        setShowCassetteAlbumName,
         playerBackgroundStyle,
         setPlayerBackgroundStyle,
         showCanvas,
@@ -107,10 +110,22 @@ export default function PlayerMenuSheet() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
                 {(['cover', 'cd', 'vinyl'] as const).map(style => (
                     <PreviewOption key={style} label={t('visualizer.cover_style_' + style)} selected={playerCoverStyle === style} onPress={() => setPlayerCoverStyle(style)}>
-                        {style === 'cover' ? coverPreview : <PlayerDiscArtwork playerCoverStyle={style} album={{ cdArtUrl: appearance.cdArtUrl ?? null }} artworkSize={96} holeSize={12} spinStyle={undefined} coverColor={appearance.coverColor ?? null} />}
+                        {style === 'cover' ? coverPreview : <PlayerDiscArtwork playerCoverStyle={style} coverUrl={appearance.coverUrl} album={{ cdArtUrl: appearance.cdArtUrl ?? null }} artworkSize={96} holeSize={12} spinStyle={undefined} coverColor={appearance.coverColor ?? null} />}
                     </PreviewOption>
                 ))}
+                <PreviewOption label={t('visualizer.cover_style_cassette')} selected={playerCoverStyle === 'cassette'} onPress={() => setPlayerCoverStyle('cassette')}>
+                    <CassetteArtwork size={104} coverUrl={appearance.coverUrl} coverColor={appearance.coverColor} albumTitle={showCassetteAlbumName ? appearance.albumTitle : null} progress={0.35} />
+                </PreviewOption>
             </ScrollView>
+            <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.settingLabel}>{t('visualizer.cassette_album_name')}</Text>
+                </View>
+                <Switch value={showCassetteAlbumName} onValueChange={setShowCassetteAlbumName}
+                    accessibilityLabel={t('visualizer.cassette_album_name')}
+                    trackColor={{ false: '#282828', true: colors.accent }}
+                    thumbColor={showCassetteAlbumName ? '#FFFFFF' : '#888888'} ios_backgroundColor="#282828" />
+            </View>
             <View style={styles.separator} />
             <Text style={styles.sectionLabel}>{t('visualizer.background_style')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>

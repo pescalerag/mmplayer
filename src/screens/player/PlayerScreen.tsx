@@ -49,6 +49,8 @@ import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { PlayerArtwork } from '@/components/player/PlayerArtwork';
 import { PlayerDiscArtwork as DiscCover } from '@/components/player/PlayerDiscArtwork';
+import { CassetteArtwork } from '@/components/player/CassetteArtwork';
+import { PlaybackCassetteArtwork } from '@/components/player/PlaybackCassetteArtwork';
 import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
@@ -1146,10 +1148,14 @@ const ActiveArtworkCenter = ({
     if (showCanvas && !!bgVideo) {
         return <View style={{ width: artworkSize, height: artworkSize }} />;
     }
+    if (playerCoverStyle === 'cassette') {
+        return <PlaybackCassetteArtwork size={artworkSize} coverUrl={currentCoverUrl} coverColor={coverColor} albumTitle={album?.title} />;
+    }
     if (playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl') {
         return (
             <DiscCover
                 playerCoverStyle={playerCoverStyle}
+                coverUrl={currentCoverUrl}
                 album={album}
                 artworkSize={artworkSize}
                 spinStyle={spinStyle}
@@ -1170,6 +1176,8 @@ const ActiveArtworkCenter = ({
 };
 
 interface AdjacentArtworkSlotProps {
+    playerCoverStyle: string;
+    coverColor?: string | null;
     trackModel: Track | null;
     coverUrl: string | null;
     showCanvas: boolean;
@@ -1184,6 +1192,8 @@ interface AdjacentArtworkSlotProps {
 }
 
 const AdjacentArtworkSlot = ({
+    playerCoverStyle,
+    coverColor,
     trackModel,
     coverUrl,
     showCanvas,
@@ -1211,6 +1221,9 @@ const AdjacentArtworkSlot = ({
     if (showCanvas && !!trackModel.bgVideo) {
         return <View style={{ width: artworkSize, height: artworkSize }} />;
     }
+    if (playerCoverStyle === 'cassette') {
+        return <CassetteArtwork size={artworkSize} coverUrl={coverUrl} coverColor={coverColor} progress={isNext ? 0 : 1} />;
+    }
     return (
         <PlayerArtwork
             key={`art-${isNext ? 'next' : 'prev'}-${trackModel.id}`}
@@ -1234,6 +1247,7 @@ interface PlayerArtworkStageProps {
     width: number;
     prevTrackModel: Track | null;
     prevCoverUrl: string | null;
+    prevCoverColor: string | null;
     showCanvas: boolean;
     artworkSize: number;
     radiiMd: number;
@@ -1252,6 +1266,7 @@ interface PlayerArtworkStageProps {
     coverColor: string | null;
     nextTrackModel: Track | null;
     nextCoverUrl: string | null;
+    nextCoverColor: string | null;
     shuffleOnQueueEnd: boolean;
     styles: any;
 }
@@ -1266,6 +1281,7 @@ const PlayerArtworkStage = ({
     width: stageWidth,
     prevTrackModel,
     prevCoverUrl,
+    prevCoverColor,
     showCanvas,
     artworkSize,
     radiiMd,
@@ -1284,6 +1300,7 @@ const PlayerArtworkStage = ({
     coverColor,
     nextTrackModel,
     nextCoverUrl,
+    nextCoverColor,
     shuffleOnQueueEnd,
     styles,
 }: PlayerArtworkStageProps) => {
@@ -1321,8 +1338,10 @@ const PlayerArtworkStage = ({
                         alignItems: 'center',
                     }} pointerEvents="none">
                         <AdjacentArtworkSlot
+                            playerCoverStyle={playerCoverStyle}
                             trackModel={prevTrackModel}
                             coverUrl={prevCoverUrl}
+                            coverColor={prevCoverColor}
                             showCanvas={showCanvas}
                             artworkSize={artworkSize}
                             borderRadius={radiiMd}
@@ -1371,8 +1390,10 @@ const PlayerArtworkStage = ({
                         alignItems: 'center',
                     }} pointerEvents="none">
                         <AdjacentArtworkSlot
+                            playerCoverStyle={playerCoverStyle}
                             trackModel={nextTrackModel}
                             coverUrl={nextCoverUrl}
+                            coverColor={nextCoverColor}
                             showCanvas={showCanvas}
                             artworkSize={artworkSize}
                             borderRadius={radiiMd}
@@ -2359,11 +2380,12 @@ const PlayerScreenUI = ({
 
     const isTransitioning = useScreenTransition(isFocused, navigation);
     const playerMenuAppearance = React.useMemo(() => ({
+        albumTitle: album?.title ?? null,
         coverUrl: currentCoverUrl,
         cdArtUrl: album?.cdArtUrl ?? null,
         coverColor,
         gradientColors: [topGradientColor, bottomGradientColor, bottomGradientColor] as const,
-    }), [currentCoverUrl, album?.cdArtUrl, coverColor, topGradientColor, bottomGradientColor]);
+    }), [currentCoverUrl, album?.cdArtUrl, album?.title, coverColor, topGradientColor, bottomGradientColor]);
     const isPlayerMenuOpen = useUIStore(state => state.activeSheet === 'player-menu');
     useEffect(() => {
         if (!isPlayerMenuOpen) return;
@@ -2404,7 +2426,7 @@ const PlayerScreenUI = ({
         currentPhrase
     );
 
-    const isAltDisplay = showPlayerVisualizer || playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl' || (showCanvas && !!track.bgVideo);
+    const isAltDisplay = showPlayerVisualizer || playerCoverStyle !== 'cover' || (showCanvas && !!track.bgVideo);
     const artworkPadding = (spacing.md || 16) + (spacing.sm || 8);
     const artworkLayoutConfig = useMemo(() => ({
         width: windowWidth, height: windowHeight, topInset: insets.top, bottomInset: insets.bottom,
@@ -2576,6 +2598,7 @@ const PlayerScreenUI = ({
                             width={width}
                             prevTrackModel={prevTrackModel}
                             prevCoverUrl={prevCoverUrl}
+                            prevCoverColor={prevCoverColor}
                             showCanvas={showCanvas}
                             artworkSize={artworkSize}
                             radiiMd={radii.md || 10}
@@ -2594,6 +2617,7 @@ const PlayerScreenUI = ({
                             coverColor={coverColor}
                             nextTrackModel={nextTrackModel}
                             nextCoverUrl={nextCoverUrl}
+                            nextCoverColor={nextCoverColor}
                             shuffleOnQueueEnd={shuffleOnQueueEnd}
                             styles={styles}
                         />

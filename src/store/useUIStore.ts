@@ -11,6 +11,7 @@ export interface TrackMenuMetadata {
 }
 
 export interface PlayerMenuAppearance {
+  albumTitle?: string | null;
   coverUrl: string | null;
   cdArtUrl: string | null;
   coverColor: string | null;
