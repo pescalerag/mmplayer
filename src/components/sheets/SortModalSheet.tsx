@@ -1,4 +1,5 @@
 import { useSheetProps } from '@/hooks/useSheetProps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Ionicons } from "@expo/vector-icons";
 import React from 'react';
@@ -50,6 +51,7 @@ const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
 };
 
 export default function SortModalSheet() {
+  const insets = useSafeAreaInsets();
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
@@ -138,6 +140,7 @@ export default function SortModalSheet() {
           <Text style={{ color: colors.onAccent, fontFamily: fonts.bold }}>{t('album_filters.apply')}</Text>
         </TouchableOpacity>
       </View>
+      <View style={{ height: insets.bottom + 16, flexShrink: 0, backgroundColor: '#121212', marginHorizontal: -24 }} />
     </View>
   );
 }
@@ -145,6 +148,7 @@ export default function SortModalSheet() {
 const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
   container: {
     width: "100%",
+    flexShrink: 1,
   },
   header: {
     marginBottom: 8,

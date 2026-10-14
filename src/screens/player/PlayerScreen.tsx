@@ -4,7 +4,6 @@ import { useTagFormStore } from '@/store/useTagFormStore';
 import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu, useUIStore } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -49,6 +48,7 @@ import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { PlayerArtwork } from '@/components/player/PlayerArtwork';
+import { PlayerDiscArtwork as DiscCover } from '@/components/player/PlayerDiscArtwork';
 import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
@@ -1084,88 +1084,7 @@ const PlayerBackground = React.memo(({
 });
 PlayerBackground.displayName = 'PlayerBackground';
 
-interface DiscCoverProps {
-    playerCoverStyle: 'cd' | 'vinyl';
-    album: Album | null;
-    artworkSize: number;
-    spinStyle: any;
-    coverColor: string | null;
-}
 
-const DiscCover = React.memo(({ playerCoverStyle, album, artworkSize, spinStyle, coverColor }: DiscCoverProps) => {
-    if (playerCoverStyle === 'cd') {
-        if (album?.cdArtUrl) {
-            return (
-                <View style={{ width: artworkSize, height: artworkSize, alignSelf: 'center', position: 'relative' }}>
-                    <MaskedView
-                        style={StyleSheet.absoluteFillObject}
-                        maskElement={
-                            <View style={{
-                                width: artworkSize,
-                                height: artworkSize,
-                                borderRadius: artworkSize / 2,
-                                borderWidth: (artworkSize - 35) / 2,
-                                borderColor: 'black',
-                                backgroundColor: 'transparent',
-                            }} />
-                        }
-                    >
-                        <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
-                            <Image
-                                source={{ uri: album.cdArtUrl }}
-                                style={{ width: '100%', height: '100%' }}
-                                contentFit="cover"
-                            />
-                        </Animated.View>
-                    </MaskedView>
-                    <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
-                        <Image
-                            source={require('../../assets/cd-custom.svg')}
-                            style={{ position: 'absolute', width: '100%', height: '100%' }}
-                            contentFit="contain"
-                        />
-                    </Animated.View>
-                </View>
-            );
-        }
-        return (
-            <View style={{ width: artworkSize, height: artworkSize, alignSelf: 'center', position: 'relative' }}>
-                <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
-                    <Image
-                        source={require('../../assets/cd-base.webp')}
-                        style={{ width: '100%', height: '100%' }}
-                        contentFit="contain"
-                    />
-                </Animated.View>
-            </View>
-        );
-    }
-
-    return (
-        <View style={{ width: artworkSize, height: artworkSize, alignSelf: 'center', position: 'relative' }}>
-            <Animated.View style={[{ width: '100%', height: '100%' }, spinStyle]}>
-                <Image
-                    source={require('../../assets/vinyl.svg')}
-                    style={{ width: '100%', height: '100%' }}
-                    contentFit="contain"
-                />
-                {coverColor && (
-                    <View
-                        style={{
-                            position: 'absolute',
-                            top: 0, left: 0, right: 0, bottom: 0,
-                            borderRadius: artworkSize / 2,
-                            backgroundColor: coverColor,
-                            opacity: 0.25,
-                        }}
-                        pointerEvents="none"
-                    />
-                )}
-            </Animated.View>
-        </View>
-    );
-});
-DiscCover.displayName = 'DiscCover';
 
 interface ActiveArtworkCenterProps {
     isImmersive: boolean;
@@ -1640,108 +1559,111 @@ const PlayerInfoSection = ({
 
     return (
         <Animated.View style={[styles.infoContainer, infoContainerAnimatedStyle]}>
-            <View style={styles.infoTextContainer}>
-                {/* Tags row */}
-                <View
-                    ref={tagsRef}
-                    collapsable={false}
-                    onLayout={(e) => {
-                        tagsLayout.current = e.nativeEvent.layout;
-                    }}
-                    style={styles.tagsRow}
-                >
-                    {tags && tags.length > 0 ? (
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.tagsScroll}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            {tags.map(tagItem => (
-                                <TouchableOpacity
-                                    key={tagItem.id}
-                                    style={[styles.tagBadge, { backgroundColor: showTagColors ? tagItem.color : colors.overlayAlpha08 }]}
-                                    onPress={onOpenTagManager}
-                                >
-                                    <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(tagItem.color) : colors.text }]}>
-                                        {tagItem.name}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.addTagButton}
-                            onPress={onOpenTagManager}
-                        >
-                            <Ionicons name="add-circle-outline" size={14} color={colors.textSecondary} />
-                            <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Title & Artist row with optional mini cover */}
-                <View style={isAltDisplay ? { flexDirection: 'row', alignItems: 'center' } : null}>
-                    {isAltDisplay && artworkSource && (
-                        <Image
-                            source={artworkSource}
-                            style={styles.miniArtwork}
-                            contentFit="cover"
-                            transition={200}
-                            cachePolicy="memory-disk"
-                        />
-                    )}
-                    <View style={isAltDisplay ? { flex: 1 } : null}>
-                        <MarqueeText
-                            key={`title-${track.id}`}
-                            text={track.title}
-                            style={styles.title}
-                            speed={45}
-                            pauseDuration={1800}
-                        />
-                        <TouchableOpacity onPress={onArtistPress}>
-                            <MarqueeText
-                                key={`artist-${track.id}`}
-                                text={artistDisplayText}
-                                style={styles.artist}
-                                speed={35}
-                                pauseDuration={2000}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </View>
-
-            {/* Actions Column (Heart + Plus) */}
+            {/* Tags row */}
             <View
-                ref={actionsRef}
+                ref={tagsRef}
                 collapsable={false}
                 onLayout={(e) => {
-                    actionsLayout.current = e.nativeEvent.layout;
+                    tagsLayout.current = e.nativeEvent.layout;
                 }}
-                style={styles.infoActionsContainer}
+                style={styles.tagsRow}
             >
-                <Animated.View style={heartAnimatedStyle}>
+                {tags && tags.length > 0 ? (
+                    <ScrollView
+                        horizontal
+                        style={styles.tagsViewport}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.tagsScroll}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {tags.map(tagItem => (
+                            <TouchableOpacity
+                                key={tagItem.id}
+                                style={[styles.tagBadge, { backgroundColor: showTagColors ? tagItem.color : colors.overlayAlpha08 }]}
+                                onPress={onOpenTagManager}
+                            >
+                                <Text style={[styles.tagText, { color: showTagColors ? getDynamicTagTextColor(tagItem.color) : colors.text }]}>
+                                    {tagItem.name}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                ) : (
                     <TouchableOpacity
-                        onPress={onLikePress}
+                        style={styles.addTagButton}
+                        onPress={onOpenTagManager}
+                    >
+                        <Ionicons name="add-circle-outline" size={14} color={colors.textSecondary} />
+                        <Text style={styles.addTagText}>{t('actions.add_tag')}</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            <View style={styles.infoMainRow}>
+                <View style={styles.infoTextContainer}>
+                    {/* Title & Artist row with optional mini cover */}
+                    <View style={isAltDisplay ? { flexDirection: 'row', alignItems: 'center' } : null}>
+                        {isAltDisplay && artworkSource && (
+                            <Image
+                                source={artworkSource}
+                                style={styles.miniArtwork}
+                                contentFit="cover"
+                                transition={200}
+                                cachePolicy="memory-disk"
+                            />
+                        )}
+                        <View style={isAltDisplay ? { flex: 1 } : null}>
+                            <MarqueeText
+                                key={`title-${track.id}`}
+                                text={track.title}
+                                style={styles.title}
+                                speed={45}
+                                pauseDuration={1800}
+                            />
+                            <TouchableOpacity onPress={onArtistPress}>
+                                <MarqueeText
+                                    key={`artist-${track.id}`}
+                                    text={artistDisplayText}
+                                    style={styles.artist}
+                                    speed={35}
+                                    pauseDuration={2000}
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Actions Column (Heart + Plus) */}
+                <View
+                    ref={actionsRef}
+                    collapsable={false}
+                    onLayout={(e) => {
+                        actionsLayout.current = e.nativeEvent.layout;
+                    }}
+                    style={styles.infoActionsContainer}
+                >
+                    <Animated.View style={heartAnimatedStyle}>
+                        <TouchableOpacity
+                            onPress={onLikePress}
+                            style={styles.actionButton}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Ionicons
+                                name={track.isFavorite ? "heart" : "heart-outline"}
+                                size={28}
+                                color={track.isFavorite ? colors.heartIcon : colors.text}
+                            />
+                        </TouchableOpacity>
+                    </Animated.View>
+
+                    <TouchableOpacity
+                        onPress={onOpenPlaylistSelector}
                         style={styles.actionButton}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
-                        <Ionicons
-                            name={track.isFavorite ? "heart" : "heart-outline"}
-                            size={28}
-                            color={track.isFavorite ? colors.heartIcon : colors.text}
-                        />
+                        <Ionicons name="add" size={28} color={colors.text} />
                     </TouchableOpacity>
-                </Animated.View>
-
-                <TouchableOpacity
-                    onPress={onOpenPlaylistSelector}
-                    style={styles.actionButton}
-                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                >
-                    <Ionicons name="add" size={28} color={colors.text} />
-                </TouchableOpacity>
+                </View>
             </View>
         </Animated.View>
     );
@@ -2436,6 +2358,17 @@ const PlayerScreenUI = ({
     );
 
     const isTransitioning = useScreenTransition(isFocused, navigation);
+    const playerMenuAppearance = React.useMemo(() => ({
+        coverUrl: currentCoverUrl,
+        cdArtUrl: album?.cdArtUrl ?? null,
+        coverColor,
+        gradientColors: [topGradientColor, bottomGradientColor, bottomGradientColor] as const,
+    }), [currentCoverUrl, album?.cdArtUrl, coverColor, topGradientColor, bottomGradientColor]);
+    const isPlayerMenuOpen = useUIStore(state => state.activeSheet === 'player-menu');
+    useEffect(() => {
+        if (!isPlayerMenuOpen) return;
+        useUIStore.setState(state => state.activeSheet === 'player-menu' ? { sheetProps: playerMenuAppearance } : state);
+    }, [isPlayerMenuOpen, playerMenuAppearance]);
     const visualRevision = usePlayerVisualRecovery(isFocused);
 
     // Settings
@@ -2616,7 +2549,7 @@ const PlayerScreenUI = ({
                         albumTitle={album?.title}
                         isImmersive={isImmersive}
                         onDismiss={() => navigation.goBack()}
-                        onOpenPlayerMenu={openPlayerMenu}
+                        onOpenPlayerMenu={() => openPlayerMenu(playerMenuAppearance)}
                         onAlbumPress={handleAlbumPress}
                         onOpenTutorial={() => setIsTutorialVisible(true)}
                         onMorePress={handleMorePress}
@@ -2998,12 +2931,15 @@ const getStyles = (
         backgroundColor: colors.cardBackground,
     },
     infoContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        justifyContent: 'space-between',
         paddingHorizontal: 20,
         marginBottom: 8,
     },
+    infoMainRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+    },
+    tagsViewport: { flex: 1 },
     infoTextContainer: {
         flex: 1,
         marginRight: 16,

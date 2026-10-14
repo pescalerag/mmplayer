@@ -11,6 +11,7 @@ const mockClose = jest.fn();
 jest.mock('@/hooks/useSheetProps', () => ({ useSheetProps: () => ({ props: { activeTab: mockTab, activeSort: 'name_asc' }, close: mockClose }) }));
 jest.mock('@/hooks/useAppTheme', () => ({ useAppTheme: () => ({ colors: { text: '#fff', textSecondary: '#aaa', cardBackground: '#222', accent: '#f00', onAccent: '#fff' }, fonts: { regular: 'regular', bold: 'bold' }, layout: {} }) }));
 jest.mock('@react-native-community/slider', () => 'Slider');
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ bottom: 24 }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('react-native', () => ({ Text: 'Text', View: 'View', ScrollView: 'ScrollView', TouchableOpacity: 'Button', Switch: 'Switch', useWindowDimensions: () => ({ height: 800 }), StyleSheet: { create: (styles: any) => styles } }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));

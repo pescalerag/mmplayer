@@ -10,6 +10,13 @@ export interface TrackMenuMetadata {
   artists: Artist[];
 }
 
+export interface PlayerMenuAppearance {
+  coverUrl: string | null;
+  cdArtUrl: string | null;
+  coverColor: string | null;
+  gradientColors: readonly [string, string, string];
+}
+
 // Any new opening or dismissal invalidates pending track metadata requests.
 let sheetRequestId = 0;
 
@@ -181,8 +188,8 @@ export const openTagManagerForTrack = (track: any) =>
 export const openTagManagerForAlbum = (album: any) =>
   useUIStore.getState().openSheet('tag-manager', { targetType: 'album', targetId: album.id, targetTitle: album.title });
 
-export const openPlayerMenu = () =>
-  useUIStore.getState().openSheet('player-menu');
+export const openPlayerMenu = (appearance?: PlayerMenuAppearance) =>
+  useUIStore.getState().openSheet('player-menu', appearance ?? {});
 
 export const openBatchMenu = (tracks: any[]) =>
   useUIStore.getState().openSheet('batch-menu', { tracks });
