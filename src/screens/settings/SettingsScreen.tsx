@@ -231,6 +231,18 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
 
                         <View style={styles.separator} />
 
+                        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('SettingsAlbumCovers')} activeOpacity={0.7}>
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}><Ionicons name="albums-outline" size={22} color={colors.accent} /></View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.album_covers_title')}</Text>
+                                    <Text style={styles.settingDescription}>{t('settings.album_covers_desc_short')}</Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+                        <View style={styles.separator} />
+
                         {/* EXCLUSIONES */}
                         <TouchableOpacity
                             style={styles.menuRow}

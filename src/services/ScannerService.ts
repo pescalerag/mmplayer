@@ -17,6 +17,7 @@ import { useToastStore } from '../store/useToastStore';
 import { useMigrationStore } from '../store/useMigrationStore';
 import i18n from '../constants/i18n';
 import { ArtistImageService } from './ArtistImageService';
+import { AlbumCoverService } from './AlbumCoverService';
 import { HistoryService } from './HistoryService';
 import { PlaybackTagSnapshotService } from './PlaybackTagSnapshotService';
 import { MediaAssetService } from './MediaAssetService';
@@ -1322,6 +1323,9 @@ export const ScannerService = {
             }
 
             ArtistImageService.processMissingArtistImages({ isBackground: true });
+            void AlbumCoverService.processMissingAlbumCovers({ isBackground: true }).catch(error => {
+                console.warn('[ScannerService] Missing cover download failed', error);
+            });
             MediaAssetService.migrateLegacyCacheAssets();
             MediaAssetService.runGarbageCollector();
 

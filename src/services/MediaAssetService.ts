@@ -12,6 +12,7 @@ const BASE_MEDIA_DIR = `${FileSystem.documentDirectory}media_assets/`;
 const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
+const ALBUM_DIR = `${BASE_MEDIA_DIR}album_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
 const CANVAS_THUMBNAILS_DIR = `${BASE_MEDIA_DIR}canvas_thumbnails/`;
 const USER_AVATAR_DIR = `${BASE_MEDIA_DIR}user_avatar/`;
@@ -226,6 +227,7 @@ export const MediaAssetService = {
         await ensureDirectoryExists(ARTIST_DIR);
         await ensureDirectoryExists(PLAYLIST_DIR);
         await ensureDirectoryExists(CD_DIR);
+        await ensureDirectoryExists(ALBUM_DIR);
         await ensureDirectoryExists(CANVAS_DIR);
         await ensureDirectoryExists(CANVAS_THUMBNAILS_DIR);
         await ensureDirectoryExists(USER_AVATAR_DIR);
@@ -257,6 +259,8 @@ export const MediaAssetService = {
 
     saveAlbumCDCover: (albumId: string, sourceUri: string, fileName?: string): Promise<string> =>
         saveImageAsset(CD_DIR, `album_cd_${albumId}.`, sourceUri, fileName),
+    saveAlbumCover: (albumId: string, sourceUri: string): Promise<string> =>
+        saveImageAsset(ALBUM_DIR, `album_${albumId}.`, sourceUri),
 
     removeAlbumCDCover: async (albumId: string): Promise<void> => {
         if (Platform.OS === 'web') return;
@@ -546,6 +550,7 @@ export const MediaAssetService = {
                 // 3. Limpiar CDs de álbumes huérfanos
                 const albumsColl = database.collections.get<Album>('albums');
                 const allAlbums = await albumsColl.query().fetch();
+                await cleanOrphanFiles(ALBUM_DIR, /^album_(.+)\.[a-z0-9]+$/i, new Set(allAlbums.map(a => a.id)));
                 await cleanOrphanFiles(CD_DIR, /^album_cd_(.+)\.[a-z0-9]+$/i, new Set(allAlbums.map(a => a.id)));
 
                 // 4. Limpiar vídeos Canvas huérfanos

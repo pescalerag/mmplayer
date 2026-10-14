@@ -10,6 +10,7 @@ import SettingsGesturesScreen from '../screens/settings/SettingsGesturesScreen';
 import SettingsExclusionsScreen from '../screens/settings/SettingsExclusionsScreen';
 import SettingsDebugScreen from '../screens/settings/SettingsDebugScreen';
 import SettingsArtistImagesScreen from '../screens/settings/SettingsArtistImagesScreen';
+import SettingsAlbumCoversScreen from '../screens/settings/SettingsAlbumCoversScreen';
 import SettingsStorageScreen from '../screens/settings/SettingsStorageScreen';
 import SettingsCanvasScreen from '../screens/settings/SettingsCanvasScreen';
 import SettingsShuffleScreen from '../screens/settings/SettingsShuffleScreen';
@@ -37,6 +38,7 @@ export default function SettingsNavigator() {
             <Stack.Screen name="SettingsExclusions" component={SettingsExclusionsScreen} />
             <Stack.Screen name="SettingsDebug" component={SettingsDebugScreen} />
             <Stack.Screen name="SettingsArtistImages" component={SettingsArtistImagesScreen} />
+            <Stack.Screen name="SettingsAlbumCovers" component={SettingsAlbumCoversScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />
         </Stack.Navigator>
     );

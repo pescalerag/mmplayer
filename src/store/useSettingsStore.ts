@@ -92,6 +92,8 @@ interface SettingsState {
     artistImageDownloadMode: 'disabled' | 'main' | 'all';
     setArtistImageDownloadMode: (value: 'disabled' | 'main' | 'all') => void;
     artistImageBackgroundDownload: boolean;
+    albumCoverBackgroundDownload: boolean;
+    setAlbumCoverBackgroundDownload: (value: boolean) => void;
     setArtistImageBackgroundDownload: (value: boolean) => void;
     isFadeEnabled: boolean;
     setIsFadeEnabled: (value: boolean) => void;
@@ -316,6 +318,8 @@ export const useSettingsStore = create<SettingsState>()(
             artistImageDownloadMode: 'disabled',
             setArtistImageDownloadMode: (value) => set({ artistImageDownloadMode: value }),
             artistImageBackgroundDownload: false,
+            albumCoverBackgroundDownload: false,
+            setAlbumCoverBackgroundDownload: (value) => set({ albumCoverBackgroundDownload: value }),
             setArtistImageBackgroundDownload: (value) => set({ artistImageBackgroundDownload: value }),
             isFadeEnabled: true,
             setIsFadeEnabled: (value) => set({ isFadeEnabled: value }),

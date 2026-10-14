@@ -20,6 +20,7 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/services/AlbumCoverService.ts',
     'src/utils/cassetteTape.ts',
     'src/utils/albumFilters.ts',
     'src/utils/filterSlider.ts',

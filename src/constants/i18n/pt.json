@@ -434,6 +434,16 @@
     "album_and_songs": "Álbum e músicas"
   },
   "settings": {
+    "album_covers_title": "Capas em falta",
+    "album_covers_desc_short": "Procura as capas em falta na biblioteca",
+    "album_covers_background": "Transferir ao analisar a biblioteca",
+    "album_covers_background_desc": "Procura automaticamente capas para álbuns sem imagem.",
+    "album_covers_desc": "Procura por álbum e artista e guarda as capas no dispositivo. Utiliza internet e armazenamento. As capas existentes são mantidas.",
+    "album_covers_download": "Transferir capas em falta",
+    "album_covers_progress": "A transferir {{current}} / {{total}}",
+    "album_covers_result": "Transferidas: {{downloaded}}. Sem correspondência: {{notFound}}. Erros: {{failed}}.",
+    "album_covers_error": "Não foi possível transferir a capa. Verifica a ligação e tenta novamente.",
+    "album_covers_storage": "Capas de álbuns transferidas",
     "title": "Configurações",
     "library_status": "Estado da biblioteca",
     "storage_title": "Armazenamento",
@@ -1366,6 +1376,11 @@
     "lyrics_searching": "Buscando letras..."
   },
   "metadata_editor": {
+    "search_cover": "Procurar capa na internet",
+    "cover_not_found": "Não foi encontrada uma capa para este álbum e artista.",
+    "cover_replace_title": "Substituir capa?",
+    "cover_replace_message": "A capa encontrada substituirá a atual quando guardares os metadados.",
+    "cover_replace": "Procurar e substituir",
     "title_single": "Editar metadados",
     "title_batch": "Editar metadados em lote",
     "save": "Salvar",

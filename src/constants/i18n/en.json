@@ -434,6 +434,16 @@
     "album_and_songs": "Album and Songs"
   },
   "settings": {
+    "album_covers_title": "Missing album covers",
+    "album_covers_desc_short": "Find missing covers for your library",
+    "album_covers_background": "Download when scanning the library",
+    "album_covers_background_desc": "Automatically find covers for albums without artwork.",
+    "album_covers_desc": "Search by album and artist and save covers on your device. Uses internet and storage. Existing covers are preserved.",
+    "album_covers_download": "Download missing covers",
+    "album_covers_progress": "Downloading {{current}} / {{total}}",
+    "album_covers_result": "Downloaded: {{downloaded}}. No match: {{notFound}}. Errors: {{failed}}.",
+    "album_covers_error": "Could not download the cover. Check your connection and try again.",
+    "album_covers_storage": "Downloaded album covers",
     "title": "Settings",
     "library_status": "Library Status",
     "storage_title": "Storage",
@@ -1367,6 +1377,11 @@
     "lyrics_searching": "Searching lyrics..."
   },
   "metadata_editor": {
+    "search_cover": "Find album cover online",
+    "cover_not_found": "No matching cover found for this album and artist.",
+    "cover_replace_title": "Replace album cover?",
+    "cover_replace_message": "The cover found will replace the current one when you save the metadata.",
+    "cover_replace": "Find and replace",
     "title_single": "Edit Metadata",
     "title_batch": "Edit Metadata (Batch)",
     "save": "Save",

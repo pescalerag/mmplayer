@@ -434,6 +434,16 @@
     "album_and_songs": "Álbum y Canciones"
   },
   "settings": {
+    "album_covers_title": "Carátulas faltantes",
+    "album_covers_desc_short": "Busca las carátulas que faltan en tu biblioteca",
+    "album_covers_background": "Descargar al escanear la biblioteca",
+    "album_covers_background_desc": "Busca automáticamente carátulas para los álbumes que no tienen una.",
+    "album_covers_desc": "Busca por álbum y artista y guarda las carátulas en el dispositivo. Utiliza internet y almacenamiento. Las carátulas existentes se conservan.",
+    "album_covers_download": "Descargar carátulas faltantes",
+    "album_covers_progress": "Descargando {{current}} / {{total}}",
+    "album_covers_result": "Descargadas: {{downloaded}}. Sin coincidencia: {{notFound}}. Errores: {{failed}}.",
+    "album_covers_error": "No se pudo descargar la carátula. Comprueba la conexión e inténtalo de nuevo.",
+    "album_covers_storage": "Carátulas de álbumes descargadas",
     "title": "Configuración",
     "library_status": "Estado de tu Biblioteca",
     "storage_title": "Almacenamiento",
@@ -1367,6 +1377,11 @@
     "lyrics_searching": "Buscando letras..."
   },
   "metadata_editor": {
+    "search_cover": "Buscar carátula en internet",
+    "cover_not_found": "No se encontró una carátula para este álbum y artista.",
+    "cover_replace_title": "¿Reemplazar carátula?",
+    "cover_replace_message": "La carátula encontrada sustituirá a la actual cuando guardes los metadatos.",
+    "cover_replace": "Buscar y reemplazar",
     "title_single": "Editar Metadatos",
     "title_batch": "Editar Metadatos (Lote)",
     "save": "Guardar",
