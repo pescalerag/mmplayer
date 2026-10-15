@@ -1,3 +1,4 @@
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import LibraryCard from '@/components/cards/LibraryCard';
 import TopMatchCard from '@/components/cards/TopMatchCard';
 import SectionHeader from '@/components/common/SectionHeader';
@@ -913,7 +914,7 @@ export default function SearchScreen() {
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [headerHeight, setHeaderHeight] = useState(150);
-  const { colors } = useAppTheme();
+  const { colors, gradients } = useAppTheme();
 
   const getFilterLabel = (id: FilterOption) => {
     switch (id) {
@@ -1334,14 +1335,10 @@ export default function SearchScreen() {
 
   return (
     <View ref={rootRef} collapsable={false} style={[styles.container, { backgroundColor: colors.background }]}>
+      <ThemeHeaderAccent />
       {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
       <LinearGradient
-        colors={[
-          '#000000',
-          'rgba(0, 0, 0, 0.95)',
-          'rgba(0, 0, 0, 0.8)',
-          'transparent'
-        ]}
+        colors={gradients.header}
         locations={[0, 0.45, 0.8, 1]}
         style={{
           position: 'absolute',

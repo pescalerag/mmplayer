@@ -285,7 +285,7 @@ export default function WeeklyActivityScreen() {
   const hasActivity = totalHours > 0;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* BACKGROUND GRADIENT MATCHING THE STATS CARD */}
       <LinearGradient
         colors={[colors.accentAlpha15, colors.cardBackground]}

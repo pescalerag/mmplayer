@@ -42,6 +42,7 @@ const BASE_PALETTE = [
 
 export default function TagFormModal() {
   const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { isVisible, tag, closeForm, onSaveCallback, setColorRowRef } = useTagFormStore();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -407,7 +408,7 @@ export default function TagFormModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useAppTheme>['colors']) => StyleSheet.create({
   containerAbsolute: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -420,13 +421,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheetContainer: {
-    backgroundColor: "#121212",
+    backgroundColor: colors.sheetBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
     maxHeight: SCREEN_HEIGHT * 0.85,
     borderTopWidth: 1,
-    borderColor: "#282828",
+    borderColor: colors.border,
   },
   handleContainer: {
     width: "100%",
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     zIndex: 999,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: colors.inputBackground,
     padding: 15,
     borderRadius: 16,
     alignItems: "center",
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.1 }],
   },
   input: {
-    backgroundColor: "#1A1A1A",
+    backgroundColor: colors.inputBackground,
     borderRadius: 12,
     height: 48,
     color: "#FFFFFF",

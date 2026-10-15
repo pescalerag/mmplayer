@@ -4,7 +4,6 @@ const LEGACY_APP_ICONS: Readonly<Record<string, string>> = {
     retro: 'pink',
     darkblue: 'aqua',
     orange: 'yellow',
-    legend: 'yellow',
 };
 
 export function normalizeAppIcon(icon: string): string {

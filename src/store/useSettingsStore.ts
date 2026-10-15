@@ -179,7 +179,7 @@ function initLanguage(state: SettingsState): void {
 }
 
 function initTheme(state: SettingsState): void {
-    if (state.activeAppTheme && state.activeAppTheme !== 'none') {
+    if (state.activeAppTheme && state.activeAppTheme !== 'none' && state.activeAppTheme !== 'legendary') {
         state.setActiveAppTheme('none');
     }
 }
@@ -369,7 +369,7 @@ export const useSettingsStore = create<SettingsState>()(
             customAccentColor: null,
             setCustomAccentColor: (color) => set({ customAccentColor: color }),
             activeAppTheme: 'none',
-            setActiveAppTheme: (_theme) => set({ activeAppTheme: 'none' }),
+            setActiveAppTheme: (theme) => set({ activeAppTheme: theme === 'legendary' ? 'legendary' : 'none' }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],

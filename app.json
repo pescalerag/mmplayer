@@ -193,10 +193,10 @@
           },
           "legend": {
             "android": {
-              "foregroundImage": "./src/assets/images/app-icons/logoYellow.png",
-              "backgroundColor": "#5D4900"
+              "foregroundImage": "./src/assets/images/app-icons/logoLegend.png",
+              "backgroundColor": "#0A1511"
             },
-            "ios": "./src/assets/images/app-icons/logoYellow.png"
+            "ios": "./src/assets/images/app-icons/logoLegend.png"
           }
         }
       ],

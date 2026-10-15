@@ -9,7 +9,7 @@ import GlobalSyncIndicator from '@/components/common/GlobalSyncIndicator';
 import { ScannerService } from "../services/ScannerService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { Colors } from "../theme/theme";
+
 import { useAppTheme } from '../hooks/useAppTheme';
 
 import MiniPlayer from '@/components/player/MiniPlayer';
@@ -65,14 +65,14 @@ const CastingBanner = () => {
   return (
     <Animated.View style={[castBannerStyles.wrapper, { opacity, transform: [{ translateY }] }]}>
       <TouchableOpacity
-        style={[castBannerStyles.banner, { borderColor: colors.accentAlpha40 }]}
+        style={[castBannerStyles.banner, { borderColor: colors.accentAlpha40, backgroundColor: colors.cardBackground }]}
         onPress={openCastSheet}
         activeOpacity={0.8}
       >
         {/* Dot de estado activo */}
         <View style={[castBannerStyles.dot, { backgroundColor: colors.accentLight }]} />
         <Ionicons name={isChromecastConnected ? "tv" : "desktop"} size={13} color="#fff" style={{ marginRight: 5 }} />
-        <Text style={castBannerStyles.label}>
+        <Text style={[castBannerStyles.label, { color: colors.accentLight }]}>
           {isChromecastConnected
             ? t('cast.chromecast_connected_to', { device: connectedDeviceName || 'Chromecast' })
             : t('cast.banner_label')}
@@ -177,19 +177,10 @@ const SearchIcon = ({
   focused: boolean;
 }) => <TabBarIcon routeName="Buscar" color={color} focused={focused} />;
 
-const TabBarBackground = () => (
-  <LinearGradient
-    colors={[
-      "rgba(0, 0, 0, 0)",
-      "rgba(0, 0, 0, 0.65)",
-      "rgba(0, 0, 0, 0.90)",
-      "rgba(0, 0, 0, 0.98)",
-      Colors.background,
-    ]}
-    locations={[0, 0.2, 0.45, 0.75, 1]}
-    style={StyleSheet.absoluteFill}
-  />
-);
+const TabBarBackground = () => {
+  const { gradients } = useAppTheme();
+  return <LinearGradient colors={gradients.navigation} locations={[0, 0.2, 0.45, 0.75, 1]} style={StyleSheet.absoluteFill} />;
+};
 
 const createTabListener = (navigation: any, route: any) => ({
   tabPress: (e: any) => {

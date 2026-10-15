@@ -2,12 +2,9 @@ import { useMemo } from 'react';
 import { getAppColors, Layout, Typography, Spacing, Radii, FontWeights, Shadows, NavigationThemeDark } from '../theme/theme';
 import { Fonts } from '../theme/fonts';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { getLegendaryColors, isLegendaryThemeEnabled, LEGENDARY_PALETTE, DEFAULT_GRADIENTS, LEGENDARY_GRADIENTS } from '../theme/legendaryTheme';
 
-// Legendary theme accent colors: Triforce Gold as primary, Sacred Bronze as secondary
-export const LEGENDARY_ACCENT = '#F5B800';
-export const LEGENDARY_ACCENT_LIGHT = '#FDE047';
-export const LEGENDARY_ACCENT_SECONDARY = '#78350F';
-export const LEGENDARY_BG_IMAGE = require('../assets/images/legend-theme-bg.webp');
+export const LEGENDARY_ACCENT = LEGENDARY_PALETTE.gold;
 
 interface UseAppThemeOptions {
   ignoreTheme?: boolean;
@@ -18,10 +15,7 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   const customAccentColor = useSettingsStore(state => state.customAccentColor);
   const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
   const isVip = userTier === 'VIP';
-  const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
-  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
-  // const isLegendaryTheme = !options?.ignoreTheme && activeAppTheme === 'legendary' && isSupporterOrVIP;
-  const isLegendaryTheme = false;
+  const isLegendaryTheme = isLegendaryThemeEnabled(activeAppTheme, userTier, options?.ignoreTheme);
 
   // Legendary theme overrides custom accent; custom accent only applies when no theme is active
   const effectiveAccent = isLegendaryTheme
@@ -30,18 +24,7 @@ export function useAppTheme(options?: UseAppThemeOptions) {
 
 
   const colors = useMemo(() => {
-    const baseColors = getAppColors(effectiveAccent);
-    if (isLegendaryTheme) {
-      return {
-        ...baseColors,
-        background: 'transparent',
-        accent: LEGENDARY_ACCENT,
-        accentSecondary: LEGENDARY_ACCENT_SECONDARY,
-        accentDark: LEGENDARY_ACCENT_SECONDARY,
-        accentLight: LEGENDARY_ACCENT_LIGHT,
-      };
-    }
-    return baseColors;
+    return isLegendaryTheme ? getLegendaryColors() : getAppColors(effectiveAccent);
   }, [effectiveAccent, isLegendaryTheme]);
 
   const navigationTheme = useMemo(() => ({
@@ -49,16 +32,17 @@ export function useAppTheme(options?: UseAppThemeOptions) {
     colors: {
       ...NavigationThemeDark.colors,
       primary: colors.tint,
-      background: isLegendaryTheme ? 'transparent' : colors.background,
-      card: isLegendaryTheme ? 'transparent' : colors.cardBackground,
+      background: colors.background,
+      card: colors.cardBackground,
       text: colors.text,
-      border: colors.overlayAlpha10,
+      border: colors.border,
       notification: colors.accent,
     },
-  }), [colors, isLegendaryTheme]);
+  }), [colors]);
 
   return {
     colors,
+    gradients: isLegendaryTheme ? LEGENDARY_GRADIENTS : DEFAULT_GRADIENTS,
     fonts: Fonts,
     layout: Layout,
     typography: Typography,

@@ -3,9 +3,9 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-import { Platform } from 'react-native';
-import { DefaultTheme as NavigationDefaultTheme, DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
+import { DarkTheme as NavigationDarkTheme } from '@react-navigation/native';
 import { hexToRgba, lightenColor, darkenColor, getDynamicTagTextColor } from '../utils/color';
+import { Fonts } from './fonts';
 
 const tintColorDark = '#fff';
 
@@ -24,6 +24,10 @@ export function getAppColors(customAccent?: string | null) {
     disabled: '#535353',
     background: '#0F0F0F', // Un negro ligeramente grisáceo para mejorar la legibilidad
     cardBackground: '#1E1E1E',
+    sheetBackground: '#121212',
+    inputBackground: '#141414',
+    border: 'rgba(255, 255, 255, 0.08)',
+    accentSecondary: accentDark,
     heartIcon: '#EF4444',
     tint: tintColorDark,
     icon: '#9BA1A6',
@@ -58,7 +62,6 @@ export function getAppColors(customAccent?: string | null) {
 
 export const Colors = getAppColors();
 
-import { Fonts } from './fonts';
 
 export const Spacing = {
   xs: 4,

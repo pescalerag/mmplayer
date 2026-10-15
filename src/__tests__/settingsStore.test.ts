@@ -161,11 +161,21 @@ describe('useSettingsStore', () => {
       expect(i18nSpy).toHaveBeenCalledWith('es');
     });
 
-    it('resets theme to none if theme is not none', () => {
+    it('resets an unsupported theme to none', () => {
       const mockState = createMockState({ activeAppTheme: 'amoled' });
       const fn = getRehydrateFn();
       fn(mockState);
       expect(mockState.setActiveAppTheme).toHaveBeenCalledWith('none');
+    });
+
+    it('preserves the legendary theme between sessions', () => {
+      const mockState = createMockState({ activeAppTheme: 'legendary' });
+      getRehydrateFn()(mockState);
+      expect(mockState.setActiveAppTheme).not.toHaveBeenCalled();
+      useSettingsStore.getState().setActiveAppTheme('legendary');
+      expect(useSettingsStore.getState().activeAppTheme).toBe('legendary');
+      useSettingsStore.getState().setActiveAppTheme('none');
+      expect(useSettingsStore.getState().activeAppTheme).toBe('none');
     });
 
     it('migrates appTabsOrder and initialAppRoute from Configuración to Actividad', () => {

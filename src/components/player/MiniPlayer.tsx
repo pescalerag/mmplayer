@@ -388,7 +388,7 @@ const getStyles = (
     artist: { color: colors.textSecondary, fontSize: 12, fontFamily: fonts.regular, fontWeight: fontWeights.bold, marginTop: 2 },
     playPauseButton: { padding: spacing.xs || 4 },
     progressContainer: { width: '100%', height: 2.5, backgroundColor: colors.overlayAlpha15, position: 'absolute', bottom: 0 },
-    progressIndicator: { height: '100%', backgroundColor: colors.text },
+    progressIndicator: { height: '100%', backgroundColor: colors.tint },
 });
 
 export default MiniPlayer;

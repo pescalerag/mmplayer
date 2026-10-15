@@ -13,6 +13,7 @@ import { useSettingsStore, StatsCardTheme, LocalCastTheme, AppTheme } from '../.
 import { useAppTheme, LEGENDARY_ACCENT } from '../../hooks/useAppTheme';
 import { getDynamicTagTextColor } from '../../utils/color';
 import { normalizeAppIcon } from '../../utils/appIcon';
+import { LEGENDARY_PALETTE } from '../../theme/legendaryTheme';
 
 // Using require to safely handle the dynamic import if not installed fully native
 let setAppIcon: (name: string | null, isInBackground?: boolean) => Promise<any>;
@@ -379,7 +380,7 @@ export default function BenefitsView() {
         );
     };
 
-    const SHOW_APP_THEMES_FEATURE = false; // Deshabilitado para v2.3.0 - Vendrá en una futura versión
+    const SHOW_APP_THEMES_FEATURE = true;
 
     const handleAppThemeSelect = async (themeId: AppTheme) => {
         if (!SHOW_APP_THEMES_FEATURE) {
@@ -394,30 +395,19 @@ export default function BenefitsView() {
             return;
         }
 
-        setStoreAppTheme(themeId);
-
-        // When legendary theme is activated, also apply the legend icon
-        if (themeId === 'legendary') {
-            try {
-                if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                    await setAppIcon('legend', false);
-                }
-                setStoreAppIcon('legend');
-                // Disable custom accent color (theme overrides it)
-                setStoreCustomAccent(null);
-            } catch (e) {
-                console.warn('Could not set legend icon:', e);
+        try {
+            const icon = themeId === 'legendary' ? 'legend' : null;
+            if (Platform.OS === 'android' || Platform.OS === 'ios') {
+                const result = await setAppIcon(icon, false);
+                if (result === false) throw new Error('setAppIcon failed');
             }
-        } else if (themeId === 'none') {
-            // Restore default icon when theme is deactivated
-            try {
-                if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                    await setAppIcon(null, false);
-                }
-                setStoreAppIcon('DEFAULT');
-            } catch (e) {
-                console.warn('Could not reset icon:', e);
-            }
+            setStoreAppIcon(icon ?? 'DEFAULT');
+            setStoreAppTheme(themeId);
+            if (themeId === 'legendary') setStoreCustomAccent(null);
+        } catch (error) {
+            console.warn('Could not apply app theme:', error);
+            Alert.alert(t('common.error'), t('support.icon_updated_error'));
+            return;
         }
 
         Alert.alert(
@@ -570,13 +560,13 @@ export default function BenefitsView() {
                             >
                                 <View style={styles.previewWrapper}>
                                     <LinearGradient
-                                        colors={['#2A1604', '#78350F', LEGENDARY_ACCENT]}
+                                        colors={[LEGENDARY_PALETTE.background, LEGENDARY_PALETTE.card, '#345943']}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                         style={[styles.themePreviewBox]}
                                     >
                                         <Image
-                                            source={require('../../assets/images/app-icons/logoYellow.png')}
+                                            source={require('../../assets/images/app-icons/logoLegend.png')}
                                             style={styles.themePreviewIcon}
                                         />
                                     </LinearGradient>
@@ -1370,9 +1360,9 @@ const styles = StyleSheet.create({
     themeActiveChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 184, 0, 0.15)',
+        backgroundColor: 'rgba(201, 170, 100, 0.15)',
         borderWidth: 1,
-        borderColor: 'rgba(245, 184, 0, 0.35)',
+        borderColor: 'rgba(201, 170, 100, 0.35)',
         borderRadius: 10,
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -1380,7 +1370,7 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
     themeActiveChipText: {
-        color: '#F5B800',
+        color: LEGENDARY_ACCENT,
         fontSize: 11,
         fontWeight: '800',
         letterSpacing: 0.5,
@@ -1388,16 +1378,16 @@ const styles = StyleSheet.create({
     themeOverrideNotice: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 184, 0, 0.1)',
+        backgroundColor: 'rgba(201, 170, 100, 0.1)',
         borderWidth: 1,
-        borderColor: 'rgba(245, 184, 0, 0.25)',
+        borderColor: 'rgba(201, 170, 100, 0.25)',
         borderRadius: 8,
         paddingHorizontal: 10,
         paddingVertical: 6,
         marginBottom: 12,
     },
     themeOverrideNoticeText: {
-        color: '#F5B800',
+        color: LEGENDARY_ACCENT,
         fontSize: 12,
         fontWeight: '600',
         flex: 1,
