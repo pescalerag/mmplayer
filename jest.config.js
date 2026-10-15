@@ -20,6 +20,10 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/theme/legendaryTheme.ts',
+    'src/theme/develTheme.ts',
+    'src/theme/appTheme.ts',
+    'src/services/AppThemeService.ts',
     'src/utils/crossfadePolicy.ts',
     'src/services/CrossfadeService.ts',
     'src/services/playbackSnapshot.ts',

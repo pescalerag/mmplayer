@@ -103,7 +103,7 @@ export default function PlayerMenuSheet() {
         <BaseMenuSheet
             title={t('visualizer.menu_title') || 'Opciones de Visualización'}
             subtitle={t('visualizer.menu_desc') || 'Personaliza el visualizador en tiempo real'}
-            footer={<View style={{ height: insets.bottom + 16, flexShrink: 0, backgroundColor: '#121212', marginHorizontal: -24 }} />}
+            footer={<View style={{ height: insets.bottom + 16, flexShrink: 0, backgroundColor: colors.sheetBackground, marginHorizontal: -24 }} />}
         >
         
             <Text style={styles.sectionLabel}>{t('visualizer.cover_style')}</Text>

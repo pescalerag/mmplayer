@@ -140,7 +140,7 @@ export default function SortModalSheet() {
           <Text style={{ color: colors.onAccent, fontFamily: fonts.bold }}>{t('album_filters.apply')}</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ height: insets.bottom + 16, flexShrink: 0, backgroundColor: '#121212', marginHorizontal: -24 }} />
+      <View style={{ height: insets.bottom + 16, flexShrink: 0, backgroundColor: colors.sheetBackground, marginHorizontal: -24 }} />
     </View>
   );
 }

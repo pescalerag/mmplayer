@@ -110,7 +110,7 @@ export default function GlobalBottomSheet() {
     if (effectiveSheet) {
       setRenderedSheet(effectiveSheet);
       if (Platform.OS === 'android') {
-        NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
+        NavigationBar.setBackgroundColorAsync(colors.sheetBackground).catch(() => { });
       }
       dragTranslateY.value = 0;
       slideTranslateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.8 });
@@ -131,7 +131,7 @@ export default function GlobalBottomSheet() {
         }
       });
     }
-  }, [effectiveSheet, fadeAnim, slideTranslateY, dragTranslateY]);
+  }, [effectiveSheet, fadeAnim, slideTranslateY, dragTranslateY, colors.sheetBackground]);
 
   // Handle hardware back press on Android
   useEffect(() => {
@@ -304,7 +304,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.sheetBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 14,

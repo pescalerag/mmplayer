@@ -1,3 +1,4 @@
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import { openAlbumMenu, openArtistMenu, openFolderMenu, openLibraryTabsOrder, openPlaylistMenu, openPlaylistSelectorCreate, openSortModal } from '@/store/useUIStore';
 
 import LibraryCard from '@/components/cards/LibraryCard';
@@ -1161,7 +1162,7 @@ export default function LibraryScreen() {
         }
     };
 
-    const { colors } = useAppTheme();
+    const { colors, gradients, headerGlow } = useAppTheme();
 
     return (
         <View
@@ -1186,13 +1187,9 @@ export default function LibraryScreen() {
             </View>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
+            <ThemeHeaderAccent />
             <LinearGradient
-                colors={[
-                    '#000000',               // 0%: Funde perfecto con la parte superior negra del fondo
-                    'rgba(0, 0, 0, 0.95)',   // 45%: Muy oscuro detrás del título
-                    'rgba(0, 0, 0, 0.8)',    // 80%: Sombra sólida detrás de los selectores
-                    'transparent'            // 100%: Se desvanece suavemente sobre la primera fila de álbumes
-                ]}
+                colors={gradients.header}
                 locations={[0, 0.45, 0.8, 1]}
                 style={{
                     position: 'absolute',
@@ -1207,7 +1204,7 @@ export default function LibraryScreen() {
 
             {/* 2.5 CAPA DE ILUMINACIÓN DE ACENTO (SOBRE EL HUMO) */}
             <LinearGradient
-                colors={[colors.accentAlpha20, "transparent"]}
+                colors={headerGlow}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />

@@ -213,7 +213,7 @@ function TagDetailContent({
                 {/* Custom Gradient Header */}
                 <View style={styles.headerContainer}>
                     <LinearGradient
-                        colors={[tagColor, 'rgba(0,0,0,0.5)', Colors.background]}
+                        colors={[tagColor, 'rgba(0,0,0,0.5)', colors.background]}
                         locations={[0, 0.8, 1]}
                         style={styles.headerGradient}
                     />
@@ -293,7 +293,7 @@ function TagDetailContent({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent]);
+    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent, colors.background]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
