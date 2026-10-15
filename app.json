@@ -200,7 +200,8 @@
           }
         }
       ],
-      "./plugins/withAdaptiveIconFallbacks"
+      "./plugins/withAdaptiveIconFallbacks",
+      "./plugins/withAndroidAuto"
     ],
     "web": {
       "output": "static"

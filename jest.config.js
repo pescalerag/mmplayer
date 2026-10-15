@@ -20,6 +20,10 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/utils/androidAuto.ts',
+    'src/services/AndroidAutoCatalog.ts',
+    'src/services/AndroidAutoService.ts',
+    'src/services/playerBootstrap.ts',
     'src/theme/legendaryTheme.ts',
     'src/theme/develTheme.ts',
     'src/theme/appTheme.ts',

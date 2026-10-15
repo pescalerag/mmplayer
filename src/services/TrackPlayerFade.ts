@@ -151,6 +151,8 @@ TrackPlayer.reset = async () => {
 
 // Override play
 TrackPlayer.play = async (bypassFade = false) => {
+  const { usePlayerStore } = require('../store/usePlayerStore');
+  if (usePlayerStore.getState().isPreparingExternal) usePlayerStore.setState({ isPreparingExternal: false });
   const opId = ++currentOperationId;
   clearFadeTimer();
   setIsFadingOut(false);

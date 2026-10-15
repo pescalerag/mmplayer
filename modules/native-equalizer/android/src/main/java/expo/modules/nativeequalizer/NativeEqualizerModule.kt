@@ -174,6 +174,40 @@ class NativeEqualizerModule : Module() {
 
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
+        Events("androidAutoRequest")
+        AsyncFunction("invalidateAndroidAuto") {
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService").getMethod("invalidateAndroidAuto").invoke(null)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("updateAndroidAutoState") { json: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService").getMethod("updateAndroidAutoState", String::class.java).invoke(null, json)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("startAndroidAutoBridge") {
+            val bridge = Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+            val consumer = java.util.function.Consumer<android.os.Bundle> { request ->
+                val payload = request.keySet().associateWith { key ->
+                    val value = request.get(key)
+                    if (value is android.os.Bundle) value.keySet().associateWith { value.getString(it) } else value
+                }
+                sendEvent("androidAutoRequest", payload)
+            }
+            bridge.getMethod("setListener", java.util.function.Consumer::class.java).invoke(null, consumer)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("completeAndroidAutoRequest") { id: String, result: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+                .getMethod("complete", String::class.java, String::class.java).invoke(null, id, result)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("isAndroidAutoRequestPending") { id: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+                .getMethod("isPending", String::class.java).invoke(null, id) as Boolean
+        }.runOnQueue(Queues.MAIN)
+
+        OnDestroy {
+            Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+                .getMethod("setListener", java.util.function.Consumer::class.java).invoke(null, null)
+        }
 
         AsyncFunction("setCrossfadeSettings") { seconds: Double, allowed: Boolean ->
             require(seconds.isFinite()) { "Invalid crossfade duration" }

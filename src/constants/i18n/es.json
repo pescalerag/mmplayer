@@ -1834,5 +1834,27 @@
     "probing": "Probando conexión con ",
     "network_error": "FALLO RED/CORS: ",
     "unknown_error": "Error desconocido"
+  },
+  "android_auto": {
+    "home": "Inicio",
+    "library": "Biblioteca",
+    "playlists": "Playlists",
+    "queues": "Colas",
+    "continue": "Continuar escuchando",
+    "favorites": "Favoritos",
+    "recents": "Recientes",
+    "smart": "Listas inteligentes",
+    "albums": "Álbumes",
+    "artists": "Artistas",
+    "tracks": "Canciones",
+    "tags": "Etiquetas",
+    "folders": "Carpetas",
+    "queue_name": "Cola {{number}}",
+    "cast_active": "Finaliza Cast en el móvil antes de reproducir desde Android Auto.",
+    "busy": "El reproductor está ocupado. Inténtalo de nuevo.",
+    "no_results": "No se ha encontrado música.",
+    "empty_queue": "Esta cola está vacía.",
+    "shuffle": "Aleatorio",
+    "repeat": "Repetición"
   }
 }

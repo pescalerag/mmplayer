@@ -294,6 +294,7 @@ interface PlayerState {
     index: number,
     context?: string,
     instanceIds?: string[],
+    autoplay?: boolean,
   ) => Promise<void>;
   startShuffled: (tracks: Track[], context?: string, instanceIds?: string[]) => Promise<void>;
   playRandomQueueOnEnd: () => Promise<void>;
@@ -327,6 +328,7 @@ interface PlayerState {
   handleRelocatedTracks: (relocatedTrackIds: string[]) => Promise<void>;
   checkAndPauseIfTracksActiveOrQueued: (trackIds: string[]) => Promise<boolean>;
   isRestoring: boolean;
+  isPreparingExternal: boolean;
   isQueueLoading: boolean;
   isSyncingLyrics: boolean;
   setIsSyncingLyrics: (value: boolean) => void;
@@ -789,6 +791,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   recentMedia: [],
   recentPlaylists: [],
   isRestoring: false,
+  isPreparingExternal: false,
   isQueueLoading: false,
   isSyncingLyrics: false,
   setIsSyncingLyrics: (value) => set({ isSyncingLyrics: value }),
@@ -807,14 +810,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  loadQueue: async (tracks, index, context = "unknown", instanceIds?: string[]) => {
+  loadQueue: async (tracks, index, context = "unknown", instanceIds?: string[], autoplay = true) => {
     if (useMultipleQueuesStore.getState().isSwitching) return;
     const finishQueueEdit = beginActiveQueueEdit();
     try {
       await get().cancelQueueLoading();
       const loadId = ++currentLoadId;
       try {
-        set({ isQueueLoading: true });
+        set({ isQueueLoading: true, isPreparingExternal: !autoplay });
         const CHUNK_SIZE = 15;
 
         const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
@@ -826,6 +829,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (currentLoadId !== loadId) return;
 
         await flushCurrentTrackToHistory();
+        if (!autoplay) await (TrackPlayer.pause as (bypassFade?: boolean) => Promise<void>)(true);
         await TrackPlayer.stop().catch(() => { });
         await TrackPlayer.reset();
         lastAppliedSpeed = null;
@@ -839,7 +843,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (useCastStore.getState().isServerRunning) {
           LocalCastService.setPlayIntent(true);
         }
-        await TrackPlayer.play();
+        if (autoplay) await TrackPlayer.play();
 
         set({
           activeTrack: tracks[index],
@@ -875,6 +879,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (currentLoadId === loadId) {
           set({ isQueueLoading: false });
         }
+        if (!autoplay) throw error;
       }
     } finally { finishQueueEdit(); }
   },
@@ -1558,7 +1563,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         index !== undefined && index !== null && index >= 0 && index < queue.length
           ? index
           : 0;
-      if (suppliedSession) {
+      if (suppliedSession || session) {
         // The native engine accepts the initial position before duration metadata is loaded.
         await TrackPlayer.skip(safeIndex, Math.max(0, position));
       } else {

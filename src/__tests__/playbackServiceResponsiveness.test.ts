@@ -1,4 +1,6 @@
 import TrackPlayer, { Event, State } from 'react-native-track-player';
+jest.mock('../services/AndroidAutoService', () => ({ startAndroidAutoService: jest.fn() }));
+jest.mock('../services/playerBootstrap', () => ({ ensurePlaybackReady: jest.fn().mockResolvedValue(undefined) }));
 import { PlaybackService, PlaybackTimeTracker } from '../services/PlaybackService';
 import { HistoryService } from '../services/HistoryService';
 import { usePlayerStore } from '../store/usePlayerStore';

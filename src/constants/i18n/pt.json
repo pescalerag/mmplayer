@@ -1834,5 +1834,27 @@
     "probing": "A testar a ligação a ",
     "network_error": "ERRO DE REDE/CORS: ",
     "unknown_error": "Erro desconhecido"
+  },
+  "android_auto": {
+    "home": "Início",
+    "library": "Biblioteca",
+    "playlists": "Playlists",
+    "queues": "Filas",
+    "continue": "Continuar a ouvir",
+    "favorites": "Favoritos",
+    "recents": "Recentes",
+    "smart": "Listas inteligentes",
+    "albums": "Álbuns",
+    "artists": "Artistas",
+    "tracks": "Músicas",
+    "tags": "Etiquetas",
+    "folders": "Pastas",
+    "queue_name": "Fila {{number}}",
+    "cast_active": "Termina o Cast no telemóvel antes de reproduzir no Android Auto.",
+    "busy": "O leitor está ocupado. Tenta novamente.",
+    "no_results": "Não foi encontrada música.",
+    "empty_queue": "Esta fila está vazia.",
+    "shuffle": "Aleatório",
+    "repeat": "Repetição"
   }
 }

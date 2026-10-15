@@ -1834,5 +1834,27 @@
     "probing": "Testing connection to ",
     "network_error": "NETWORK/CORS ERROR: ",
     "unknown_error": "Unknown error"
+  },
+  "android_auto": {
+    "home": "Home",
+    "library": "Library",
+    "playlists": "Playlists",
+    "queues": "Queues",
+    "continue": "Continue listening",
+    "favorites": "Favorites",
+    "recents": "Recently played",
+    "smart": "Smart playlists",
+    "albums": "Albums",
+    "artists": "Artists",
+    "tracks": "Songs",
+    "tags": "Tags",
+    "folders": "Folders",
+    "queue_name": "Queue {{number}}",
+    "cast_active": "Stop casting on your phone before playing in Android Auto.",
+    "busy": "The player is busy. Try again shortly.",
+    "no_results": "No matching music found.",
+    "empty_queue": "This queue is empty.",
+    "shuffle": "Shuffle",
+    "repeat": "Repeat"
   }
 }

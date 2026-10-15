@@ -2,7 +2,6 @@ import TrackPlayer, { Event, State, RemotePlaySearchEvent, PlaybackActiveTrackCh
 import { createMMKV } from "react-native-mmkv";
 import { database } from "../database";
 import Track from "../database/models/Track";
-import { Q } from "@nozbe/watermelondb";
 import { LyricsSyncService } from "./LyricsSyncService";
 import { useCastStore } from "../store/useCastStore";
 import { updateWidget } from "../../modules/native-audio-scanner";
@@ -12,6 +11,8 @@ import i18n from "../constants/i18n";
 import { startNotificationFavoritesSync } from './NotificationFavoritesService';
 import { PlaybackListenService } from './PlaybackListenService';
 import { isSuspendedQueueListen, persistQueueTime, useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
+import { handleAutoRequest, startAndroidAutoService } from './AndroidAutoService';
+import { ensurePlaybackReady } from './playerBootstrap';
 
 const SKIP_PREVIOUS_THRESHOLD = 3;
 
@@ -203,10 +204,18 @@ async function persistLoopListen(position: number, duration: number) {
 }
 
 export const PlaybackService = async function () {
+  startAndroidAutoService();
+  void ensurePlaybackReady().catch(error => console.error('[Playback] Initialization failed:', error));
   startNotificationFavoritesSync();
-  TrackPlayer.addEventListener(Event.RemotePlay, () => useMultipleQueuesStore.getState().isSwitching ? Promise.resolve() : TrackPlayer.play());
-  TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
+  TrackPlayer.addEventListener(Event.RemotePlay, async () => {
+    await ensurePlaybackReady();
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    usePlayerStore.setState({ isPreparingExternal: false });
+    await TrackPlayer.play();
+  });
+  TrackPlayer.addEventListener(Event.RemotePause, async () => { await ensurePlaybackReady(); await TrackPlayer.pause(); });
   TrackPlayer.addEventListener(Event.RemotePlayPause, async () => {
+    await ensurePlaybackReady();
     if (useMultipleQueuesStore.getState().isSwitching) return;
     const state = await TrackPlayer.getPlaybackState();
     if (state.state === State.Playing) {
@@ -216,6 +225,7 @@ export const PlaybackService = async function () {
     }
   });
   TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+    await ensurePlaybackReady();
     if (useMultipleQueuesStore.getState().isSwitching) return;
     console.log("[PlaybackService] Event.RemoteNext triggered");
     if (usePlayerStore.getState().isSyncingLyrics) {
@@ -225,6 +235,7 @@ export const PlaybackService = async function () {
     await usePlayerStore.getState().skipToNext();
   });
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+    await ensurePlaybackReady();
     if (useMultipleQueuesStore.getState().isSwitching) return;
     console.log("[PlaybackService] Event.RemotePrevious triggered");
     if (usePlayerStore.getState().isSyncingLyrics) {
@@ -269,6 +280,7 @@ export const PlaybackService = async function () {
   });
 
   TrackPlayer.addEventListener(Event.RemoteStop, async () => {
+    await ensurePlaybackReady();
     try {
       await TrackPlayer.pause();
       await usePlayerStore.getState().savePlaybackState();
@@ -277,7 +289,7 @@ export const PlaybackService = async function () {
       console.error("[PlaybackService] Error handling RemoteStop:", e);
     }
   });
-  TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
+  TrackPlayer.addEventListener(Event.RemoteSeek, async event => { await ensurePlaybackReady(); await TrackPlayer.seekTo(event.position); });
   TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
     if (useMultipleQueuesStore.getState().isSwitching) return;
     try {
@@ -460,29 +472,12 @@ export const PlaybackService = async function () {
   );
 
   TrackPlayer.addEventListener(Event.RemotePlaySearch, async (event: RemotePlaySearchEvent) => {
-    console.log('[Voice Assistant] Request:', event);
-    const searchTerm = event.title || event.artist || event.query || '';
-    if (!searchTerm) {
-      await TrackPlayer.play();
-      return;
-    }
     try {
-      const tracksCollection = database.collections.get<Track>('tracks');
-      const results = await tracksCollection.query(
-        Q.or(
-          Q.where('title', Q.like(`%${Q.sanitizeLikeString(searchTerm)}%`)),
-          Q.where('artist', Q.like(`%${Q.sanitizeLikeString(searchTerm)}%`))
-        )
-      ).fetch();
-
-      if (results.length > 0) {
-        await usePlayerStore.getState().loadQueue(results, 0, "voice_search");
-        await TrackPlayer.play();
-      } else {
-        console.log('[Voice Assistant] No tracks found for:', searchTerm);
-      }
+      await handleAutoRequest({ id: 'voice', kind: 'prepare', query: event.title || event.artist || event.query || '' });
+      usePlayerStore.setState({ isPreparingExternal: false });
+      await TrackPlayer.play();
     } catch (error) {
-      console.error('[Voice Assistant] DB error:', error);
+      console.error('[Voice Assistant] Playback request failed:', error);
     }
   });
 };

@@ -42,7 +42,7 @@ import { MediaAssetService } from "./src/services/MediaAssetService";
 import { NotificationService } from "./src/services/NotificationService";
 import { PurchasesService } from "./src/services/PurchasesService";
 import { ScannerService } from "./src/services/ScannerService";
-import { setupPlayer } from "./src/services/trackPlayerSetup";
+import { ensurePlaybackReady } from "./src/services/playerBootstrap";
 import { usePlayerStore } from "./src/store/usePlayerStore";
 import { useSettingsStore } from './src/store/useSettingsStore';
 import { reconcileExclusiveThemeIcon } from './src/services/AppThemeService';
@@ -91,12 +91,11 @@ export default function App() {
           "Montserrat-Italic": require("./src/assets/fonts/Montserrat-Italic-VariableFont_wght.ttf"),
         });
 
-        await setupPlayer();
+        await ensurePlaybackReady();
         ChromecastService.init();
         PurchasesService.init().catch(err => console.warn('PurchasesService init warning:', err));
         NotificationService.init().catch(err => console.warn('NotificationService init warning:', err));
         // Restaurar cola persistida del último cierre de la app
-        await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
         await usePlayerStore.getState().restoreRecentsState();
 

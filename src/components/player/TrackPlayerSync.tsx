@@ -7,14 +7,13 @@ import TrackPlayer, {
 import { consumeUserQueueTransition, usePlayerStore } from '../../store/usePlayerStore';
 import { subscribeToPlaybackSnapshot } from '../../store/usePlaybackSnapshotStore';
 import { subscribeToQueueSnapshot } from '../../store/useQueueSnapshotStore';
-import { EqualizerService } from '../../services/EqualizerService';
 import { useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 
 const resumeTrackPlayback = async (track: any) => {
     const isRestoring = usePlayerStore.getState().isRestoring;
     // Restore v2.3.2: moving to another song starts playback even from pause.
     // Restoration itself still respects the saved paused state.
-    if (!isRestoring && !useMultipleQueuesStore.getState().isSwitching && track?.id) {
+    if (!isRestoring && !usePlayerStore.getState().isPreparingExternal && !useMultipleQueuesStore.getState().isSwitching && track?.id) {
         await TrackPlayer.play();
     }
 };
@@ -65,7 +64,6 @@ export const handleActiveTrackChangedEvent = async (event: any) => {
 export const TrackPlayerSync = () => {
     useEffect(subscribeToPlaybackSnapshot, []);
     useEffect(subscribeToQueueSnapshot, []);
-    useEffect(() => EqualizerService.subscribeToPlayback(), []);
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {

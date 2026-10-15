@@ -64,6 +64,7 @@ error.log
 *.tgz
 coverage/
 build/
+.android-auto-debug/
 
 # Documentation
 react-native-track-player-api/
