@@ -116,7 +116,7 @@ export const PlayerArtwork = ({
                     source={imageSource}
                     recyclingKey={effectiveUri}
                     style={StyleSheet.absoluteFill}
-                    contentFit="contain"
+                    contentFit="cover"
                     transition={0}
                     cachePolicy="memory-disk"
                     onLoad={() => {
