@@ -68,6 +68,29 @@ index 0000000..626e0e1
 +org.eclipse.jdt.core.compiler.codegen.targetPlatform=17
 +org.eclipse.jdt.core.compiler.compliance=17
 +org.eclipse.jdt.core.compiler.source=17
+diff --git a/node_modules/react-native-track-player/android/build.gradle b/node_modules/react-native-track-player/android/build.gradle
+index 763583c..3ada2bb 100644
+--- a/node_modules/react-native-track-player/android/build.gradle
++++ b/node_modules/react-native-track-player/android/build.gradle
+@@ -45,6 +45,8 @@ android {
+     }
+   }
+ 
++  testOptions { unitTests.includeAndroidResources = true }
++
+   lintOptions {
+     disable "GradleCompatible"
+   }
+@@ -72,6 +74,9 @@ repositories {
+ def kotlin_version = getExtOrDefault("kotlinVersion")
+ 
+ dependencies {
++  testImplementation "junit:junit:4.13.2"
++  testImplementation "org.robolectric:robolectric:4.14.1"
++  testImplementation "org.mockito:mockito-core:5.14.2"
+   implementation "com.facebook.react:react-android"
+   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+ 
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt
 index 5a1b2bf..757c1c8 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/models/AudioItem.kt
@@ -112,18 +135,82 @@ index 9b48e32..411ad73 100644
              .setDisplayName("Next")
              .setSessionCommand(SessionCommand("NEXT", Bundle()))
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
-index a0f995c..75be9ec 100644
+index a0f995c..ba27ed1 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/BaseAudioPlayer.kt
-@@ -58,6 +58,7 @@ abstract class BaseAudioPlayer internal constructor(
+@@ -45,8 +45,10 @@ abstract class BaseAudioPlayer internal constructor(
+     val options: PlayerOptions = PlayerOptions()
+ ) {
+ 
+-    val exoPlayer: ExoPlayer
+-    val forwardingPlayer: InnerForwardingPlayer
++    var exoPlayer: ExoPlayer
++        private set
++    var forwardingPlayer: InnerForwardingPlayer
++        private set
+     val player: Player
+         get() {
+             return options.interceptPlayerActionsTriggeredExternally
+@@ -54,13 +56,16 @@ abstract class BaseAudioPlayer internal constructor(
+                 ?.let { forwardingPlayer }
+                 ?: exoPlayer
+         }
+-    private var playerListener = InnerPlayerListener()
++    private lateinit var playerListener: InnerPlayerListener
++    var onPlayerReplaced: (() -> Unit)? = null
      private val scope = MainScope()
      private var cache: SimpleCache? = null
      val playerEventHolder = PlayerEventHolder()
-+    val replayGainRenderer = ReplayGainRenderersFactory(context)
++    var replayGainRenderer = ReplayGainRenderersFactory(context)
++        private set
  
      private var wasDucking = false
-     private val focusManager: FocusManager = FocusManager()
-@@ -161,7 +162,7 @@ abstract class BaseAudioPlayer internal constructor(
+-    private val focusManager: FocusManager = FocusManager()
++    internal val focusManager: FocusManager = FocusManager()
+ 
+     var alwaysPauseOnInterruption: Boolean
+         get() = options.alwaysPauseOnInterruption
+@@ -75,11 +80,13 @@ abstract class BaseAudioPlayer internal constructor(
+             if (value != field) {
+                 field = value
+                 playerEventHolder.updateAudioPlayerState(value)
+-                if (!options.handleAudioFocus) {
++                run {
+                     when (value) {
+                         AudioPlayerState.IDLE,
+-                        AudioPlayerState.ERROR -> focusManager.abandonAudioFocusIfHeld()
+-                        AudioPlayerState.READY -> focusManager.requestAudioFocus()
++                        AudioPlayerState.ERROR,
++                        AudioPlayerState.STOPPED,
++                        AudioPlayerState.ENDED -> focusManager.abandonAudioFocusIfHeld()
++                        AudioPlayerState.READY -> if (exoPlayer.playWhenReady) focusManager.requestAudioFocus()
+                         else -> {}
+                     }
+                 }
+@@ -118,15 +125,19 @@ abstract class BaseAudioPlayer internal constructor(
+     private var volumeMultiplier = 1f
+         private set(value) {
+             field = value
+-            volume = volume
++            applyEffectiveVolume(logicalVolume * volumeMultiplier)
+         }
+ 
++    private var logicalVolume = 1f
+     var volume: Float
+-        get() = exoPlayer.volume
++        get() = logicalVolume
+         set(value) {
+-            exoPlayer.volume = value * volumeMultiplier
++            logicalVolume = value.coerceIn(0f, 1f)
++            applyEffectiveVolume(logicalVolume * volumeMultiplier)
+         }
+ 
++    protected open fun applyEffectiveVolume(value: Float) { exoPlayer.volume = value }
++
+     var playbackSpeed: Float
+         get() = exoPlayer.playbackParameters.speed
+         set(value) {
+@@ -161,7 +172,7 @@ abstract class BaseAudioPlayer internal constructor(
          }
          playerEventHolder.updateAudioPlayerState(AudioPlayerState.IDLE)
  
@@ -132,11 +219,655 @@ index a0f995c..75be9ec 100644
          renderer.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
          exoPlayer = ExoPlayer
              .Builder(context)
+@@ -180,11 +191,49 @@ abstract class BaseAudioPlayer internal constructor(
+             .setUsage(C.USAGE_MEDIA)
+             .setContentType(options.audioContentType)
+             .build()
+-        exoPlayer.setAudioAttributes(audioAttributes, options.handleAudioFocus)
++        // One focus owner survives deck swaps and pauses/ducks both voices together.
++        exoPlayer.setAudioAttributes(audioAttributes, false)
+         forwardingPlayer = InnerForwardingPlayer(exoPlayer)
++        playerListener = InnerPlayerListener(exoPlayer)
+         player.addListener(playerListener)
+     }
+ 
++    // Secondary decks share the existing data source/cache, but own their decoder and ReplayGain processor.
++    internal fun createCrossfadeDeck(): Pair<ExoPlayer, ReplayGainRenderersFactory> {
++        val renderer = ReplayGainRenderersFactory(context)
++        renderer.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
++        val deck = ExoPlayer.Builder(context)
++            .setRenderersFactory(renderer)
++            .setMediaSourceFactory(MediaFactory(context, cache))
++            .setLoadControl(setupBuffer(options.bufferOptions))
++            .setHandleAudioBecomingNoisy(options.handleAudioBecomingNoisy)
++            .setWakeMode(setWakeMode(options.wakeMode))
++            .setSkipSilenceEnabled(options.skipSilence)
++            .setName("mmplayer-crossfade")
++            .build()
++        deck.setAudioAttributes(exoPlayer.audioAttributes, false)
++        // A shared session keeps EQ, BassBoost and the visualizer on the complete mix.
++        // The coordinator refuses to overlap if the device does not honor this session.
++        if (exoPlayer.audioSessionId > 0) deck.audioSessionId = exoPlayer.audioSessionId
++        deck.playbackParameters = exoPlayer.playbackParameters
++        return deck to renderer
++    }
++
++    internal fun promoteCrossfadeDeck(deck: ExoPlayer, renderer: ReplayGainRenderersFactory) {
++        player.removeListener(playerListener)
++        exoPlayer.setAudioAttributes(exoPlayer.audioAttributes, false)
++        exoPlayer = deck
++        replayGainRenderer = renderer
++        forwardingPlayer = InnerForwardingPlayer(deck)
++        playerListener = InnerPlayerListener(deck)
++        player.addListener(playerListener)
++        onPlayerReplaced?.invoke()
++        deck.setAudioAttributes(deck.audioAttributes, false)
++        deck.play()
++        playbackError = null
++        playerState = if (deck.isPlaying) AudioPlayerState.PLAYING else AudioPlayerState.BUFFERING
++    }
++
+     /**
+      * Will replace the current item with a new one and load it into the player.
+      * @param item The [AudioItem] to replace the current one.
+@@ -218,20 +267,23 @@ abstract class BaseAudioPlayer internal constructor(
+             exoPlayer.skipSilenceEnabled = value
+         }
+ 
+-    fun play() {
++    open fun play() {
++        focusManager.preventAutomaticResume()
++        if (options.handleAudioFocus && !focusManager.requestAudioFocus()) return
+         exoPlayer.play()
+         if (currentItem != null) {
+             exoPlayer.prepare()
+         }
+     }
+ 
+-    fun prepare() {
++    open fun prepare() {
+         if (currentItem != null) {
+             exoPlayer.prepare()
+         }
+     }
+ 
+-    fun pause() {
++    open fun pause() {
++        focusManager.preventAutomaticResume()
+         exoPlayer.pause()
+     }
+ 
+@@ -242,6 +294,7 @@ abstract class BaseAudioPlayer internal constructor(
+      */
+     @CallSuper
+     open fun stop() {
++        focusManager.preventAutomaticResume()
+         playerState = AudioPlayerState.STOPPED
+         exoPlayer.playWhenReady = false
+         exoPlayer.stop()
+@@ -283,16 +336,18 @@ abstract class BaseAudioPlayer internal constructor(
+     }
+ 
+     @UnstableApi
+-    inner class InnerPlayerListener : Listener {
++    inner class InnerPlayerListener(private val observedPlayer: ExoPlayer) : Listener {
+ 
+         /**
+          * Called when there is metadata associated with the current playback time.
+          */
+         override fun onMetadata(metadata: Metadata) {
++            if (observedPlayer !== exoPlayer) return;
+             playerEventHolder.updateOnTimedMetadata(metadata)
+         }
+ 
+         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
++            if (observedPlayer !== exoPlayer) return;
+             playerEventHolder.updateOnCommonMetadata(mediaMetadata)
+         }
+ 
+@@ -306,6 +361,7 @@ abstract class BaseAudioPlayer internal constructor(
+             newPosition: Player.PositionInfo,
+             reason: Int
+         ) {
++            if (observedPlayer !== exoPlayer) return
+             this@BaseAudioPlayer.oldPosition = oldPosition.positionMs
+ 
+             when (reason) {
+@@ -349,6 +405,7 @@ abstract class BaseAudioPlayer internal constructor(
+          * playlist becomes non-empty or empty as a consequence of a playlist change.
+          */
+         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
++            if (observedPlayer !== exoPlayer) return;
+             when (reason) {
+                 Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> playerEventHolder.updateAudioItemTransition(
+                     AudioItemTransitionReason.AUTO(oldPosition)
+@@ -369,6 +426,11 @@ abstract class BaseAudioPlayer internal constructor(
+          * Called when the value returned from Player.getPlayWhenReady() changes.
+          */
+         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
++            if (observedPlayer !== exoPlayer) return;
++            if (options.handleAudioFocus && playWhenReady && !focusManager.requestAudioFocus()) {
++                exoPlayer.pause()
++                return
++            }
+             val pausedBecauseReachedEnd = reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM
+             playerEventHolder.updatePlayWhenReadyChange(PlayWhenReadyChangeData(playWhenReady, pausedBecauseReachedEnd))
+         }
+@@ -379,6 +441,7 @@ abstract class BaseAudioPlayer internal constructor(
+          * to the individual events.
+          */
+         override fun onEvents(player: Player, events: Player.Events) {
++            if (observedPlayer !== exoPlayer) return;
+             // Note that it is necessary to set `playerState` in order, since each mutation fires an
+             // event.
+             for (i in 0 until events.size()) {
+@@ -430,6 +493,7 @@ abstract class BaseAudioPlayer internal constructor(
+         }
+ 
+         override fun onPlayerError(error: PlaybackException) {
++            if (observedPlayer !== exoPlayer) return;
+             val _playbackError = PlaybackError(
+                 error.errorCodeName
+                     .replace("ERROR_CODE_", "")
+@@ -530,37 +594,17 @@ abstract class BaseAudioPlayer internal constructor(
+     inner class FocusManager() {
+         private var hasAudioFocus = false
+         private var focus: AudioFocusRequestCompat? = null
++        private var resumeOnGain = false
++        fun preventAutomaticResume() { resumeOnGain = false }
+ 
+-        fun requestAudioFocus() {
+-            if (hasAudioFocus) return
++        fun requestAudioFocus(): Boolean {
++            if (hasAudioFocus) return true
+ 
+             val manager = ContextCompat.getSystemService(context, AudioManager::class.java)
+ 
+             focus = AudioFocusRequestCompat.Builder(AudioManagerCompat.AUDIOFOCUS_GAIN)
+                 .setOnAudioFocusChangeListener(
+-                    { focusChange ->
+-                        Timber.d("Audio focus changed")
+-                        val isPermanent = focusChange == AudioManager.AUDIOFOCUS_LOSS
+-                        val isPaused = when (focusChange) {
+-                            AudioManager.AUDIOFOCUS_LOSS, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> true
+-                            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> options.alwaysPauseOnInterruption
+-                            else -> false
+-                        }
+-                        if (!options.handleAudioFocus) {
+-                            if (isPermanent) focusManager.abandonAudioFocusIfHeld()
+-
+-                            val isDucking = focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK
+-                                    && !options.alwaysPauseOnInterruption
+-                            if (isDucking) {
+-                                volumeMultiplier = 0.5f
+-                                wasDucking = true
+-                            } else if (wasDucking) {
+-                                volumeMultiplier = 1f
+-                                wasDucking = false
+-                            }
+-                        }
+-                        playerEventHolder.updateOnAudioFocusChanged(isPaused, isPermanent)
+-                    }
++                    { focusChange -> handleAudioFocusChange(focusChange) }
+                 )
+                 .setAudioAttributes(
+                     AudioAttributesCompat.Builder()
+@@ -578,6 +622,38 @@ abstract class BaseAudioPlayer internal constructor(
+             }
+ 
+             hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
++            return hasAudioFocus
++        }
++
++        internal fun handleAudioFocusChange(focusChange: Int) {
++            Timber.d("Audio focus changed")
++            val isPermanent = focusChange == AudioManager.AUDIOFOCUS_LOSS
++            val isPaused = when (focusChange) {
++                AudioManager.AUDIOFOCUS_LOSS, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> true
++                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> options.alwaysPauseOnInterruption
++                else -> false
++            }
++            val isDucking = focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK
++                && !options.alwaysPauseOnInterruption
++            if (isDucking) {
++                volumeMultiplier = 0.5f
++                wasDucking = true
++            } else if (wasDucking) {
++                volumeMultiplier = 1f
++                wasDucking = false
++            }
++            if (options.handleAudioFocus) {
++                if (isPaused) {
++                    val resume = !isPermanent && exoPlayer.playWhenReady
++                    this@BaseAudioPlayer.pause()
++                    resumeOnGain = resume
++                } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN && resumeOnGain) {
++                    resumeOnGain = false
++                    this@BaseAudioPlayer.play()
++                }
++            }
++            if (isPermanent) focusManager.abandonAudioFocusIfHeld()
++            playerEventHolder.updateOnAudioFocusChanged(isPaused, isPermanent)
+         }
+ 
+         fun abandonAudioFocusIfHeld() {
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinator.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinator.kt
+new file mode 100644
+index 0000000..5069daa
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinator.kt
+@@ -0,0 +1,264 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import android.content.Context
++import android.content.SharedPreferences
++import android.os.Handler
++import android.os.Looper
++import android.os.SystemClock
++import androidx.media3.common.C
++import androidx.media3.common.MediaItem
++import androidx.media3.common.PlaybackException
++import androidx.media3.common.Player
++import androidx.media3.exoplayer.ExoPlayer
++import java.util.UUID
++
++/** Owns only secondary ExoPlayers. Their release must never release the shared cache. */
++interface CrossfadeHost {
++    val crossfadePlayer: ExoPlayer
++    fun crossfadeItem(index: Int): MediaItem? = crossfadeItems().getOrNull(index)
++    fun crossfadeItems(): List<MediaItem>
++    fun createDeck(): Pair<ExoPlayer, ReplayGainRenderersFactory>
++    fun promote(deck: ExoPlayer, renderer: ReplayGainRenderersFactory)
++    fun crossfadeStarted(index: Int, position: Long, transitionId: String)
++}
++
++class CrossfadeCoordinator(private val host: CrossfadeHost, context: Context) {
++    private val preferences = context.getSharedPreferences("mmplayer_crossfade", Context.MODE_PRIVATE)
++    private val handler = Handler(Looper.getMainLooper())
++    private var prepared: ExoPlayer? = null
++    private var renderer: ReplayGainRenderersFactory? = null
++    private var outgoing: ExoPlayer? = null
++    private var envelope: CrossfadeEnvelope? = null
++    private var observed: ExoPlayer? = null
++    private var destroyed = false
++    private var seekBlockedId: String? = null
++    private var failedId: String? = null
++    private var previousIncomingGain = 1f
++    private var masterVolume = 1f
++    private var outgoingIndex = -1
++    private var incomingId: String? = null
++    private var deckIndex = -1
++    private var scheduled = false
++    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
++        handler.post { if (!destroyed) { applyPolicy(); wake() } }
++    }
++    private val transportListener = object : Player.Listener {
++        override fun onIsPlayingChanged(isPlaying: Boolean) {
++            if (!isPlaying) pauseTail()
++            wake()
++        }
++        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
++            if (!playWhenReady) pauseTail()
++            wake()
++        }
++    }
++    private val tick = Runnable {
++        scheduled = false
++        try { runTick() } catch (error: Exception) {
++            failedId = prepared?.currentMediaItem?.mediaId
++            cancel()
++            timber.log.Timber.w(error, "Crossfade unavailable; keeping ordinary playback")
++        }
++    }
++
++    init { preferences.registerOnSharedPreferenceChangeListener(preferenceListener) }
++
++    private fun configured() = preferences.getInt("durationMs", 0).coerceIn(0, 12000).toLong()
++    private fun allowed() = preferences.getBoolean("allowed", false)
++    fun isMixing() = outgoing != null
++
++    fun wake() {
++        if (destroyed) return
++        if (observed !== host.crossfadePlayer) {
++            observed?.removeListener(transportListener)
++            observed = host.crossfadePlayer
++            observed?.addListener(transportListener)
++        }
++        if (!scheduled && (configured() > 0 || isMixing())) {
++            scheduled = true
++            handler.post(tick)
++        }
++    }
++
++    fun refreshPolicy() { applyPolicy(); wake() }
++
++    private fun applyPolicy() {
++        // Changing duration/turning it off leaves an audible mix intact. A route/queue
++        // suspension is different: consolidate the active song before it is captured.
++        if (!allowed()) cancel() else if (configured() == 0L) discardPrepared()
++    }
++
++    fun queueWillChange() { discardPrepared(); failedId = null; wake() }
++    fun cancelForSeek() {
++        cancel()
++        seekBlockedId = host.crossfadePlayer.currentMediaItem?.mediaId
++    }
++    fun pauseTail() {
++        envelope?.advance(SystemClock.elapsedRealtime(), false)
++        outgoing?.pause()
++    }
++
++    fun setMasterVolume(volume: Float) {
++        masterVolume = volume.coerceIn(0f, 1f)
++        val gains = envelope?.gains()
++        host.crossfadePlayer.volume = masterVolume * (gains?.second ?: 1f)
++        outgoing?.volume = masterVolume * (gains?.first ?: 0f)
++    }
++    fun getMasterVolume() = if (isMixing()) masterVolume else host.crossfadePlayer.volume
++
++    fun cancel() {
++        discardPrepared()
++        val tail = outgoing
++        outgoing = null
++        envelope = null
++        if (tail != null) {
++            tail.release()
++            host.crossfadePlayer.volume = masterVolume
++        }
++        previousIncomingGain = 1f
++    }
++
++    private fun discardPrepared() {
++        prepared?.release()
++        prepared = null
++        renderer = null
++        deckIndex = -1
++    }
++
++    private fun candidateIndex(): Int? {
++        val player = host.crossfadePlayer
++        if (player.repeatMode == Player.REPEAT_MODE_ONE) return null
++        val next = player.nextMediaItemIndex
++        if (next == C.INDEX_UNSET || next == player.currentMediaItemIndex) return null
++        return next
++    }
++
++    private fun prepare(index: Int) {
++        val current = host.crossfadePlayer
++        val items = host.crossfadeItems()
++        val candidate = items.getOrNull(index) ?: return
++        // Future contiguous CUE segments must retain their unbroken source boundary.
++        val active = current.currentMediaItem
++        if (active?.localConfiguration?.uri == candidate.localConfiguration?.uri &&
++            active?.clippingConfiguration?.endPositionMs == candidate.clippingConfiguration.startPositionMs) return
++        val (deck, factory) = host.createDeck()
++        prepared = deck
++        renderer = factory
++        deckIndex = index
++        deck.volume = 0f
++        deck.repeatMode = current.repeatMode
++        deck.shuffleModeEnabled = current.shuffleModeEnabled
++        deck.setMediaItems(items, index, 0)
++        if (current.shuffleModeEnabled) {
++            val order = mutableListOf<Int>()
++            var cursor = current.currentTimeline.getFirstWindowIndex(true)
++            while (cursor != C.INDEX_UNSET && cursor !in order) {
++                order.add(cursor)
++                cursor = current.currentTimeline.getNextWindowIndex(cursor, Player.REPEAT_MODE_OFF, true)
++            }
++            if (order.size == items.size) deck.setShuffleOrder(
++                androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(order.toIntArray(), 0L))
++        }
++        // Do not let the secondary player's own playlist advance independently.
++        deck.pauseAtEndOfMediaItems = true
++        deck.addListener(object : Player.Listener {
++            override fun onPlayerError(error: PlaybackException) {
++                if (prepared === deck) { failedId = candidate.mediaId; discardPrepared() }
++            }
++        })
++        deck.prepare()
++    }
++
++    private fun startMix(duration: Long) {
++        val deck = prepared ?: return
++        val factory = renderer ?: return
++        val old = host.crossfadePlayer
++        val index = old.currentMediaItemIndex
++        val position = old.currentPosition
++        // Guarantee one EQ/visualizer session for both voices; unsupported devices
++        // simply keep the ordinary transition rather than playing unprocessed audio.
++        if (old.audioSessionId <= 0 || deck.audioSessionId != old.audioSessionId) {
++            failedId = deck.currentMediaItem?.mediaId; discardPrepared(); return
++        }
++        masterVolume = old.volume
++        prepared = null
++        renderer = null
++        outgoing = old
++        outgoingIndex = index
++        incomingId = deck.currentMediaItem?.mediaId
++        deck.repeatMode = old.repeatMode
++        deck.shuffleModeEnabled = old.shuffleModeEnabled
++        envelope = CrossfadeEnvelope(duration)
++        previousIncomingGain = 0f
++        old.pauseAtEndOfMediaItems = true
++        host.promote(deck, factory)
++        host.crossfadePlayer.pauseAtEndOfMediaItems = false
++        wake()
++        envelope?.advance(SystemClock.elapsedRealtime(), deck.isPlaying)
++        host.crossfadeStarted(index, position, UUID.randomUUID().toString())
++    }
++
++    private fun mixTick() {
++        val tail = outgoing ?: return
++        val active = host.crossfadePlayer
++        val fade = envelope ?: return
++        if (tail.currentMediaItemIndex != outgoingIndex || tail.playbackState == Player.STATE_ENDED ||
++            tail.playerError != null || active.currentMediaItem?.mediaId != incomingId) { cancel(); return }
++        val speedChanged = tail.playbackParameters.speed != active.playbackParameters.speed
++        // Native focus loss/noisy events pause the active deck. The tail follows it.
++        val playing = active.isPlaying
++        fade.advance(SystemClock.elapsedRealtime(), playing)
++        if (speedChanged) fade.retimeRemaining(((tail.duration - tail.currentPosition).coerceAtLeast(0) / active.playbackParameters.speed).toLong())
++        tail.playbackParameters = active.playbackParameters
++        if (playing && tail.playbackState != Player.STATE_ENDED && !tail.playWhenReady) tail.play()
++        if (!playing && tail.playWhenReady) tail.pause()
++        val (outGain, inGain) = fade.gains()
++        if (previousIncomingGain > 0.001f) {
++            val requested = active.volume / previousIncomingGain
++            if (kotlin.math.abs(requested - masterVolume) > 0.01f) masterVolume = requested.coerceIn(0f, 1f)
++        }
++        active.volume = masterVolume * inGain
++        tail.volume = masterVolume * outGain
++        previousIncomingGain = inGain
++        if (fade.elapsedMs >= fade.durationMs || active.playerError != null) cancel()
++    }
++
++    private fun runTick() {
++        if (destroyed) return
++        applyPolicy()
++        if (isMixing()) mixTick()
++        else if (allowed() && configured() > 0 && host.crossfadePlayer.isPlaying) {
++            val player = host.crossfadePlayer
++            val id = player.currentMediaItem?.mediaId
++            val remaining = player.duration - player.currentPosition
++            val speed = player.playbackParameters.speed
++            val index = candidateIndex()
++            if (id != seekBlockedId || remaining > configured() * speed + 1000) seekBlockedId = null
++            if (index != null && player.duration > 0 && !player.isCurrentMediaItemLive && seekBlockedId == null) {
++                val candidate = if (prepared == null && remaining <= (configured() + 5000) * speed) host.crossfadeItem(index) else null
++                if (prepared != null && deckIndex != index) discardPrepared()
++                if (remaining > 0 && remaining <= (configured() + 5000) * speed && prepared == null && candidate?.mediaId != failedId) prepare(index)
++                val deck = prepared
++                val window = if (deck != null) CrossfadeEnvelope.duration(configured(), Long.MAX_VALUE, player.duration, deck.duration, speed) else 0L
++                if (deck != null && remaining > 0 && remaining <= window * speed && deck.playbackState == Player.STATE_READY) {
++                    deck.playbackParameters = player.playbackParameters
++                    val duration = CrossfadeEnvelope.duration(configured(), remaining, player.duration, deck.duration, speed)
++                    val buffered = deck.bufferedPosition - deck.currentPosition
++                    if (duration >= 150 && (buffered >= minOf(1000L, deck.duration) || deck.totalBufferedDuration >= 1000)) startMix(duration)
++                }
++            } else discardPrepared()
++        }
++        if (host.crossfadePlayer.isPlaying && (isMixing() || (allowed() && configured() > 0))) {
++            scheduled = true
++            handler.postDelayed(tick, if (isMixing()) 25 else 250)
++        }
++    }
++
++    fun destroy() {
++        destroyed = true
++        handler.removeCallbacksAndMessages(null)
++        observed?.removeListener(transportListener)
++        preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
++        cancel()
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/CrossfadeEnvelope.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/CrossfadeEnvelope.kt
+new file mode 100644
+index 0000000..a1e80d9
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/CrossfadeEnvelope.kt
+@@ -0,0 +1,36 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import kotlin.math.cos
++import kotlin.math.sin
++
++/** Time is monotonic wall time; paused/buffering time never advances a mix. */
++class CrossfadeEnvelope(durationMs: Long) {
++    var durationMs = durationMs
++        private set
++    var elapsedMs = 0L
++        private set
++    private var anchor: Long? = null
++    fun advance(now: Long, playing: Boolean): Double {
++        val previous = anchor
++        if (previous != null) elapsedMs = (elapsedMs + (now - previous).coerceAtLeast(0)).coerceAtMost(durationMs)
++        anchor = if (playing) now else null
++        return if (durationMs <= 0) 1.0 else (elapsedMs.toDouble() / durationMs).coerceIn(0.0, 1.0)
++    }
++    fun retimeRemaining(remainingMs: Long) {
++        val fraction = if (durationMs <= 0) 1.0 else elapsedMs.toDouble() / durationMs
++        if (fraction >= 1 || remainingMs <= 0) { elapsedMs = durationMs; return }
++        durationMs = (remainingMs / (1 - fraction)).toLong().coerceAtLeast(1)
++        elapsedMs = (fraction * durationMs).toLong()
++    }
++    fun gains(): Pair<Float, Float> {
++        val fraction = if (durationMs <= 0) 1.0 else elapsedMs.toDouble() / durationMs
++        return cos(fraction * Math.PI / 2).toFloat() to sin(fraction * Math.PI / 2).toFloat()
++    }
++    companion object {
++        fun duration(configured: Long, remainingMediaMs: Long, outgoingDuration: Long, incomingDuration: Long, speed: Float): Long {
++            if (configured <= 0 || remainingMediaMs <= 0 || outgoingDuration <= 0 || incomingDuration <= 0 || !speed.isFinite() || speed <= 0) return 0
++            return minOf(configured.toDouble(), remainingMediaMs / speed.toDouble(),
++                outgoingDuration / speed.toDouble() / 2, incomingDuration / speed.toDouble() / 2).toLong().coerceAtLeast(0)
++        }
++    }
++}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
-index dd4bd40..c13f278 100644
+index dd4bd40..bf797fe 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/QueuedAudioPlayer.kt
-@@ -202,7 +202,7 @@ class QueuedAudioPlayer(
+@@ -13,9 +13,38 @@ import kotlin.math.min
+ class QueuedAudioPlayer(
+     private val context: Context,
+     options: PlayerOptions = PlayerOptions()
+-) : AudioPlayer(context, options) {
++) : AudioPlayer(context, options), CrossfadeHost {
+ 
+     private val queue = LinkedList<MediaItem>()
++    var queueRevision = 0L
++        private set
++    fun advanceRevision() { queueRevision++ }
++    private fun beforeQueueEdit() { advanceRevision(); crossfade.queueWillChange() }
++    val crossfade by lazy { CrossfadeCoordinator(this, context) }
++    var onCrossfadeTransition: ((Int, Long, String) -> Unit)? = null
++    override val crossfadePlayer get() = exoPlayer
++    override fun crossfadeItem(index: Int): MediaItem? = queue.getOrNull(index)
++    override fun crossfadeItems(): List<MediaItem> = queue.toList()
++    override fun createDeck() = createCrossfadeDeck()
++    override fun promote(deck: androidx.media3.exoplayer.ExoPlayer, renderer: ReplayGainRenderersFactory) {
++        promoteCrossfadeDeck(deck, renderer)
++    }
++    override fun crossfadeStarted(index: Int, position: Long, transitionId: String) {
++        onCrossfadeTransition?.invoke(index, position, transitionId)
++    }
++
++    override fun applyEffectiveVolume(value: Float) { crossfade.setMasterVolume(value) }
++
++    override fun play() { super.play(); crossfade.wake() }
++    override fun pause() { super.pause(); crossfade.pauseTail() }
++    override fun stop() { crossfade.cancel(); super.stop() }
++    override fun seek(duration: Long, unit: java.util.concurrent.TimeUnit) {
++        crossfade.cancelForSeek(); super.seek(duration, unit)
++    }
++    override fun seekBy(offset: Long, unit: java.util.concurrent.TimeUnit) {
++        crossfade.cancelForSeek(); super.seekBy(offset, unit)
++    }
++
+ 
+     var repeatMode: RepeatMode
+         get() {
+@@ -88,6 +117,7 @@ class QueuedAudioPlayer(
+     }
+ 
+     override fun load(item: AudioItem) {
++        beforeQueueEdit()
+         if (queue.isEmpty()) {
+             add(item)
+         } else {
+@@ -112,6 +142,7 @@ class QueuedAudioPlayer(
+      * @param item The [AudioItem] to add.
+      */
+     fun add(item: AudioItem) {
++        beforeQueueEdit()
+         val mediaSource = item.toMediaItem()
+         queue.add(mediaSource)
+         exoPlayer.addMediaItem(mediaSource)
+@@ -133,6 +164,7 @@ class QueuedAudioPlayer(
+      * @param items The [AudioItem]s to add.
+      */
+     fun add(items: List<AudioItem>) {
++        beforeQueueEdit()
+         val mediaItems = items.map { it.toMediaItem() }
+         queue.addAll(mediaItems)
+         exoPlayer.addMediaItems(mediaItems)
+@@ -146,6 +178,7 @@ class QueuedAudioPlayer(
+      * @param atIndex  Index to insert items at, if no items loaded this will not automatically start playback.
+      */
+     fun add(items: List<AudioItem>, atIndex: Int) {
++        beforeQueueEdit()
+         val mediaItems = items.map { (it).toMediaItem() }
+         queue.addAll(atIndex, mediaItems)
+         exoPlayer.addMediaItems(atIndex, mediaItems)
+@@ -157,6 +190,7 @@ class QueuedAudioPlayer(
+      * @param index The index of the item to remove.
+      */
+     fun remove(index: Int) {
++        beforeQueueEdit()
+         queue.removeAt(index)
+         exoPlayer.removeMediaItem(index)
+     }
+@@ -180,6 +214,7 @@ class QueuedAudioPlayer(
+      * Does nothing if there is no next item to skip to.
+      */
+     fun next() {
++        crossfade.cancelForSeek()
+         exoPlayer.seekToNextMediaItem()
+         exoPlayer.prepare()
+     }
+@@ -189,6 +224,7 @@ class QueuedAudioPlayer(
+      * Does nothing if there is no previous item to skip to.
+      */
+     fun previous() {
++        crossfade.cancelForSeek()
+         exoPlayer.seekToPreviousMediaItem()
+         exoPlayer.prepare()
+     }
+@@ -199,10 +235,11 @@ class QueuedAudioPlayer(
+      * @param toIndex The index to move the item to. If the index is larger than the size of the queue, the item is moved to the end of the queue instead.
+      */
+     fun move(fromIndex: Int, toIndex: Int) {
++        beforeQueueEdit()
          exoPlayer.moveMediaItem(fromIndex, toIndex)
          val item = queue[fromIndex]
          queue.removeAt(fromIndex)
@@ -145,6 +876,51 @@ index dd4bd40..c13f278 100644
      }
  
      /**
+@@ -220,6 +257,7 @@ class QueuedAudioPlayer(
+      * @param index the index to jump to
+      */
+     fun jumpToItem(index: Int) {
++        crossfade.cancelForSeek()
+         try {
+             exoPlayer.seekTo(index, C.TIME_UNSET)
+             exoPlayer.prepare()
+@@ -232,6 +270,7 @@ class QueuedAudioPlayer(
+      * Replaces item at index in queue.
+      */
+     fun replaceItem(index: Int, item: AudioItem) {
++        beforeQueueEdit()
+         val mediaItem = item.toMediaItem()
+         queue[index] = mediaItem
+         exoPlayer.replaceMediaItem(index, mediaItem)
+@@ -241,6 +280,7 @@ class QueuedAudioPlayer(
+      * Removes all the upcoming items, if any (the ones returned by [next]).
+      */
+     fun removeUpcomingItems() {
++        beforeQueueEdit()
+         if (queue.lastIndex == -1 || currentIndex == -1) return
+         val lastIndex = queue.lastIndex + 1
+         val fromIndex = currentIndex + 1
+@@ -253,16 +293,20 @@ class QueuedAudioPlayer(
+      * Removes all the previous items, if any (the ones returned by [previous]).
+      */
+     fun removePreviousItems() {
++        beforeQueueEdit()
+         exoPlayer.removeMediaItems(0, currentIndex)
+         queue.subList(0, currentIndex).clear()
+     }
+ 
+     override fun destroy() {
++        crossfade.destroy()
+         queue.clear()
+         super.destroy()
+     }
+ 
+     override fun clear() {
++        advanceRevision()
++        crossfade.cancel()
+         queue.clear()
+         super.clear()
+     }
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/ReplayGainAudioProcessor.kt
 new file mode 100644
 index 0000000..e6bbcd3
@@ -339,6 +1115,72 @@ index 0000000..6f125b3
 +        })
 +    }
 +}
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
+index f8b9ca1..91fc6ef 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
+@@ -115,8 +115,8 @@ class MediaFactory (
+         factory: DataSource.Factory
+     ): ProgressiveMediaSource {
+         return ProgressiveMediaSource.Factory(
+-            factory, DefaultExtractorsFactory()
+-                .setConstantBitrateSeekingEnabled(true)
++            factory, ReplayGainExtractorsFactory(mediaItem, DefaultExtractorsFactory()
++                .setConstantBitrateSeekingEnabled(true))
+         )
+             .createMediaSource(mediaItem)
+     }
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
+new file mode 100644
+index 0000000..0cf68b2
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
+@@ -0,0 +1,45 @@
++package com.doublesymmetry.kotlinaudio.players.components
++
++import android.net.Uri
++import androidx.media3.common.MediaItem
++import androidx.media3.common.Format
++import androidx.media3.common.Metadata
++import androidx.media3.extractor.Extractor
++import androidx.media3.extractor.ExtractorOutput
++import androidx.media3.extractor.ExtractorsFactory
++import androidx.media3.extractor.TrackOutput
++import androidx.media3.extractor.metadata.id3.InternalFrame
++
++/** Bind DB fallback tags to this source's decoded Format, never a UI transition event. */
++class ReplayGainExtractorsFactory(item: MediaItem, private val delegate: ExtractorsFactory) : ExtractorsFactory {
++    private val extras = item.mediaMetadata.extras
++    // The markers are also present when tags are missing. A new track must clear
++    // the old explicit values before any of its samples enter the audio processor.
++    private val metadata = Metadata(
++        InternalFrame("mmplayer.replaygain", "gain", number("replayGain")),
++        InternalFrame("mmplayer.replaygain", "peak", number("replayPeak"))
++    )
++    private fun number(key: String): String =
++        if (extras?.containsKey(key) == true) extras.getDouble(key).toString() else ""
++
++    override fun createExtractors(): Array<Extractor> = delegate.createExtractors().map(::wrap).toTypedArray()
++    override fun createExtractors(uri: Uri, responseHeaders: Map<String, List<String>>): Array<Extractor> =
++        delegate.createExtractors(uri, responseHeaders).map(::wrap).toTypedArray()
++
++    private fun wrap(extractor: Extractor): Extractor = object : Extractor by extractor {
++        override fun init(output: ExtractorOutput) {
++            extractor.init(object : ExtractorOutput by output {
++                override fun track(id: Int, type: Int): TrackOutput {
++                    val track = output.track(id, type)
++                    return object : TrackOutput by track {
++                        override fun format(format: Format) {
++                            track.format(format.buildUpon().setMetadata(
++                                format.metadata?.copyWithAppendedEntriesFrom(metadata) ?: metadata
++                            ).build())
++                        }
++                    }
++                }
++            })
++        }
++    }
++}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/service/MusicService.kt
 index 60b6871..e1bb0a1 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/service/MusicService.kt
@@ -353,8 +1195,21 @@ index 60b6871..e1bb0a1 100644
              .build()
      }
  
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/model/TrackMetadata.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/model/TrackMetadata.kt
+index fb92033..5e885e8 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/model/TrackMetadata.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/model/TrackMetadata.kt
+@@ -25,7 +25,7 @@ abstract class TrackMetadata {
+         album = bundle.getString("album")
+         date = bundle.getString("date")
+         genre = bundle.getString("genre")
+-        mediaId = bundle.getString("mediaId")
++        mediaId = bundle.getString("id") ?: bundle.getString("mediaId")
+ 
+         duration = if (bundle.containsKey("duration")) {
+             bundle.getDouble("duration").toMilliseconds()
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
-index 13a6c60..c1de4b5 100644
+index 13a6c60..54b396b 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
 @@ -155,6 +155,7 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
@@ -365,7 +1220,26 @@ index 13a6c60..c1de4b5 100644
              this["CAPABILITY_JUMP_FORWARD"] = Capability.JUMP_FORWARD.ordinal
              this["CAPABILITY_JUMP_BACKWARD"] = Capability.JUMP_BACKWARD.ordinal
  
-@@ -453,10 +454,17 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+@@ -250,11 +251,16 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+         val insertBeforeIndexInt = insertBeforeIndex?.toInt() ?: 0;
+         try {
+             val tracks = readableArrayToTrackList(data);
+-            if (insertBeforeIndexInt < -1 || insertBeforeIndexInt > musicService.tracks.size) {
++            if (insertBeforeIndexInt < -3 || insertBeforeIndexInt > musicService.tracks.size) {
+                 callback.reject("index_out_of_bounds", "The track index is out of bounds")
+                 return@launchInScope
+             }
+-            val index = if (insertBeforeIndexInt == -1) musicService.tracks.size else insertBeforeIndexInt
++            val index = when (insertBeforeIndexInt) {
++                -3 -> musicService.getManualInsertIndex()
++                -2 -> if (musicService.tracks.isEmpty()) 0 else musicService.getCurrentTrackIndex() + 1
++                -1 -> musicService.tracks.size
++                else -> insertBeforeIndexInt
++            }
+             musicService.add(
+                 tracks,
+                 index
+@@ -453,10 +459,17 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
          callback.resolve(null)
      }
  
@@ -384,8 +1258,16 @@ index 13a6c60..c1de4b5 100644
      }
  
      override fun setRepeatMode(mode: Double, callback: Promise) = launchInScope {
+@@ -533,6 +546,7 @@ class MusicModule(reactContext: ReactApplicationContext) : NativeTrackPlayerSpec
+     override fun getProgress(callback: Promise) = launchInScope {
+         if (verifyServiceBoundOrReject(callback)) return@launchInScope
+         val bundle = Bundle()
++        bundle.putString("trackId", musicService.currentTrack?.originalItem?.getString("id"))
+         bundle.putDouble("duration", musicService.getDurationInSeconds());
+         bundle.putDouble("position", musicService.getPositionInSeconds());
+         bundle.putDouble("buffered", musicService.getBufferedPositionInSeconds());
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..1c3f8f5 100644
+index b495b5a..ea6b923 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -52,6 +52,7 @@ import com.google.common.util.concurrent.ListenableFuture
@@ -473,17 +1355,21 @@ index b495b5a..1c3f8f5 100644
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
          }
-@@ -211,6 +234,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +234,13 @@ class MusicService : HeadlessJsMediaService() {
          player = QueuedAudioPlayer(this@MusicService, options)
          fakePlayer.release()
          mediaSession.player = player.forwardingPlayer
++        player.onPlayerReplaced = { mediaSession.player = player.forwardingPlayer }
++        player.onCrossfadeTransition = { index, position, transitionId ->
++            emitPlaybackTrackChangedEvents(index, position.toSeconds(), true, transitionId)
++        }
 +        if (lastSpeed != 1.0f || lastPitch != 1.0f) {
 +            applyPlaybackParameters(lastSpeed, lastPitch)
 +        }
          observeEvents()
      }
  
-@@ -290,12 +316,25 @@ class MusicService : HeadlessJsMediaService() {
+@@ -290,12 +320,25 @@ class MusicService : HeadlessJsMediaService() {
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -509,7 +1395,7 @@ index b495b5a..1c3f8f5 100644
          val sessionCommandsBuilder =
              MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
          customLayout.forEach { v ->
-@@ -305,18 +344,12 @@ class MusicService : HeadlessJsMediaService() {
+@@ -305,18 +348,12 @@ class MusicService : HeadlessJsMediaService() {
          sessionCommands = sessionCommandsBuilder.build()
          playerCommands = playerCommandsBuilder.build()
  
@@ -533,10 +1419,23 @@ index b495b5a..1c3f8f5 100644
      }
  
      @MainThread
-@@ -443,12 +476,36 @@ class MusicService : HeadlessJsMediaService() {
+@@ -335,6 +372,7 @@ class MusicService : HeadlessJsMediaService() {
+     private suspend fun progressUpdateEvent(): Bundle {
+         return withContext(Dispatchers.Main) {
+             Bundle().apply {
++                putString("trackId", currentTrack?.originalItem?.getString("id"))
+                 putDouble(POSITION_KEY, player.position.toSeconds())
+                 putDouble(DURATION_KEY, player.duration.toSeconds())
+                 putDouble(BUFFERED_POSITION_KEY, player.bufferedPosition.toSeconds())
+@@ -443,12 +481,41 @@ class MusicService : HeadlessJsMediaService() {
      @MainThread
      fun getCurrentTrackIndex(): Int = player.currentIndex
  
++    fun getManualQueueSize(): Int = tracks.drop(player.currentIndex + 1)
++        .takeWhile { it.originalItem.getBoolean("isManual", false) }.size
++
++    fun getManualInsertIndex(): Int = if (tracks.isEmpty()) 0 else player.currentIndex + 1 + getManualQueueSize()
++
 +    private var lastSpeed: Float = 1.0f
 +    private var lastPitch: Float = 1.0f
 +
@@ -572,7 +1471,7 @@ index b495b5a..1c3f8f5 100644
      }
  
      @MainThread
-@@ -495,8 +552,41 @@ class MusicService : HeadlessJsMediaService() {
+@@ -495,16 +562,59 @@ class MusicService : HeadlessJsMediaService() {
          }
      }
  
@@ -614,7 +1513,26 @@ index b495b5a..1c3f8f5 100644
          updateMetadataForTrack(player.currentIndex, bundle)
      }
  
-@@ -538,12 +628,21 @@ class MusicService : HeadlessJsMediaService() {
+     private fun emitPlaybackTrackChangedEvents(
+         previousIndex: Int?,
+-        oldPosition: Double
++        oldPosition: Double,
++        crossfade: Boolean = false,
++        transitionId: String? = null
+     ) {
++        player.advanceRevision()
+         val bundle = Bundle()
++        bundle.putDouble("queueRevision", player.queueRevision.toDouble())
++        bundle.putInt("userQueueSize", getManualQueueSize())
++        if (crossfade) {
++            bundle.putBoolean("crossfade", true)
++            bundle.putString("transitionId", transitionId)
++            bundle.putDouble("occurredAt", System.currentTimeMillis().toDouble())
++        }
+         bundle.putDouble("lastPosition", oldPosition)
+         if (tracks.isNotEmpty()) {
+             bundle.putInt("index", player.currentIndex)
+@@ -538,12 +648,21 @@ class MusicService : HeadlessJsMediaService() {
  
          scope.launch {
              event.audioItemTransition.collect {
@@ -636,7 +1554,7 @@ index b495b5a..1c3f8f5 100644
              }
          }
  
-@@ -792,12 +891,33 @@ class MusicService : HeadlessJsMediaService() {
+@@ -792,12 +911,33 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onDestroy() {
@@ -673,7 +1591,7 @@ index b495b5a..1c3f8f5 100644
          progressUpdateJob?.cancel()
          super.onDestroy()
      }
-@@ -905,24 +1025,17 @@ class MusicService : HeadlessJsMediaService() {
+@@ -905,24 +1045,17 @@ class MusicService : HeadlessJsMediaService() {
                      onStartCommand(null, 0, 0)
                  }
              }
@@ -709,7 +1627,7 @@ index b495b5a..1c3f8f5 100644
          }
  
          override fun onCustomCommand(
-@@ -931,6 +1044,14 @@ class MusicService : HeadlessJsMediaService() {
+@@ -931,6 +1064,14 @@ class MusicService : HeadlessJsMediaService() {
              command: SessionCommand,
              args: Bundle
          ): ListenableFuture<SessionResult> {
@@ -724,7 +1642,7 @@ index b495b5a..1c3f8f5 100644
              player.forwardingPlayer.let {
                  when (command.customAction) {
                      CustomCommandButton.JUMP_BACKWARD.customAction -> { it.seekBack() }
-@@ -983,6 +1104,23 @@ class MusicService : HeadlessJsMediaService() {
+@@ -983,6 +1124,44 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      companion object {
@@ -732,6 +1650,27 @@ index b495b5a..1c3f8f5 100644
 +        @Volatile
 +        @JvmStatic
 +        var instance: MusicService? = null
++
++        @JvmStatic
++        fun applyCrossfadePolicy() { instance?.let { if (it::player.isInitialized) it.player.crossfade.refreshPolicy() } }
++
++        @JvmStatic
++        fun crossfadePlaybackSnapshot(): Map<String, Any?>? {
++            val service = instance ?: return null
++            if (!service::player.isInitialized) return null
++            val player = service.player
++            return mapOf("queue" to service.tracks.map { bundleMap(it.originalItem) },
++                "index" to player.currentIndex, "progress" to mapOf("position" to player.position.toSeconds(),
++                    "duration" to player.duration.toSeconds(), "buffered" to player.bufferedPosition.toSeconds()),
++                "repeatMode" to player.repeatMode.ordinal, "queueRevision" to player.queueRevision.toDouble(),
++                "userQueueSize" to service.getManualQueueSize())
++        }
++
++        private fun bundleMap(bundle: Bundle): Map<String, Any?> = bundle.keySet().associateWith { key ->
++            @Suppress("DEPRECATION")
++            val value = bundle.get(key)
++            if (value is Bundle) bundleMap(value) else value
++        }
 +
 +        @JvmStatic
 +        val currentAudioSessionId: Int
@@ -748,6 +1687,434 @@ index b495b5a..1c3f8f5 100644
          const val EMPTY_NOTIFICATION_ID = 1
          const val STATE_KEY = "state"
          const val ERROR_KEY = "error"
+diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt
+new file mode 100644
+index 0000000..ff94062
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt
+@@ -0,0 +1,295 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import android.content.Context
++import android.os.Looper
++import androidx.media3.common.C
++import androidx.media3.common.MediaItem
++import androidx.media3.common.PlaybackException
++import androidx.media3.common.PlaybackParameters
++import androidx.media3.common.Player
++import androidx.media3.exoplayer.ExoPlayer
++import org.junit.After
++import org.junit.Assert.*
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.mockito.ArgumentMatchers.*
++import org.mockito.Mockito.*
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.RuntimeEnvironment
++import org.robolectric.Shadows.shadowOf
++import org.robolectric.annotation.Config
++import java.time.Duration
++
++@RunWith(RobolectricTestRunner::class)
++@Config(sdk = [28], manifest = Config.NONE)
++class CrossfadeCoordinatorTest {
++    private lateinit var host: Host
++    private lateinit var coordinator: CrossfadeCoordinator
++    private val context get() = RuntimeEnvironment.getApplication() as Context
++    private fun settings(seconds: Int = 6, allowed: Boolean = true) {
++        context.getSharedPreferences("mmplayer_crossfade", Context.MODE_PRIVATE).edit()
++            .putInt("durationMs", seconds * 1000).putBoolean("allowed", allowed).commit()
++    }
++    private fun tick(ms: Long = 250) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms)) }
++
++    @Before fun setup() {
++        settings()
++        host = Host()
++        coordinator = CrossfadeCoordinator(host, context)
++        coordinator.wake()
++        tick(0)
++    }
++    @After fun teardown() { coordinator.destroy() }
++
++    @Test fun preparesSilentlyThenActivatesTheIncomingEntryExactlyOnce() {
++        assertEquals(0, host.created.size)
++        host.active.position = 22000
++        tick()
++        val incoming = host.created.single()
++        assertEquals(0f, incoming.volume, 0f)
++        assertFalse(incoming.playing)
++        assertEquals(0, host.transitions.size)
++        host.active.position = 24000
++        tick()
++        assertSame(incoming, host.active)
++        assertTrue(coordinator.isMixing())
++        assertEquals(listOf(0), host.transitions)
++        tick(1000)
++        assertEquals(1, host.transitions.size)
++        assertTrue(incoming.volume > 0f)
++    }
++
++    @Test fun disablingDuringTheMixFinishesItAndDoesNotPrepareAnotherSong() {
++        startMix()
++        settings(0)
++        tick(0)
++        assertTrue(coordinator.isMixing())
++        tick(6500)
++        assertFalse(coordinator.isMixing())
++        assertEquals(1f, host.active.volume, 0.0001f)
++        assertEquals(1, host.created.size)
++    }
++
++    @Test fun pauseAndResumeFreezeBothAudioAndTheEnvelope() {
++        val outgoing = startMix()
++        tick(1000)
++        host.active.playing = false
++        coordinator.pauseTail()
++        val a = outgoing.volume
++        val b = host.active.volume
++        tick(20000)
++        assertFalse(outgoing.playing)
++        assertEquals(a, outgoing.volume, 0.0001f)
++        assertEquals(b, host.active.volume, 0.0001f)
++        host.active.playing = true
++        tick(1000)
++        assertTrue(outgoing.playing)
++        assertTrue(host.active.volume > b)
++    }
++
++    @Test fun futureQueueEditsKeepAnAudibleIncomingSongButInvalidateSilentPreparation() {
++        host.active.position = 22000
++        tick()
++        val stale = host.created.single()
++        coordinator.queueWillChange()
++        assertTrue(stale.released)
++        host.active.position = 24000
++        tick()
++        val incoming = host.active
++        coordinator.queueWillChange()
++        tick()
++        assertSame(incoming, host.active)
++        assertTrue(coordinator.isMixing())
++    }
++
++    @Test fun suspensionConsolidatesTheIncomingSongBeforeQueueOrCastCapture() {
++        val outgoing = startMix()
++        val incoming = host.active
++        incoming.position = 1500
++        settings(6, false)
++        coordinator.refreshPolicy()
++        assertFalse(coordinator.isMixing())
++        assertTrue(outgoing.released)
++        assertSame(incoming, host.active)
++        assertEquals(1500L, incoming.position)
++        assertEquals(1f, incoming.volume, 0f)
++    }
++
++    @Test fun shortIncomingSongDelaysTheStartInsteadOfCuttingTheOutgoingEnding() {
++        settings(12)
++        host.nextDuration = 4000
++        host.active.position = 18000
++        tick()
++        assertFalse(coordinator.isMixing())
++        host.active.position = 27000
++        tick()
++        assertFalse(coordinator.isMixing())
++        host.active.position = 28000
++        tick()
++        assertTrue(coordinator.isMixing())
++    }
++
++    @Test fun repeatsTheQueueAcrossTheBoundaryButNeverCrossfadesRepeatOneOrASingleEntry() {
++        host.active.index = 2
++        host.active.repeat = Player.REPEAT_MODE_ALL
++        host.active.position = 24000
++        tick()
++        assertTrue(coordinator.isMixing())
++        assertEquals(0, host.active.index)
++        assertEquals(listOf(2), host.transitions)
++        coordinator.cancel()
++        host.active.repeat = Player.REPEAT_MODE_ONE
++        host.active.position = 24000
++        tick()
++        assertFalse(coordinator.isMixing())
++        host.items = listOf(host.items.first())
++        host.active.items = host.items
++        host.active.repeat = Player.REPEAT_MODE_ALL
++        tick()
++        assertFalse(coordinator.isMixing())
++    }
++
++    @Test fun endOfQueueDoesNotInventARandomSuccessor() {
++        host.active.index = 2
++        host.active.position = 24000
++        tick()
++        assertEquals(0, host.created.size)
++        assertFalse(coordinator.isMixing())
++    }
++
++    @Test fun refusedSharedAudioSessionFallsBackWithoutAnUnprocessedOverlap() {
++        host.nextSession = 99
++        host.active.position = 24000
++        tick()
++        assertFalse(coordinator.isMixing())
++        assertEquals(0, host.transitions.size)
++        assertEquals(0, host.active.index)
++        assertTrue(host.created.single().released)
++    }
++
++    @Test fun preparedDecoderErrorDoesNotChangeTheActiveSongOrRetryItGlobally() {
++        host.active.position = 22000
++        tick()
++        val deck = host.created.single()
++        val error = PlaybackException("Cannot decode", null, PlaybackException.ERROR_CODE_DECODING_FAILED)
++        deck.listeners.toList().forEach { it.onPlayerError(error) }
++        host.active.position = 24000
++        tick()
++        assertTrue(deck.released)
++        assertEquals(0, host.active.index)
++        assertEquals(0, host.transitions.size)
++        assertEquals(1, host.created.size)
++    }
++
++    @Test fun seekAndResetReleaseTheTailAndRestoreTheLogicalVolume() {
++        val outgoing = startMix()
++        coordinator.setMasterVolume(0.4f)
++        coordinator.cancelForSeek()
++        assertTrue(outgoing.released)
++        assertEquals(0.4f, host.active.volume, 0.0001f)
++        coordinator.destroy()
++        tick(20000)
++        assertEquals(1, host.created.size)
++    }
++
++    @Test fun theOutgoingDeckNeverStartsItsOwnNextEntryAfterReachingItsBoundary() {
++        val outgoing = startMix()
++        outgoing.index = 1
++        outgoing.playing = false
++        tick(50)
++        assertFalse(coordinator.isMixing())
++        assertFalse(outgoing.playing)
++        assertTrue(outgoing.released)
++        assertEquals(1, host.transitions.size)
++        assertEquals(1f, host.active.volume, 0.0001f)
++    }
++
++    @Test fun repeatChangesDuringPreparationAreKeptWhenTheIncomingDeckBecomesActive() {
++        host.active.position = 22000
++        tick()
++        host.active.repeat = Player.REPEAT_MODE_ALL
++        host.active.position = 24000
++        tick()
++        assertTrue(coordinator.isMixing())
++        assertEquals(Player.REPEAT_MODE_ALL, host.active.repeat)
++    }
++
++    private fun startMix(): Deck {
++        val outgoing = host.active
++        outgoing.position = 24000
++        tick()
++        assertTrue(coordinator.isMixing())
++        return outgoing
++    }
++
++    private class Host : CrossfadeHost {
++        var items = (0..2).map { MediaItem.Builder().setMediaId("entry-$it").setUri("file:///song-$it.mp3").build() }
++        var active = Deck(items)
++        var nextDuration = 30000L
++        var nextSession = 42
++        val created = mutableListOf<Deck>()
++        val transitions = mutableListOf<Int>()
++        override val crossfadePlayer get() = active.player
++        override fun crossfadeItems() = items
++        override fun createDeck(): Pair<ExoPlayer, ReplayGainRenderersFactory> {
++            val deck = Deck(items, playing = false)
++            deck.duration = nextDuration
++            deck.session = nextSession
++            created.add(deck)
++            return deck.player to mock(ReplayGainRenderersFactory::class.java)
++        }
++        override fun promote(deck: ExoPlayer, renderer: ReplayGainRenderersFactory) {
++            active = created.first { it.player === deck }
++            active.playing = true
++        }
++        override fun crossfadeStarted(index: Int, position: Long, transitionId: String) { transitions.add(index) }
++    }
++
++    private class Deck(var items: List<MediaItem>, playing: Boolean = true) {
++        val player = mock(ExoPlayer::class.java)
++        var index = 0
++        var position = 0L
++        var duration = 30000L
++        var volume = 1f
++        var repeat = Player.REPEAT_MODE_OFF
++        var session = 42
++        var released = false
++        var parameters = PlaybackParameters.DEFAULT
++        val listeners = mutableListOf<Player.Listener>()
++        var playing = playing
++            set(value) {
++                if (field == value) return
++                field = value
++                listeners.toList().forEach { it.onIsPlayingChanged(value) }
++            }
++        init {
++            `when`(player.currentMediaItemIndex).thenAnswer { index }
++            `when`(player.currentMediaItem).thenAnswer { items.getOrNull(index) }
++            `when`(player.nextMediaItemIndex).thenAnswer {
++                when { repeat == Player.REPEAT_MODE_ONE -> index; index < items.lastIndex -> index + 1;
++                    repeat == Player.REPEAT_MODE_ALL -> 0; else -> C.INDEX_UNSET }
++            }
++            `when`(player.duration).thenAnswer { duration }
++            `when`(player.currentPosition).thenAnswer { position }
++            `when`(player.bufferedPosition).thenAnswer { duration }
++            `when`(player.totalBufferedDuration).thenAnswer { duration }
++            `when`(player.isPlaying).thenAnswer { this.playing }
++            `when`(player.playWhenReady).thenAnswer { this.playing }
++            `when`(player.playbackState).thenReturn(Player.STATE_READY)
++            `when`(player.playbackParameters).thenAnswer { parameters }
++            `when`(player.repeatMode).thenAnswer { repeat }
++            `when`(player.audioSessionId).thenAnswer { session }
++            `when`(player.volume).thenAnswer { volume }
++            doAnswer { volume = it.getArgument(0); null }.`when`(player).setVolume(anyFloat())
++            doAnswer { parameters = it.getArgument(0); null }.`when`(player).setPlaybackParameters(any(PlaybackParameters::class.java))
++            doAnswer { repeat = it.getArgument(0); null }.`when`(player).setRepeatMode(anyInt())
++            doAnswer { items = it.getArgument(0); index = it.getArgument(1); position = it.getArgument(2); null }.`when`(player).setMediaItems(anyList(), anyInt(), anyLong())
++            doAnswer { listeners.add(it.getArgument(0)); null }.`when`(player).addListener(any(Player.Listener::class.java))
++            doAnswer { listeners.remove(it.getArgument<Player.Listener>(0)); null }.`when`(player).removeListener(any(Player.Listener::class.java))
++            doAnswer { this.playing = true; null }.`when`(player).play()
++            doAnswer { this.playing = false; null }.`when`(player).pause()
++            doAnswer { released = true; this.playing = false; null }.`when`(player).release()
++        }
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeEnvelopeTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeEnvelopeTest.kt
+new file mode 100644
+index 0000000..3532f6d
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeEnvelopeTest.kt
+@@ -0,0 +1,51 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import org.junit.Assert.*
++import org.junit.Test
++
++class CrossfadeEnvelopeTest {
++    @Test fun pausePreservesTheMixAcrossLongBackgroundIntervals() {
++        val fade = CrossfadeEnvelope(6000)
++        fade.advance(1000, true)
++        fade.advance(2500, false)
++        val before = fade.gains()
++        fade.advance(95000, false)
++        assertEquals(before, fade.gains())
++        fade.advance(100000, true)
++        fade.advance(101500, true)
++        assertEquals(3000L, fade.elapsedMs)
++        val (a, b) = fade.gains()
++        assertEquals(1f, a * a + b * b, 0.00001f)
++        assertEquals(a, b, 0.00001f)
++    }
++    @Test fun finishesExactlyAndClampsLateOrBackwardsTicks() {
++        val fade = CrossfadeEnvelope(1000)
++        fade.advance(1000, true)
++        fade.advance(900, true)
++        assertEquals(0L, fade.elapsedMs)
++        fade.advance(10000, true)
++        assertEquals(1000L, fade.elapsedMs)
++        assertEquals(0f, fade.gains().first, 0.00001f)
++        assertEquals(1f, fade.gains().second, 0.00001f)
++    }
++    @Test fun speedChangesPreserveGainAndFinishWithTheOutgoingAudio() {
++        val fade = CrossfadeEnvelope(6000)
++        fade.advance(1000, true)
++        fade.advance(4000, true)
++        val before = fade.gains()
++        fade.retimeRemaining(6000)
++        assertEquals(before.first, fade.gains().first, 0.0001f)
++        assertEquals(before.second, fade.gains().second, 0.0001f)
++        fade.advance(10000, true)
++        assertEquals(1f, fade.gains().second, 0.0001f)
++    }
++    @Test fun shortSongsAndPlaybackSpeedBoundBothTransitionWindows() {
++        assertEquals(2000L, CrossfadeEnvelope.duration(12000, 30000, 30000, 4000, 1f))
++        assertEquals(1000L, CrossfadeEnvelope.duration(12000, 30000, 30000, 4000, 2f))
++        assertEquals(500L, CrossfadeEnvelope.duration(6000, 1000, 30000, 30000, 2f))
++        assertEquals(0L, CrossfadeEnvelope.duration(6000, 1000, 0, 30000, 1f))
++        assertEquals(0L, CrossfadeEnvelope.duration(6000, 1000, 30000, 0, 1f))
++        assertEquals(0L, CrossfadeEnvelope.duration(6000, 1000, 30000, 30000, Float.NaN))
++        assertEquals(0L, CrossfadeEnvelope.duration(0, 1000, 30000, 30000, 1f))
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/PlaybackFocusTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/PlaybackFocusTest.kt
+new file mode 100644
+index 0000000..4c11bd6
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/PlaybackFocusTest.kt
+@@ -0,0 +1,64 @@
++package com.doublesymmetry.kotlinaudio.players
++
++import android.media.AudioManager
++import com.doublesymmetry.kotlinaudio.models.PlayerOptions
++import org.junit.Assert.*
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.RuntimeEnvironment
++import org.robolectric.annotation.Config
++
++@RunWith(RobolectricTestRunner::class)
++@Config(sdk = [28], manifest = Config.NONE)
++class PlaybackFocusTest {
++    @Test fun transientInterruptionPausesAndResumesThroughTheSharedTransport() {
++        val player = QueuedAudioPlayer(RuntimeEnvironment.getApplication(), PlayerOptions(handleAudioFocus = true))
++        try {
++            player.play()
++            assertTrue(player.exoPlayer.playWhenReady)
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)
++            assertFalse(player.exoPlayer.playWhenReady)
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN)
++            assertTrue(player.exoPlayer.playWhenReady)
++        } finally { player.destroy() }
++    }
++
++    @Test fun explicitPauseDuringAnInterruptionPreventsAutomaticResume() {
++        val player = QueuedAudioPlayer(RuntimeEnvironment.getApplication(), PlayerOptions(handleAudioFocus = true))
++        try {
++            player.play()
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)
++            player.pause()
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN)
++            assertFalse(player.exoPlayer.playWhenReady)
++        } finally { player.destroy() }
++    }
++
++    @Test fun duckingDoesNotCompoundOrChangeTheUsersLogicalVolume() {
++        val player = QueuedAudioPlayer(RuntimeEnvironment.getApplication(),
++            PlayerOptions(handleAudioFocus = true, alwaysPauseOnInterruption = false))
++        try {
++            player.volume = 0.8f
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK)
++            assertEquals(0.8f, player.volume, 0.0001f)
++            assertEquals(0.4f, player.exoPlayer.volume, 0.0001f)
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK)
++            assertEquals(0.4f, player.exoPlayer.volume, 0.0001f)
++            player.volume = 0.6f
++            assertEquals(0.3f, player.exoPlayer.volume, 0.0001f)
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN)
++            assertEquals(0.6f, player.exoPlayer.volume, 0.0001f)
++        } finally { player.destroy() }
++    }
++
++    @Test fun permanentFocusLossNeverRestartsPlayback() {
++        val player = QueuedAudioPlayer(RuntimeEnvironment.getApplication(), PlayerOptions(handleAudioFocus = true))
++        try {
++            player.play()
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS)
++            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN)
++            assertFalse(player.exoPlayer.playWhenReady)
++        } finally { player.destroy() }
++    }
++}
 diff --git a/node_modules/react-native-track-player/lib/module/constants/Capability.js b/node_modules/react-native-track-player/lib/module/constants/Capability.js
 index 094a1ec..7adafdf 100644
 --- a/node_modules/react-native-track-player/lib/module/constants/Capability.js
@@ -761,6 +2128,29 @@ index 094a1ec..7adafdf 100644
  }({});
  //# sourceMappingURL=Capability.js.map
 \ No newline at end of file
+diff --git a/node_modules/react-native-track-player/lib/module/hooks/useProgress.js b/node_modules/react-native-track-player/lib/module/hooks/useProgress.js
+index 944b7f3..65bcc26 100644
+--- a/node_modules/react-native-track-player/lib/module/hooks/useProgress.js
++++ b/node_modules/react-native-track-player/lib/module/hooks/useProgress.js
+@@ -26,13 +26,15 @@ export function useProgress(updateInterval = 1000) {
+         const {
+           position,
+           duration,
+-          buffered
++          buffered,
++          trackId
+         } = await getProgress();
+         if (!mounted) return;
+-        setState(currentState => position === currentState.position && duration === currentState.duration && buffered === currentState.buffered ? currentState : {
++        setState(currentState => position === currentState.position && duration === currentState.duration && buffered === currentState.buffered && trackId === currentState.trackId ? currentState : {
+           position,
+           duration,
+-          buffered
++          buffered,
++          trackId
+         });
+       } catch {
+         // these method only throw while you haven't yet setup, ignore failure.
 diff --git a/node_modules/react-native-track-player/lib/module/trackPlayer.js b/node_modules/react-native-track-player/lib/module/trackPlayer.js
 index d748072..b549a5d 100644
 --- a/node_modules/react-native-track-player/lib/module/trackPlayer.js
@@ -830,6 +2220,17 @@ index b273a9e..8e47562 100644
  }
  //# sourceMappingURL=NowPlayingMetadata.d.ts.map
 \ No newline at end of file
+diff --git a/node_modules/react-native-track-player/lib/typescript/src/interfaces/Progress.d.ts b/node_modules/react-native-track-player/lib/typescript/src/interfaces/Progress.d.ts
+index 890ff5d..54d60b6 100644
+--- a/node_modules/react-native-track-player/lib/typescript/src/interfaces/Progress.d.ts
++++ b/node_modules/react-native-track-player/lib/typescript/src/interfaces/Progress.d.ts
+@@ -1,4 +1,6 @@
+ export interface Progress {
++    /** Native identity captured atomically with this progress (Android). */
++    trackId?: string | null;
+     /**
+      * The playback position of the current track in seconds.
+      * See https://rntp.dev/docs/api/functions/player#getposition
 diff --git a/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts b/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
 index 85d300f..0ab7ba7 100644
 --- a/node_modules/react-native-track-player/lib/typescript/src/trackPlayer.d.ts
@@ -877,6 +2278,29 @@ index d9ed3b1..1fed129 100644
    SetRating = Constants?.CAPABILITY_SET_RATING ?? 12,
 +  Like = Constants?.CAPABILITY_LIKE ?? 13,
  }
+diff --git a/node_modules/react-native-track-player/src/hooks/useProgress.ts b/node_modules/react-native-track-player/src/hooks/useProgress.ts
+index eb210a6..3494641 100644
+--- a/node_modules/react-native-track-player/src/hooks/useProgress.ts
++++ b/node_modules/react-native-track-player/src/hooks/useProgress.ts
+@@ -27,15 +27,15 @@ export function useProgress(updateInterval = 1000) {
+ 
+     const update = async () => {
+       try {
+-        const { position, duration, buffered } = await getProgress();
++        const { position, duration, buffered, trackId } = await getProgress();
+         if (!mounted) return;
+ 
+         setState((currentState) =>
+           position === currentState.position &&
+           duration === currentState.duration &&
+-          buffered === currentState.buffered
++          buffered === currentState.buffered && trackId === currentState.trackId
+             ? currentState
+-            : { position, duration, buffered }
++            : { position, duration, buffered, trackId }
+         );
+       } catch {
+         // these method only throw while you haven't yet setup, ignore failure.
 diff --git a/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts b/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
 index 400b3fa..5a6a753 100644
 --- a/node_modules/react-native-track-player/src/interfaces/NowPlayingMetadata.ts
@@ -890,6 +2314,17 @@ index 400b3fa..5a6a753 100644
 +  isFavorite?: boolean;
 +  favoriteEnabled?: boolean;
  }
+diff --git a/node_modules/react-native-track-player/src/interfaces/Progress.ts b/node_modules/react-native-track-player/src/interfaces/Progress.ts
+index e7a018b..00c1aec 100644
+--- a/node_modules/react-native-track-player/src/interfaces/Progress.ts
++++ b/node_modules/react-native-track-player/src/interfaces/Progress.ts
+@@ -1,4 +1,6 @@
+ export interface Progress {
++    /** Native identity captured atomically with this progress (Android). */
++    trackId?: string | null;
+   /**
+    * The playback position of the current track in seconds.
+    * See https://rntp.dev/docs/api/functions/player#getposition
 diff --git a/node_modules/react-native-track-player/src/trackPlayer.ts b/node_modules/react-native-track-player/src/trackPlayer.ts
 index 0b188b7..eaca4de 100644
 --- a/node_modules/react-native-track-player/src/trackPlayer.ts
@@ -910,69 +2345,3 @@ index 0b188b7..eaca4de 100644
  /**
   * Sets the queue.
   *
-diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
-new file mode 100644
-index 0000000..0cf68b2
---- /dev/null
-+++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/ReplayGainExtractorsFactory.kt
-@@ -0,0 +1,45 @@
-+package com.doublesymmetry.kotlinaudio.players.components
-+
-+import android.net.Uri
-+import androidx.media3.common.MediaItem
-+import androidx.media3.common.Format
-+import androidx.media3.common.Metadata
-+import androidx.media3.extractor.Extractor
-+import androidx.media3.extractor.ExtractorOutput
-+import androidx.media3.extractor.ExtractorsFactory
-+import androidx.media3.extractor.TrackOutput
-+import androidx.media3.extractor.metadata.id3.InternalFrame
-+
-+/** Bind DB fallback tags to this source's decoded Format, never a UI transition event. */
-+class ReplayGainExtractorsFactory(item: MediaItem, private val delegate: ExtractorsFactory) : ExtractorsFactory {
-+    private val extras = item.mediaMetadata.extras
-+    // The markers are also present when tags are missing. A new track must clear
-+    // the old explicit values before any of its samples enter the audio processor.
-+    private val metadata = Metadata(
-+        InternalFrame("mmplayer.replaygain", "gain", number("replayGain")),
-+        InternalFrame("mmplayer.replaygain", "peak", number("replayPeak"))
-+    )
-+    private fun number(key: String): String =
-+        if (extras?.containsKey(key) == true) extras.getDouble(key).toString() else ""
-+
-+    override fun createExtractors(): Array<Extractor> = delegate.createExtractors().map(::wrap).toTypedArray()
-+    override fun createExtractors(uri: Uri, responseHeaders: Map<String, List<String>>): Array<Extractor> =
-+        delegate.createExtractors(uri, responseHeaders).map(::wrap).toTypedArray()
-+
-+    private fun wrap(extractor: Extractor): Extractor = object : Extractor by extractor {
-+        override fun init(output: ExtractorOutput) {
-+            extractor.init(object : ExtractorOutput by output {
-+                override fun track(id: Int, type: Int): TrackOutput {
-+                    val track = output.track(id, type)
-+                    return object : TrackOutput by track {
-+                        override fun format(format: Format) {
-+                            track.format(format.buildUpon().setMetadata(
-+                                format.metadata?.copyWithAppendedEntriesFrom(metadata) ?: metadata
-+                            ).build())
-+                        }
-+                    }
-+                }
-+            })
-+        }
-+    }
-+}
-diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
-index f8b9ca1..91fc6ef 100644
---- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
-+++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/kotlinaudio/players/components/MediaFactory.kt
-@@ -115,8 +115,8 @@ class MediaFactory (
-         factory: DataSource.Factory
-     ): ProgressiveMediaSource {
-         return ProgressiveMediaSource.Factory(
--            factory, DefaultExtractorsFactory()
--                .setConstantBitrateSeekingEnabled(true)
-+            factory, ReplayGainExtractorsFactory(mediaItem, DefaultExtractorsFactory()
-+                .setConstantBitrateSeekingEnabled(true))
-         )
-             .createMediaSource(mediaItem)
-     }

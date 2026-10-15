@@ -175,6 +175,21 @@ class NativeEqualizerModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
 
+        AsyncFunction("setCrossfadeSettings") { seconds: Double, allowed: Boolean ->
+            require(seconds.isFinite()) { "Invalid crossfade duration" }
+            val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")
+            check(context.getSharedPreferences("mmplayer_crossfade", android.content.Context.MODE_PRIVATE)
+                .edit().putInt("durationMs", (seconds.coerceIn(0.0, 12.0) * 1000).toInt())
+                .putBoolean("allowed", allowed).commit()) { "Could not save crossfade settings" }
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("applyCrossfadePolicy").invoke(null)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("getPlaybackSnapshot") {
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("crossfadePlaybackSnapshot").invoke(null)
+        }.runOnQueue(Queues.MAIN)
+
         AsyncFunction("setReplayGainSettings") { enabled: Boolean, preamp: Double, fallback: Double ->
             require(preamp.isFinite() && fallback.isFinite()) { "Invalid ReplayGain settings" }
             val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")

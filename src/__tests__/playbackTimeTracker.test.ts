@@ -61,3 +61,18 @@ it('sends native playback metadata to the widget and handles a failed native rea
   await expect(syncWidgetState()).resolves.toBeUndefined();
   expect(errors).toHaveBeenCalled();
 });
+
+
+it('attributes overlapping playback to the incoming entry from the native boundary without counting twice', () => {
+  jest.useFakeTimers().setSystemTime(100000);
+  PlaybackTimeTracker.onStatePlaying('first');
+  jest.advanceTimersByTime(6000);
+  const nativeBoundary = Date.now();
+  jest.advanceTimersByTime(500);
+  PlaybackTimeTracker.onStateNotPlaying(nativeBoundary);
+  PlaybackTimeTracker.onStatePlaying('second', nativeBoundary);
+  jest.advanceTimersByTime(1500);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('first')).toBe(6);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('second')).toBe(2);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('first') + PlaybackTimeTracker.getAccumulatedSeconds('second')).toBe(8);
+});

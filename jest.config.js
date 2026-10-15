@@ -20,6 +20,9 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/utils/crossfadePolicy.ts',
+    'src/services/CrossfadeService.ts',
+    'src/services/playbackSnapshot.ts',
     'src/services/MultipleQueuesService.ts',
     'src/store/useMultipleQueuesStore.ts',
     'src/services/AlbumCoverService.ts',

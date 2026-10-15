@@ -1,3 +1,4 @@
+import { CrossfadeService } from '../services/CrossfadeService';
 import { create } from 'zustand';
 import { LocalCastService } from '../services/LocalCastService';
 import { LocalCastPlaybackService } from '../services/LocalCastPlaybackService';
@@ -127,8 +128,8 @@ export const useCastStore = create<CastState>((set, get) => ({
 
             // Read the current volume to restore it later, then set volume to 0
             const currentVol = await TrackPlayer.getVolume();
-            const safeVolume = (currentVol !== undefined && currentVol > 0.05) 
-                ? currentVol 
+            const safeVolume = (currentVol !== undefined && currentVol > 0.05)
+                ? currentVol
                 : ((get().previousVolume !== undefined && get().previousVolume > 0.05) ? get().previousVolume : 1.0);
 
             // Clean up A-B loop points
@@ -165,7 +166,7 @@ export const useCastStore = create<CastState>((set, get) => ({
             const prevVol = (get().previousVolume !== undefined && get().previousVolume > 0.05)
                 ? get().previousVolume
                 : 1.0;
-            
+
             try {
                 await TrackPlayer.setVolume(prevVol);
             } catch (err) {
@@ -187,39 +188,42 @@ export const useCastStore = create<CastState>((set, get) => ({
     },
 
     startLocalCast: async () => {
-        let nativePos = 0;
-        let isPlaying = false;
-        let activeCleanId: string | null = null;
+        const releaseCrossfade = await CrossfadeService.block();
         try {
-            const progress = await TrackPlayer.getProgress();
-            nativePos = progress.position;
-            const state = await TrackPlayer.getPlaybackState();
-            isPlaying = state.state === 'playing';
-            const { usePlayerStore } = require('./usePlayerStore');
-            const track = usePlayerStore.getState().activeTrack;
-            if (track?.id) {
-                activeCleanId = track.id.toString().split('-')[0];
-            }
-        } catch (e) {}
+            let nativePos = 0;
+            let isPlaying = false;
+            let activeCleanId: string | null = null;
+            try {
+                const progress = await TrackPlayer.getProgress();
+                nativePos = progress.position;
+                const state = await TrackPlayer.getPlaybackState();
+                isPlaying = state.state === 'playing';
+                const { usePlayerStore } = require('./usePlayerStore');
+                const track = usePlayerStore.getState().activeTrack;
+                if (track?.id) {
+                    activeCleanId = track.id.toString().split('-')[0];
+                }
+            } catch (e) {}
 
-        const activeIndex = await TrackPlayer.getActiveTrackIndex();
-        const nativeTrack = activeIndex == null ? null : await TrackPlayer.getTrack(activeIndex);
-        await (TrackPlayer.pause as (bypassFade: boolean) => Promise<void>)(true);
-        let url: string;
-        try {
-            url = await get().startServer();
-        } catch (error) {
-            if (isPlaying) await TrackPlayer.play();
-            throw error;
-        }
-        LocalCastPlaybackService.begin(LocalCastService.createSessionId(), String(nativeTrack?.id ?? activeCleanId ?? ''), nativePos, isPlaying);
-        set({ 
-            isLocalCastActive: true, 
-            selectedMode: 'local',
-            castPosition: nativePos,
-            isCastPlaying: isPlaying
-        });
-        return url;
+            const activeIndex = await TrackPlayer.getActiveTrackIndex();
+            const nativeTrack = activeIndex == null ? null : await TrackPlayer.getTrack(activeIndex);
+            await (TrackPlayer.pause as (bypassFade: boolean) => Promise<void>)(true);
+            let url: string;
+            try {
+                url = await get().startServer();
+            } catch (error) {
+                if (isPlaying) await TrackPlayer.play();
+                throw error;
+            }
+            LocalCastPlaybackService.begin(LocalCastService.createSessionId(), String(nativeTrack?.id ?? activeCleanId ?? ''), nativePos, isPlaying);
+            set({
+                isLocalCastActive: true,
+                selectedMode: 'local',
+                castPosition: nativePos,
+                isCastPlaying: isPlaying
+            });
+            return url;
+        } finally { releaseCrossfade(); }
     },
 
     stopLocalCast: async () => {
@@ -255,7 +259,7 @@ export const useCastStore = create<CastState>((set, get) => ({
             }
 
             // 7. Grace period for PC to receive the final STOP event before shutting down the socket.
-            // Since the PC polls every 1.5s - 2.5s, we need to keep the server alive slightly longer 
+            // Since the PC polls every 1.5s - 2.5s, we need to keep the server alive slightly longer
             // in the background so it can respond with 'isStopped: true'
             if (!finalReport) await new Promise((resolve) => setTimeout(resolve, 2500));
 

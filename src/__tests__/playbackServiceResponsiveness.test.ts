@@ -291,3 +291,67 @@ describe('playback event boundary cases', () => {
     expect(PlaybackTimeTracker.getAccumulatedSeconds('boundary')).toBe(100);
   });
 });
+
+
+it('commits a crossfade listen once at its native boundary while the incoming clock keeps running', async () => {
+  jest.useFakeTimers().setSystemTime(100000);
+  jest.clearAllMocks();
+  const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const history = jest.spyOn(HistoryService, 'logToDatabase').mockResolvedValue(undefined);
+  (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ duration: 180 }) });
+  (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Playing });
+  useCastStore.setState({ isLocalCastActive: false, isServerRunning: false, isChromecastConnected: false } as any);
+  useMultipleQueuesStore.setState({ isSwitching: false });
+  usePlayerStore.getState().isSyncingLyrics = false;
+  PlaybackTimeTracker.reset();
+  PlaybackTimeTracker.setAccumulatedSeconds('crossfade-old', 90);
+  PlaybackTimeTracker.onStatePlaying('crossfade-old');
+  jest.advanceTimersByTime(6000);
+  const occurredAt = Date.now();
+  jest.advanceTimersByTime(500);
+  await PlaybackService();
+  const listener = (TrackPlayer.addEventListener as jest.Mock).mock.calls.find(([type]) => type === Event.PlaybackActiveTrackChanged)![1];
+  const event = { crossfade: true, transitionId: 'statistics-crossfade', occurredAt,
+    track: { id: 'crossfade-new' }, lastTrack: { id: 'crossfade-old' }, index: 1, lastIndex: 0 };
+  await listener(event);
+  expect(history).toHaveBeenCalledWith('crossfade-old', 96, 'queue');
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('crossfade-new')).toBe(0.5);
+  await listener(event);
+  expect(history).toHaveBeenCalledTimes(1);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('crossfade-old')).toBe(0);
+  expect(PlaybackTimeTracker.getCurrentTrackId()).toBe('crossfade-new');
+  PlaybackTimeTracker.reset();
+  history.mockRestore(); errors.mockRestore(); jest.clearAllTimers(); jest.useRealTimers();
+});
+
+
+it('keeps both logical listens when a second crossfade arrives before the first history write finishes', async () => {
+  jest.useFakeTimers().setSystemTime(200000);
+  jest.clearAllMocks();
+  const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const history = jest.spyOn(PlaybackListenService, 'save');
+  let finishFirst!: () => void;
+  const pendingFirst = new Promise<void>(resolve => { finishFirst = resolve; });
+  history.mockImplementation(async id => { if (id === 'rapid-a') await pendingFirst; });
+  useCastStore.setState({ isLocalCastActive: false, isServerRunning: false, isChromecastConnected: false } as any);
+  useMultipleQueuesStore.setState({ isSwitching: false });
+  usePlayerStore.getState().isSyncingLyrics = false;
+  (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Playing });
+  PlaybackTimeTracker.reset();
+  PlaybackTimeTracker.setAccumulatedSeconds('rapid-a', 90);
+  PlaybackTimeTracker.onStatePlaying('rapid-a');
+  await PlaybackService();
+  const listener = (TrackPlayer.addEventListener as jest.Mock).mock.calls.find(([type]) => type === Event.PlaybackActiveTrackChanged)![1];
+  const first = listener({ crossfade: true, transitionId: 'rapid-a-b', occurredAt: Date.now(),
+    track: { id: 'rapid-b' }, lastTrack: { id: 'rapid-a' }, index: 1, lastIndex: 0 });
+  jest.advanceTimersByTime(3000);
+  await listener({ crossfade: true, transitionId: 'rapid-b-c', occurredAt: Date.now(),
+    track: { id: 'rapid-c' }, lastTrack: { id: 'rapid-b' }, index: 2, lastIndex: 1 });
+  finishFirst();
+  await first;
+  expect(history).toHaveBeenCalledWith('rapid-a', 90, true);
+  expect(history).toHaveBeenCalledWith('rapid-b', 3, true);
+  expect(PlaybackTimeTracker.getCurrentTrackId()).toBe('rapid-c');
+  PlaybackTimeTracker.reset(); history.mockRestore(); errors.mockRestore();
+  jest.clearAllTimers(); jest.useRealTimers();
+});

@@ -1,3 +1,5 @@
+import { readPlaybackSnapshot } from './playbackSnapshot';
+import { CrossfadeService } from './CrossfadeService';
 import TrackPlayer from 'react-native-track-player';
 import { createMMKV } from 'react-native-mmkv';
 import Track from '../database/models/Track';
@@ -28,11 +30,13 @@ async function beginQueueChange() {
     checkQueueChangeAllowed();
     const state = useMultipleQueuesStore.getState();
     useMultipleQueuesStore.setState({ isSwitching: true });
+    try { await CrossfadeService.flush(); }
+    catch (error) { useMultipleQueuesStore.setState({ isSwitching: false }); throw error; }
     return state;
 }
 async function capture(): Promise<QueueSession> {
     const player = usePlayerStore.getState();
-    const [queue, index, progress, repeatMode] = await Promise.all([TrackPlayer.getQueue(), TrackPlayer.getActiveTrackIndex(), TrackPlayer.getProgress(), TrackPlayer.getRepeatMode()]);
+    const { queue, index, progress, repeatMode } = await readPlaybackSnapshot();
     const activeIndex = index ?? 0;
     return { queue, index: activeIndex, position: progress.position,
         accumulatedTime: queue[activeIndex]?.id ? PlaybackTimeTracker.getAccumulatedSeconds(queue[activeIndex].id.toString()) : 0,

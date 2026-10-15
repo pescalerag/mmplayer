@@ -48,7 +48,7 @@ export const handleActiveTrackChangedEvent = async (event: any) => {
     }
 
     await Promise.all([
-        resumeTrackPlayback(track),
+        event.crossfade ? Promise.resolve() : resumeTrackPlayback(track),
         track?.id
             ? usePlayerStore.getState().setActiveTrackById(track.id, track.instanceId)
             : Promise.resolve(),

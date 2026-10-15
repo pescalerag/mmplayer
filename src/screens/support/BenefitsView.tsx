@@ -12,6 +12,7 @@ import ColorPicker, {
 import { useSettingsStore, StatsCardTheme, LocalCastTheme, AppTheme } from '../../store/useSettingsStore';
 import { useAppTheme, LEGENDARY_ACCENT } from '../../hooks/useAppTheme';
 import { getDynamicTagTextColor } from '../../utils/color';
+import { normalizeAppIcon } from '../../utils/appIcon';
 
 // Using require to safely handle the dynamic import if not installed fully native
 let setAppIcon: (name: string | null, isInBackground?: boolean) => Promise<any>;
@@ -27,16 +28,14 @@ try {
 
 const ICONS = [
     { id: 'DEFAULT', nameKey: 'support.icon_original', image: require('../../assets/images/icon.png') },
-    { id: 'dark', nameKey: 'support.icon_dark', image: require('../../assets/images/dark-icon.png') },
-    { id: 'supporter', nameKey: 'support.icon_supporter', image: require('../../assets/images/supporter-icon.png') },
-    { id: 'retro', nameKey: 'support.icon_retro', image: require('../../assets/images/retro-icon.png') },
-    { id: 'darkblue', nameKey: 'support.icon_dark_blue', image: require('../../assets/images/android-icon-darkblue.png') },
-    { id: 'develpink', nameKey: 'support.icon_devel_pink', image: require('../../assets/images/android-icon-devel-pink.png') },
-    { id: 'labgreen', nameKey: 'support.icon_lab_green', image: require('../../assets/images/android-icon-labgreen.png') },
-    { id: 'orange', nameKey: 'support.icon_orange', image: require('../../assets/images/android-icon-orange.png') },
-    { id: 'pink', nameKey: 'support.icon_pink', image: require('../../assets/images/android-icon-pink.png') },
-    { id: 'red', nameKey: 'support.icon_red', image: require('../../assets/images/android-icon-red.png') },
-    { id: 'white', nameKey: 'support.icon_white', image: require('../../assets/images/android-icon-white.png') }
+    { id: 'dark', nameKey: 'support.icon_dark', image: require('../../assets/images/app-icons/logoBlack.png') },
+    { id: 'aqua', nameKey: 'support.icon_aqua', image: require('../../assets/images/app-icons/logoAqua.png') },
+    { id: 'develpink', nameKey: 'support.icon_devel_pink', image: require('../../assets/images/app-icons/logodevelETSII.png') },
+    { id: 'labgreen', nameKey: 'support.icon_lab_green', image: require('../../assets/images/app-icons/logoGreen.png') },
+    { id: 'pink', nameKey: 'support.icon_pink', image: require('../../assets/images/app-icons/logoMagenta.png') },
+    { id: 'red', nameKey: 'support.icon_red', image: require('../../assets/images/app-icons/logoRed.png') },
+    { id: 'white', nameKey: 'support.icon_white', image: require('../../assets/images/app-icons/logoWhite.png') },
+    { id: 'yellow', nameKey: 'support.icon_yellow', image: require('../../assets/images/app-icons/logoYellow.png') }
 ];
 
 interface StatsThemeOption {
@@ -301,8 +300,8 @@ export default function BenefitsView() {
             if (getAppIcon) {
                 getAppIcon()
                     .then((currentIcon) => {
-                        if (currentIcon && currentIcon !== activeAppIcon) {
-                            setStoreAppIcon(currentIcon);
+                        if (currentIcon && normalizeAppIcon(currentIcon) !== activeAppIcon) {
+                            setStoreAppIcon(normalizeAppIcon(currentIcon));
                         }
                     })
                     .catch((err) => {
@@ -577,7 +576,7 @@ export default function BenefitsView() {
                                         style={[styles.themePreviewBox]}
                                     >
                                         <Image
-                                            source={require('../../assets/images/android-icon-legend.png')}
+                                            source={require('../../assets/images/app-icons/logoYellow.png')}
                                             style={styles.themePreviewIcon}
                                         />
                                     </LinearGradient>

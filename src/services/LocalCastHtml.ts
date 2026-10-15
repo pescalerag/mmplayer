@@ -1,6 +1,6 @@
 import { castReplayGainSource, castReplayGainMathSource } from './generated/LocalCastReplayGainSource';
 import { localCastAudioSource } from './generated/LocalCastAudioSource';
-import { localCastQueueSource, localCastLyricsSource } from './generated/LocalCastViewSource';
+import { localCastQueueSource, localCastLyricsSource, localCastThemeSource } from './generated/LocalCastViewSource';
 import { LocalCastTheme } from '../store/useSettingsStore';
 
 export interface LocalCastTranslations {
@@ -201,6 +201,15 @@ const THEME_CSS: Record<LocalCastTheme, string> = {
     `,
 };
 
+export function resolveLocalCastTheme(theme: unknown): LocalCastTheme {
+    return typeof theme === 'string' && Object.prototype.hasOwnProperty.call(THEME_CSS, theme)
+        ? theme as LocalCastTheme : 'default';
+}
+
+export function getLocalCastThemeCss(theme: LocalCastTheme): string {
+    return THEME_CSS[theme];
+}
+
 export function getClientHtml(customTranslations?: Partial<LocalCastTranslations>, theme: LocalCastTheme = 'default'): string {
     const t: LocalCastTranslations = {
         appTitle: 'MMPlayer LocalCast',
@@ -222,7 +231,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         ...customTranslations,
     };
 
-    const themeCss = THEME_CSS[theme] || THEME_CSS.default;
+    const resolvedTheme = resolveLocalCastTheme(theme);
+    const themeCss = getLocalCastThemeCss(resolvedTheme);
 
     return `<!DOCTYPE html>
 <html lang="${t.lang || 'es'}">
@@ -234,9 +244,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style id="localcast-theme">${themeCss}</style>
     <style>
-        ${themeCss}
-
         * {
             box-sizing: border-box;
             margin: 0;
@@ -758,6 +767,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     </div>
     <script>
         const i18n             = ${JSON.stringify(t)};
+        const themeView = (${localCastThemeSource})(document.getElementById('localcast-theme'), ${JSON.stringify(resolvedTheme)});
         const audioPlayer      = document.getElementById('audio-player');
         const titleEl          = document.getElementById('title');
         const artistEl         = document.getElementById('artist');
@@ -1142,7 +1152,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     }
                     const isAudioPlaying = !audioPlayer.paused && !audioPlayer.ended && audioPlayer.readyState > 2;
                     const audioDur = (audioPlayer.duration || 0).toFixed(1);
-                    response = await fetch('/api/state?queueVersion=' + encodeURIComponent(queueVersion) + '&pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || '') + '&report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { signal: controller.signal });
+                    response = await fetch('/api/state?theme=' + encodeURIComponent(themeView.getTheme()) + '&queueVersion=' + encodeURIComponent(queueVersion) + '&pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || '') + '&report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { signal: controller.signal });
                 } finally {
                     clearTimeout(timeoutId);
                 }
@@ -1150,6 +1160,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 if (!response.ok) throw new Error('Response not OK: ' + response.status);
 
                 const state = await response.json();
+                themeView.sync(state);
                 if (state.queueVersion) queueVersion = state.queueVersion;
                 if (typeof state.hasNext === 'boolean') nextBtn.disabled = !state.hasNext;
                 if (typeof state.shuffleOnQueueEnd === 'boolean') castQueue.update(state);

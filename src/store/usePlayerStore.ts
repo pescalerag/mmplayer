@@ -1,3 +1,6 @@
+import { CrossfadeService } from '../services/CrossfadeService';
+import { Platform } from 'react-native';
+import { readPlaybackSnapshot, tryReadNativePlaybackSnapshot } from '../services/playbackSnapshot';
 import { Collection } from "@nozbe/watermelondb";
 import { createMMKV } from "react-native-mmkv";
 import TrackPlayer, { RepeatMode, Track as TPTrack } from "react-native-track-player";
@@ -29,11 +32,31 @@ let instanceCounter = 0;
 let queueStatusRevision = 0;
 let activeTrackRevision = 0;
 let lastConsumedQueueTransition: string | null = null;
+let lastNativeQueueRevision = -1;
+const INSERT_AFTER_ACTIVE = -2;
+const INSERT_AFTER_MANUAL_QUEUE = -3;
+
+export function applyNativeManualQueueSize(size: number | undefined, revision: number | undefined) {
+  if (size === undefined || revision === undefined || !Number.isFinite(size) || !Number.isFinite(revision) || revision < lastNativeQueueRevision || useMultipleQueuesStore.getState().isSwitching) return;
+  lastNativeQueueRevision = revision;
+  usePlayerStore.setState({ userQueueSize: Math.max(0, size) });
+}
 
 // The service and mounted UI receive the same native event. Consume manual
 // entries once, and ignore index shifts caused by inserting the playing item.
 export function consumeUserQueueTransition(event: { track?: TPTrack | { id?: string }; lastTrack?: TPTrack | { id?: string }; index?: number; lastIndex?: number }) {
   if (useMultipleQueuesStore.getState().isSwitching) return;
+  const crossfade = event as typeof event & { crossfade?: boolean; transitionId?: string; queueRevision?: number; userQueueSize?: number };
+  if (crossfade.queueRevision !== undefined && crossfade.userQueueSize !== undefined) {
+    applyNativeManualQueueSize(crossfade.userQueueSize, crossfade.queueRevision);
+    return;
+  }
+  if (crossfade.crossfade && crossfade.transitionId) {
+    if (lastConsumedQueueTransition === crossfade.transitionId) return;
+    lastConsumedQueueTransition = crossfade.transitionId;
+    if ((event.track as TPTrack)?.isManual) usePlayerStore.setState(state => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
+    return;
+  }
   if (event.index === undefined || event.lastIndex === undefined || event.index <= event.lastIndex) return;
   if (event.lastTrack?.id && event.lastTrack.id === event.track?.id) return;
   const transition = `${event.lastTrack?.id ?? ''}:${event.track?.id ?? ''}:${event.lastIndex}:${event.index}`;
@@ -1064,17 +1087,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       try {
         const tpTrack = await mapToTPTrack(track);
         (tpTrack as any).isManual = true;
-        const currentIndex = await TrackPlayer.getActiveTrackIndex();
+        if (Platform.OS === 'android') {
+          await TrackPlayer.add([tpTrack], INSERT_AFTER_ACTIVE);
+        } else {
+          const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
-        if (currentIndex !== undefined && currentIndex !== null) {
-          const queue = await TrackPlayer.getQueue();
-          if (currentIndex + 1 < queue.length) {
-            await TrackPlayer.add([tpTrack], currentIndex + 1);
+          if (currentIndex !== undefined && currentIndex !== null) {
+            const queue = await TrackPlayer.getQueue();
+            if (currentIndex + 1 < queue.length) {
+              await TrackPlayer.add([tpTrack], currentIndex + 1);
+            } else {
+              await TrackPlayer.add([tpTrack]);
+            }
           } else {
             await TrackPlayer.add([tpTrack]);
           }
-        } else {
-          await TrackPlayer.add([tpTrack]);
         }
         // Incrementar el tamaño de la cola manual
         set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
@@ -1097,7 +1124,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const { queueAddBehavior } = useSettingsStore.getState();
         const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
-        if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
+        if (queueAddBehavior === 'user_queue' && Platform.OS === 'android') {
+          await TrackPlayer.add([tpTrack], INSERT_AFTER_MANUAL_QUEUE);
+          set(state => ({ userQueueSize: state.userQueueSize + 1 }));
+        } else if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
           const { userQueueSize } = get();
           const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
           const queue = await TrackPlayer.getQueue();
@@ -1133,17 +1163,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (tracks.length === 0) return;
         const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
         tpTracks.forEach((t) => ((t as any).isManual = true));
-        const currentIndex = await TrackPlayer.getActiveTrackIndex();
+        if (Platform.OS === 'android') {
+          await TrackPlayer.add(tpTracks, INSERT_AFTER_ACTIVE);
+        } else {
+          const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
-        if (currentIndex !== undefined && currentIndex !== null) {
-          const queue = await TrackPlayer.getQueue();
-          if (currentIndex + 1 < queue.length) {
-            await TrackPlayer.add(tpTracks, currentIndex + 1);
+          if (currentIndex !== undefined && currentIndex !== null) {
+            const queue = await TrackPlayer.getQueue();
+            if (currentIndex + 1 < queue.length) {
+              await TrackPlayer.add(tpTracks, currentIndex + 1);
+            } else {
+              await TrackPlayer.add(tpTracks);
+            }
           } else {
             await TrackPlayer.add(tpTracks);
           }
-        } else {
-          await TrackPlayer.add(tpTracks);
         }
         // Incrementar el tamaño de la cola manual
         set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
@@ -1167,7 +1201,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const { queueAddBehavior } = useSettingsStore.getState();
         const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
-        if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
+        if (queueAddBehavior === 'user_queue' && Platform.OS === 'android') {
+          await TrackPlayer.add(tpTracks, INSERT_AFTER_MANUAL_QUEUE);
+          set(state => ({ userQueueSize: state.userQueueSize + tpTracks.length }));
+        } else if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
           const { userQueueSize } = get();
           const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
           const queue = await TrackPlayer.getQueue();
@@ -1456,9 +1493,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (multiple.isSwitching) return;
     const queueId = multiple.activeId;
     try {
-      const [queue, index, progress, repeatMode] = await Promise.all([
-        TrackPlayer.getQueue(), TrackPlayer.getActiveTrackIndex(), TrackPlayer.getProgress(), TrackPlayer.getRepeatMode(),
-      ]);
+      const { queue, index, progress, repeatMode } = await readPlaybackSnapshot();
       const latest = useMultipleQueuesStore.getState();
       if (latest.isSwitching || latest.activeId !== queueId) return;
       if (!queue.length) {
@@ -1572,11 +1607,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const revision = ++queueStatusRevision;
     const snapshotRevision = beginQueueSnapshotRead();
     try {
-      const [queue, index, repeatMode]: [TPTrack[], number | null | undefined, number] = knownQueue ? [knownQueue.queue, currentIndex, knownQueue.repeatMode] : await Promise.all([
-        TrackPlayer.getQueue(),
-        currentIndex ?? TrackPlayer.getActiveTrackIndex(),
-        TrackPlayer.getRepeatMode(),
-      ]);
+      const snapshot = !knownQueue && Platform.OS === 'android' ? await tryReadNativePlaybackSnapshot() : null;
+      const [queue, index, repeatMode]: [TPTrack[], number | null | undefined, number] = snapshot
+        ? [snapshot.queue, snapshot.index, snapshot.repeatMode]
+        : knownQueue ? [knownQueue.queue, currentIndex, knownQueue.repeatMode] : await Promise.all([
+          TrackPlayer.getQueue(), currentIndex ?? TrackPlayer.getActiveTrackIndex(), TrackPlayer.getRepeatMode(),
+        ]);
+      if (snapshot) applyNativeManualQueueSize(snapshot.userQueueSize, snapshot.queueRevision);
       if (revision !== queueStatusRevision) return;
       publishNativeQueue(queue, index, snapshotRevision);
       const shuffleOnQueueEnd = knownQueue?.shuffleOnQueueEnd ?? selectShuffleOnQueueEnd(useMultipleQueuesStore.getState());
@@ -1862,6 +1899,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (isActiveTrackTarget || isAnyQueueTarget) {
         await TrackPlayer.pause().catch(() => { });
+        const release = await CrossfadeService.block();
+        release();
         return true;
       }
       return false;

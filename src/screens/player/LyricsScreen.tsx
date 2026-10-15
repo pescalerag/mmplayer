@@ -360,7 +360,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     const progress = useProgress();
     const progressTrackId = usePlaybackSnapshotStore(snapshot => snapshot.trackId);
-    const isCurrentProgress = progressTrackId === track.id.toString();
+    const isCurrentProgress = progressTrackId === track.id.toString() &&
+        (!progress.trackId || progress.trackId.split('-')[0] === track.id.toString());
     const position = isCurrentProgress ? progress.position : 0;
     const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const hasNext = usePlayerStore(state => state.hasNext);
