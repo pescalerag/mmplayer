@@ -260,9 +260,8 @@ class NativeEqualizerModule : Module() {
                 }
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 decode(bounds)
-                val options = BitmapFactory.Options()
-                while (maxOf(bounds.outWidth, bounds.outHeight) / options.inSampleSize > 256) {
-                    options.inSampleSize *= 2
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = calculateCoverSampleSize(bounds.outWidth, bounds.outHeight)
                 }
                 val bitmap = decode(options)
                 if (bitmap == null) null else {
