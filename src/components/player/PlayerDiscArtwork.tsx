@@ -10,13 +10,14 @@ interface PlayerDiscArtworkProps {
     coverColor: string | null;
     coverUrl?: string | null;
     holeSize?: number;
+    onReady?: () => void;
 }
 
-export const PlayerDiscArtwork = React.memo(({ playerCoverStyle, album, artworkSize, spinStyle, coverColor, coverUrl, holeSize = 35 }: Readonly<PlayerDiscArtworkProps>) => {
+export const PlayerDiscArtwork = React.memo(({ playerCoverStyle, album, artworkSize, spinStyle, coverColor, coverUrl, holeSize = 35, onReady }: Readonly<PlayerDiscArtworkProps>) => {
     if (playerCoverStyle === 'cd') {
-        return <CdArtwork size={artworkSize} customImageUrl={album?.cdArtUrl} coverUrl={coverUrl} spinStyle={spinStyle} holeSize={holeSize} />;
+        return <CdArtwork size={artworkSize} customImageUrl={album?.cdArtUrl} coverUrl={coverUrl} spinStyle={spinStyle} holeSize={holeSize} onReady={onReady} />;
     }
 
-    return <VinylArtwork size={artworkSize} coverUrl={coverUrl} coverColor={coverColor} spinStyle={spinStyle} />;
+    return <VinylArtwork size={artworkSize} coverUrl={coverUrl} coverColor={coverColor} spinStyle={spinStyle} onReady={onReady} />;
 });
 PlayerDiscArtwork.displayName = 'PlayerDiscArtwork';

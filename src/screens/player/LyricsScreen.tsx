@@ -1,3 +1,4 @@
+import { ScreenLoadingFrame, ScreenLoadingShell, useScreenReady } from '../../components/layouts/ScreenLoadingShell';
 import { openQueueSheet, openSpeedPitch, openSleepTimer, openLyricsMenu } from '@/store/useUIStore';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -322,6 +323,7 @@ interface LyricsScreenUIProps {
 }
 
 const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) => {
+    useScreenReady();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
@@ -785,18 +787,20 @@ export default function LyricsScreen() {
     const isFocused = useIsFocused();
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
 
-    if (!activeTrackModel) return null;
+    if (!activeTrackModel) return <ScreenLoadingShell />;
 
     if ((activeTrackModel as any).isExternal) {
         return (
             <>
                 {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
-                <LyricsScreenUI
-                    track={activeTrackModel}
-                    album={(activeTrackModel as any).albumObj || null}
-                    artist={(activeTrackModel as any).artistObj || null}
-                    artists={(activeTrackModel as any).artistsList || []}
-                />
+                <ScreenLoadingFrame title={activeTrackModel.title}>
+                    <LyricsScreenUI
+                        track={activeTrackModel}
+                        album={(activeTrackModel as any).albumObj || null}
+                        artist={(activeTrackModel as any).artistObj || null}
+                        artists={(activeTrackModel as any).artistsList || []}
+                    />
+                </ScreenLoadingFrame>
             </>
         );
     }
@@ -804,7 +808,9 @@ export default function LyricsScreen() {
     return (
         <>
             {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
-            <ObservableLyricsScreenUI trackModel={activeTrackModel} />
+            <ScreenLoadingFrame title={activeTrackModel.title}>
+                <ObservableLyricsScreenUI trackModel={activeTrackModel} />
+            </ScreenLoadingFrame>
         </>
     );
 }

@@ -7,6 +7,7 @@ import { cassetteTapeRadius } from '../../utils/cassetteTape';
 
 interface CassetteArtworkProps {
     size: number;
+    onReady?: () => void;
     coverUrl?: string | null;
     progress?: number;
     isPlaying?: boolean;
@@ -64,7 +65,7 @@ function ReelHub() {
     </Svg>;
 }
 
-export const CassetteArtwork = React.memo(({ size, coverUrl, progress = 0, isPlaying = false, coverColor, albumTitle }: Readonly<CassetteArtworkProps>) => {
+export const CassetteArtwork = React.memo(({ size, coverUrl, progress = 0, isPlaying = false, coverColor, albumTitle, onReady }: Readonly<CassetteArtworkProps>) => {
     const scale = size / 400;
     const tapeColor = coverColor || '#777b82';
     const tapeProgress = useSharedValue(progress);
@@ -101,7 +102,7 @@ export const CassetteArtwork = React.memo(({ size, coverUrl, progress = 0, isPla
     return <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
         <View style={{ width: size, height: size * 0.65 }}>
             <CassetteShell />
-            {coverUrl && <Image source={{ uri: coverUrl }} recyclingKey={coverUrl} contentFit="cover" blurRadius={20 * scale} transition={0}
+            {coverUrl && <Image source={{ uri: coverUrl }} recyclingKey={coverUrl} contentFit="cover" blurRadius={20 * scale} transition={0} onLoad={onReady} onError={onReady}
                 style={{ position: 'absolute', left: 24 * scale, top: 24 * scale, width: 352 * scale, height: 166 * scale, borderRadius: 8 * scale }} />}
             <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><CassetteDetails /></View>
             {!!albumTitle?.trim() && <Text numberOfLines={2} ellipsizeMode="tail" pointerEvents="none"

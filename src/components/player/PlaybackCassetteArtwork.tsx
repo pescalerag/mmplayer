@@ -6,7 +6,7 @@ import { CassetteArtwork } from './CassetteArtwork';
 import { cassetteProgress } from '../../utils/cassetteTape';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-export function PlaybackCassetteArtwork({ size, coverUrl, coverColor, albumTitle }: Readonly<{ size: number; coverUrl: string | null; coverColor?: string | null; albumTitle?: string | null }>) {
+export function PlaybackCassetteArtwork({ size, coverUrl, coverColor, albumTitle, onReady }: Readonly<{ onReady?: () => void; size: number; coverUrl: string | null; coverColor?: string | null; albumTitle?: string | null }>) {
     const showAlbumName = useSettingsStore(state => state.showCassetteAlbumName);
     const { position, duration } = useProgress(250);
     const playback = usePlaybackState();
@@ -16,6 +16,6 @@ export function PlaybackCassetteArtwork({ size, coverUrl, coverColor, albumTitle
         const subscription = AppState.addEventListener('change', state => setIsActive(state === 'active'));
         return () => subscription.remove();
     }, []);
-    return <CassetteArtwork size={size} coverUrl={coverUrl} coverColor={coverColor} albumTitle={showAlbumName ? albumTitle : null} progress={cassetteProgress(position, duration)}
+    return <CassetteArtwork onReady={onReady} size={size} coverUrl={coverUrl} coverColor={coverColor} albumTitle={showAlbumName ? albumTitle : null} progress={cassetteProgress(position, duration)}
         isPlaying={playback.state === State.Playing && isFocused && isActive} />;
 }

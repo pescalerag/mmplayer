@@ -1,3 +1,4 @@
+import { observeScreenData } from '../../utils/observeScreenData';
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
@@ -28,7 +29,7 @@ import { HistoryService } from '../../services/HistoryService';
 import { getItemFadeIn } from '../../utils/cascadeAnimations';
 
 interface NotificationsListProps {
-  notifications: AppNotification[];
+  notifications: AppNotification[] | null;
   isReady: boolean;
   headerHeight: number;
   insetsBottom: number;
@@ -51,8 +52,8 @@ function NotificationsList({
   const { colors, fonts } = useAppTheme();
   const { t } = useTranslation();
 
-  if (!isReady) {
-    return null;
+  if (!isReady || notifications === null) {
+    return <View style={{ flex: 1 }} pointerEvents="none" />;
   }
 
   return (
@@ -114,10 +115,10 @@ function NotificationsList({
 }
 
 const ObservableNotificationsList = withObservables([], () => ({
-  notifications: database
+  notifications: observeScreenData(() => database
     .get<AppNotification>('notifications')
     .query(Q.sortBy('created_at', Q.desc))
-    .observeWithColumns(['is_read']),
+    .observeWithColumns(['is_read']), null),
 }))(NotificationsList);
 
 export default function NotificationsScreen() {

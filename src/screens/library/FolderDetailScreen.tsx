@@ -1,3 +1,5 @@
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { openAlbumMenu, openFolderMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -418,10 +420,12 @@ function FolderDetailContentBase({ folderPath, folderName: passedFolderName, raw
 }
 
 const EnhancedFolderDetailContent = withObservables(['folderPath'], ({ folderPath }: { folderPath: string }) => ({
-    rawTracks: database.collections.get<Track>('tracks')
-        .query(Q.where('file_url', Q.like(`${folderPath}%`)))
-        .observe(),
-}))(FolderDetailContentBase);
+    data: observeScreenData(() => database.collections.get<Track>('tracks')
+        .query(Q.where('file_url', Q.like(`${folderPath}%`))).observe()),
+}))(function LoadedFolderDetail({ data, folderPath, folderName }: { data?: Track[]; folderPath: string; folderName: string }) {
+    if (!data) return <ScreenLoadingShell title={folderName} />;
+    return <FolderDetailContentBase rawTracks={data} folderPath={folderPath} folderName={folderName} isLoadingContent={false} />;
+});
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 export default function FolderDetailScreen() {
@@ -432,7 +436,6 @@ export default function FolderDetailScreen() {
         <EnhancedFolderDetailContent
             folderPath={folderPath}
             folderName={folderName}
-            isLoadingContent={false}
         />
     );
 }

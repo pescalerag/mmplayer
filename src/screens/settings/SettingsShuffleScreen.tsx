@@ -1,3 +1,6 @@
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -14,7 +17,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
@@ -425,15 +427,14 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
 }
 
 const ObservableSettingsShuffleScreen = withObservables([], () => ({
-    excludedTracks: database.collections
-        .get<Track>('tracks')
-        .query(Q.where('is_excluded_from_shuffle', true))
-        .observe(),
-    excludedAlbums: database.collections
-        .get<Album>('albums')
-        .query(Q.where('is_excluded_from_shuffle', true))
-        .observe(),
-}))(SettingsShuffleContent);
+    data: observeScreenData(() => combineLatest({
+        excludedTracks: database.collections.get<Track>('tracks').query(Q.where('is_excluded_from_shuffle', true)).observe(),
+        excludedAlbums: database.collections.get<Album>('albums').query(Q.where('is_excluded_from_shuffle', true)).observe(),
+    })),
+}))(function LoadedShuffleSettings({ data }: { data?: SettingsShuffleProps }) {
+    if (!data) return <ScreenLoadingShell titleKey="settings.shuffle_title" />;
+    return <SettingsShuffleContent {...data} />;
+});
 
 export default function SettingsShuffleScreen() {
     return <ObservableSettingsShuffleScreen />;

@@ -5,8 +5,9 @@ import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 
-export function CdArtwork({ size, customImageUrl, coverUrl, spinStyle, holeSize }: Readonly<{
+export function CdArtwork({ size, customImageUrl, coverUrl, spinStyle, holeSize, onReady }: Readonly<{
     size: number;
+    onReady?: () => void;
     customImageUrl?: string | null;
     coverUrl?: string | null;
     spinStyle: any;
@@ -33,7 +34,7 @@ export function CdArtwork({ size, customImageUrl, coverUrl, spinStyle, holeSize 
                     </Defs>
                     <Circle cx="200" cy="200" r="198" fill="url(#cd-metal)" stroke="#727a79" strokeWidth="2" />
                 </Svg>
-                {imageUrl && <Image source={{ uri: imageUrl }} recyclingKey={imageUrl} contentFit="cover" transition={0}
+                {imageUrl && <Image source={{ uri: imageUrl }} recyclingKey={imageUrl} contentFit="cover" transition={0} onLoad={onReady} onError={onReady}
                     style={{ position: 'absolute', left: (size - imageSize) / 2, top: (size - imageSize) / 2, width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} />}
                 <Svg width="100%" height="100%" viewBox="0 0 400 400" style={StyleSheet.absoluteFillObject}>
                     <Defs>

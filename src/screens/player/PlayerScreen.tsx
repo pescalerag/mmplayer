@@ -1,3 +1,4 @@
+import { ArtworkFadeIn } from '../../components/player/ArtworkFadeIn';
 import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 import { useDismissEmptyPlayer } from '../../hooks/useDismissEmptyPlayer';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
@@ -1055,30 +1056,22 @@ const ActiveArtworkCenter = ({
     if (showCanvas && !!bgVideo) {
         return <View style={{ width: artworkSize, height: artworkSize }} />;
     }
-    if (playerCoverStyle === 'cassette') {
-        return <PlaybackCassetteArtwork size={artworkSize} coverUrl={currentCoverUrl} coverColor={coverColor} albumTitle={album?.title} />;
-    }
-    if (playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl') {
-        return (
-            <DiscCover
-                playerCoverStyle={playerCoverStyle}
-                coverUrl={currentCoverUrl}
-                album={album}
-                artworkSize={artworkSize}
-                spinStyle={spinStyle}
-                coverColor={coverColor}
-            />
-        );
-    }
+    const imageUrl = playerCoverStyle === 'cd' ? album?.cdArtUrl || currentCoverUrl : currentCoverUrl;
     return (
-        <PlayerArtwork
-            coverUrl={currentCoverUrl}
-            size={artworkSize}
-            borderRadius={borderRadius}
-            shadowStyle={shadowStyle}
-            cardBackgroundColor={cardBackgroundColor}
-            textSecondaryColor={textSecondaryColor}
-        />
+        <ArtworkFadeIn key={`${playerCoverStyle}:${imageUrl || ''}`} size={artworkSize} hasImage={!!imageUrl}>
+            {onReady => {
+                if (playerCoverStyle === 'cassette') {
+                    return <PlaybackCassetteArtwork size={artworkSize} coverUrl={currentCoverUrl} coverColor={coverColor} albumTitle={album?.title} onReady={onReady} />;
+                }
+                if (playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl') {
+                    return <DiscCover playerCoverStyle={playerCoverStyle} coverUrl={currentCoverUrl} album={album}
+                        artworkSize={artworkSize} spinStyle={spinStyle} coverColor={coverColor} onReady={onReady} />;
+                }
+                return <PlayerArtwork coverUrl={currentCoverUrl} size={artworkSize} borderRadius={borderRadius}
+                    shadowStyle={shadowStyle} cardBackgroundColor={cardBackgroundColor}
+                    textSecondaryColor={textSecondaryColor} onReady={onReady} />;
+            }}
+        </ArtworkFadeIn>
     );
 };
 

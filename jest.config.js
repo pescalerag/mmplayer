@@ -26,6 +26,7 @@ module.exports = {
     'src/services/AlbumCoverColorService.ts',
     'src/hooks/useAlbumCoverColor.ts',
     'src/utils/libraryMetadata.ts',
+    'src/utils/observeScreenData.ts',
     'src/utils/cassetteTape.ts',
     'src/utils/albumFilters.ts',
     'src/utils/filterSlider.ts',

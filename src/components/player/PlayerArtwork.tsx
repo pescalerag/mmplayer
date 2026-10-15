@@ -7,6 +7,7 @@ import { Image } from 'expo-image';
 interface PlayerArtworkProps {
     coverUrl?: string | null;
     size: number;
+    onReady?: () => void;
     borderRadius?: number;
     shadowStyle?: any;
     cardBackgroundColor: string;
@@ -15,6 +16,7 @@ interface PlayerArtworkProps {
 
 export const PlayerArtwork = ({
     coverUrl,
+    onReady,
     size,
     borderRadius = 10,
     shadowStyle,
@@ -76,6 +78,10 @@ export const PlayerArtwork = ({
         return () => subscription.remove();
     }, [isFocused]);
 
+    useEffect(() => {
+        if (showPlaceholder) onReady?.();
+    }, [showPlaceholder, onReady]);
+
     const imageSource = useMemo(
         () => (effectiveUri ? { uri: effectiveUri } : null),
         [effectiveUri]
@@ -113,6 +119,9 @@ export const PlayerArtwork = ({
                     contentFit="contain"
                     transition={0}
                     cachePolicy="memory-disk"
+                    onLoad={() => {
+                        if (imageRequestRef.current === requestKey) onReady?.();
+                    }}
                     onError={() => {
                         // An error from the previous cover must not hide the current one.
                         if (imageRequestRef.current !== requestKey) return;

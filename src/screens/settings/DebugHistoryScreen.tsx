@@ -1,3 +1,5 @@
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import i18n from '../../constants/i18n';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
@@ -191,10 +193,12 @@ function DebugHistoryContent({ history }: Readonly<DebugHistoryContentProps>) {
 }
 
 const ObservableDebugHistoryScreen = withObservables([], () => ({
-    history: database.collections.get<PlaybackHistory>('playback_history')
-        .query(Q.sortBy('played_at', Q.desc))
-        .observe()
-}))(DebugHistoryContent);
+    data: observeScreenData(() => database.collections.get<PlaybackHistory>('playback_history')
+        .query(Q.sortBy('played_at', Q.desc)).observe()),
+}))(function LoadedDebugHistory({ data }: { data?: PlaybackHistory[] }) {
+    if (!data) return <ScreenLoadingShell titleKey="debug.history_title" />;
+    return <DebugHistoryContent history={data} />;
+});
 
 export default function DebugHistoryScreen() {
     return <ObservableDebugHistoryScreen />;

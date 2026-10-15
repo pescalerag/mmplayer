@@ -1,8 +1,10 @@
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { openAlbumMenu, openArtistMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -478,6 +480,7 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 }
 
 const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
+    data: observeScreenData(() => combineLatest({
     artist: artist.observe(),
     albums: database.collections.get<Album>('albums')
         .query(Q.where('artist_id', artist.id))
@@ -485,7 +488,11 @@ const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { a
     tracks: database.collections.get<Track>('tracks')
         .query(Q.on('track_collaborators', 'artist_id', artist.id))
         .observe(),
-}))(ArtistDetailContentBase);
+    })),
+}))(function LoadedArtistDetail({ data, artist }: { data?: Omit<Props, 'isLoadingContent'>; artist: Artist }) {
+    if (!data) return <ScreenLoadingShell title={artist.name} />;
+    return <ArtistDetailContentBase {...data} isLoadingContent={false} />;
+});
 
 function ArtistDetailErrorFallback() {
     const { colors } = useAppTheme();
@@ -508,12 +515,13 @@ function ArtistDetailErrorFallback() {
 }
 
 const ObservableArtistDetailMiddle = withObservables(['artistId'], ({ artistId }: { artistId: string }) => ({
-    artist: database.collections.get<Artist>('artists').findAndObserve(artistId).pipe(catchError(() => of(null))),
-}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist | null }) {
+    artist: observeScreenData(() => database.collections.get<Artist>('artists').findAndObserve(artistId).pipe(catchError(() => of(null)))),
+}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist | null | undefined }) {
+    if (artist === undefined) return <ScreenLoadingShell />;
     if (!artist) {
         return <ArtistDetailErrorFallback />;
     }
-    return <EnhancedArtistDetailContent artist={artist} isLoadingContent={false} />;
+    return <EnhancedArtistDetailContent artist={artist} />;
 });
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────

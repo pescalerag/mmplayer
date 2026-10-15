@@ -1,8 +1,10 @@
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { openAlbumMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -435,16 +437,17 @@ const styles = StyleSheet.create({
 export default withObservables(['route'], ({ route }: { route: any }) => {
     const { tagId } = route.params;
     return {
-        tag: database.collections.get<Tag>('tags').findAndObserve(tagId).pipe(catchError(() => of(null))),
-        albums: database.collections.get<Album>('albums').query(
-            Q.experimentalJoinTables(['album_tags']),
-            Q.on('album_tags', 'tag_id', tagId),
-            Q.sortBy('title', Q.asc)
-        ).observe(),
-        tracks: database.collections.get<Track>('tracks').query(
-            Q.experimentalJoinTables(['track_tags']),
-            Q.on('track_tags', 'tag_id', tagId),
-            Q.sortBy('title', Q.asc)
-        ).observe(),
+        data: observeScreenData(() => combineLatest({
+            tag: database.collections.get<Tag>('tags').findAndObserve(tagId).pipe(catchError(() => of(null))),
+            albums: database.collections.get<Album>('albums').query(
+                Q.experimentalJoinTables(['album_tags']), Q.on('album_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
+            ).observe(),
+            tracks: database.collections.get<Track>('tracks').query(
+                Q.experimentalJoinTables(['track_tags']), Q.on('track_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
+            ).observe(),
+        })),
     };
-})(TagDetailScreen);
+})(function LoadedTagDetail({ data, route }: { data?: TagDetailProps; route: any }) {
+    if (!data) return <ScreenLoadingShell title={route.params.tagName} />;
+    return <TagDetailScreen {...data} />;
+});

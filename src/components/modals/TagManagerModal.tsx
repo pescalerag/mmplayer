@@ -1,8 +1,9 @@
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { openTagForm } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -19,6 +20,13 @@ import { Q } from '@nozbe/watermelondb';
 
 
 
+async function loadSelectedTagIds(targetType: 'track' | 'album' | 'batch', targetId: string, tracks?: any[]): Promise<string[]> {
+  if (targetType === 'track') return TagService.getTagIdsForTrack(targetId);
+  if (targetType === 'album') return TagService.getTagIdsForAlbum(targetId);
+  const selections = await Promise.all((tracks ?? []).map(track => TagService.getTagIdsForTrack(track.id)));
+  return selections[0]?.filter(id => selections.every(ids => ids.includes(id))) ?? [];
+}
+
 export default function TagManagerModal() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
@@ -34,41 +42,39 @@ export default function TagManagerModal() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  // Cargar tags y selecciones
-  const reloadData = React.useCallback(async () => {
-    if (!targetId || !targetType) return;
-    try {
-      const tags = await TagService.getAllTags();
-      setAllTags(tags);
+  const targetKey = JSON.stringify([targetType, targetId, tracks?.map(track => track.id)]);
+  const [loadedTarget, setLoadedTarget] = useState<string | null>(null);
+  const requestRevision = useRef(0);
+  const active = useRef(false);
+  const isReady = loadedTarget === targetKey;
 
-      let selectedIds: string[] = [];
-      if (targetType === 'track') {
-        selectedIds = await TagService.getTagIdsForTrack(targetId);
-      } else if (targetType === 'batch' && tracks && tracks.length > 0) {
-        // Find tag IDs for each track
-        const trackTagIdsPromises = tracks.map(track => TagService.getTagIdsForTrack(track.id));
-        const tracksTagIds = await Promise.all(trackTagIdsPromises);
-        
-        // Intersection: tags that are associated with ALL selected tracks
-        if (tracksTagIds.length > 0) {
-          selectedIds = tracksTagIds[0].filter(id => 
-            tracksTagIds.every(idsList => idsList.includes(id))
-          );
-        }
-      } else {
-        selectedIds = await TagService.getTagIdsForAlbum(targetId);
-      }
+  const reloadData = React.useCallback(async () => {
+    if (!active.current || !targetId || !targetType) return;
+    const revision = ++requestRevision.current;
+    try {
+      const [tags, selectedIds] = await Promise.all([
+        TagService.getAllTags(), loadSelectedTagIds(targetType, targetId, tracks),
+      ]);
+      if (!active.current || revision !== requestRevision.current) return;
+      setAllTags(tags);
       setSelectedTagIds(selectedIds);
-    } catch (e) {
-      console.error('Error cargando tags:', e);
+      setLoadedTarget(targetKey);
+    } catch (error) {
+      console.error('Error loading tag selections:', error);
     }
-  }, [targetId, targetType, tracks]);
+  }, [targetId, targetType, tracks, targetKey]);
 
   useEffect(() => {
-    if (isVisible) {
-      reloadData();
-    }
-  }, [isVisible, targetId, targetType, reloadData]);
+    active.current = isVisible;
+    requestRevision.current = requestRevision.current + 1;
+    if (!isVisible) return;
+    const cancel = scheduleScreenRefresh(() => { void reloadData(); });
+    return () => {
+      active.current = false;
+      requestRevision.current++;
+      cancel();
+    };
+  }, [isVisible, reloadData]);
 
   const addTagToLocalSelection = (tagId: string) => {
     setSelectedTagIds(prev => [...prev, tagId]);
@@ -176,9 +182,9 @@ export default function TagManagerModal() {
 
       {/* Lista de etiquetas disponibles */}
       <Text style={styles.sectionTitle}>{t('tags.select')}</Text>
-      <View style={styles.tagsContainer}>
+      <View style={styles.tagsContainer} pointerEvents={isReady ? 'auto' : 'none'} accessibilityElementsHidden={!isReady} importantForAccessibility={isReady ? 'auto' : 'no-hide-descendants'}>
         <ScrollView
-          style={styles.tagsScrollView}
+          style={[styles.tagsScrollView, !isReady && { opacity: 0 }]}
           contentContainerStyle={styles.tagsScrollContent}
           showsVerticalScrollIndicator={true}
           keyboardShouldPersistTaps="handled"
