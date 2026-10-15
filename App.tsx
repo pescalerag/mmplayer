@@ -44,6 +44,8 @@ import { PurchasesService } from "./src/services/PurchasesService";
 import { ScannerService } from "./src/services/ScannerService";
 import { setupPlayer } from "./src/services/trackPlayerSetup";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { useSettingsStore } from './src/store/useSettingsStore';
+import { reconcileExclusiveThemeIcon } from './src/services/AppThemeService';
 
 const WIDGET_ACTION_REGEX = /[?&]action=([^&]+)/;
 
@@ -53,6 +55,14 @@ export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { colors, navigationTheme } = useAppTheme();
+
+  useEffect(() => {
+    const reconcile = () => {
+      void reconcileExclusiveThemeIcon().catch(error => console.warn('Could not reconcile app theme icon:', error));
+    };
+    if (useSettingsStore.persist.hasHydrated()) reconcile();
+    return useSettingsStore.persist.onFinishHydration(reconcile);
+  }, []);
 
   useEffect(() => {
     const hideSplash = async () => {

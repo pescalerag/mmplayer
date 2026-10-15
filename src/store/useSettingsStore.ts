@@ -1,16 +1,17 @@
 import { normalizeCrossfadeSeconds } from '../utils/crossfadePolicy';
 import { normalizeAppIcon } from '../utils/appIcon';
+import { AppTheme, normalizeAppTheme } from '../theme/appTheme';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import i18n from '../constants/i18n';
 import { getDefaultLanguage } from '../constants/languages';
+export type { AppTheme } from '../theme/appTheme';
 
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
 export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 export type LocalCastTheme = 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
-export type AppTheme = 'none' | 'legendary';
 
 interface SettingsState {
     userTier: UserTier;
@@ -179,8 +180,9 @@ function initLanguage(state: SettingsState): void {
 }
 
 function initTheme(state: SettingsState): void {
-    if (state.activeAppTheme && state.activeAppTheme !== 'none' && state.activeAppTheme !== 'legendary') {
-        state.setActiveAppTheme('none');
+    const theme = normalizeAppTheme(state.activeAppTheme);
+    if (theme !== state.activeAppTheme) {
+        state.setActiveAppTheme(theme);
     }
 }
 
@@ -369,7 +371,7 @@ export const useSettingsStore = create<SettingsState>()(
             customAccentColor: null,
             setCustomAccentColor: (color) => set({ customAccentColor: color }),
             activeAppTheme: 'none',
-            setActiveAppTheme: (theme) => set({ activeAppTheme: theme === 'legendary' ? 'legendary' : 'none' }),
+            setActiveAppTheme: (theme) => set({ activeAppTheme: normalizeAppTheme(theme) }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],

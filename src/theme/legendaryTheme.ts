@@ -1,4 +1,5 @@
 import { getAppColors } from './theme';
+import { resolveAppTheme } from './appTheme';
 
 // A quiet forest palette with aged brass details and warm, readable text.
 export const LEGENDARY_PALETTE = {
@@ -49,5 +50,5 @@ export function getLegendaryColors() {
 }
 
 export function isLegendaryThemeEnabled(theme: string, tier: string, ignoreTheme = false) {
-  return !ignoreTheme && theme === 'legendary' && (tier === 'SUPPORTER' || tier === 'VIP');
+  return resolveAppTheme(theme, tier, ignoreTheme) === 'legendary';
 }

@@ -319,7 +319,7 @@ const homeDataResource = new RetainedResource<HomeData>(2);
 const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
 
 export default function HomeScreen() {
-    const { colors, gradients, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const { colors, gradients, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -698,7 +698,7 @@ export default function HomeScreen() {
 
             {/* CAPA DE ILUMINACIÓN MORADA */}
             <LinearGradient
-                colors={[colors.accentAlpha20, "transparent"]}
+                colors={headerGlow}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />

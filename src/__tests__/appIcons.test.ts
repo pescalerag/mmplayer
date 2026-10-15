@@ -1,4 +1,4 @@
-import { normalizeAppIcon } from '../utils/appIcon';
+import { isStandaloneAppIcon, normalizeAppIcon } from '../utils/appIcon';
 import { useSettingsStore } from '../store/useSettingsStore';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,5 +40,13 @@ describe('launcher icon upgrade', () => {
         expect(icons.legend).not.toEqual(icons.yellow);
         useSettingsStore.getState().setAppIcon('legend');
         expect(useSettingsStore.getState().appIcon).toBe('legend');
+    });
+
+    it('reserves both theme icons while retaining their native aliases for upgrades', () => {
+        expect(isStandaloneAppIcon('develpink')).toBe(false);
+        expect(isStandaloneAppIcon('legend')).toBe(false);
+        expect(isStandaloneAppIcon('DEFAULT')).toBe(true);
+        expect(isStandaloneAppIcon('aqua')).toBe(true);
+        expect(icons.develpink.android.foregroundImage).toContain('logodevelETSII.png');
     });
 });

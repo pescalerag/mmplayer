@@ -39,7 +39,7 @@ export function ScreenHeaderLayout({
 }: ScreenHeaderLayoutProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { colors, gradients } = useAppTheme();
+  const { colors, gradients, headerGlow } = useAppTheme();
   const estimatedHeight = insets.top + (showBackButton ? 66 : 60);
   const [headerHeight, setHeaderHeight] = useState(estimatedHeight);
 
@@ -73,7 +73,7 @@ export function ScreenHeaderLayout({
 
       {/* CAPA DE ILUMINACIÓN DE ACENTO */}
       <LinearGradient
-        colors={[colors.accentAlpha20, 'transparent']}
+        colors={headerGlow}
         style={styles.purpleGlow}
         pointerEvents="none"
       />

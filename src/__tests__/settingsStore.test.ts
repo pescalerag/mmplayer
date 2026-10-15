@@ -168,12 +168,12 @@ describe('useSettingsStore', () => {
       expect(mockState.setActiveAppTheme).toHaveBeenCalledWith('none');
     });
 
-    it('preserves the legendary theme between sessions', () => {
-      const mockState = createMockState({ activeAppTheme: 'legendary' });
+    it.each(['legendary', 'develETSII'] as const)('preserves the %s theme between sessions', theme => {
+      const mockState = createMockState({ activeAppTheme: theme });
       getRehydrateFn()(mockState);
       expect(mockState.setActiveAppTheme).not.toHaveBeenCalled();
-      useSettingsStore.getState().setActiveAppTheme('legendary');
-      expect(useSettingsStore.getState().activeAppTheme).toBe('legendary');
+      useSettingsStore.getState().setActiveAppTheme(theme);
+      expect(useSettingsStore.getState().activeAppTheme).toBe(theme);
       useSettingsStore.getState().setActiveAppTheme('none');
       expect(useSettingsStore.getState().activeAppTheme).toBe('none');
     });

@@ -914,7 +914,7 @@ export default function SearchScreen() {
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [headerHeight, setHeaderHeight] = useState(150);
-  const { colors, gradients } = useAppTheme();
+  const { colors, gradients, headerGlow } = useAppTheme();
 
   const getFilterLabel = (id: FilterOption) => {
     switch (id) {
@@ -1353,7 +1353,7 @@ export default function SearchScreen() {
 
       {/* 2.5 CAPA DE ILUMINACIÓN DE ACENTO (SOBRE EL HUMO) */}
       <LinearGradient
-        colors={[colors.accentAlpha20, "transparent"]}
+        colors={headerGlow}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
         pointerEvents="none"
       />

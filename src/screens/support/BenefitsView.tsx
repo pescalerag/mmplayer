@@ -11,19 +11,18 @@ import ColorPicker, {
 } from 'reanimated-color-picker';
 import { useSettingsStore, StatsCardTheme, LocalCastTheme, AppTheme } from '../../store/useSettingsStore';
 import { useAppTheme, LEGENDARY_ACCENT } from '../../hooks/useAppTheme';
-import { getDynamicTagTextColor } from '../../utils/color';
+import { getDynamicTagTextColor, hexToRgba } from '../../utils/color';
 import { normalizeAppIcon } from '../../utils/appIcon';
 import { LEGENDARY_PALETTE } from '../../theme/legendaryTheme';
+import { DEVEL_BRAND_GRADIENT, DEVEL_PALETTE } from '../../theme/develTheme';
+import { applyAppTheme, applyStandaloneAppIcon } from '../../services/AppThemeService';
 
 // Using require to safely handle the dynamic import if not installed fully native
-let setAppIcon: (name: string | null, isInBackground?: boolean) => Promise<any>;
 let getAppIcon: () => Promise<string>;
 try {
     const dynamicIcon = require('@howincodes/expo-dynamic-app-icon');
-    setAppIcon = dynamicIcon.setAppIcon;
     getAppIcon = dynamicIcon.getAppIcon;
 } catch (e) {
-    setAppIcon = async () => console.warn('Dynamic icons module not linked');
     getAppIcon = async () => 'DEFAULT';
 }
 
@@ -31,13 +30,25 @@ const ICONS = [
     { id: 'DEFAULT', nameKey: 'support.icon_original', image: require('../../assets/images/icon.png') },
     { id: 'dark', nameKey: 'support.icon_dark', image: require('../../assets/images/app-icons/logoBlack.png') },
     { id: 'aqua', nameKey: 'support.icon_aqua', image: require('../../assets/images/app-icons/logoAqua.png') },
-    { id: 'develpink', nameKey: 'support.icon_devel_pink', image: require('../../assets/images/app-icons/logodevelETSII.png') },
     { id: 'labgreen', nameKey: 'support.icon_lab_green', image: require('../../assets/images/app-icons/logoGreen.png') },
     { id: 'pink', nameKey: 'support.icon_pink', image: require('../../assets/images/app-icons/logoMagenta.png') },
     { id: 'red', nameKey: 'support.icon_red', image: require('../../assets/images/app-icons/logoRed.png') },
     { id: 'white', nameKey: 'support.icon_white', image: require('../../assets/images/app-icons/logoWhite.png') },
     { id: 'yellow', nameKey: 'support.icon_yellow', image: require('../../assets/images/app-icons/logoYellow.png') }
 ];
+
+const APP_THEME_OPTIONS = [
+    {
+        id: 'legendary', nameKey: 'support.app_theme_legendary', descKey: 'support.app_theme_legendary_desc',
+        accent: LEGENDARY_ACCENT, gradient: [LEGENDARY_PALETTE.background, LEGENDARY_PALETTE.card, '#345943'],
+        image: require('../../assets/images/app-icons/logoLegend.png'),
+    },
+    {
+        id: 'develETSII', nameKey: 'support.app_theme_devel', descKey: 'support.app_theme_devel_desc',
+        accent: DEVEL_PALETTE.coral, gradient: DEVEL_BRAND_GRADIENT,
+        image: require('../../assets/images/app-icons/logodevelETSII.png'),
+    },
+] as const;
 
 interface StatsThemeOption {
     id: StatsCardTheme;
@@ -245,7 +256,7 @@ const ACCENT_PRESETS: AccentPresetOption[] = [
 
 export default function BenefitsView() {
     const { t } = useTranslation();
-    const { colors, fonts } = useAppTheme();
+    const { colors, fonts, appTheme: effectiveAppTheme } = useAppTheme();
     const userTier = useSettingsStore(state => state.userTier);
 
     const activeAppIcon = useSettingsStore(state => state.appIcon) || 'DEFAULT';
@@ -261,7 +272,7 @@ export default function BenefitsView() {
     const setStoreCustomAccent = useSettingsStore(state => state.setCustomAccentColor);
 
     const activeAppTheme = useSettingsStore(state => state.activeAppTheme) || 'none';
-    const setStoreAppTheme = useSettingsStore(state => state.setActiveAppTheme);
+    const activeThemeOption = APP_THEME_OPTIONS.find(option => option.id === effectiveAppTheme);
 
     // Hierarchy: VIP unlocks both SUPPORTER and VIP benefits
     const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
@@ -274,7 +285,7 @@ export default function BenefitsView() {
 
     const setHexOnJS = (hex: string) => setCustomHexCode(hex);
 
-    const handleAccentSelect = (hexColor: string) => {
+    const handleAccentSelect = async (hexColor: string) => {
         if (!isVip && hexColor.toUpperCase() !== '#8B5CF6') {
             Alert.alert(
                 t('support.vip_benefits_locked_title'),
@@ -285,7 +296,13 @@ export default function BenefitsView() {
 
         // Selecting a custom accent manually deactivates any active app theme
         if (activeAppTheme !== 'none') {
-            setStoreAppTheme('none');
+            try {
+                await applyAppTheme('none');
+            } catch (error) {
+                console.warn('Could not restore the default icon:', error);
+                Alert.alert(t('common.error'), t('support.icon_updated_error'));
+                return;
+            }
         }
 
         const targetColor = hexColor.toUpperCase() === '#8B5CF6' ? null : hexColor;
@@ -301,6 +318,7 @@ export default function BenefitsView() {
             if (getAppIcon) {
                 getAppIcon()
                     .then((currentIcon) => {
+                        if (currentIcon === 'develpink' && useSettingsStore.getState().activeAppTheme !== 'develETSII') return;
                         if (currentIcon && normalizeAppIcon(currentIcon) !== activeAppIcon) {
                             setStoreAppIcon(normalizeAppIcon(currentIcon));
                         }
@@ -321,20 +339,8 @@ export default function BenefitsView() {
             return;
         }
 
-        // Manually selecting an icon deactivates any active app theme
-        if (activeAppTheme !== 'none') {
-            setStoreAppTheme('none');
-        }
-
         try {
-            if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                const targetIconName = iconId === 'DEFAULT' ? null : iconId;
-                const result = await setAppIcon(targetIconName, false);
-                if (result === false) {
-                    throw new Error('setAppIcon failed');
-                }
-            }
-            setStoreAppIcon(iconId);
+            await applyStandaloneAppIcon(iconId);
             Alert.alert(
                 t('common.success'),
                 t('support.icon_updated_success')
@@ -396,14 +402,7 @@ export default function BenefitsView() {
         }
 
         try {
-            const icon = themeId === 'legendary' ? 'legend' : null;
-            if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                const result = await setAppIcon(icon, false);
-                if (result === false) throw new Error('setAppIcon failed');
-            }
-            setStoreAppIcon(icon ?? 'DEFAULT');
-            setStoreAppTheme(themeId);
-            if (themeId === 'legendary') setStoreCustomAccent(null);
+            await applyAppTheme(themeId);
         } catch (error) {
             console.warn('Could not apply app theme:', error);
             Alert.alert(t('common.error'), t('support.icon_updated_error'));
@@ -505,17 +504,17 @@ export default function BenefitsView() {
                 </Text>
 
                 {/* Active theme info chip */}
-                {activeAppTheme === 'legendary' && (
-                    <View style={styles.themeActiveChip}>
-                        <MaterialCommunityIcons name="crown" size={13} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
-                        <Text style={styles.themeActiveChipText}>{t('support.app_theme_active')}: {t('support.app_theme_legendary').toUpperCase()}</Text>
+                {activeThemeOption && (
+                    <View style={[styles.themeActiveChip, { backgroundColor: hexToRgba(activeThemeOption.accent, 0.15), borderColor: hexToRgba(activeThemeOption.accent, 0.35) }]}>
+                        <MaterialCommunityIcons name="palette-swatch-outline" size={13} color={activeThemeOption.accent} style={{ marginRight: 6 }} />
+                        <Text style={[styles.themeActiveChipText, { color: activeThemeOption.accent }]}>{t('support.app_theme_active')}: {t(activeThemeOption.nameKey).toUpperCase()}</Text>
                     </View>
                 )}
 
                 <View style={styles.grid}>
                     {/* Option: No Theme */}
                     {(() => {
-                        const isActive = activeAppTheme === 'none';
+                        const isActive = effectiveAppTheme === 'none';
                         return (
                             <TouchableOpacity
                                 style={[
@@ -544,29 +543,29 @@ export default function BenefitsView() {
                         );
                     })()}
 
-                    {/* Option: Legendary Theme */}
-                    {(() => {
-                        const isActive = activeAppTheme === 'legendary';
+                    {APP_THEME_OPTIONS.map(option => {
+                        const isActive = effectiveAppTheme === option.id;
                         const isLocked = !isSupporterOrVIP;
                         return (
                             <TouchableOpacity
+                                key={option.id}
                                 style={[
                                     styles.itemCard,
                                     { backgroundColor: colors.cardBackground },
-                                    isActive && { borderColor: LEGENDARY_ACCENT, borderWidth: 2 }
+                                    isActive && { borderColor: option.accent, borderWidth: 2 }
                                 ]}
                                 activeOpacity={0.7}
-                                onPress={() => handleAppThemeSelect('legendary')}
+                                onPress={() => handleAppThemeSelect(option.id)}
                             >
                                 <View style={styles.previewWrapper}>
                                     <LinearGradient
-                                        colors={[LEGENDARY_PALETTE.background, LEGENDARY_PALETTE.card, '#345943']}
+                                        colors={option.gradient}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                         style={[styles.themePreviewBox]}
                                     >
                                         <Image
-                                            source={require('../../assets/images/app-icons/logoLegend.png')}
+                                            source={option.image}
                                             style={styles.themePreviewIcon}
                                         />
                                     </LinearGradient>
@@ -578,20 +577,20 @@ export default function BenefitsView() {
                                         </View>
                                     )}
                                 </View>
-                                <Text style={[styles.itemName, { color: colors.text }, isActive && { color: LEGENDARY_ACCENT, fontFamily: fonts.bold }]}>
-                                    {t('support.app_theme_legendary')}
+                                <Text style={[styles.itemName, { color: colors.text }, isActive && { color: option.accent, fontFamily: fonts.bold }]}>
+                                    {t(option.nameKey)}
                                 </Text>
                                 <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                                    {t('support.app_theme_legendary_desc')}
+                                    {t(option.descKey)}
                                 </Text>
                                 {isActive && (
                                     <View style={styles.activeBadge}>
-                                        <Ionicons name="checkmark-circle" size={20} color={LEGENDARY_ACCENT} />
+                                        <Ionicons name="checkmark-circle" size={20} color={option.accent} />
                                     </View>
                                 )}
                             </TouchableOpacity>
                         );
-                    })()}
+                    })}
                 </View>
             </View>
             )}
@@ -622,11 +621,11 @@ export default function BenefitsView() {
                 </Text>
 
                 {/* Legendary theme override notice */}
-                {SHOW_APP_THEMES_FEATURE && activeAppTheme === 'legendary' && (
-                    <View style={styles.themeOverrideNotice}>
-                        <MaterialCommunityIcons name="information-outline" size={14} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
-                        <Text style={styles.themeOverrideNoticeText}>
-                            {t('support.app_theme_active')} — {t('support.app_theme_legendary')}
+                {SHOW_APP_THEMES_FEATURE && activeThemeOption && (
+                    <View style={[styles.themeOverrideNotice, { backgroundColor: hexToRgba(activeThemeOption.accent, 0.10), borderColor: hexToRgba(activeThemeOption.accent, 0.25) }]}>
+                        <MaterialCommunityIcons name="information-outline" size={14} color={activeThemeOption.accent} style={{ marginRight: 6 }} />
+                        <Text style={[styles.themeOverrideNoticeText, { color: activeThemeOption.accent }]}>
+                            {t('support.app_theme_active')} — {t(activeThemeOption.nameKey)}
                         </Text>
                     </View>
                 )}

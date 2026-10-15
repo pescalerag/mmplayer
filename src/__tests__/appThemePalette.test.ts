@@ -1,4 +1,6 @@
 import { getLegendaryColors, isLegendaryThemeEnabled, LEGENDARY_PALETTE } from '../theme/legendaryTheme';
+import { getDevelColors, DEVEL_PALETTE } from '../theme/develTheme';
+import { getAppThemeIcon, normalizeAppTheme, resolveAppTheme } from '../theme/appTheme';
 
 jest.mock('@react-navigation/native', () => ({ DefaultTheme: {}, DarkTheme: { colors: {} } }));
 jest.mock('../theme/fonts', () => ({ Fonts: {} }));
@@ -39,5 +41,34 @@ describe('legendary appearance', () => {
     expect(contrast(colors.onAccentLight, colors.accentLight)).toBeGreaterThanOrEqual(4.5);
     expect(colors.background).not.toBe('transparent');
     expect(colors.tabIconSelected).toBe(LEGENDARY_PALETTE.gold);
+  });
+});
+
+describe('develETSII appearance', () => {
+  it.each(['SUPPORTER', 'VIP'])('unlocks and retains develETSII for %s', tier => {
+    expect(resolveAppTheme('develETSII', tier)).toBe('develETSII');
+    expect(resolveAppTheme('develETSII', tier, true)).toBe('none');
+  });
+
+  it('rejects unknown themes and keeps premium appearance behind the tier requirement', () => {
+    for (const theme of ['none', 'unknown', null, undefined]) expect(normalizeAppTheme(theme)).toBe('none');
+    expect(normalizeAppTheme('develETSII')).toBe('develETSII');
+    expect(resolveAppTheme('develETSII', 'USER')).toBe('none');
+    expect(getAppThemeIcon('develETSII')).toBe('develpink');
+    expect(getAppThemeIcon('legendary')).toBe('legend');
+    expect(getAppThemeIcon('none')).toBeNull();
+  });
+
+  it('keeps text and coral controls readable across the plum surfaces', () => {
+    const colors = getDevelColors();
+    for (const surface of [colors.background, colors.cardBackground, colors.sheetBackground, colors.inputBackground]) {
+      for (const foreground of [colors.text, colors.textSecondary, colors.accent, colors.accentSecondary]) {
+        expect(contrast(foreground, surface)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(contrast(colors.onAccent, colors.accent)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colors.onAccentLight, colors.accentLight)).toBeGreaterThanOrEqual(4.5);
+    expect(colors.background).toBe(DEVEL_PALETTE.background);
+    expect(colors.tabIconSelected).toBe(DEVEL_PALETTE.coral);
   });
 });
