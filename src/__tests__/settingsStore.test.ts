@@ -12,6 +12,16 @@ describe('useSettingsStore', () => {
   });
 
   describe('Actions', () => {
+    it('defaults crossfade off and persists a bounded whole-second duration', () => {
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(0);
+      useSettingsStore.getState().setCrossfadeSeconds(6);
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(6);
+      useSettingsStore.getState().setCrossfadeSeconds(50);
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(12);
+      useSettingsStore.getState().setCrossfadeSeconds(NaN);
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(0);
+    });
+
     it('defaults the cassette album label off and allows changing its persisted preference', () => {
       expect(useSettingsStore.getState().showCassetteAlbumName).toBe(false);
       useSettingsStore.getState().setShowCassetteAlbumName(true);

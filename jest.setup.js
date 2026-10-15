@@ -117,6 +117,8 @@ const mockNativeEqualizerModule = {
   release: jest.fn().mockResolvedValue(undefined),
   extractColorFromImage: jest.fn().mockResolvedValue('#ff0000'),
   setReplayGainSettings: jest.fn().mockResolvedValue(undefined),
+  setCrossfadeSettings: jest.fn().mockResolvedValue(undefined),
+  getPlaybackSnapshot: jest.fn().mockResolvedValue(null),
 };
 
 jest.mock('expo-modules-core', () => ({

@@ -1,7 +1,7 @@
 import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import TrackPlayer, { RepeatMode } from 'react-native-track-player';
 import { createMMKV } from 'react-native-mmkv';
-import { consumeUserQueueTransition, usePlayerStore } from '../store/usePlayerStore';
+import { consumeUserQueueTransition, usePlayerStore, applyNativeManualQueueSize } from '../store/usePlayerStore';
 import { ShuffleService } from '../services/ShuffleService';
 import { database } from '../database';
 import Track from '../database/models/Track';
@@ -21,8 +21,7 @@ describe('Player transport responsiveness', () => {
     const pending = new Promise(resolve => { finishMetadata = resolve; });
     (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockReturnValue(pending) });
     const update = usePlayerStore.getState().updateQueueStatus(1);
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
     expect(usePlayerStore.getState()).toMatchObject({ hasPrevious: true, hasNext: true });
     finishMetadata({ id: 'adjacent' });
     await update;
@@ -599,3 +598,47 @@ describe('Player Store Features & Shuffle Helpers', () => {
 function setQueueAutoplay(value: boolean) {
   useMultipleQueuesStore.setState(state => ({ slots: state.slots.map(slot => slot.id === state.activeId ? { ...slot, shuffleOnQueueEnd: value } : slot) }));
 }
+
+
+describe('crossfade queue commitment', () => {
+  it('consumes an incoming manual entry exactly once, including last-to-first transitions', () => {
+    usePlayerStore.setState({ userQueueSize: 2 });
+    const event = { crossfade: true, transitionId: 'crossfade-wrap', track: { id: 'manual-next-instance', isManual: true },
+      lastTrack: { id: 'outgoing-instance' }, index: 0, lastIndex: 9 };
+    consumeUserQueueTransition(event);
+    consumeUserQueueTransition(event);
+    expect(usePlayerStore.getState().userQueueSize).toBe(1);
+  });
+  it('does not consume a pending manual item when the incoming entry belongs to the context queue', () => {
+    usePlayerStore.setState({ userQueueSize: 2 });
+    consumeUserQueueTransition({ crossfade: true, transitionId: 'crossfade-context', track: { id: 'context' },
+      lastTrack: { id: 'previous' }, index: 1, lastIndex: 0 } as any);
+    expect(usePlayerStore.getState().userQueueSize).toBe(2);
+  });
+  it('inserts next on the native thread after whichever entry is already playing', async () => {
+    const track: any = { id: 'new', fileUrl: 'file:///new.mp3', title: 'New', duration: 100,
+      album: { fetch: async () => null }, artist: { fetch: async () => ({ name: 'Artist' }) } };
+    const originalUpdate = usePlayerStore.getState().updateQueueStatus;
+    const originalSave = usePlayerStore.getState().savePlaybackState;
+    const update = jest.spyOn(usePlayerStore.getState(), 'updateQueueStatus').mockResolvedValue();
+    const save = jest.spyOn(usePlayerStore.getState(), 'savePlaybackState').mockResolvedValue();
+    (TrackPlayer.add as jest.Mock).mockClear();
+    await usePlayerStore.getState().addToQueueNext(track);
+    expect(TrackPlayer.add).toHaveBeenCalledWith([expect.objectContaining({ isManual: true, title: 'New' })], -2);
+    await usePlayerStore.getState().addMultipleToQueueNext([track, track]);
+    expect(TrackPlayer.add).toHaveBeenLastCalledWith(expect.arrayContaining([
+      expect.objectContaining({ isManual: true }), expect.objectContaining({ isManual: true }),
+    ]), -2);
+    update.mockRestore(); save.mockRestore();
+    usePlayerStore.setState({ updateQueueStatus: originalUpdate, savePlaybackState: originalSave });
+  });
+});
+
+
+it('rejects stale native manual counts after a newer queue mutation or transition', () => {
+  applyNativeManualQueueSize(2, 10);
+  applyNativeManualQueueSize(5, 9);
+  expect(usePlayerStore.getState().userQueueSize).toBe(2);
+  applyNativeManualQueueSize(1, 11);
+  expect(usePlayerStore.getState().userQueueSize).toBe(1);
+});

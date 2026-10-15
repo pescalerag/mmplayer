@@ -439,6 +439,10 @@
     "batch_tags": "Etiquetas en lote"
   },
   "settings": {
+    "crossfade": "Crossfade",
+    "crossfade_desc": "Solapa el final de una canción con el inicio de la siguiente. No se aplica durante Cast ni al generar una cola aleatoria al finalizar.",
+    "crossfade_off": "Desactivado",
+    "crossfade_seconds": "{{count}} s",
     "album_covers_title": "Carátulas faltantes",
     "album_covers_desc_short": "Busca las carátulas que faltan en tu biblioteca",
     "album_covers_background": "Descargar al escanear la biblioteca",

@@ -1,3 +1,4 @@
+import { CrossfadeService } from './CrossfadeService';
 import CastContext, {
     CastSession,
     MediaStreamType,
@@ -53,6 +54,7 @@ export const ChromecastService = {
                 }
 
                 useCastStore.getState().setChromecastConnected(true, deviceName, session);
+                await CrossfadeService.flush();
                 useToastStore.getState().showToast(
                     i18n.t('toasts.chromecast_connected', { deviceName }),
                     'tv-outline',

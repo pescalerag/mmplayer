@@ -1,3 +1,4 @@
+import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import React, { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
@@ -8,7 +9,9 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 
 export function PlaybackCassetteArtwork({ size, coverUrl, coverColor, albumTitle, onReady }: Readonly<{ onReady?: () => void; size: number; coverUrl: string | null; coverColor?: string | null; albumTitle?: string | null }>) {
     const showAlbumName = useSettingsStore(state => state.showCassetteAlbumName);
-    const { position, duration } = useProgress(250);
+    const { position, duration, trackId } = useProgress(250);
+    const activeTrackId = usePlaybackSnapshotStore(state => state.trackId);
+    const isCurrentProgress = !trackId || trackId.split('-')[0] === activeTrackId;
     const playback = usePlaybackState();
     const isFocused = useIsFocused();
     const [isActive, setIsActive] = useState(AppState.currentState === 'active');
@@ -16,6 +19,6 @@ export function PlaybackCassetteArtwork({ size, coverUrl, coverColor, albumTitle
         const subscription = AppState.addEventListener('change', state => setIsActive(state === 'active'));
         return () => subscription.remove();
     }, []);
-    return <CassetteArtwork onReady={onReady} size={size} coverUrl={coverUrl} coverColor={coverColor} albumTitle={showAlbumName ? albumTitle : null} progress={cassetteProgress(position, duration)}
+    return <CassetteArtwork onReady={onReady} size={size} coverUrl={coverUrl} coverColor={coverColor} albumTitle={showAlbumName ? albumTitle : null} progress={isCurrentProgress ? cassetteProgress(position, duration) : 0}
         isPlaying={playback.state === State.Playing && isFocused && isActive} />;
 }

@@ -439,6 +439,10 @@
     "batch_tags": "Etiquetas em lote"
   },
   "settings": {
+    "crossfade": "Crossfade",
+    "crossfade_desc": "Sobrepõe o final de uma música ao início da seguinte. Indisponível durante o Cast ou ao iniciar uma fila aleatória no final.",
+    "crossfade_off": "Desativado",
+    "crossfade_seconds": "{{count}} s",
     "album_covers_title": "Capas em falta",
     "album_covers_desc_short": "Procura as capas em falta na biblioteca",
     "album_covers_background": "Transferir ao analisar a biblioteca",

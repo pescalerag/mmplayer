@@ -52,3 +52,18 @@ export async function extractColorFromImage(imageUrl: string): Promise<string | 
 export async function setReplayGainSettings(enabled: boolean, preamp: number, fallback: number): Promise<void> {
     return NativeEqualizerModule.setReplayGainSettings(enabled, preamp, fallback);
 }
+
+export async function setCrossfadeSettings(seconds: number, allowed: boolean): Promise<void> {
+    return NativeEqualizerModule.setCrossfadeSettings(seconds, allowed);
+}
+
+export async function getNativePlaybackSnapshot(): Promise<{
+    queue: import('react-native-track-player').Track[];
+    index: number;
+    progress: import('react-native-track-player').Progress;
+    repeatMode: number;
+    queueRevision: number;
+    userQueueSize: number;
+} | null> {
+    return NativeEqualizerModule.getPlaybackSnapshot?.() ?? null;
+}

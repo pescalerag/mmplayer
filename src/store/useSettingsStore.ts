@@ -1,3 +1,4 @@
+import { normalizeCrossfadeSeconds } from '../utils/crossfadePolicy';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -95,6 +96,8 @@ interface SettingsState {
     albumCoverBackgroundDownload: boolean;
     setAlbumCoverBackgroundDownload: (value: boolean) => void;
     setArtistImageBackgroundDownload: (value: boolean) => void;
+    crossfadeSeconds: number;
+    setCrossfadeSeconds: (value: number) => void;
     isFadeEnabled: boolean;
     setIsFadeEnabled: (value: boolean) => void;
     isKeepAwakeEnabled: boolean;
@@ -321,6 +324,8 @@ export const useSettingsStore = create<SettingsState>()(
             albumCoverBackgroundDownload: false,
             setAlbumCoverBackgroundDownload: (value) => set({ albumCoverBackgroundDownload: value }),
             setArtistImageBackgroundDownload: (value) => set({ artistImageBackgroundDownload: value }),
+            crossfadeSeconds: 0,
+            setCrossfadeSeconds: value => set({ crossfadeSeconds: normalizeCrossfadeSeconds(value) }),
             isFadeEnabled: true,
             setIsFadeEnabled: (value) => set({ isFadeEnabled: value }),
             isKeepAwakeEnabled: false,

@@ -25,6 +25,14 @@ describe('foreground reconciliation after extended background playback', () => {
         expect(TrackPlayer.getActiveTrackIndex).not.toHaveBeenCalled();
     });
 
+    it('does not restart or apply a second transport fade when native crossfade already activated the song', async () => {
+        await handleActiveTrackChangedEvent({ crossfade: true, transitionId: 'native-mix',
+            track: { id: 'incoming-instance' }, index: 1, lastIndex: 0 });
+        expect(TrackPlayer.play).not.toHaveBeenCalled();
+        expect(usePlayerStore.getState().activeTrack?.id).toBe('incoming');
+        expect(usePlayerStore.getState().savePlaybackState).toHaveBeenCalled();
+    });
+
     it('does not start playback when restoring a saved paused queue', async () => {
         usePlayerStore.setState({ isRestoring: true });
         await handleActiveTrackChangedEvent({ track: { id: 'restored-instance' }, index: 0 });

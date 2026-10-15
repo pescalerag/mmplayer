@@ -23,6 +23,7 @@ let accumulatedTimes: Record<string, number> = {};
 let lastKnownPosition = 0;
 let lastKnownDuration = 0;
 let activeTrackEventRevision = 0;
+const handledCrossfades = new Set<string>();
 
 export const PlaybackTimeTracker = {
   reset() {
@@ -37,22 +38,22 @@ export const PlaybackTimeTracker = {
     currentTrackId = trackId;
     accumulatedTimes[trackId] = (accumulatedTimes[trackId] || 0) + seconds * 1000;
   },
-  onStatePlaying(trackId: string) {
+  onStatePlaying(trackId: string, startedAt = Date.now()) {
     if (currentTrackId !== trackId) {
       this.onStateNotPlaying();
       currentTrackId = trackId;
     }
     if (!lastPlayTimestamp) {
-      lastPlayTimestamp = Date.now();
+      lastPlayTimestamp = startedAt;
     }
     if (accumulatedTimes[trackId] === undefined) {
       accumulatedTimes[trackId] = 0;
     }
   },
 
-  onStateNotPlaying() {
+  onStateNotPlaying(stoppedAt = Date.now()) {
     if (lastPlayTimestamp && currentTrackId) {
-      const elapsed = Date.now() - lastPlayTimestamp;
+      const elapsed = Math.max(0, stoppedAt - lastPlayTimestamp);
       accumulatedTimes[currentTrackId] = (accumulatedTimes[currentTrackId] || 0) + elapsed;
       lastPlayTimestamp = null;
     }
@@ -64,6 +65,10 @@ export const PlaybackTimeTracker = {
       total += Date.now() - lastPlayTimestamp;
     }
     return total / 1000;
+  },
+
+  restoreAccumulatedSeconds(trackId: string, seconds: number) {
+    accumulatedTimes[trackId] = (accumulatedTimes[trackId] || 0) + seconds * 1000;
   },
 
   clearAccumulated(trackId: string) {
@@ -166,8 +171,13 @@ async function restoreLyricsSyncTrack(event: PlaybackActiveTrackChangedEvent): P
 async function persistPreviousListen(previousTrackId: string | undefined) {
   if (!previousTrackId) return;
   if (isSuspendedQueueListen(previousTrackId)) return;
-  await PlaybackListenService.save(previousTrackId, PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId), true);
+  const seconds = PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId);
   PlaybackTimeTracker.clearAccumulated(previousTrackId);
+  try { await PlaybackListenService.save(previousTrackId, seconds, true); }
+  catch (error) {
+    PlaybackTimeTracker.restoreAccumulatedSeconds(previousTrackId, seconds);
+    throw error;
+  }
 }
 
 function hasPlaybackLooped(position: number, duration: number) {
@@ -282,11 +292,12 @@ export const PlaybackService = async function () {
   TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {
     if (useMultipleQueuesStore.getState().isSwitching) return;
     const queueAtEvent = useMultipleQueuesStore.getState().activeId;
+    const trackRevision = activeTrackEventRevision;
     if (event.state === State.Playing && !useCastStore.getState().isLocalCastActive) {
       const trackIndex = await TrackPlayer.getActiveTrackIndex();
       if (trackIndex !== undefined && trackIndex !== null) {
         const track = await TrackPlayer.getTrack(trackIndex);
-        if (useMultipleQueuesStore.getState().isSwitching || useMultipleQueuesStore.getState().activeId !== queueAtEvent) return;
+        if (trackRevision !== activeTrackEventRevision || useMultipleQueuesStore.getState().isSwitching || useMultipleQueuesStore.getState().activeId !== queueAtEvent) return;
         if (track && track.id) {
           PlaybackTimeTracker.onStatePlaying(track.id.toString());
         }
@@ -314,15 +325,30 @@ export const PlaybackService = async function () {
   TrackPlayer.addEventListener(
     Event.PlaybackActiveTrackChanged,
     async (event) => {
+      const crossfade = event as PlaybackActiveTrackChangedEvent & { crossfade?: boolean; transitionId?: string; occurredAt?: number };
+      if (crossfade.transitionId) {
+        if (handledCrossfades.has(crossfade.transitionId)) return;
+        handledCrossfades.add(crossfade.transitionId);
+        if (handledCrossfades.size > 64) handledCrossfades.delete(handledCrossfades.values().next().value!);
+      }
       const revision = ++activeTrackEventRevision;
       if (useMultipleQueuesStore.getState().isSwitching) return;
+      const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
+      const nextTrackId = event.track?.id?.toString();
+      let crossfadeHistory: Promise<void> | undefined;
+      if (crossfade.crossfade && nextTrackId && !usePlayerStore.getState().isSyncingLyrics) {
+        const boundary = Number.isFinite(crossfade.occurredAt) ? Math.min(Date.now(), crossfade.occurredAt!) : Date.now();
+        // Commit time before any DB/bridge await: a later transition must not erase this listen.
+        PlaybackTimeTracker.onStateNotPlaying(boundary);
+        PlaybackTimeTracker.onStatePlaying(nextTrackId, boundary);
+        crossfadeHistory = persistPreviousListen(previousTrackId ?? undefined);
+        void crossfadeHistory.catch(error => console.error('[Crossfade] Could not persist the outgoing listen:', error));
+      }
       if (await restoreLyricsSyncTrack(event)) return;
+      if (revision !== activeTrackEventRevision || useMultipleQueuesStore.getState().isSwitching) return;
 
       void syncActiveTrackToStore(event, revision);
       consumeUserQueueTransition(event);
-
-      const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
-      const nextTrackId = event.track?.id?.toString();
 
       // ReplayGain runs in the native PCM pipeline before the first sample.
       // Player volume remains reserved for transport fades and Cast muting.
@@ -344,19 +370,23 @@ export const PlaybackService = async function () {
         LocalCastPlaybackService.selectTrack(nextTrackId);
       }
 
-      // Limpiar minutaje y acumulado persistido de la canción anterior
-      storage.set("@player_position", 0);
-      storage.set("@player_accumulated", 0);
+      // An incoming song may already have progressed while its event crossed the bridge.
+      const incomingProgress = crossfade.crossfade ? await TrackPlayer.getProgress() : null;
+      if (revision !== activeTrackEventRevision || useMultipleQueuesStore.getState().isSwitching) return;
+      storage.set("@player_position", incomingProgress?.position ?? 0);
+      storage.set("@player_accumulated", crossfade.crossfade && nextTrackId ? PlaybackTimeTracker.getAccumulatedSeconds(nextTrackId) : 0);
 
-      PlaybackTimeTracker.onStateNotPlaying();
+      if (!crossfade.crossfade) PlaybackTimeTracker.onStateNotPlaying();
 
       // Initial activation after restoring a queue is not a completed listen.
-      if (event.lastTrack?.id || (nextTrackId && nextTrackId !== previousTrackId)) {
+      if (crossfadeHistory) await crossfadeHistory;
+      else if (event.lastTrack?.id || (nextTrackId && nextTrackId !== previousTrackId)) {
         await persistPreviousListen(previousTrackId);
       }
 
       // Reiniciar el timer SOLO si el reproductor está efectivamente en estado de reproducción (Playing)
       const currentState = await TrackPlayer.getPlaybackState();
+      if (revision !== activeTrackEventRevision || useMultipleQueuesStore.getState().isSwitching) return;
       if (currentState.state === State.Playing && nextTrackId && !useCastStore.getState().isLocalCastActive) {
         PlaybackTimeTracker.onStatePlaying(nextTrackId);
       }
@@ -400,6 +430,8 @@ export const PlaybackService = async function () {
     Event.PlaybackProgressUpdated,
     async (event) => {
       const { position, duration } = event;
+      const progressTrackId = (event as typeof event & { trackId?: string }).trackId;
+      if (progressTrackId && progressTrackId !== PlaybackTimeTracker.getCurrentTrackId()) return;
       if (useMultipleQueuesStore.getState().isSwitching) return;
       const queueAtEvent = useMultipleQueuesStore.getState().activeId;
 

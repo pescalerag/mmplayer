@@ -1,3 +1,4 @@
+import { initializeCrossfade } from './CrossfadeService';
 import { Platform } from 'react-native';
 import { initializeReplayGain } from './ReplayGainService';
 import TrackPlayer, {
@@ -8,6 +9,7 @@ import TrackPlayer, {
 
 export async function setupPlayer() {
     await initializeReplayGain();
+    await initializeCrossfade();
     let isSetup = false;
     try {
         await TrackPlayer.getActiveTrack();
