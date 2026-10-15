@@ -1,4 +1,5 @@
 import { normalizeCrossfadeSeconds } from '../utils/crossfadePolicy';
+import { normalizeAppIcon } from '../utils/appIcon';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -360,7 +361,7 @@ export const useSettingsStore = create<SettingsState>()(
             userTier: 'USER',
             setUserTier: (tier) => set({ userTier: tier }),
             appIcon: 'DEFAULT',
-            setAppIcon: (iconName) => set({ appIcon: iconName }),
+            setAppIcon: (iconName) => set({ appIcon: normalizeAppIcon(iconName) }),
             statsCardTheme: 'default',
             setStatsCardTheme: (theme) => set({ statsCardTheme: theme }),
             localCastTheme: 'default',
@@ -427,6 +428,8 @@ export const useSettingsStore = create<SettingsState>()(
             onRehydrateStorage: () => (state) => {
                 if (!state) return;
 
+                const appIcon = normalizeAppIcon(state.appIcon);
+                if (appIcon !== state.appIcon) state.setAppIcon(appIcon);
                 initLanguage(state);
                 initTheme(state);
                 initAppTabs(state);

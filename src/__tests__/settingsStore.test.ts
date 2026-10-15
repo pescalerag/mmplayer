@@ -109,6 +109,8 @@ describe('useSettingsStore', () => {
       homeSectionsVisibility: { stats: true, shuffle_button: true },
       notificationPreferences: {},
       setLanguage: jest.fn(),
+      appIcon: 'DEFAULT',
+      setAppIcon: jest.fn(),
       setActiveAppTheme: jest.fn(),
       setAppTabsOrder: jest.fn(),
       setInitialAppRoute: jest.fn(),
@@ -121,6 +123,18 @@ describe('useSettingsStore', () => {
     it('handles null state safely', () => {
       const fn = getRehydrateFn();
       expect(() => fn(null)).not.toThrow();
+    });
+
+    it('migrates a retired icon on hydration without resetting the choice', () => {
+      const mockState = createMockState({ appIcon: 'darkblue' });
+      getRehydrateFn()(mockState);
+      expect(mockState.setAppIcon).toHaveBeenCalledWith('aqua');
+    });
+
+    it('does not rewrite the icon setting when the choice is current', () => {
+      const mockState = createMockState({ appIcon: 'dark' });
+      getRehydrateFn()(mockState);
+      expect(mockState.setAppIcon).not.toHaveBeenCalled();
     });
 
     it('initializes language when null: default Spanish if system starts with es', () => {
