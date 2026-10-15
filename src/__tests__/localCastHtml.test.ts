@@ -37,6 +37,9 @@ it('embeds valid browser JavaScript with reports, handoff acknowledgement and th
   expect(html.indexOf('castReplayGain.update(state.replayGain)')).toBeLessThan(html.indexOf('castAudio.sync(state)'));
   expect(html).not.toContain('audioPlayer.play().then');
   expect(html).toContain('castAudio.checkConnection()');
+  expect(html).toContain('id="localcast-theme"');
+  expect(html).toContain("'/api/state?theme='");
+  expect(html.indexOf('themeView.sync(state)')).toBeLessThan(html.indexOf('if (state.isStopped)'));
   expect(html).toContain('/api/queue/select?index=');
   expect(html).not.toContain('audioPlayer.oncanplay');
 });

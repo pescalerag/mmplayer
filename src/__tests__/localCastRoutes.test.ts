@@ -128,6 +128,43 @@ describe('LocalCast HTTP integration', () => {
       useSettingsStore.setState({ userTier: settings.userTier, localCastTheme: settings.localCastTheme });
     }
   });
+  it('synchronizes a theme selected after opening the receiver without retransmitting unchanged CSS', async () => {
+    const { userTier, localCastTheme } = useSettingsStore.getState();
+    try {
+      useSettingsStore.setState({ userTier: 'VIP', localCastTheme: 'gold' });
+      expect((await request('/')).html).toHaveBeenCalledWith(expect.stringContaining('--play-btn-hover-border: #FBBF24'), 200);
+      expect((await request('/api/state?theme=default')).json).toHaveBeenCalledWith(expect.objectContaining({
+        theme: 'gold', themeCss: expect.stringContaining('--play-btn-hover-border: #FBBF24'),
+      }), 200);
+      const unchanged = (await request('/api/state?theme=gold')).json.mock.calls[0][0];
+      expect(unchanged.theme).toBe('gold');
+      expect(unchanged).not.toHaveProperty('themeCss');
+      useSettingsStore.setState({ localCastTheme: 'aurora' });
+      expect((await request('/api/state?theme=gold')).json).toHaveBeenCalledWith(expect.objectContaining({
+        theme: 'aurora', themeCss: expect.stringContaining('--play-btn-hover-border: #34D399'),
+      }), 200);
+      useSettingsStore.setState({ userTier: 'USER' });
+      expect((await request('/api/state?theme=aurora')).json).toHaveBeenCalledWith(expect.objectContaining({
+        theme: 'default', themeCss: expect.stringContaining('--play-btn-hover-border: #A78BFA'),
+      }), 200);
+    } finally {
+      useSettingsStore.setState({ userTier, localCastTheme });
+    }
+  });
+
+  it('updates the theme even while the receiver is idle', async () => {
+    const { userTier, localCastTheme } = useSettingsStore.getState();
+    try {
+      useSettingsStore.setState({ userTier: 'VIP', localCastTheme: 'crimson' });
+      useCastStore.setState({ isLocalCastActive: false });
+      expect((await request('/api/state?theme=default')).json).toHaveBeenCalledWith(expect.objectContaining({
+        isStopped: true, theme: 'crimson', themeCss: expect.any(String),
+      }), 200);
+    } finally {
+      useSettingsStore.setState({ userTier, localCastTheme });
+    }
+  });
+
   it('defaults an omitted seek position to zero and reports handler failures', async () => {
     await request('/api/seek', 'POST');
     expect(TrackPlayer.seekTo).toHaveBeenCalledWith(0);
