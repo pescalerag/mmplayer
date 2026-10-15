@@ -228,23 +228,22 @@ TrackPlayer.play = async (bypassFade = false) => {
       return;
     }
 
-    const stepVal = volDiff / TOTAL_STEPS;
-    let step = 0;
+    const fadeStartedAt = Date.now();
 
     const runFadeInStep = async () => {
       if (opId !== currentOperationId) return;
 
-      step++;
-      currentVolume = Math.min(Math.max(startVol + (stepVal * step), 0), targetVolume);
+      const fraction = Math.min(1, (Date.now() - fadeStartedAt) / FADE_DURATION);
+      currentVolume = Math.min(Math.max(startVol + (volDiff * fraction), 0), targetVolume);
       await originalSetVolume(currentVolume);
 
       if (opId !== currentOperationId) return;
 
-      if (step < TOTAL_STEPS && currentVolume < targetVolume) {
-        fadeTimer = BackgroundTimer.setTimeout(runFadeInStep, STEP_INTERVAL);
+      if (fraction < 1 && currentVolume < targetVolume) {
+        const remaining = FADE_DURATION - (Date.now() - fadeStartedAt);
+        fadeTimer = BackgroundTimer.setTimeout(runFadeInStep, Math.max(0, Math.min(STEP_INTERVAL, remaining)));
       } else {
         currentVolume = targetVolume;
-        await originalSetVolume(targetVolume);
         fadeTimer = null;
       }
     };
@@ -304,6 +303,8 @@ TrackPlayer.pause = async (bypassFade = false) => {
     return;
   }
 
+  // Acknowledge the pause before waiting for the native state query.
+  setIsFadingOut(true);
   let isPlaying = false;
   try {
     const state = await originalGetPlaybackState();
@@ -333,27 +334,27 @@ TrackPlayer.pause = async (bypassFade = false) => {
 
   setIsFadingOut(true);
 
-  const stepVal = startVol / TOTAL_STEPS;
-  let step = 0;
+  // Native volume calls and JS stalls must not accumulate on top of the fade duration.
+  const fadeStartedAt = Date.now();
 
   const runFadeOutStep = async () => {
     if (opId !== currentOperationId) {
       return;
     }
 
-    step++;
-    currentVolume = Math.max(startVol - (stepVal * step), 0);
+    const fraction = Math.min(1, (Date.now() - fadeStartedAt) / FADE_DURATION);
+    currentVolume = Math.max(startVol * (1 - fraction), 0);
     await originalSetVolume(currentVolume);
 
     if (opId !== currentOperationId) {
       return;
     }
 
-    if (step < TOTAL_STEPS && currentVolume > 0) {
-      fadeTimer = BackgroundTimer.setTimeout(runFadeOutStep, STEP_INTERVAL);
+    if (fraction < 1 && currentVolume > 0) {
+      const remaining = FADE_DURATION - (Date.now() - fadeStartedAt);
+      fadeTimer = BackgroundTimer.setTimeout(runFadeOutStep, Math.max(0, Math.min(STEP_INTERVAL, remaining)));
     } else {
       currentVolume = 0;
-      await originalSetVolume(0);
       await originalPause();
       if (opId !== currentOperationId) {
         return;

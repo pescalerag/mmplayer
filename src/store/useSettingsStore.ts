@@ -124,8 +124,8 @@ interface SettingsState {
     setShowPlayerLyrics: (value: boolean) => void;
     homeProfilePosition: 'left' | 'right';
     setHomeProfilePosition: (position: 'left' | 'right') => void;
+    /** Legacy value used only to migrate the first queue's autoplay preference. */
     shuffleOnQueueEnd: boolean;
-    setShuffleOnQueueEnd: (value: boolean) => void;
     homeSectionsVersion: number;
     setHomeSectionsVersion: (version: number) => void;
     notificationPreferences: NotificationPreferences;
@@ -415,12 +415,6 @@ export const useSettingsStore = create<SettingsState>()(
             homeProfilePosition: 'left',
             setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
             shuffleOnQueueEnd: false,
-            setShuffleOnQueueEnd: (value) => {
-                set({ shuffleOnQueueEnd: value });
-                import('./usePlayerStore')
-                    .then(({ usePlayerStore }) => usePlayerStore.getState().updateQueueStatus())
-                    .catch(() => {});
-            },
         }),
         {
             name: 'mmplayer-settings',
@@ -433,6 +427,7 @@ export const useSettingsStore = create<SettingsState>()(
                 initAppTabs(state);
                 initHomeSections(state);
                 initNotifications(state);
+                void import('./useMultipleQueuesStore').then(({ migrateQueueShuffleOnEnd }) => migrateQueueShuffleOnEnd(state.shuffleOnQueueEnd)).catch(() => {});
             }
         }
     )

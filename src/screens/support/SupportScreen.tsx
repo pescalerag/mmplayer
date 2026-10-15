@@ -112,7 +112,7 @@ export default function SupportScreen() {
                     setIsHofModalVisible(true);
                 } else {
                     Alert.alert(
-                        '¡Éxito!',
+                        t('actions.success'),
                         t('support.purchase_success') || '¡Muchas gracias por apoyar a MMPlayer!'
                     );
                 }
@@ -137,7 +137,7 @@ export default function SupportScreen() {
             if (res.success) {
                 if (res.userTier !== 'USER') {
                     Alert.alert(
-                        '¡Restaurado! ✓',
+                        t('actions.success'),
                         `${t('support.restore_success')} (${res.userTier})`
                     );
                 } else {

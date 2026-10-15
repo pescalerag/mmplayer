@@ -1,3 +1,4 @@
+import { isVariousArtists } from '../../utils/libraryMetadata';
 import { openAlbumMenu, openTagManager } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
@@ -265,7 +266,7 @@ function AlbumDetailContent({
         )}
         subtitle={
           artist ? (
-            artist.name !== "Varios Artistas" ? (
+            !isVariousArtists(artist.name) ? (
               <TouchableOpacity onPress={navigateToArtist}>
                 <Text style={styles.artistNameLink}>{artist.name}</Text>
               </TouchableOpacity>

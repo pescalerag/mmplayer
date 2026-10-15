@@ -1,6 +1,9 @@
+import i18n from '../constants/i18n';
+
 export function getChromecastHtml(): string {
-    return `<!DOCTYPE html>
-<html lang="es">
+    const jsLabel = (key: string) => JSON.stringify(i18n.t(key)).replace(/</g, '\\u003c');
+    return String.raw`<!DOCTYPE html>
+<html lang="${i18n.resolvedLanguage || 'en'}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -314,7 +317,7 @@ export function getChromecastHtml(): string {
                 <img id="cover" class="cover" src="" alt="Album Cover">
             </div>
             <div class="info-wrapper">
-                <div id="title" class="title">Esperando contenido...</div>
+                <div id="title" class="title">${i18n.t('chromecast_client.waiting')}</div>
                 <div id="artist" class="artist">MMPlayer Chromecast</div>
             </div>
             <div class="player-controls">
@@ -329,14 +332,14 @@ export function getChromecastHtml(): string {
                 </div>
             </div>
             <div style="display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: flex-start;">
-                <div class="status-badge" id="sync-status">Conectado</div>
+                <div class="status-badge" id="sync-status">${i18n.t('chromecast_client.connected')}</div>
                 <div class="beta-badge">Chromecast</div>
             </div>
         </div>
 
         <div class="right-column">
             <div id="lyrics-scroller" class="lyrics-scroller">
-                <div class="lyric-line" style="text-align: center;">No hay letras cargadas</div>
+                <div class="lyric-line" style="text-align: center;">${i18n.t('localcast_client.no_lyrics')}</div>
             </div>
         </div>
     </div>
@@ -407,7 +410,7 @@ export function getChromecastHtml(): string {
         // Test connectivity to audio URL directly via fetch to check HTTP status & CORS
         function testAudioUrl(url) {
             if (!url) return;
-            if (dbgProbe) dbgProbe.innerText = 'Probando conexión con ' + url + '...';
+            if (dbgProbe) dbgProbe.innerText = ${jsLabel('chromecast_client.probing')} + url + '...';
             fetch(url, { method: 'HEAD', mode: 'cors' })
                 .then(function(res) {
                     var probeText = 'HTTP ' + res.status + ' ' + res.statusText + ' | Content-Type: ' + (res.headers.get('content-type') || 'N/A');
@@ -415,7 +418,7 @@ export function getChromecastHtml(): string {
                     addLog('Probe result: ' + probeText);
                 })
                 .catch(function(err) {
-                    var probeText = 'FALLO RED/CORS: ' + (err ? err.message : 'Error desconocido');
+                    var probeText = ${jsLabel('chromecast_client.network_error')} + (err ? err.message : ${jsLabel('chromecast_client.unknown_error')});
                     if (dbgProbe) dbgProbe.innerText = probeText;
                     addLog('Probe error: ' + probeText);
                 });
@@ -594,7 +597,7 @@ export function getChromecastHtml(): string {
                                 }
                             }
                         }
-                        setStatus("Cargando...", false);
+                        setStatus(${jsLabel('chromecast_client.loading')}, false);
                         return loadRequestData;
                     }
                 );
@@ -635,17 +638,17 @@ export function getChromecastHtml(): string {
                         addLog('Player state: ' + state + ' | idleReason: ' + idleReason);
 
                         if (state === cast.framework.messages.PlayerState.PLAYING) {
-                            setStatus("Transmitiendo", false);
+                            setStatus(${jsLabel('localcast_client.streaming')}, false);
                         } else if (state === cast.framework.messages.PlayerState.PAUSED) {
-                            setStatus("En pausa", false);
+                            setStatus(${jsLabel('chromecast_client.paused')}, false);
                         } else if (state === cast.framework.messages.PlayerState.BUFFERING) {
-                            setStatus("Cargando...", false);
+                            setStatus(${jsLabel('chromecast_client.loading')}, false);
                         } else if (state === cast.framework.messages.PlayerState.IDLE) {
                             if (idleReason === cast.framework.messages.IdleReason.FINISHED) {
-                                setStatus("Siguiente canción...", false);
+                                setStatus(${jsLabel('chromecast_client.next_song')}, false);
                                 notifyNextTrack();
                             } else if (idleReason === cast.framework.messages.IdleReason.ERROR) {
-                                setStatus("Error de reproducción (IDLE ERROR)", true);
+                                setStatus(${jsLabel('chromecast_client.playback_error')} + ' (IDLE ERROR)', true);
                                 showDebugError('MEDIA_STATUS IDLE ERROR', {
                                     idleReason: idleReason,
                                     audioUrl: currentAudioUrl
@@ -667,7 +670,7 @@ export function getChromecastHtml(): string {
                             error: event.error,
                             type: event.type
                         };
-                        setStatus("Error de reproducción (" + errCode + ")", true);
+                        setStatus(${jsLabel('chromecast_client.playback_error')} + ' (' + errCode + ")", true);
                         showDebugError('PLAYER ERROR (' + errCode + ')', errObj);
                     }
                 );
@@ -689,11 +692,11 @@ export function getChromecastHtml(): string {
                     castContext.sendCustomMessage(CAST_NAMESPACE, undefined, { action: 'RECEIVER_READY' });
                 } catch (e) {}
             } catch (err) {
-                setStatus('Error de inicialización: ' + (err ? err.message : ''), true);
+                setStatus(${jsLabel('chromecast_client.initialization_error')} + (err ? err.message : ''), true);
                 showDebugError('INIT_ERROR', err ? err.message : 'Unknown');
             }
         } else {
-            setStatus('SDK no disponible', true);
+            setStatus(${jsLabel('chromecast_client.sdk_unavailable')}, true);
             showDebugError('SDK_ERROR', 'cast.framework is undefined');
         }
 

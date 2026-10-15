@@ -1,4 +1,5 @@
 import { Model, Q } from "@nozbe/watermelondb";
+import { getAlbumDisplayTitle } from '../../utils/libraryMetadata';
 import {
   children,
   field,
@@ -16,10 +17,14 @@ export default class Album extends Model {
     album_tags: { type: "has_many" as const, foreignKey: "album_id" },
   };
 
-  @text("title") title: string;
+  @text("title") storedTitle: string;
+  get title(): string { return getAlbumDisplayTitle(this.storedTitle); }
+  set title(value: string) { this.storedTitle = value; }
   @text("normalized_title") normalizedTitle: string;
   @field("year") year: number | null; // isOptional en schema
   @text("cover_url") coverUrl: string | null; // isOptional en schema
+  @text("cover_color") coverColor: string | null;
+  @text("cover_color_source") coverColorSource: string | null;
   @text("cd_art_url") cdArtUrl: string | null;
   @field("is_pinned") isPinned: boolean;
   @field("is_excluded_from_shuffle") isExcludedFromShuffle: boolean;

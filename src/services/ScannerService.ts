@@ -1,3 +1,4 @@
+import { UNKNOWN_ARTIST, UNKNOWN_ALBUM, VARIOUS_ARTISTS, getArtistStorageName, getAlbumStorageTitle } from '../utils/libraryMetadata';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useSyncStore } from '@/store/useSyncStore';
 import { Q } from '@nozbe/watermelondb';
@@ -211,11 +212,11 @@ const extractFileMetadata = (file: any) => {
         ? file.filename.replace(/\.[^/.]+$/, '')
         : rawTitle;
     const artistString = (!rawArtist || rawArtist === 'Unknown Artist')
-        ? 'Artista Desconocido'
-        : rawArtist;
+        ? UNKNOWN_ARTIST
+        : getArtistStorageName(rawArtist);
     const albumTitle = (!rawAlbum || rawAlbum === 'Unknown Album')
-        ? 'Álbum Desconocido'
-        : rawAlbum;
+        ? UNKNOWN_ALBUM
+        : getAlbumStorageTitle(rawAlbum);
     const albumArtist = (rawAlbumArtist && rawAlbumArtist !== 'Unknown Artist' && rawAlbumArtist.length > 0)
         ? rawAlbumArtist
         : null;
@@ -257,8 +258,8 @@ const getLocalArtistImage = async (name: string): Promise<string | null> => {
 
 // --- 3. Helper to resolve and optionally create artists ---
 const resolveArtists = async (artistString: string, artistCache: Map<string, Artist>, artistsCollection: any) => {
-    const names = artistString.split(/[~;,]/).map(s => s.trim()).filter(s => s.length > 0);
-    if (names.length === 0) names.push('Artista Desconocido');
+    const names = artistString.split(/[~;,]/).map(s => getArtistStorageName(s.trim())).filter(s => s.length > 0);
+    if (names.length === 0) names.push(UNKNOWN_ARTIST);
 
     const trackArtists: Artist[] = [];
     const newArtistOps: any[] = [];
@@ -335,7 +336,7 @@ const resolveAlbum = async (
         if (isExplicitAlbumArtist && currentArtistId !== primaryArtist.id) {
             nextArtist = primaryArtist;
         } else if (!isExplicitAlbumArtist && currentArtistId !== primaryArtist.id && year !== null && album.year === year) {
-            const { trackArtists: variosArtists, newArtistOps: newVariosOps } = await resolveArtists("Varios Artistas", artistCache, artistsCollection);
+            const { trackArtists: variosArtists, newArtistOps: newVariosOps } = await resolveArtists(VARIOUS_ARTISTS, artistCache, artistsCollection);
             const variosArtist = variosArtists[0];
 
             if (currentArtistId !== variosArtist.id) {
@@ -487,10 +488,10 @@ const performCreateTracks = async (
     const albumCache = new Map<string, Album>();
 
     const existingArtists = await artistsCollection.query().fetch();
-    for (const a of existingArtists) artistCache.set(a.name, a);
+    for (const a of existingArtists) artistCache.set(getArtistStorageName(a.storedName ?? a.name), a);
 
     const existingAlbums = await albumsCollection.query().fetch();
-    for (const a of existingAlbums) albumCache.set(a.title, a);
+    for (const a of existingAlbums) albumCache.set(getAlbumStorageTitle(a.storedTitle ?? a.title), a);
 
     let batchOps: any[] = [];
     const BATCH_SIZE = 500;
@@ -1027,11 +1028,11 @@ export const ScannerService = {
 
             const allArtists = await artistsCollection.query().fetch();
             const artistMap = new Map<string, string>();
-            allArtists.forEach(a => artistMap.set(a.id, a.name));
+            allArtists.forEach(a => artistMap.set(a.id, getArtistStorageName(a.storedName ?? a.name)));
 
             const allAlbums = await albumsCollection.query().fetch();
             const albumMap = new Map<string, string>();
-            allAlbums.forEach(al => albumMap.set(al.id, al.title));
+            allAlbums.forEach(al => albumMap.set(al.id, getAlbumStorageTitle(al.storedTitle ?? al.title)));
 
             if (remainingOrphans.length > 0) {
                 if (useMigrationStore.getState().isVisible) {
@@ -1157,10 +1158,10 @@ export const ScannerService = {
                     const albumCache = new Map<string, Album>();
 
                     const existingArtists = await artistsCollection.query().fetch();
-                    for (const a of existingArtists) artistCache.set(a.name, a);
+                    for (const a of existingArtists) artistCache.set(getArtistStorageName(a.storedName ?? a.name), a);
 
                     const existingAlbums = await albumsCollection.query().fetch();
-                    for (const a of existingAlbums) albumCache.set(a.title, a);
+                    for (const a of existingAlbums) albumCache.set(getAlbumStorageTitle(a.storedTitle ?? a.title), a);
 
                     if (canciones_actualizadas.length > 0) {
                         for (const item of canciones_actualizadas) {
@@ -1285,14 +1286,14 @@ export const ScannerService = {
                     albumsCollection,
                     tracksCollection,
                     'album_id',
-                    'Limpiando álbumes vacíos...',
+                    i18n.t('scanner.cleaning_empty_albums'),
                     (phase) => onProgress?.(audioFiles.length, audioFiles.length, phase)
                 );
                 const deletedArtists = await removeEmptyEntities(
                     artistsCollection,
                     tracksCollection,
                     'artist_id',
-                    'Limpiando artistas vacíos...',
+                    i18n.t('scanner.cleaning_empty_artists'),
                     (phase) => onProgress?.(audioFiles.length, audioFiles.length, phase)
                 );
                 deletedAlbumIds.push(...deletedAlbums);
@@ -1412,7 +1413,7 @@ export const ScannerService = {
             await database.write(async () => {
                 const artistCache = new Map<string, Artist>();
                 const existingArtists = await artistsCollection.query().fetch();
-                for (const a of existingArtists) artistCache.set(a.name, a);
+                for (const a of existingArtists) artistCache.set(getArtistStorageName(a.storedName ?? a.name), a);
 
                 let batchOps: any[] = [];
                 const BATCH_SIZE = 400;
@@ -1479,10 +1480,10 @@ export const ScannerService = {
             // Limpiar Artistas
             onProgress?.(i18n.t('scanner.repairing_artists'));
             for (const artist of artists) {
-                const cleanName = sanitizeDbString(artist.name) || 'Artista Desconocido';
+                const cleanName = sanitizeDbString(artist.storedName ?? artist.name) || UNKNOWN_ARTIST;
                 const normName = normalizeText(cleanName);
 
-                if (artist.name !== cleanName || artist.normalizedName !== normName) {
+                if ((artist.storedName ?? artist.name) !== cleanName || artist.normalizedName !== normName) {
                     batchOps.push(
                         artist.prepareUpdate(a => {
                             a.name = cleanName;
@@ -1495,10 +1496,10 @@ export const ScannerService = {
             // Limpiar Álbumes
             onProgress?.(i18n.t('scanner.repairing_albums'));
             for (const album of albums) {
-                const cleanTitle = sanitizeDbString(album.title) || 'Álbum Desconocido';
+                const cleanTitle = sanitizeDbString(album.storedTitle ?? album.title) || UNKNOWN_ALBUM;
                 const normTitle = normalizeText(cleanTitle);
 
-                if (album.title !== cleanTitle || album.normalizedTitle !== normTitle) {
+                if ((album.storedTitle ?? album.title) !== cleanTitle || album.normalizedTitle !== normTitle) {
                     batchOps.push(
                         album.prepareUpdate(a => {
                             a.title = cleanTitle;
@@ -1610,7 +1611,7 @@ export const ScannerService = {
                     albumsCollection,
                     tracksCollection,
                     'album_id',
-                    'Limpiando álbumes vacíos...',
+                    i18n.t('scanner.cleaning_empty_albums'),
                     onProgress
                 );
             }
@@ -1647,7 +1648,7 @@ export const ScannerService = {
                     artistsCollection,
                     tracksCollection,
                     'artist_id',
-                    'Limpiando artistas vacíos...',
+                    i18n.t('scanner.cleaning_empty_artists'),
                     onProgress
                 );
             }
@@ -1968,7 +1969,7 @@ export const ScannerService = {
             for (let i = 0; i < tracksWithoutGain.length; i += CHUNK_SIZE) {
                 const chunk = tracksWithoutGain.slice(i, i + CHUNK_SIZE);
 
-                onProgress?.(processed, tracksWithoutGain.length, `Analizando volumen (${processed}/${tracksWithoutGain.length})...`);
+                onProgress?.(processed, tracksWithoutGain.length, i18n.t('scanner.analyzing_volume', { current: processed, total: tracksWithoutGain.length }));
 
                 const batchOps: any[] = [];
 

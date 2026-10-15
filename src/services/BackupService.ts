@@ -6,6 +6,7 @@ import { database } from '../database';
 import { mySchema } from '../database/schema';
 import { useBackupStore } from '../store/useBackupStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { clearAllQueueSessions } from '../store/useMultipleQueuesStore';
 import { ScannerService } from './ScannerService';
 import i18n from '../constants/i18n';
 import { initializeExistingPlaylistCovers } from './PlaylistCoverService';
@@ -141,6 +142,7 @@ export const BackupService = {
             store.startImport(i18n.t('backup.clearing_db'));
             await database.write(async () => {
                 await database.unsafeResetDatabase();
+                clearAllQueueSessions();
             });
 
             // Clear player recents to match the new database state

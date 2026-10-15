@@ -1,3 +1,4 @@
+import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import TrackPlayer, { RepeatMode } from 'react-native-track-player';
 import { createMMKV } from 'react-native-mmkv';
 import { consumeUserQueueTransition, usePlayerStore } from '../store/usePlayerStore';
@@ -5,7 +6,7 @@ import { ShuffleService } from '../services/ShuffleService';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import Album from '../database/models/Album';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { PlaybackTimeTracker } from '../services/PlaybackService';
 
 describe('Player transport responsiveness', () => {
   beforeEach(() => {
@@ -69,7 +70,7 @@ describe('Player transport responsiveness', () => {
   });
 
   it('skips directly without reading the full queue when random autoplay is disabled', async () => {
-    useSettingsStore.setState({ shuffleOnQueueEnd: false });
+    setQueueAutoplay(false);
     await usePlayerStore.getState().skipToNext();
     expect(TrackPlayer.skipToNext).toHaveBeenCalledTimes(1);
     expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
@@ -78,7 +79,7 @@ describe('Player transport responsiveness', () => {
   });
 
   it('only checks the adjacent track for random autoplay and preserves queue repeat', async () => {
-    useSettingsStore.setState({ shuffleOnQueueEnd: true });
+    setQueueAutoplay(true);
     (TrackPlayer as any).getTrack = jest.fn().mockResolvedValue(undefined);
     (TrackPlayer.getActiveTrackIndex as jest.Mock).mockResolvedValue(2);
     (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Queue);
@@ -86,7 +87,7 @@ describe('Player transport responsiveness', () => {
     expect(TrackPlayer.getTrack).toHaveBeenCalledWith(3);
     expect(TrackPlayer.skipToNext).toHaveBeenCalledTimes(1);
     expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
-    useSettingsStore.setState({ shuffleOnQueueEnd: false });
+    setQueueAutoplay(false);
   });
 });
 
@@ -243,6 +244,37 @@ describe('Player Store Features & Shuffle Helpers', () => {
   });
 
   describe('Playback State Persistence and Restoration', () => {
+    it('reports native restoration failures so a queue switch can roll back', async () => {
+      const logging = jest.spyOn(console, 'error').mockImplementation(() => {});
+      (TrackPlayer.setRepeatMode as jest.Mock).mockRejectedValueOnce(new Error('Native repeat failure'));
+      await expect(usePlayerStore.getState().restorePlaybackState({
+        queue: [{ id: 'saved1-123', url: 'file:///saved.mp3' }], index: 0, position: 0, accumulatedTime: 0,
+        playbackContext: null, isShuffleEnabled: false, shuffleOriginalQueue: [], userQueueSize: 0,
+        playbackSpeed: 1, playbackPitch: 1, isVinylModeEnabled: true, repeatMode: 2,
+      })).rejects.toThrow('Native repeat failure');
+      logging.mockRestore();
+    });
+
+    it.each([0, 30])('restores an in-memory queue without polling or duplicate reads, including %s listened seconds', async accumulatedTime => {
+      const queue = [{ id: 'saved1-123', url: 'file:///saved.mp3', title: 'Saved 1' }];
+      (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue(createTestTrack('saved1')) });
+      PlaybackTimeTracker.setAccumulatedSeconds('previous-123', 64);
+      await usePlayerStore.getState().restorePlaybackState({ queue, index: 0, position: 45, accumulatedTime,
+        playbackContext: 'context-saved', isShuffleEnabled: false, shuffleOriginalQueue: [], userQueueSize: 0,
+        playbackSpeed: 1, playbackPitch: 1, isVinylModeEnabled: true, repeatMode: 2 });
+      expect(TrackPlayer.skip).toHaveBeenCalledWith(0, 45);
+      expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+      expect(TrackPlayer.getProgress).not.toHaveBeenCalled();
+      expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
+      expect(TrackPlayer.getRepeatMode).not.toHaveBeenCalled();
+      expect(TrackPlayer.setRepeatMode).toHaveBeenCalledTimes(1);
+      expect(TrackPlayer.pause).toHaveBeenCalledWith(true);
+      expect(usePlayerStore.getState()).toMatchObject({ activeTrackInstanceId: '123', playbackContext: 'context-saved' });
+      expect(PlaybackTimeTracker.getCurrentTrackId()).toBe('saved1-123');
+      expect(PlaybackTimeTracker.getAccumulatedSeconds('saved1-123')).toBe(accumulatedTime);
+      expect(PlaybackTimeTracker.getAccumulatedSeconds('previous-123')).toBe(64);
+    });
+
     it('restores playback state from storage', async () => {
       const savedState = {
         queue: [
@@ -563,3 +595,7 @@ describe('Player Store Features & Shuffle Helpers', () => {
     });
   });
 });
+
+function setQueueAutoplay(value: boolean) {
+  useMultipleQueuesStore.setState(state => ({ slots: state.slots.map(slot => slot.id === state.activeId ? { ...slot, shuffleOnQueueEnd: value } : slot) }));
+}

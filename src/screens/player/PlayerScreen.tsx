@@ -1,3 +1,5 @@
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
+import { useDismissEmptyPlayer } from '../../hooks/useDismissEmptyPlayer';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayerSpotlightTutorial from '@/components/modals/PlayerSpotlightTutorial';
 import { useTagFormStore } from '@/store/useTagFormStore';
@@ -32,7 +34,8 @@ import TrackPlayer, {
     State as TrackPlayerState,
     useProgress,
 } from 'react-native-track-player';
-import { extractColorFromImage, NativeVisualizer } from '../../../modules/native-equalizer';
+import { NativeVisualizer } from '../../../modules/native-equalizer';
+import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 
 import { database } from '../../database';
@@ -314,12 +317,6 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
                     setNextTrackModel(nextM);
                     setPrevCoverUrl(prevArtwork);
                     setNextCoverUrl(nextArtwork);
-                    if (prevArtwork) {
-                        getOrExtractColor(prevArtwork).catch(() => {});
-                    }
-                    if (nextArtwork) {
-                        getOrExtractColor(nextArtwork).catch(() => {});
-                    }
                 }
             } catch (e) {
                 console.error("Error sincronizando canciones adyacentes en PlayerScreen:", e);
@@ -335,7 +332,6 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
         fetchAlbumCover(prevTrackModel, (url) => {
             if (isMounted && url) {
                 setPrevCoverUrl(url);
-                getOrExtractColor(url).catch(() => {});
             }
         });
         return () => { isMounted = false; };
@@ -346,7 +342,6 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
         fetchAlbumCover(nextTrackModel, (url) => {
             if (isMounted && url) {
                 setNextCoverUrl(url);
-                getOrExtractColor(url).catch(() => {});
             }
         });
         return () => { isMounted = false; };
@@ -392,54 +387,6 @@ const resolveAdjacentCoverFallback = (
     if (nextModel?.id === trackId && nextCover) return nextCover;
     if (prevModel?.id === trackId && prevCover) return prevCover;
     return null;
-};
-
-const playerCoverColorCache = new Map<string, string>();
-
-const getCleanUrl = (url: string | null): string | null => {
-    if (!url) return null;
-    return url.split('?')[0];
-};
-
-const getCachedCoverColor = (url: string | null, localExtracted?: Record<string, string>): string | null => {
-    if (!url) return null;
-    const cleanUrl = getCleanUrl(url);
-
-    const memoryColor = playerCoverColorCache.get(url) || (cleanUrl ? playerCoverColorCache.get(cleanUrl) : undefined);
-    if (memoryColor) return memoryColor;
-
-    if (localExtracted) {
-        const extractedColor = localExtracted[url] || (cleanUrl ? localExtracted[cleanUrl] : undefined);
-        if (extractedColor) return extractedColor;
-    }
-
-    return null;
-};
-
-const getOrExtractColor = async (url: string | null): Promise<string | null> => {
-    if (!url) return null;
-    const cleanUrl = getCleanUrl(url);
-    if (!cleanUrl) return null;
-
-    if (playerCoverColorCache.has(url)) return playerCoverColorCache.get(url)!;
-    if (playerCoverColorCache.has(cleanUrl)) {
-        const cached = playerCoverColorCache.get(cleanUrl)!;
-        playerCoverColorCache.set(url, cached);
-        return cached;
-    }
-
-    try {
-        const color = await extractColorFromImage(cleanUrl);
-        if (color) {
-            playerCoverColorCache.set(url, color);
-            playerCoverColorCache.set(cleanUrl, color);
-            return color;
-        }
-        return null;
-    } catch (e) {
-        console.error("Error extracting color from image in PlayerScreen:", e);
-        return null;
-    }
 };
 
 const usePlayerCover = (
@@ -509,49 +456,9 @@ const usePlayerCover = (
 
     const currentCoverUrl: string | null = stableCoverRef.current.url;
 
-    const [extractedColors, setExtractedColors] = useState<Record<string, string>>({});
-
-    const rawCoverColor = getCachedCoverColor(currentCoverUrl, extractedColors);
-    const rawPrevCoverColor = getCachedCoverColor(prevCoverUrl, extractedColors);
-    const rawNextCoverColor = getCachedCoverColor(nextCoverUrl, extractedColors);
-
-    // If adjacent track shares cover with current track, immediately reuse coverColor
-    const prevCoverColor = rawPrevCoverColor || (
-        prevCoverUrl && currentCoverUrl && getCleanUrl(prevCoverUrl) === getCleanUrl(currentCoverUrl)
-            ? rawCoverColor
-            : null
-    );
-
-    const nextCoverColor = rawNextCoverColor || (
-        nextCoverUrl && currentCoverUrl && getCleanUrl(nextCoverUrl) === getCleanUrl(currentCoverUrl)
-            ? rawCoverColor
-            : null
-    );
-
-    const coverColor = rawCoverColor;
-
-    useEffect(() => {
-        let isMounted = true;
-        const urlsToExtract = [currentCoverUrl, prevCoverUrl, nextCoverUrl].filter(
-            (url): url is string => Boolean(url && !getCachedCoverColor(url, extractedColors))
-        );
-
-        urlsToExtract.forEach(url => {
-            void getOrExtractColor(url)
-                .then(color => {
-                    if (isMounted && color) {
-                        setExtractedColors(prev => ({ ...prev, [url]: color }));
-                    }
-                })
-                .catch(() => {
-                    // Ignore extraction errors
-                });
-        });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [currentCoverUrl, prevCoverUrl, nextCoverUrl, extractedColors]);
+    const coverColor = useAlbumCoverColor(currentCoverUrl, album);
+    const prevCoverColor = useAlbumCoverColor(prevCoverUrl, prevCoverUrl === currentCoverUrl ? album : null);
+    const nextCoverColor = useAlbumCoverColor(nextCoverUrl, nextCoverUrl === currentCoverUrl ? album : null);
 
     const { finalBgColor, topGradientColor, bottomGradientColor } = useMemo(() => {
         if (!coverColor) {
@@ -1136,7 +1043,7 @@ const ActiveArtworkCenter = ({
                 active={true}
                 type={playerVisualizerType}
                 color={playerVisualizerColorMode === 'cover' ? 'cover' : accentLightColor || '#8B5CF6'}
-                coverUrl={currentCoverUrl || undefined}
+                coverColor={coverColor || undefined}
                 style={{
                     width: '100%',
                     height: 240,
@@ -2224,12 +2131,13 @@ const usePlayerNavigation = ({
 };
 
 const usePlayerActions = (track: Track, t: any) => {
+    const activeQueueId = useMultipleQueuesStore(state => state.activeId);
     const isShuffleEnabled = usePlayerStore(state => state.isShuffleEnabled);
     const [repeatMode, setRepeatMode] = useState<RepeatMode>(RepeatMode.Off);
 
     useEffect(() => {
         TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
-    }, []);
+    }, [activeQueueId]);
 
     const cycleRepeatMode = useCallback(async () => {
         try {
@@ -2241,9 +2149,11 @@ const usePlayerActions = (track: Track, t: any) => {
             } else {
                 next = RepeatMode.Off;
             }
+            if (useMultipleQueuesStore.getState().isSwitching) return;
             await TrackPlayer.setRepeatMode(next);
             setRepeatMode(next);
             await usePlayerStore.getState().updateQueueStatus();
+            await usePlayerStore.getState().savePlaybackState();
         } catch (e) {
             console.error('Error cycling repeat mode:', e);
         }
@@ -2401,7 +2311,7 @@ const PlayerScreenUI = ({
     const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
     const playerBackgroundStyle = useSettingsStore(state => state.playerBackgroundStyle);
     const showPlayerLyrics = useSettingsStore(state => state.showPlayerLyrics);
-    const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
+    const shuffleOnQueueEnd = useMultipleQueuesStore(selectShuffleOnQueueEnd);
 
     // Cast
     const isServerRunning = useCastStore(state => state.isServerRunning);
@@ -2801,6 +2711,8 @@ const PlayerScreen = () => {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
+
+    useDismissEmptyPlayer();
 
     useEffect(() => {
         if (isFocused) {

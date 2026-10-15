@@ -1,3 +1,4 @@
+import QueueDestinationSheet from './QueueDestinationSheet';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useRef, useState } from 'react';
@@ -174,6 +175,8 @@ export default function GlobalBottomSheet() {
 
   const renderContent = () => {
     switch (renderedSheet) {
+      case 'queue-destination':
+        return <QueueDestinationSheet />;
       case 'track-menu':
         return <TrackMenuSheet />;
       case 'lyrics-menu':

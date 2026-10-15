@@ -1,3 +1,4 @@
+import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import TrackPlayer, { RepeatMode } from 'react-native-track-player';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -89,6 +90,8 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    setQueueAutoplay(false);
+
     // Reset Zustand stores
     usePlayerStore.setState({
       activeTrack: null,
@@ -108,7 +111,6 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
     });
 
     useSettingsStore.setState({
-      shuffleOnQueueEnd: false,
       excludedSongs: [],
       queueAddBehavior: 'context_queue',
     });
@@ -243,7 +245,7 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
 
   describe('3. Aleatorio al Finalizar la Cola (Random Autoplay on Queue End)', () => {
     it('debe disparar reproducción aleatoria automática al llegar al final de la cola con shuffleOnQueueEnd activado', async () => {
-      useSettingsStore.setState({ shuffleOnQueueEnd: true });
+      setQueueAutoplay(true);
       (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Off);
 
       const queue = [
@@ -277,8 +279,33 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
       getEligibleSpy.mockRestore();
     });
 
+    it('does not let a pending autoplay from one queue block or start playback in another queue', async () => {
+      const originalId = useMultipleQueuesStore.getState().activeId;
+      let finishOld!: (tracks: Track[]) => void;
+      const track = createMockTrack('new-random', 'New Random');
+      const eligible = jest.spyOn(ShuffleService, 'getEligibleShuffleTracks')
+        .mockReturnValueOnce(new Promise(resolve => { finishOld = resolve; }))
+        .mockResolvedValue([track]);
+      const start = jest.spyOn(usePlayerStore.getState(), 'startShuffled').mockResolvedValue(undefined);
+      (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Off);
+      try {
+        useMultipleQueuesStore.setState({ activeId: 3 }); setQueueAutoplay(true);
+        const oldAutoplay = usePlayerStore.getState().playRandomQueueOnEnd();
+        await Promise.resolve();
+        expect(eligible).toHaveBeenCalledTimes(1);
+        useMultipleQueuesStore.setState({ activeId: 4 }); setQueueAutoplay(true);
+        await usePlayerStore.getState().playRandomQueueOnEnd();
+        finishOld([track]); await oldAutoplay;
+        expect(eligible).toHaveBeenCalledTimes(2);
+        expect(start).toHaveBeenCalledTimes(1);
+        expect(start).toHaveBeenCalledWith([track], 'random_queue_end');
+      } finally {
+        useMultipleQueuesStore.setState({ activeId: originalId });
+      }
+    });
+
     it('no debe disparar reproducción aleatoria si shuffleOnQueueEnd está desactivado', async () => {
-      useSettingsStore.setState({ shuffleOnQueueEnd: false });
+      setQueueAutoplay(false);
       (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Off);
 
       const queue = [{ id: 'q1' }, { id: 'q2' }];
@@ -298,7 +325,7 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
     });
 
     it('no debe disparar reproducción aleatoria si la repetición está activada (RepeatMode !== Off)', async () => {
-      useSettingsStore.setState({ shuffleOnQueueEnd: true });
+      setQueueAutoplay(true);
       (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Queue);
 
       const queue = [{ id: 'q1' }, { id: 'q2' }];
@@ -446,3 +473,7 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
     });
   });
 });
+
+function setQueueAutoplay(value: boolean) {
+  useMultipleQueuesStore.setState(state => ({ slots: state.slots.map(slot => slot.id === state.activeId ? { ...slot, shuffleOnQueueEnd: value } : slot) }));
+}

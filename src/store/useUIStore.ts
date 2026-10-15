@@ -1,3 +1,4 @@
+import i18n from '../constants/i18n';
 import { create } from 'zustand';
 import { useTagFormStore } from './useTagFormStore';
 import type Album from '../database/models/Album';
@@ -49,7 +50,8 @@ export type SheetType =
   | 'clear-queue'
   | 'canvas-manager'
   | 'track-details'
-  | 'notification-settings';
+  | 'notification-settings'
+  | 'queue-destination';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -199,7 +201,7 @@ export const openTagManagerForBatch = (tracks: any[]) =>
   useUIStore.getState().openSheet('tag-manager', {
     targetType: 'batch',
     targetId: 'batch',
-    targetTitle: `${tracks.length} canciones`,
+    targetTitle: i18n.t('library.song_count', { count: tracks.length }),
     tracks,
   });
 
@@ -217,3 +219,5 @@ export const openTrackDetails = (track: any) =>
 export const openNotificationSettings = () =>
   useUIStore.getState().openSheet('notification-settings');
 
+
+export const openQueueDestination = (tracks: any[], onAdded?: () => void) => useUIStore.getState().openSheet('queue-destination', { tracks, onAdded });

@@ -1,8 +1,8 @@
+import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import { database } from '../database';
 import TrackPlayer, { RepeatMode, Track } from 'react-native-track-player';
 import { LocalCastQueueService } from '../services/LocalCastQueueService';
 import { setQueueSnapshot, useQueueSnapshotStore } from '../store/useQueueSnapshotStore';
-import { useSettingsStore } from '../store/useSettingsStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 
 jest.mock('../store/usePlayerStore', () => {
@@ -18,7 +18,7 @@ describe('LocalCast queue preview and transport', () => {
     queue = [{ id: 'one', url: 'one', title: 'One', duration: 180 }, { id: 'two', url: 'two', title: 'Two' }];
     index = 0;
     setQueueSnapshot(queue, 0);
-    useSettingsStore.setState({ shuffleOnQueueEnd: false });
+    setQueueAutoplay(false);
     (TrackPlayer.getRepeatMode as jest.Mock).mockResolvedValue(RepeatMode.Off);
     (TrackPlayer.getActiveTrackIndex as jest.Mock).mockImplementation(async () => index);
     (TrackPlayer.getTrack as jest.Mock).mockImplementation(async (position: number) => queue[position]);
@@ -39,9 +39,21 @@ describe('LocalCast queue preview and transport', () => {
     const same = await LocalCastQueueService.read('session', state.queueVersion, 0);
     expect(same).not.toHaveProperty('queue');
     expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
-    useSettingsStore.setState({ shuffleOnQueueEnd: true });
+    setQueueAutoplay(true);
     expect((await LocalCastQueueService.read('session', same.queueVersion, 0)).queue).toBeDefined();
   });
+  it('reports autoplay and next availability from the active queue preference', async () => {
+    const original = useMultipleQueuesStore.getState().activeId;
+    try {
+      setQueueAutoplay(true);
+      expect((await LocalCastQueueService.read('preferences', null, 1)).hasNext).toBe(true);
+      useMultipleQueuesStore.setState({ activeId: 1 }); setQueueAutoplay(false);
+      expect(await LocalCastQueueService.read('preferences', null, 1)).toMatchObject({ hasNext: false, shuffleOnQueueEnd: false });
+    } finally {
+      useMultipleQueuesStore.setState({ activeId: original });
+    }
+  });
+
   it('initializes a missing snapshot and disables next for empty or completed queues', async () => {
     useQueueSnapshotStore.setState({ ready: false });
     await LocalCastQueueService.read('init', null, 0);
@@ -108,12 +120,12 @@ describe('LocalCast queue preview and transport', () => {
     expect(await LocalCastQueueService.advance(false)).toBe(true);
     expect(usePlayerStore.getState().skipToNext).toHaveBeenCalledTimes(1);
     expect(await LocalCastQueueService.advance(true)).toBe(false);
-    useSettingsStore.setState({ shuffleOnQueueEnd: true });
+    setQueueAutoplay(true);
     expect(await LocalCastQueueService.advance(true)).toBe(true);
     expect(usePlayerStore.getState().playRandomQueueOnEnd).toHaveBeenCalledTimes(1);
   });
   it('does not replay the last song when no random tracks can be loaded or next fails', async () => {
-    index = 1; useSettingsStore.setState({ shuffleOnQueueEnd: true });
+    index = 1; setQueueAutoplay(true);
     (usePlayerStore.getState().playRandomQueueOnEnd as jest.Mock).mockResolvedValue(undefined);
     expect(await LocalCastQueueService.advance(false)).toBe(false);
     index = 0;
@@ -140,3 +152,7 @@ describe('LocalCast queue preview and transport', () => {
     expect((await LocalCastQueueService.read('repeat', null, 1)).hasNext).toBe(true);
   });
 });
+
+function setQueueAutoplay(value: boolean) {
+  useMultipleQueuesStore.setState(state => ({ slots: state.slots.map(slot => slot.id === state.activeId ? { ...slot, shuffleOnQueueEnd: value } : slot) }));
+}

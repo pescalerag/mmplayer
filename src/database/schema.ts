@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const mySchema = appSchema({
-    version: 21,
+    version: 22,
     tables: [
         tableSchema({
             name: 'tracks',
@@ -33,6 +33,8 @@ export const mySchema = appSchema({
                 { name: 'normalized_title', type: 'string' },
                 { name: 'year', type: 'number', isOptional: true },
                 { name: 'cover_url', type: 'string', isOptional: true }, // Portada local
+                { name: 'cover_color', type: 'string', isOptional: true },
+                { name: 'cover_color_source', type: 'string', isOptional: true },
                 { name: 'cd_art_url', type: 'string', isOptional: true },
                 { name: 'artist_id', type: 'string', isIndexed: true },
                 { name: 'is_pinned', type: 'boolean', isOptional: true },

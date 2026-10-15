@@ -116,7 +116,9 @@
     "smart_listening_title": "Listas según tus escuchas",
     "smart_rating_title": "Listas según puntuación",
     "smart_genre_title": "Playlists por género",
-    "smart_genre_desc": "Canciones del género {{genre}}"
+    "smart_genre_desc": "Canciones del género {{genre}}",
+    "song_count_one": "{{count}} canción",
+    "song_count_other": "{{count}} canciones"
   },
   "library_tutorial": {
     "badge": "GUÍA DE LA BIBLIOTECA",
@@ -402,7 +404,9 @@
     "no_tag_matches": "No se encontraron canciones con ese filtro de etiquetas.",
     "no_playlists_only": "Canciones sin playlist",
     "no_playlists_desc": "Solo ver canciones que no pertenecen a ninguna lista de reproducción.",
-    "lyric_match": "Coincidencia en la letra"
+    "lyric_match": "Coincidencia en la letra",
+    "album_by": "Álbum • {{artist}}",
+    "song_by": "Canción • {{artist}}"
   },
   "tags": {
     "manager": "Gestión de etiquetas",
@@ -431,7 +435,8 @@
     "remove_tag_album_songs": "¿Quieres quitar la etiqueta \"{{name}}\" también de todas las canciones de este álbum?",
     "only_album": "Solo al Álbum",
     "only_from_album": "Solo del Álbum",
-    "album_and_songs": "Álbum y Canciones"
+    "album_and_songs": "Álbum y Canciones",
+    "batch_tags": "Etiquetas en lote"
   },
   "settings": {
     "album_covers_title": "Carátulas faltantes",
@@ -646,6 +651,17 @@
     "queue_add_mode_context_desc": "Se colocan al final de la cola de contexto. Sonarán tras terminar todo el álbum o lista."
   },
   "queue": {
+    "slot_name": "Cola {{number}}",
+    "select_queue": "Seleccionar cola",
+    "rename_title": "Cambiar nombre de la cola",
+    "rename_save": "Guardar",
+    "cast_switch_disabled": "No se puede cambiar de cola durante Local Cast.",
+    "switch_error": "No se pudo cambiar o actualizar la cola. Inténtalo de nuevo.",
+    "add_to_other": "Añadir a una cola distinta",
+    "added_to": "Añadido a {{name}}",
+    "reset_all": "Reiniciar todas las colas",
+    "reset_all_confirm": "Se detendrá la reproducción, se vaciarán las cinco colas, se restaurarán sus nombres y se desactivará la reproducción aleatoria al finalizar.",
+    "reset_all_error": "No se pudieron reiniciar las colas. Inténtalo de nuevo.",
     "title": "Cola",
     "manage": "Gestionar cola",
     "what_to_do": "¿Qué deseas hacer?",
@@ -784,7 +800,12 @@
     "share_as_zip": "Compartir selección como ZIP",
     "selected_count": "{{count}} seleccionadas",
     "longPressCoverToCustomize": "Mantén pulsado para personalizar",
-    "customize_cd": "Personalizar imagen de CD"
+    "customize_cd": "Personalizar imagen de CD",
+    "info": "Información",
+    "batch_actions": "Acciones en lote",
+    "share_zip_error": "No se pudieron compartir las canciones como ZIP.",
+    "exclude_songs_confirm_one": "¿Excluir esta canción del escaneo? Se borrará de la biblioteca.",
+    "exclude_songs_confirm_other": "¿Excluir estas {{count}} canciones del escaneo? Se borrarán de la biblioteca."
   },
   "track_details": {
     "title": "Propiedades",
@@ -792,21 +813,21 @@
     "copied": "Copiado al portapapeles",
     "section_file": "Archivo",
     "section_metadata": "Metadatos",
-    "section_technical": "T\u00e9cnico",
+    "section_technical": "Técnico",
     "filename": "Nombre de archivo",
     "folder": "Carpeta",
     "full_path": "Ruta completa",
     "format": "Formato",
-    "file_size": "Tama\u00f1o del archivo",
-    "last_modified": "\u00daltima modificaci\u00f3n",
-    "title_field": "T\u00edtulo",
+    "file_size": "Tamaño del archivo",
+    "last_modified": "Última modificación",
+    "title_field": "Título",
     "artist": "Artista",
-    "album": "\u00c1lbum",
-    "year": "A\u00f1o",
-    "genre": "G\u00e9nero",
-    "track_number": "N\u00famero de pista",
-    "rating": "Valoraci\u00f3n",
-    "duration": "Duraci\u00f3n",
+    "album": "Álbum",
+    "year": "Año",
+    "genre": "Género",
+    "track_number": "Número de pista",
+    "rating": "Valoración",
+    "duration": "Duración",
     "bitrate": "Bitrate",
     "sample_rate": "Frecuencia de muestreo",
     "channels": "Canales",
@@ -1264,7 +1285,10 @@
     },
     "charts": {
       "artist_statistics": "Estadísticas",
-      "tag_scopes": { "track": "Canciones", "album": "Álbumes" },
+      "tag_scopes": {
+        "track": "Canciones",
+        "album": "Álbumes"
+      },
       "tag_history_notice": "Solo se incluyen escuchas con etiquetas registradas al guardarlas. El historial anterior a esta función no se incluye.",
       "tag_album_notice": "Se cuentan las escuchas de canciones de álbumes con esta etiqueta, no álbumes completos escuchados.",
       "totals": "Totales del periodo",
@@ -1294,7 +1318,9 @@
     "share_btn": "Compartir",
     "wrapped_summary": "RESUMEN",
     "top_artists": "TOP ARTISTAS",
-    "top_songs": "TOP CANCIONES"
+    "top_songs": "TOP CANCIONES",
+    "total_listening_label": "TIEMPO TOTAL DE ESCUCHA",
+    "total_plays_label": "TOTAL DE REPRODUCCIONES"
   },
   "sleep_timer": {
     "title": "Temporizador de apagado",
@@ -1326,7 +1352,6 @@
     "chromecast_retry": "Volver a buscar",
     "chromecast_internet_required": "Se necesita internet",
     "chromecast_internet_desc": "Chromecast requiere conexión a internet para reproducir audio de forma segura. Activa los datos móviles o asegúrate de que el Wi-Fi tenga acceso a internet.",
-
     "status_active": "Transmitiendo",
     "status_idle": "Sin transmitir",
     "open_in_browser": "Abre esta dirección en tu navegador:",
@@ -1618,7 +1643,10 @@
     "finding_songs_to_delete": "Buscando canciones a eliminar...",
     "permission_denied": "Permiso de lectura de medios denegado.",
     "scan_error": "Error al escanear",
-    "delete_scan_error": "Error al borrar/escanear"
+    "delete_scan_error": "Error al borrar/escanear",
+    "cleaning_empty_albums": "Limpiando álbumes vacíos...",
+    "cleaning_empty_artists": "Limpiando artistas vacíos...",
+    "analyzing_volume": "Analizando volumen ({{current}}/{{total}})..."
   },
   "migration": {
     "title": "Actualización de biblioteca",
@@ -1760,5 +1788,43 @@
     "load_error": "No se pudo cargar el ranking. Toca para reintentar.",
     "view_all": "Ver todos",
     "unrated": "Sin valorar"
+  },
+  "metadata": {
+    "unknown_artist": "Artista desconocido",
+    "various_artists": "Varios artistas",
+    "unknown_album": "Álbum desconocido",
+    "unknown_song": "Canción desconocida",
+    "untitled": "Sin título",
+    "untitled_playlist": "Lista de reproducción sin título"
+  },
+  "external_audio": {
+    "unsaved": "Archivo externo no guardado en la biblioteca"
+  },
+  "playlists": {
+    "name_required": "El nombre de la lista de reproducción no puede estar vacío."
+  },
+  "debug": {
+    "history_title": "Debug del historial",
+    "history_loading": "Cargando...",
+    "history_deleted_track": "Canción no encontrada (eliminada)",
+    "history_context": "Contexto: {{context}} • Escuchado: {{seconds}}s",
+    "history_manual": "Manual (clic)",
+    "history_queue": "Automático (cola)",
+    "history_clear_title": "Limpiar historial",
+    "history_clear_confirm": "¿Borrar todo el historial de reproducción de la base de datos?",
+    "history_empty_desc": "Las canciones escuchadas durante más de 10 segundos aparecerán aquí."
+  },
+  "chromecast_client": {
+    "waiting": "Esperando contenido...",
+    "connected": "Conectado",
+    "loading": "Cargando...",
+    "paused": "En pausa",
+    "next_song": "Siguiente canción...",
+    "playback_error": "Error de reproducción",
+    "initialization_error": "Error de inicialización: ",
+    "sdk_unavailable": "SDK no disponible",
+    "probing": "Probando conexión con ",
+    "network_error": "FALLO RED/CORS: ",
+    "unknown_error": "Error desconocido"
   }
 }

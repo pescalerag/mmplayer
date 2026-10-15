@@ -22,6 +22,7 @@ import TrackPlayer, { State } from "react-native-track-player";
 import { clearLaunchAudioUri, getLaunchAudioUri } from "./modules/native-audio-scanner";
 import GlobalToast from "./src/components/common/GlobalToast";
 import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
+import QueueRenameModal from "./src/components/modals/QueueRenameModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import MigrationBlockingModal from "./src/components/modals/MigrationBlockingModal";
 import PortugueseLanguageModal from "./src/components/modals/PortugueseLanguageModal";
@@ -338,6 +339,7 @@ export default function App() {
             <PortugueseLanguageModal />
             <TagFormModal />
             <ActivityCustomDateModal />
+            <QueueRenameModal />
           </NavigationContainer>
         </ImageBackground>
       </SafeAreaProvider>

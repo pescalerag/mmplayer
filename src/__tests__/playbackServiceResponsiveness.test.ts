@@ -7,6 +7,7 @@ import { useCastStore } from '../store/useCastStore';
 import { LocalCastPlaybackService } from '../services/LocalCastPlaybackService';
 import { PlaybackListenService } from '../services/PlaybackListenService';
 import PlaybackHistory from '../database/models/PlaybackHistory';
+import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 
 jest.mock('react-native-track-player', () => ({
   __esModule: true,
@@ -191,11 +192,38 @@ describe('playback event boundary cases', () => {
   });
 
   afterEach(() => {
+    useMultipleQueuesStore.setState({ activeId: 0, isSwitching: false, slots: Array.from({ length: 5 }, (_, id) => ({ id, name: '', session: null })) });
     const current = PlaybackTimeTracker.getCurrentTrackId();
     if (current) PlaybackTimeTracker.clearAccumulated(current);
     usePlayerStore.getState().isSyncingLyrics = false;
     useCastStore.setState({ isLocalCastActive: false });
     jest.clearAllTimers(); jest.restoreAllMocks(); jest.useRealTimers();
+  });
+
+  it('suspends listens without writing statistics during a queue change or closing an inactive listen', async () => {
+    const save = jest.spyOn(PlaybackListenService, 'save').mockResolvedValue(undefined);
+    PlaybackTimeTracker.setAccumulatedSeconds('suspended-entry', 65);
+    await PlaybackService();
+    useMultipleQueuesStore.setState({ isSwitching: true });
+    await listener(Event.PlaybackActiveTrackChanged)({ lastTrack: { id: 'suspended-entry' }, track: { id: 'boundary' }, index: 0 });
+    expect(save).not.toHaveBeenCalled();
+    expect(PlaybackTimeTracker.getAccumulatedSeconds('suspended-entry')).toBe(65);
+    useMultipleQueuesStore.setState({ activeId: 1, isSwitching: false, slots: [
+      { id: 0, name: '', session: { queue: [{ id: 'suspended-entry' }], index: 0 } as any },
+      { id: 1, name: '', session: null },
+    ] });
+    await listener(Event.PlaybackActiveTrackChanged)({ lastTrack: { id: 'suspended-entry' }, track: { id: 'boundary' }, index: 0 });
+    expect(save).not.toHaveBeenCalled();
+    expect(PlaybackTimeTracker.getAccumulatedSeconds('suspended-entry')).toBe(65);
+  });
+
+  it('does not complete a restored listen on an initial native activation event', async () => {
+    const save = jest.spyOn(PlaybackListenService, 'save').mockResolvedValue(undefined);
+    PlaybackTimeTracker.setAccumulatedSeconds('boundary', 100);
+    await PlaybackService();
+    await listener(Event.PlaybackActiveTrackChanged)({ track: { id: 'boundary' }, index: 0 });
+    expect(save).not.toHaveBeenCalled();
+    expect(PlaybackTimeTracker.getAccumulatedSeconds('boundary')).toBe(100);
   });
 
   it.each([null, { id: 'boundary' }])('allows a track change when lyrics sync has no conflicting track: %j', async activeTrack => {

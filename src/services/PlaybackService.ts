@@ -11,6 +11,7 @@ import { consumeUserQueueTransition, usePlayerStore } from "../store/usePlayerSt
 import i18n from "../constants/i18n";
 import { startNotificationFavoritesSync } from './NotificationFavoritesService';
 import { PlaybackListenService } from './PlaybackListenService';
+import { isSuspendedQueueListen, persistQueueTime, useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 
 const SKIP_PREVIOUS_THRESHOLD = 3;
 
@@ -24,6 +25,13 @@ let lastKnownDuration = 0;
 let activeTrackEventRevision = 0;
 
 export const PlaybackTimeTracker = {
+  reset() {
+    lastPlayTimestamp = null;
+    currentTrackId = null;
+    accumulatedTimes = {};
+    lastKnownPosition = 0;
+    lastKnownDuration = 0;
+  },
   addReportedSeconds(trackId: string, seconds: number) {
     this.onStateNotPlaying();
     currentTrackId = trackId;
@@ -157,6 +165,7 @@ async function restoreLyricsSyncTrack(event: PlaybackActiveTrackChangedEvent): P
 
 async function persistPreviousListen(previousTrackId: string | undefined) {
   if (!previousTrackId) return;
+  if (isSuspendedQueueListen(previousTrackId)) return;
   await PlaybackListenService.save(previousTrackId, PlaybackTimeTracker.getAccumulatedSeconds(previousTrackId), true);
   PlaybackTimeTracker.clearAccumulated(previousTrackId);
 }
@@ -168,22 +177,27 @@ function hasPlaybackLooped(position: number, duration: number) {
 
 async function persistLoopListen(position: number, duration: number) {
   if (useCastStore.getState().isLocalCastActive) return;
+  if (useMultipleQueuesStore.getState().isSwitching) return;
+  const queueAtStart = useMultipleQueuesStore.getState().activeId;
   if (!hasPlaybackLooped(position, duration)) return;
   const index = await TrackPlayer.getActiveTrackIndex();
   if (index == null) return;
   const track = await TrackPlayer.getTrack(index);
   const trackId = track?.id?.toString();
   if (!trackId || trackId !== PlaybackTimeTracker.getCurrentTrackId()) return;
+  if (isSuspendedQueueListen(trackId) || useMultipleQueuesStore.getState().activeId !== queueAtStart) return;
   PlaybackTimeTracker.onStateNotPlaying();
   await persistPreviousListen(trackId);
+  if (isSuspendedQueueListen(trackId) || useMultipleQueuesStore.getState().activeId !== queueAtStart) return;
   PlaybackTimeTracker.onStatePlaying(trackId);
 }
 
 export const PlaybackService = async function () {
   startNotificationFavoritesSync();
-  TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
+  TrackPlayer.addEventListener(Event.RemotePlay, () => useMultipleQueuesStore.getState().isSwitching ? Promise.resolve() : TrackPlayer.play());
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
   TrackPlayer.addEventListener(Event.RemotePlayPause, async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
     const state = await TrackPlayer.getPlaybackState();
     if (state.state === State.Playing) {
       await TrackPlayer.pause();
@@ -192,6 +206,7 @@ export const PlaybackService = async function () {
     }
   });
   TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
     console.log("[PlaybackService] Event.RemoteNext triggered");
     if (usePlayerStore.getState().isSyncingLyrics) {
       console.log("[PlaybackService] Ignored RemoteNext during lyrics sync");
@@ -200,6 +215,7 @@ export const PlaybackService = async function () {
     await usePlayerStore.getState().skipToNext();
   });
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
     console.log("[PlaybackService] Event.RemotePrevious triggered");
     if (usePlayerStore.getState().isSyncingLyrics) {
       console.log("[PlaybackService] Ignored RemotePrevious during lyrics sync");
@@ -253,6 +269,7 @@ export const PlaybackService = async function () {
   });
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
   TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
     try {
       PlaybackTimeTracker.onStateNotPlaying();
       await persistPreviousListen(PlaybackTimeTracker.getCurrentTrackId() ?? undefined);
@@ -263,10 +280,13 @@ export const PlaybackService = async function () {
   });
   
   TrackPlayer.addEventListener(Event.PlaybackState, async (event) => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const queueAtEvent = useMultipleQueuesStore.getState().activeId;
     if (event.state === State.Playing && !useCastStore.getState().isLocalCastActive) {
       const trackIndex = await TrackPlayer.getActiveTrackIndex();
       if (trackIndex !== undefined && trackIndex !== null) {
         const track = await TrackPlayer.getTrack(trackIndex);
+        if (useMultipleQueuesStore.getState().isSwitching || useMultipleQueuesStore.getState().activeId !== queueAtEvent) return;
         if (track && track.id) {
           PlaybackTimeTracker.onStatePlaying(track.id.toString());
         }
@@ -280,8 +300,10 @@ export const PlaybackService = async function () {
       const trackId = PlaybackTimeTracker.getCurrentTrackId();
       if (trackId) {
         const progress = await TrackPlayer.getProgress();
+        if (useMultipleQueuesStore.getState().isSwitching || useMultipleQueuesStore.getState().activeId !== queueAtEvent) return;
         storage.set("@player_position", progress.position);
         storage.set("@player_accumulated", PlaybackTimeTracker.getAccumulatedSeconds(trackId));
+        persistQueueTime(progress.position, PlaybackTimeTracker.getAccumulatedSeconds(trackId));
       }
     } catch (e) {
       console.error("Error persistiendo posición en PlaybackState:", e);
@@ -293,6 +315,7 @@ export const PlaybackService = async function () {
     Event.PlaybackActiveTrackChanged,
     async (event) => {
       const revision = ++activeTrackEventRevision;
+      if (useMultipleQueuesStore.getState().isSwitching) return;
       if (await restoreLyricsSyncTrack(event)) return;
 
       void syncActiveTrackToStore(event, revision);
@@ -327,7 +350,10 @@ export const PlaybackService = async function () {
 
       PlaybackTimeTracker.onStateNotPlaying();
 
-      await persistPreviousListen(previousTrackId);
+      // Initial activation after restoring a queue is not a completed listen.
+      if (event.lastTrack?.id || (nextTrackId && nextTrackId !== previousTrackId)) {
+        await persistPreviousListen(previousTrackId);
+      }
 
       // Reiniciar el timer SOLO si el reproductor está efectivamente en estado de reproducción (Playing)
       const currentState = await TrackPlayer.getPlaybackState();
@@ -374,11 +400,15 @@ export const PlaybackService = async function () {
     Event.PlaybackProgressUpdated,
     async (event) => {
       const { position, duration } = event;
+      if (useMultipleQueuesStore.getState().isSwitching) return;
+      const queueAtEvent = useMultipleQueuesStore.getState().activeId;
 
       // Verificar y ejecutar bucle A-B si está activo
       await useABRepeatStore.getState().checkLoop(position);
+      if (useMultipleQueuesStore.getState().isSwitching || useMultipleQueuesStore.getState().activeId !== queueAtEvent) return;
       
       await persistLoopListen(position, duration);
+      if (useMultipleQueuesStore.getState().isSwitching || useMultipleQueuesStore.getState().activeId !== queueAtEvent) return;
 
       lastKnownPosition = position;
       lastKnownDuration = duration;
@@ -389,6 +419,7 @@ export const PlaybackService = async function () {
         if (trackId) {
           storage.set("@player_position", position);
           storage.set("@player_accumulated", PlaybackTimeTracker.getAccumulatedSeconds(trackId));
+          persistQueueTime(position, PlaybackTimeTracker.getAccumulatedSeconds(trackId));
         }
       } catch (e) {
         console.error("Error persistiendo posición en PlaybackProgressUpdated:", e);

@@ -322,8 +322,8 @@ export const ChromecastService = {
 
             let cleanCoverUrl: string | null = null;
             let lyricsLRC: string | null = null;
-            let title = track.title || 'Desconocido';
-            let artist = track.artist || 'Desconocido';
+            let title = track.title || i18n.t('actions.unknown');
+            let artist = track.artist || i18n.t('actions.unknown');
             let albumTitle = track.album || track.albumTitle || '';
 
             const cleanId = track.id ? track.id.toString().split('-')[0] : '';

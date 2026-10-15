@@ -1,7 +1,6 @@
 package expo.modules.nativeequalizer
 
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.net.Uri
 import androidx.palette.graphics.Palette
 import android.media.audiofx.BassBoost
@@ -245,30 +244,39 @@ class NativeEqualizerModule : Module() {
         }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("extractColorFromImage") { url: String ->
-            var resultColor = "#8B5CF6"
             try {
-                val bitmap = if (url.startsWith("content://")) {
-                    val uri = Uri.parse(url)
-                    appContext.reactContext?.contentResolver?.openInputStream(uri).use { inputStream ->
-                        BitmapFactory.decodeStream(inputStream)
+                val uri = Uri.parse(url)
+                // Read dimensions first, then decode a small bitmap for Palette.
+                // Full-resolution album artwork can consume tens of MB otherwise.
+                fun decode(options: BitmapFactory.Options): android.graphics.Bitmap? {
+                    return if (uri.scheme == "content") {
+                        appContext.reactContext?.contentResolver?.openInputStream(uri).use { stream ->
+                            if (stream == null) null else BitmapFactory.decodeStream(stream, null, options)
+                        }
+                    } else {
+                        val path = if (uri.scheme == "file") uri.path else url
+                        BitmapFactory.decodeFile(path, options)
                     }
-                } else {
-                    val cleanPath = url.removePrefix("file://")
-                    BitmapFactory.decodeFile(cleanPath)
                 }
-
-                if (bitmap != null) {
-                    val palette = Palette.from(bitmap).generate()
-                    val extractedColor = palette.getDominantColor(Color.parseColor("#8B5CF6"))
-                        ?: palette.getVibrantColor(Color.parseColor("#8B5CF6"))
-                        ?: Color.parseColor("#8B5CF6")
-                    
-                    resultColor = String.format("#%06X", 0xFFFFFF and extractedColor)
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                decode(bounds)
+                val options = BitmapFactory.Options()
+                while (maxOf(bounds.outWidth, bounds.outHeight) / options.inSampleSize > 256) {
+                    options.inSampleSize *= 2
+                }
+                val bitmap = decode(options)
+                if (bitmap == null) null else {
+                    try {
+                        val color = Palette.from(bitmap).generate().dominantSwatch?.rgb
+                        color?.let { String.format("#%06X", 0xFFFFFF and it) }
+                    } finally {
+                        bitmap.recycle()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("NativeEqualizer", "Error in extractColorFromImage: ${e.message}", e)
+                null
             }
-            resultColor
         }
 
         View(NativeVisualizerView::class) {
@@ -281,8 +289,8 @@ class NativeEqualizerModule : Module() {
             Prop("active") { view: NativeVisualizerView, active: Boolean ->
                 view.setActive(active)
             }
-            Prop("coverUrl") { view: NativeVisualizerView, coverUrl: String? ->
-                view.setCoverUrl(coverUrl)
+            Prop("coverColor") { view: NativeVisualizerView, coverColor: String? ->
+                view.setCoverColor(coverColor)
             }
         }
     }

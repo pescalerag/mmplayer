@@ -116,7 +116,9 @@
     "smart_listening_title": "Playlists por reproduções",
     "smart_rating_title": "Playlists por avaliação",
     "smart_genre_title": "Playlists por gênero",
-    "smart_genre_desc": "Músicas de {{genre}}"
+    "smart_genre_desc": "Músicas de {{genre}}",
+    "song_count_one": "{{count}} música",
+    "song_count_other": "{{count}} músicas"
   },
   "library_tutorial": {
     "badge": "GUIA DA BIBLIOTECA",
@@ -402,7 +404,9 @@
     "no_tag_matches": "Nenhuma música corresponde a estes filtros.",
     "no_playlists_only": "Músicas sem playlist",
     "no_playlists_desc": "Mostrar apenas músicas que não pertencem a nenhuma playlist.",
-    "lyric_match": "Letras correspondentes"
+    "lyric_match": "Letras correspondentes",
+    "album_by": "Álbum • {{artist}}",
+    "song_by": "Música • {{artist}}"
   },
   "tags": {
     "manager": "Gestor de etiquetas",
@@ -431,7 +435,8 @@
     "remove_tag_album_songs": "Deseja remover a etiqueta \"{{name}}\" também de todas as músicas deste álbum?",
     "only_album": "Apenas ao álbum",
     "only_from_album": "Apenas do álbum",
-    "album_and_songs": "Álbum e músicas"
+    "album_and_songs": "Álbum e músicas",
+    "batch_tags": "Etiquetas em lote"
   },
   "settings": {
     "album_covers_title": "Capas em falta",
@@ -646,6 +651,17 @@
     "queue_add_mode_context_desc": "Adiciona ao fim do contexto atual, depois de todo o álbum ou playlist."
   },
   "queue": {
+    "slot_name": "Fila {{number}}",
+    "reset_all": "Reiniciar todas as filas",
+    "reset_all_confirm": "A reprodução será parada, as cinco filas serão esvaziadas, os nomes serão restaurados e a reprodução aleatória no final será desativada.",
+    "reset_all_error": "Não foi possível reiniciar as filas. Tenta novamente.",
+    "select_queue": "Selecionar fila",
+    "rename_title": "Alterar nome da fila",
+    "rename_save": "Guardar",
+    "cast_switch_disabled": "Não é possível mudar de fila durante o Local Cast.",
+    "switch_error": "Não foi possível mudar ou atualizar a fila. Tenta novamente.",
+    "add_to_other": "Adicionar a outra fila",
+    "added_to": "Adicionado a {{name}}",
     "title": "Fila",
     "manage": "Gerenciar fila",
     "what_to_do": "Opções",
@@ -784,7 +800,12 @@
     "error": "Erro",
     "selected_count": "{{count}} selecionadas",
     "longPressCoverToCustomize": "Mantenha a capa pressionada para personalizar",
-    "customize_cd": "Personalizar imagem do CD"
+    "customize_cd": "Personalizar imagem do CD",
+    "info": "Informação",
+    "batch_actions": "Ações em lote",
+    "share_zip_error": "Não foi possível partilhar as músicas como ficheiro ZIP.",
+    "exclude_songs_confirm_one": "Excluir esta música da análise? Será removida da biblioteca.",
+    "exclude_songs_confirm_other": "Excluir estas {{count}} músicas da análise? Serão removidas da biblioteca."
   },
   "track_details": {
     "title": "Propriedades",
@@ -1264,7 +1285,10 @@
     },
     "charts": {
       "artist_statistics": "Estatísticas",
-      "tag_scopes": { "track": "Músicas", "album": "Álbuns" },
+      "tag_scopes": {
+        "track": "Músicas",
+        "album": "Álbuns"
+      },
       "tag_history_notice": "Só são incluídas escutas com etiquetas registadas ao guardar. O histórico anterior a esta funcionalidade não é incluído.",
       "tag_album_notice": "São contadas escutas de músicas de álbuns com esta etiqueta, não álbuns completos ouvidos.",
       "totals": "Totais do período",
@@ -1294,7 +1318,9 @@
     "share_btn": "Compartilhar",
     "wrapped_summary": "RESUMO",
     "top_artists": "ARTISTAS MAIS OUVIDOS",
-    "top_songs": "MÚSICAS MAIS OUVIDAS"
+    "top_songs": "MÚSICAS MAIS OUVIDAS",
+    "total_listening_label": "TEMPO TOTAL DE AUDIÇÃO",
+    "total_plays_label": "TOTAL DE REPRODUÇÕES"
   },
   "sleep_timer": {
     "title": "Temporizador",
@@ -1617,7 +1643,10 @@
     "finding_songs_to_delete": "Localizando músicas para excluir...",
     "permission_denied": "Permissão para ler arquivos de áudio negada.",
     "scan_error": "Erro na busca de músicas",
-    "delete_scan_error": "Erro ao excluir ou buscar músicas"
+    "delete_scan_error": "Erro ao excluir ou buscar músicas",
+    "cleaning_empty_albums": "A remover álbuns vazios...",
+    "cleaning_empty_artists": "A remover artistas vazios...",
+    "analyzing_volume": "A analisar o volume ({{current}}/{{total}})..."
   },
   "migration": {
     "title": "Atualização da biblioteca",
@@ -1759,5 +1788,43 @@
     "load_error": "Não foi possível carregar o ranking. Toque para tentar novamente.",
     "view_all": "Ver todos",
     "unrated": "Sem avaliação"
+  },
+  "metadata": {
+    "unknown_artist": "Artista desconhecido",
+    "various_artists": "Vários artistas",
+    "unknown_album": "Álbum desconhecido",
+    "unknown_song": "Música desconhecida",
+    "untitled": "Sem título",
+    "untitled_playlist": "Playlist sem título"
+  },
+  "external_audio": {
+    "unsaved": "Ficheiro externo não guardado na biblioteca"
+  },
+  "playlists": {
+    "name_required": "O nome da playlist não pode estar vazio."
+  },
+  "debug": {
+    "history_title": "Depuração do histórico",
+    "history_loading": "A carregar...",
+    "history_deleted_track": "Música não encontrada (eliminada)",
+    "history_context": "Contexto: {{context}} • Ouvido: {{seconds}}s",
+    "history_manual": "Manual (toque)",
+    "history_queue": "Automático (fila)",
+    "history_clear_title": "Limpar histórico",
+    "history_clear_confirm": "Apagar todo o histórico de reprodução da base de dados?",
+    "history_empty_desc": "As músicas ouvidas durante mais de 10 segundos aparecerão aqui."
+  },
+  "chromecast_client": {
+    "waiting": "A aguardar conteúdo...",
+    "connected": "Ligado",
+    "loading": "A carregar...",
+    "paused": "Em pausa",
+    "next_song": "Próxima música...",
+    "playback_error": "Erro de reprodução",
+    "initialization_error": "Erro de inicialização: ",
+    "sdk_unavailable": "SDK indisponível",
+    "probing": "A testar a ligação a ",
+    "network_error": "ERRO DE REDE/CORS: ",
+    "unknown_error": "Erro desconhecido"
   }
 }

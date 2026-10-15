@@ -167,7 +167,7 @@ export default function TagManagerModal() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {targetType === 'track' ? t('tags.song_tags') : targetType === 'batch' ? 'Etiquetas en lote' : t('tags.album_tags')}
+          {targetType === 'track' ? t('tags.song_tags') : targetType === 'batch' ? t('tags.batch_tags') : t('tags.album_tags')}
         </Text>
         <Text style={styles.headerSubtitle} numberOfLines={1}>
           {targetTitle}

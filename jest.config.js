@@ -20,7 +20,12 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/services/MultipleQueuesService.ts',
+    'src/store/useMultipleQueuesStore.ts',
     'src/services/AlbumCoverService.ts',
+    'src/services/AlbumCoverColorService.ts',
+    'src/hooks/useAlbumCoverColor.ts',
+    'src/utils/libraryMetadata.ts',
     'src/utils/cassetteTape.ts',
     'src/utils/albumFilters.ts',
     'src/utils/filterSlider.ts',

@@ -43,7 +43,7 @@ import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { extractColorFromImage } from '../../../modules/native-equalizer';
+import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
 const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -162,33 +162,8 @@ const getActionIconColor = (isDisabled: boolean, isActive: boolean, colors: any)
     return colors.textSecondary;
 };
 
-const useCoverColorGradients = (coverUrl: string | undefined | null, defaultBg: string) => {
-    const [extractedColor, setExtractedColor] = useState<string | null>(null);
-
-    useEffect(() => {
-        let isMounted = true;
-        if (!coverUrl) {
-            setExtractedColor(null);
-            return;
-        }
-
-        extractColorFromImage(coverUrl)
-            .then(color => {
-                if (isMounted) {
-                    setExtractedColor(color);
-                }
-            })
-            .catch(err => {
-                console.error("Error extracting cover color in LyricsScreen:", err);
-                if (isMounted) {
-                    setExtractedColor(null);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [coverUrl]);
+const useCoverColorGradients = (album: Album | null, defaultBg: string) => {
+    const extractedColor = useAlbumCoverColor(album?.coverUrl, album);
 
     const gradients = React.useMemo(() => {
         if (extractedColor) {
@@ -353,7 +328,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
 
     const { extractedColor, finalBgColor, topGradientColor, bottomGradientColor } = useCoverColorGradients(
-        album?.coverUrl,
+        album,
         colors.background
     );
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);

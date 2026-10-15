@@ -1,13 +1,13 @@
 import {
   ExternalAudioService,
   createExternalTrack,
-  EXTERNAL_AUDIO_UNSAVED_MSG,
 } from '../services/ExternalAudioService';
 import * as NativeScanner from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import { navigationRef, waitForNavigationReady } from '../navigation/navigationRef';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { useToastStore } from '../store/useToastStore';
+import i18n from '../constants/i18n';
 
 jest.mock('../../modules/native-audio-scanner', () => ({
   resolveAudioUriInfo: jest.fn(),
@@ -109,7 +109,7 @@ describe('ExternalAudioService', () => {
 
       // Verify toggleLike shows toast
       await track.toggleLike();
-      expect(showToastSpy).toHaveBeenCalledWith(EXTERNAL_AUDIO_UNSAVED_MSG, 'information-circle');
+      expect(showToastSpy).toHaveBeenCalledWith(i18n.t('external_audio.unsaved'), 'information-circle');
 
       // Verify other dummy methods don't throw
       await track.updateRating(5);
@@ -127,9 +127,9 @@ describe('ExternalAudioService', () => {
       const track = createExternalTrack(info as any);
       expect(track.title).toBe('Audio');
       const album = await track.album.fetch();
-      expect(album.title).toBe('Álbum desconocido');
+      expect(album.title).toBe(i18n.t('metadata.unknown_album'));
       const artist = await track.artist.fetch();
-      expect(artist.name).toBe('Artista desconocido');
+      expect(artist.name).toBe(i18n.t('metadata.unknown_artist'));
     });
   });
 

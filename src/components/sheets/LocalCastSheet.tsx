@@ -1,3 +1,4 @@
+import i18n from '../../constants/i18n';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -374,7 +375,7 @@ export default function LocalCastSheet() {
                   {typeof activeTrack.title === 'string' ? activeTrack.title : 'Reproduciendo'}
                 </Text>
                 <Text style={styles.trackArtist} numberOfLines={1}>
-                  {typeof activeTrack.artist === 'string' ? activeTrack.artist : 'Artista desconocido'}
+                  {typeof activeTrack.artist === 'string' ? activeTrack.artist : i18n.t('metadata.unknown_artist')}
                 </Text>
               </View>
             </View>

@@ -25,6 +25,7 @@ import Track from '../../database/models/Track';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { ShuffleService } from '../../services/ShuffleService';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 import { useToastStore } from '../../store/useToastStore';
 
 const PAGE_SIZE = 30;
@@ -135,8 +136,9 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
     const [activeTab, setActiveTab] = useState<'albums' | 'songs'>('albums');
     const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE);
 
-    const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
-    const setShuffleOnQueueEnd = useSettingsStore(state => state.setShuffleOnQueueEnd);
+    const shuffleOnQueueEnd = useMultipleQueuesStore(selectShuffleOnQueueEnd);
+    const setShuffleOnQueueEnd = useMultipleQueuesStore(state => state.setShuffleOnQueueEnd);
+    const queueLabel = useMultipleQueuesStore(state => state.slots[state.activeId].name || t('queue.slot_name', { number: state.activeId + 1 }));
     const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
     const setShowGlobalShuffle = useSettingsStore(state => state.setShowGlobalShuffle);
 
@@ -247,6 +249,7 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
                         </Text>
                         <Text style={styles.settingDescription}>
                             {t('settings.shuffle_on_queue_end_desc', 'Inicia canciones aleatorias al finalizar la cola actual')}
+                            {' · '}{queueLabel}
                         </Text>
                     </View>
                     <Switch
@@ -352,6 +355,7 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
         colors,
         shuffleOnQueueEnd,
         setShuffleOnQueueEnd,
+        queueLabel,
         showGlobalShuffle,
         setShowGlobalShuffle,
         activeTab,

@@ -1,3 +1,6 @@
+import { getArtistDisplayName, UNKNOWN_ARTIST } from '../../utils/libraryMetadata';
+import { QueueSelector } from '../player/QueueSelector';
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -31,7 +34,6 @@ import Track from '../../database/models/Track';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
 import { Colors, Layout } from '../../theme/theme';
 import { refreshQueueSnapshot, useQueueSnapshotStore } from '../../store/useQueueSnapshotStore';
@@ -55,10 +57,10 @@ export default function QueueSheet() {
     const closeQueue = useUIStore(state => state.closeSheet);
     const isVisible = activeSheet === 'queue';
     const insets = useSafeAreaInsets();
+    const activeQueueId = useMultipleQueuesStore(state => state.activeId);
     const userQueueSize = usePlayerStore(state => state.userQueueSize);
-    const queueVersion = usePlayerStore(state => state.queueVersion);
-    const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
-    const setShuffleOnQueueEnd = useSettingsStore(state => state.setShuffleOnQueueEnd);
+    const shuffleOnQueueEnd = useMultipleQueuesStore(selectShuffleOnQueueEnd);
+    const setShuffleOnQueueEnd = useMultipleQueuesStore(state => state.setShuffleOnQueueEnd);
 
     const playbackState = usePlaybackState();
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
@@ -66,6 +68,13 @@ export default function QueueSheet() {
     const queue = useQueueSnapshotStore(state => state.queue);
     const activeIndex = useQueueSnapshotStore(state => state.activeIndex);
     const queueReady = useQueueSnapshotStore(state => state.ready);
+    const isQueueEmpty = queue.length === 0;
+    useEffect(() => {
+        deletedQueueStack = [];
+        if (undoDeletionTimeout) clearTimeout(undoDeletionTimeout);
+        undoDeletionTimeout = null;
+        setShowTrashMenu(false); setShowAddPlaylistMenu(false);
+    }, [activeQueueId, isQueueEmpty]);
     const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
     const [showTrashMenu, setShowTrashMenu] = useState(false);
     const [showAddPlaylistMenu, setShowAddPlaylistMenu] = useState(false);
@@ -122,7 +131,7 @@ export default function QueueSheet() {
         if (isVisible) {
             void refreshQueueSnapshot().catch(error => console.error('QueueSheet: error cargando cola', error));
         }
-    }, [isVisible, queueVersion]);
+    }, [isVisible]);
 
     const [shouldRender, setShouldRender] = useState(false);
     useEffect(() => {
@@ -307,7 +316,7 @@ export default function QueueSheet() {
             <AnimatedReanimated.View style={[
                 styles.sheetContainer,
                 {
-                    height: height * 0.82,
+                    height: Math.min(height * 0.92, height - insets.top - 8),
                 },
                 sheetAnimatedStyle
             ]}>
@@ -317,7 +326,7 @@ export default function QueueSheet() {
                     </View>
                 </GestureDetector>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24 }}>
                     <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
                         <Animated.View
                             style={[
@@ -385,6 +394,8 @@ export default function QueueSheet() {
                         <Ionicons name="trash-outline" size={24} color={Colors.heartIcon} />
                     </TouchableOpacity>
                 </View>
+
+                <QueueSelector />
 
                 {activeTab === 'queue' ? (
                     <View style={{ flex: 1 }}>
@@ -617,6 +628,7 @@ interface CurrentTrackHeaderProps {
 }
 
 const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal, colors }: CurrentTrackHeaderProps) => {
+    useTranslation();
     const artworkUrl = currentTrack?.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
@@ -649,7 +661,7 @@ const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal, colors }
                     <PlayingIndicator isPaused={!isPlayingGlobal} color={colors.accentLight || colors.accent} />
                 </View>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {artist || 'Desconocido'}
+                    {getArtistDisplayName(artist || UNKNOWN_ARTIST)}
                 </Text>
             </View>
         </View>
@@ -669,6 +681,7 @@ interface QueueTrackRowProps {
 }
 
 const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove, drag, isActive, colors }: QueueTrackRowProps) => {
+    useTranslation();
     const isUserQueued = index < userQueueSize;
     const isManual = item.isManual === true || isUserQueued;
     const artworkUrl = item.artwork;
@@ -718,7 +731,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
                             </View>
                         )}
                     </View>
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{artist || 'Desconocido'}</Text>
+                    <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{getArtistDisplayName(artist || UNKNOWN_ARTIST)}</Text>
                 </View>
             </TouchableOpacity>
 
@@ -741,6 +754,7 @@ interface RecentTrackRowProps {
 }
 
 const RecentTrackRow = React.memo(({ item, onSkip }: RecentTrackRowProps) => {
+    useTranslation();
     const artworkUrl = item.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
@@ -770,7 +784,7 @@ const RecentTrackRow = React.memo(({ item, onSkip }: RecentTrackRowProps) => {
             <View style={styles.trackInfo}>
                 <Text style={[styles.title, styles.textDimmed]} numberOfLines={1}>{title}</Text>
                 <Text style={[styles.subtitle, styles.subtitleDimmed]} numberOfLines={1}>
-                    {artist || 'Desconocido'}
+                    {getArtistDisplayName(artist || UNKNOWN_ARTIST)}
                 </Text>
             </View>
             <Ionicons name="play-back-outline" size={18} color={Colors.disabled} />

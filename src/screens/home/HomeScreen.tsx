@@ -1,3 +1,5 @@
+import i18n from '../../constants/i18n';
+import { getMediaDisplayTitle } from '../../utils/libraryMetadata';
 import { TopRatedAlbumsSection } from '@/components/home/TopRatedAlbumsSection';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -50,6 +52,7 @@ import { scheduleScreenRefresh } from '@/utils/scheduleScreenRefresh';
 const { width } = Dimensions.get('window');
 
 const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const [imageError, setImageError] = React.useState(false);
@@ -88,7 +91,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
             )}
             <View style={styles.gridInfo}>
                 <Text style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
-                    {item.title}
+                    {getMediaDisplayTitle(item.type, item.title)}
                 </Text>
                 {isCurrentTrack && (
                     <PlayingIndicator isPaused={!isActuallyPlaying} color={colors.accentLight} />
@@ -203,7 +206,7 @@ const mapAlbumToMediaItem = async (album: Album) => {
         id: album.id,
         type: 'album' as const,
         title: album.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album.coverUrl || '',
     };
 };
@@ -214,7 +217,7 @@ const mapTrackToMediaItem = async (track: Track) => {
         id: track.id,
         type: 'track' as const,
         title: track.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album?.coverUrl || '',
     };
 };

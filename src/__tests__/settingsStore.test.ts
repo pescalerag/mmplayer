@@ -63,13 +63,6 @@ describe('useSettingsStore', () => {
       expect(i18nSpy).toHaveBeenCalledWith('en');
     });
 
-    it('updates shuffleOnQueueEnd', async () => {
-      const { setShuffleOnQueueEnd } = useSettingsStore.getState();
-      setShuffleOnQueueEnd(true);
-      expect(useSettingsStore.getState().shuffleOnQueueEnd).toBe(true);
-      // Let import promise resolve
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
   });
 
   describe('onRehydrateStorage initialization functions', () => {

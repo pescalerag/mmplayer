@@ -76,11 +76,11 @@ const LyricsViewUI = ({ track, artist, artists, isVisible, setVisible }: LyricsV
         try {
             const importedContent = await LyricsService.importCustomLyrics(track);
             if (importedContent) {
-                Alert.alert(t('actions.success') || 'Éxito', 'Letras importadas correctamente.');
+                Alert.alert(t('actions.success') || 'Éxito', t('lyrics.import_success'));
             }
         } catch (error) {
             console.error("[LyricsView] Import failed:", error);
-            Alert.alert(t('actions.error') || 'Error', 'No se pudo leer el archivo de letras.');
+            Alert.alert(t('actions.error') || 'Error', t('lyrics.read_error'));
         }
     };
 

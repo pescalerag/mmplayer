@@ -8,7 +8,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
-import { openMetadataEditor, openPlaylistSelector, openTagManagerForBatch, openCanvasManager } from '@/store/useUIStore';
+import { openQueueDestination, openMetadataEditor, openPlaylistSelector, openTagManagerForBatch, openCanvasManager } from '@/store/useUIStore';
 import { database } from '../../database';
 import { ScannerService } from '../../services/ScannerService';
 import { MediaAssetService } from '../../services/MediaAssetService';
@@ -73,7 +73,7 @@ export default function BatchMenuSheet() {
 
   const handleOpenCanvasManager = (targetTracks: any[]) => {
     if (targetTracks.length === 0) {
-      Alert.alert(t('actions.info') || 'Info', t('canvas.no_tracks_to_update') || 'No hay canciones para actualizar.');
+      Alert.alert(t('actions.info'), t('canvas.no_tracks_to_update'));
       return;
     }
     closeMenu();
@@ -83,12 +83,12 @@ export default function BatchMenuSheet() {
   const handlePickCanvas = () => {
     if (anyHasCanvas) {
       Alert.alert(
-        t('canvas.update_batch_title') || 'Actualizar Canvas',
-        t('canvas.update_batch_msg') || 'Algunas canciones seleccionadas ya tienen un vídeo de fondo asignado. ¿Qué deseas hacer?',
+        t('canvas.update_batch_title'),
+        t('canvas.update_batch_msg'),
         [
-          { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
-          { text: t('canvas.update_all') || 'Actualizar todas', onPress: () => handleOpenCanvasManager(selectedTracks) },
-          { text: t('canvas.update_only_without') || 'Solo las que no tienen', onPress: () => handleOpenCanvasManager(selectedTracks.filter((t: any) => !t.bgVideo)) }
+          { text: t('actions.cancel'), style: 'cancel' },
+          { text: t('canvas.update_all'), onPress: () => handleOpenCanvasManager(selectedTracks) },
+          { text: t('canvas.update_only_without'), onPress: () => handleOpenCanvasManager(selectedTracks.filter((t: any) => !t.bgVideo)) }
         ]
       );
     } else {
@@ -98,17 +98,17 @@ export default function BatchMenuSheet() {
 
   const handleRemoveCanvas = () => {
     Alert.alert(
-      t('canvas.remove_from_tracks') || 'Quitar vídeo de fondo',
-      t('canvas.remove_confirm') || '¿Quitar el vídeo de fondo de las canciones seleccionadas?',
+      t('canvas.remove_from_tracks'),
+      t('canvas.remove_confirm'),
       [
-        { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
+        { text: t('actions.cancel'), style: 'cancel' },
         {
-          text: t('actions.confirm') || 'Confirmar',
+          text: t('actions.confirm'),
           style: 'destructive',
           onPress: async () => {
             try {
               await MediaAssetService.removeCanvasFromTracks(selectedTracks);
-              useToastStore.getState().showToast(t('actions.canvas_removed') || 'Vídeo de fondo eliminado', 'trash');
+              useToastStore.getState().showToast(t('actions.canvas_removed'), 'trash');
               exitSelectionMode();
               closeMenu();
             } catch (e) {
@@ -136,7 +136,7 @@ export default function BatchMenuSheet() {
       await zipAndShareTracks(selectedTracks);
       exitSelectionMode();
     } catch {
-      Alert.alert(t('actions.error') || 'Error', 'No se pudieron compartir las canciones como ZIP.');
+      Alert.alert(t('actions.error'), t('actions.share_zip_error'));
     }
   };
 
@@ -176,7 +176,7 @@ export default function BatchMenuSheet() {
     setTimeout(() => {
       Alert.alert(
         t('actions.exclude_song_title'),
-        `¿Estás seguro de que deseas excluir estas ${selectedTracks.length} canciones del escaneo? Se borrarán de la biblioteca.`,
+        t('actions.exclude_songs_confirm', { count: selectedTracks.length }),
         [
           { text: t('actions.cancel'), style: "cancel" },
           {
@@ -200,8 +200,8 @@ export default function BatchMenuSheet() {
 
   return (
     <BaseMenuSheet
-      title={`${selectedTracks.length} canciones`}
-      subtitle={t('actions.select') || 'Acciones en lote'}
+      title={t('library.song_count', { count: selectedTracks.length })}
+      subtitle={t('actions.batch_actions')}
       placeholderIcon="checkbox-outline"
     >
       {/* OPTION: Play Next */}
@@ -217,11 +217,13 @@ export default function BatchMenuSheet() {
         text={t('actions.add_to_queue')}
         onPress={handleAddEnd}
       />
+      <MenuOption icon="duplicate-outline" text={t('queue.add_to_other')} onPress={() => openQueueDestination(selectedTracks, exitSelectionMode)} />
+
 
       {/* OPTION: Edit Metadata */}
       <MenuOption
         icon="pencil"
-        text={t('metadata_editor.title_batch') || 'Editar metadatos'}
+        text={t('metadata_editor.title_batch')}
         onPress={handleEditMetadata}
       />
 
@@ -260,7 +262,7 @@ export default function BatchMenuSheet() {
       {/* OPTION: Share selection as ZIP */}
       <MenuOption
         icon="share-social-outline"
-        text={t('actions.share_as_zip') || 'Compartir selección como ZIP'}
+        text={t('actions.share_as_zip')}
         onPress={handleShareAsZip}
       />
 
