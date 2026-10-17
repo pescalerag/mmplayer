@@ -201,7 +201,8 @@
         }
       ],
       "./plugins/withAdaptiveIconFallbacks",
-      "./plugins/withAndroidAuto"
+      "./plugins/withAndroidAuto",
+      "./plugins/withAudioFileIntents"
     ],
     "web": {
       "output": "static"
