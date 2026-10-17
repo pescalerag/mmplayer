@@ -1056,6 +1056,11 @@ const ActiveArtworkCenter = ({
     if (showCanvas && !!bgVideo) {
         return <View style={{ width: artworkSize, height: artworkSize }} />;
     }
+    if (playerCoverStyle !== 'cd' && playerCoverStyle !== 'vinyl' && playerCoverStyle !== 'cassette') {
+        return <PlayerArtwork coverUrl={currentCoverUrl} size={artworkSize} borderRadius={borderRadius}
+            shadowStyle={shadowStyle} cardBackgroundColor={cardBackgroundColor}
+            textSecondaryColor={textSecondaryColor} />;
+    }
     const imageUrl = playerCoverStyle === 'cd' ? album?.cdArtUrl || currentCoverUrl : currentCoverUrl;
     return (
         <ArtworkFadeIn key={`${playerCoverStyle}:${imageUrl || ''}`} size={artworkSize} hasImage={!!imageUrl}>
@@ -1063,13 +1068,8 @@ const ActiveArtworkCenter = ({
                 if (playerCoverStyle === 'cassette') {
                     return <PlaybackCassetteArtwork size={artworkSize} coverUrl={currentCoverUrl} coverColor={coverColor} albumTitle={album?.title} onReady={onReady} />;
                 }
-                if (playerCoverStyle === 'cd' || playerCoverStyle === 'vinyl') {
-                    return <DiscCover playerCoverStyle={playerCoverStyle} coverUrl={currentCoverUrl} album={album}
-                        artworkSize={artworkSize} spinStyle={spinStyle} coverColor={coverColor} onReady={onReady} />;
-                }
-                return <PlayerArtwork coverUrl={currentCoverUrl} size={artworkSize} borderRadius={borderRadius}
-                    shadowStyle={shadowStyle} cardBackgroundColor={cardBackgroundColor}
-                    textSecondaryColor={textSecondaryColor} onReady={onReady} />;
+                return <DiscCover playerCoverStyle={playerCoverStyle} coverUrl={currentCoverUrl} album={album}
+                    artworkSize={artworkSize} spinStyle={spinStyle} coverColor={coverColor} onReady={onReady} />;
             }}
         </ArtworkFadeIn>
     );
