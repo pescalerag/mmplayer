@@ -14,7 +14,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import type { TrackMenuMetadata } from '@/store/useUIStore';
-import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
+import { openQueueDestination, openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 
@@ -315,6 +315,8 @@ export default function TrackMenuSheet() {
           closeMenu();
         }}
       />
+      <MenuOption icon="duplicate-outline" text={t('queue.add_to_other')} onPress={() => openQueueDestination([selectedTrack])} />
+
 
       {/* OPTION: Select */}
       <MenuOption
@@ -534,6 +536,11 @@ export default function TrackMenuSheet() {
           />
         </>
       )}
+
+      <MenuOption icon="play-forward-outline" text={t('timestamps.configure')} onPress={() => {
+        closeMenu();
+        navigationRef.navigate('TimestampsEditor', { trackId: selectedTrack.id });
+      }} />
 
       {/* OPTION: Properties */}
       <MenuSeparator />

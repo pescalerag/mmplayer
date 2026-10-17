@@ -1,3 +1,4 @@
+import i18n from '../../constants/i18n';
 import React, { useRef, useState } from 'react';
 import {
   View,
@@ -350,7 +351,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
                         {song.title}
                       </Text>
                       <Text style={cardStyles.itemDetail} numberOfLines={1}>
-                        {song.artistName || 'Desconocido'}
+                        {song.artistName || i18n.t('actions.unknown')}
                       </Text>
                     </View>
                   ))}

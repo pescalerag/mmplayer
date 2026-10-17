@@ -19,6 +19,7 @@ import { HistoryService } from '../../services/HistoryService';
 import { useCustomDateModalStore } from '../../store/useCustomDateModalStore';
 
 interface ActivityCustomDateModalProps {
+  restrictToHistory?: boolean;
   visible?: boolean;
   initialStartDate?: Date | null;
   initialEndDate?: Date | null;
@@ -35,6 +36,7 @@ export default function ActivityCustomDateModal(props?: ActivityCustomDateModalP
   const initialEndDate = isControlled ? props?.initialEndDate : store.initialEndDate;
   const onClose = isControlled ? (props?.onClose || (() => {})) : store.close;
   const onApply = isControlled ? (props?.onApply || (() => {})) : (store.onApply || (() => {}));
+  const restrictToHistory = isControlled ? props?.restrictToHistory !== false : store.restrictToHistory;
 
   const { colors, fonts, radii } = useAppTheme();
   const { t, i18n } = useTranslation();
@@ -96,6 +98,7 @@ export default function ActivityCustomDateModal(props?: ActivityCustomDateModalP
   // Cargar la primera entrada registrada al abrir el modal
   useEffect(() => {
     if (!visible) return;
+    if (!restrictToHistory) { setFirstHistoryDate(null); setClampedNotice(null); return; }
 
     let isMounted = true;
     (async () => {
@@ -121,7 +124,7 @@ export default function ActivityCustomDateModal(props?: ActivityCustomDateModalP
     return () => {
       isMounted = false;
     };
-  }, [visible]);
+  }, [visible, restrictToHistory]);
 
   // Restablecer estados al abrir
   useEffect(() => {

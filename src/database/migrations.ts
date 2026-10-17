@@ -234,5 +234,18 @@ export const myMigrations = schemaMigrations({
         { name: 'cover_initialized', type: 'boolean', isOptional: true },
       ] })],
     },
+    {
+      toVersion: 22,
+      steps: [addColumns({ table: 'albums', columns: [
+        { name: 'cover_color', type: 'string', isOptional: true },
+        { name: 'cover_color_source', type: 'string', isOptional: true },
+      ] })],
+    },
+    {
+      toVersion: 23,
+      steps: [addColumns({ table: 'tracks', columns: [
+        { name: 'skip_segments', type: 'string', isOptional: true },
+      ] })],
+    },
   ],
 });

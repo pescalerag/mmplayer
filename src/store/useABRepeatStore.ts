@@ -1,9 +1,11 @@
 import { create } from 'zustand';
-import TrackPlayer from 'react-native-track-player';
 import * as Haptics from 'expo-haptics';
 import { useToastStore } from './useToastStore';
 import { useCastStore } from './useCastStore';
 import i18n from '../constants/i18n';
+import { useTimestampStore } from './useTimestampStore';
+import { hasAudibleABRange } from '../utils/trackTimestamps';
+import { TimestampService } from '../services/TimestampService';
 
 interface ABRepeatState {
     pointA: number | null;
@@ -30,6 +32,10 @@ export const useABRepeatStore = create<ABRepeatState>((set, get) => ({
             useToastStore.getState().showToast(i18n.t('toasts.ab_point_a_set'), "flag-outline");
         } else if (pointB === null) {
             if (currentPosition > pointA) {
+                if (!hasAudibleABRange(pointA, currentPosition, useTimestampStore.getState().config)) {
+                    useToastStore.getState().showToast(i18n.t('timestamps.ab_range'), 'warning');
+                    return;
+                }
                 set({ pointB: currentPosition });
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 useToastStore.getState().showToast(i18n.t('toasts.ab_point_b_set'), "repeat");
@@ -53,16 +59,19 @@ export const useABRepeatStore = create<ABRepeatState>((set, get) => ({
         }
     },
     checkLoop: async (currentPosition) => {
+        const timestamps = useTimestampStore.getState();
+        if (timestamps.trackId && timestamps.previewTrackId === timestamps.trackId) return null;
         // Evitar bucles A-B si Cast está activo
         if (useCastStore.getState().isServerRunning) {
             return null;
         }
         const { pointA, pointB } = get();
         if (pointA !== null && pointB !== null && pointA < pointB) {
+            if (TimestampService.nativeHandlesAB()) return null;
             // Si se supera el punto B o se retrocede antes del punto A (con margen de 0.5s de tolerancia)
             if (currentPosition >= pointB || currentPosition < pointA - 0.5) {
                 try {
-                    await TrackPlayer.seekTo(pointA);
+                    await TimestampService.seekAutomatically(pointA);
                     return pointA;
                 } catch (err) {
                     console.error("Error seeking to point A in loop:", err);

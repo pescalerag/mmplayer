@@ -5,11 +5,13 @@ import { readFileChunk } from '../../modules/native-audio-scanner';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import i18n from '../constants/i18n';
-import { getClientHtml, LocalCastTranslations } from './LocalCastHtml';
+import { getClientHtml, getLocalCastThemeCss, resolveLocalCastTheme, LocalCastTranslations } from './LocalCastHtml';
 import { getChromecastHtml } from './ChromecastHtml';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { handleCastReportRoute, LocalCastPlaybackService } from './LocalCastPlaybackService';
 import { LocalCastQueueService } from './LocalCastQueueService';
+import { parseSkipConfig, SkipConfig } from '../utils/trackTimestamps';
+import { useTimestampStore } from '../store/useTimestampStore';
 
 // ─── Server instance ─────────────────────────────────────────────────────────
 let server: BridgeServer | null = null;
@@ -21,6 +23,7 @@ interface CastCommand {
     id: number;
     type: 'SEEK' | 'PLAY' | 'PAUSE' | 'STOP';
     position?: number;
+    automatic?: boolean;
 }
 let currentCommand: CastCommand | null = null;
 let commandCounter = 0;
@@ -52,6 +55,7 @@ interface ActiveTrackMetadataCache {
     mimeType: string;
     replayGain: number | null;
     replayPeak: number | null;
+    skipConfig: SkipConfig;
 }
 let activeMetadataCache: ActiveTrackMetadataCache | null = null;
 let lastPreloadedIndex: number | null = null;
@@ -350,13 +354,15 @@ function initialCastMetadata(track: any): ActiveTrackMetadataCache {
     return { cleanId: track?.id ? String(track.id).split('-')[0] : '',
         title: track?.title || 'Unknown Title', artist: track?.artist || 'Unknown Artist',
         lyricsLRC: null, coverFileName: null, fileName: null, fileSize: 0, mimeType: 'audio/mpeg',
-        replayGain: track?.replayGain ?? null, replayPeak: track?.replayPeak ?? null };
+        replayGain: track?.replayGain ?? null, replayPeak: track?.replayPeak ?? null,
+        skipConfig: parseSkipConfig(track?.skipSegments) };
 }
 
 async function loadCastDatabaseMetadata(metadata: ActiveTrackMetadataCache) {
     try {
         const model = await database.get<Track>('tracks').find(metadata.cleanId);
         metadata.lyricsLRC = model.lyricsLRC || null;
+        metadata.skipConfig = parseSkipConfig(model.skipSegments, model.duration * 1000);
         metadata.replayGain = model.replayGain ?? metadata.replayGain;
         metadata.replayPeak = model.replayPeak ?? metadata.replayPeak;
         const album = await model.album.fetch().catch(() => null);
@@ -437,29 +443,39 @@ function preloadCurrentTrack(activeIndex: number | undefined) {
     lastPreloadedIndex = activeIndex;
     preloadNextTrack(activeIndex).catch(() => { });
 }
-function respondMissingTrack(res: any, castState: any, command: CastCommand | null) {
+function getLocalCastAppearance(knownTheme?: string | null) {
+    const settings = useSettingsStore.getState();
+    const theme = resolveLocalCastTheme(settings.userTier === 'VIP' ? settings.localCastTheme : 'default');
+    return { theme, ...(knownTheme === theme ? {} : { themeCss: getLocalCastThemeCss(theme) }) };
+}
+
+function respondThemedState(res: any, urlObj: URL, state: object, status: number) {
+    res.json({ ...state, ...getLocalCastAppearance(urlObj.searchParams.get('theme')) }, status);
+}
+
+function respondMissingTrack(res: any, castState: any, command: CastCommand | null, urlObj: URL) {
     if (activeMetadataCache && !isServerStopping) {
-        res.json({ ...activeMetadataCache,
+        respondThemedState(res, urlObj, { ...activeMetadataCache,
             isPlaying: castState.isCastPlaying, position: castState.castPosition,
             mediaFileName: activeMetadataCache.fileName, fileSize: activeMetadataCache.fileSize,
             duration: 0, command, sessionId: String(serverSessionId), isStopped: false, isTransitioning: true,
         }, 200);
         return;
     }
-    res.json({ activeTrack: null, isPlaying: false, position: 0, duration: 0, command, isStopped: false }, 200);
+    respondThemedState(res, urlObj, { activeTrack: null, isPlaying: false, position: 0, duration: 0, command, isStopped: false }, 200);
 }
 async function respondLocalCastState(res: any, urlObj: URL) {
     const { useCastStore } = require('../store/useCastStore');
     const castState = useCastStore.getState();
     if (isServerStopping || !castState.isLocalCastActive) {
-        res.json({ title: castState.isChromecastConnected ? 'Transmitiendo en Chromecast' : null,
+        respondThemedState(res, urlObj, { title: castState.isChromecastConnected ? 'Transmitiendo en Chromecast' : null,
             artist: castState.connectedDeviceName || 'MMPlayer', isPlaying: false, isStopped: true,
             isLocalCastActive: castState.isLocalCastActive }, 200);
         return;
     }
     const session = LocalCastPlaybackService.getState();
     if (session?.stopping) {
-        res.json({ handoff: true, sessionId: String(serverSessionId) }, 200);
+        respondThemedState(res, urlObj, { handoff: true, sessionId: String(serverSessionId) }, 200);
         return;
     }
     const lastCmd = Number(urlObj.searchParams.get('lastCmdId') || '0');
@@ -467,7 +483,7 @@ async function respondLocalCastState(res: any, urlObj: URL) {
     const command = currentCommand && currentCommand.id > lastCmd && matchingSession ? currentCommand : null;
     const { activeIndex, track, fallback } = await getLocalCastTrack();
     if (!track) {
-        respondMissingTrack(res, castState, command);
+        respondMissingTrack(res, castState, command, urlObj);
         return;
     }
     selectLocalCastTrack(track, fallback);
@@ -476,12 +492,15 @@ async function respondLocalCastState(res: any, urlObj: URL) {
     const metadata = await getCastMetadata(track);
     const { isNormalizationEnabled, preampLevel, fallbackGainDB } = useSettingsStore.getState();
     const current = LocalCastPlaybackService.getState();
+    const timestamps = useTimestampStore.getState();
+    let skipConfig = timestamps.trackId === metadata.cleanId ? timestamps.config : metadata.skipConfig;
+    if (timestamps.previewTrackId === metadata.cleanId) skipConfig = timestamps.previewConfig ?? { enabled: false, segments: [] };
     const queue = await LocalCastQueueService.read(String(serverSessionId), urlObj.searchParams.get('queueVersion'), activeIndex);
     preloadCurrentTrack(activeIndex);
-    res.json({ title: metadata.title, artist: metadata.artist, isPlaying: castState.isCastPlaying,
+    respondThemedState(res, urlObj, { title: metadata.title, artist: metadata.artist, isPlaying: castState.isCastPlaying,
         position: current?.position(useCastStore.getState().castPosition) ?? 0,
         playbackToken: current?.token, handoff: current?.stopping ?? false, ...queue,
-        duration: progress.duration, coverFileName: metadata.coverFileName, lyricsLRC: metadata.lyricsLRC,
+        duration: progress.duration, coverFileName: metadata.coverFileName, lyricsLRC: metadata.lyricsLRC, skipConfig,
         fileSize: metadata.fileSize, mimeType: metadata.mimeType, playIntent,
         replayGain: { enabled: isNormalizationEnabled, gainDb: metadata.replayGain, peak: metadata.replayPeak, preampDb: preampLevel, fallbackDb: fallbackGainDB },
         mediaFileName: metadata.fileName, command, sessionId: String(serverSessionId), isStopped: false }, 200);
@@ -507,9 +526,7 @@ function respondClientHtml(_req: any, res: any, urlObj: URL) {
         shuffleEnabled: i18n.t('localcast_client.shuffle_enabled'),
         shuffleDisabled: i18n.t('localcast_client.shuffle_disabled'),
     };
-    const userTier = useSettingsStore.getState().userTier;
-    const isVip = userTier === 'VIP';
-    const localCastTheme = isVip ? (useSettingsStore.getState().localCastTheme || 'default') : 'default';
+    const { theme: localCastTheme } = getLocalCastAppearance();
     res.html(getClientHtml(translations, localCastTheme), 200);
 }
 
@@ -664,10 +681,10 @@ export const LocalCastService = {
         console.log('[LocalCastService] Server stopped, all track and cover caches cleared');
     },
 
-    emitSeek(position: number) {
+    emitSeek(position: number, automatic = false) {
         if (isSeekingFromPc) return; // Don't echo seek initiated from PC back to PC
         commandCounter++;
-        currentCommand = { id: commandCounter, type: 'SEEK', position };
+        currentCommand = { id: commandCounter, type: 'SEEK', position, automatic };
         console.log(`[LocalCastService] emitSeek to position ${position} (cmdId ${commandCounter})`);
     },
 

@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
-  ImageBackground,
   Linking,
   Platform,
   StyleSheet,
@@ -22,6 +21,7 @@ import TrackPlayer, { State } from "react-native-track-player";
 import { clearLaunchAudioUri, getLaunchAudioUri } from "./modules/native-audio-scanner";
 import GlobalToast from "./src/components/common/GlobalToast";
 import ActivityCustomDateModal from "./src/components/modals/ActivityCustomDateModal";
+import QueueRenameModal from "./src/components/modals/QueueRenameModal";
 import BackupBlockingModal from "./src/components/modals/BackupBlockingModal";
 import MigrationBlockingModal from "./src/components/modals/MigrationBlockingModal";
 import PortugueseLanguageModal from "./src/components/modals/PortugueseLanguageModal";
@@ -33,7 +33,7 @@ import { TrackPlayerSync } from "./src/components/player/TrackPlayerSync";
 import GlobalBottomSheet from "./src/components/sheets/GlobalBottomSheet";
 import QueueSheet from "./src/components/sheets/QueueSheet";
 import "./src/constants/i18n";
-import { LEGENDARY_ACCENT } from "./src/hooks/useAppTheme";
+import { useAppTheme } from "./src/hooks/useAppTheme";
 import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef, waitForNavigationReady } from "./src/navigation/navigationRef";
 import { ChromecastService } from "./src/services/ChromecastService";
@@ -42,8 +42,10 @@ import { MediaAssetService } from "./src/services/MediaAssetService";
 import { NotificationService } from "./src/services/NotificationService";
 import { PurchasesService } from "./src/services/PurchasesService";
 import { ScannerService } from "./src/services/ScannerService";
-import { setupPlayer } from "./src/services/trackPlayerSetup";
+import { ensurePlaybackReady } from "./src/services/playerBootstrap";
 import { usePlayerStore } from "./src/store/usePlayerStore";
+import { useSettingsStore } from './src/store/useSettingsStore';
+import { reconcileExclusiveThemeIcon } from './src/services/AppThemeService';
 
 const WIDGET_ACTION_REGEX = /[?&]action=([^&]+)/;
 
@@ -52,9 +54,15 @@ SplashScreen.preventAutoHideAsync().catch(() => { });
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Deshabilitado temporalmente: el tema legendario de la aplicación vendrá en una futura versión
-  const isLegendaryTheme = false;
-  const LEGENDARY_BG_IMAGE = require('./src/assets/images/legend-theme-bg.webp');
+  const { colors, navigationTheme } = useAppTheme();
+
+  useEffect(() => {
+    const reconcile = () => {
+      void reconcileExclusiveThemeIcon().catch(error => console.warn('Could not reconcile app theme icon:', error));
+    };
+    if (useSettingsStore.persist.hasHydrated()) reconcile();
+    return useSettingsStore.persist.onFinishHydration(reconcile);
+  }, []);
 
   useEffect(() => {
     const hideSplash = async () => {
@@ -83,12 +91,11 @@ export default function App() {
           "Montserrat-Italic": require("./src/assets/fonts/Montserrat-Italic-VariableFont_wght.ttf"),
         });
 
-        await setupPlayer();
+        await ensurePlaybackReady();
         ChromecastService.init();
         PurchasesService.init().catch(err => console.warn('PurchasesService init warning:', err));
         NotificationService.init().catch(err => console.warn('NotificationService init warning:', err));
         // Restaurar cola persistida del último cierre de la app
-        await usePlayerStore.getState().restorePlaybackState();
         // Restaurar recientes del último cierre de la app
         await usePlayerStore.getState().restoreRecentsState();
 
@@ -297,24 +304,13 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-        <ImageBackground
-          source={isLegendaryTheme ? LEGENDARY_BG_IMAGE : undefined}
-          style={{ flex: 1, backgroundColor: "#000000" }}
-          imageStyle={{ resizeMode: 'cover' }}
-        >
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
           <TrackPlayerSync />
           <NavigationContainer
             ref={navigationRef}
             theme={{
               dark: true,
-              colors: {
-                primary: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
-                background: isLegendaryTheme ? "transparent" : "#000000",
-                card: isLegendaryTheme ? "transparent" : "#121212",
-                text: "#FFFFFF",
-                border: isLegendaryTheme ? "rgba(245, 184, 0, 0.25)" : "#282828",
-                notification: isLegendaryTheme ? LEGENDARY_ACCENT : "#8B5CF6",
-              },
+              colors: navigationTheme.colors,
               fonts: {
                 regular: { fontFamily: "Montserrat", fontWeight: "400" },
                 medium: { fontFamily: "Montserrat", fontWeight: "500" },
@@ -338,8 +334,9 @@ export default function App() {
             <PortugueseLanguageModal />
             <TagFormModal />
             <ActivityCustomDateModal />
+            <QueueRenameModal />
           </NavigationContainer>
-        </ImageBackground>
+        </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

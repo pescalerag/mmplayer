@@ -33,8 +33,9 @@
         "com.android.vending.BILLING"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/images/android-icon-foreground.png",
-        "backgroundImage": "./src/assets/images/android-icon-background.png"
+        "foregroundImage": "./src/assets/images/icon.png",
+        "backgroundImage": "./src/assets/images/android-icon-background.png",
+        "monochromeImage": "./src/assets/images/splash-icon.png"
       },
       "package": "com.pescalerag.mmplayer",
       "versionCode": 33,
@@ -96,7 +97,6 @@
         }
       ],
       "./plugins/withJetifier",
-
       [
         "react-native-google-cast",
         {
@@ -108,57 +108,100 @@
         "@howincodes/expo-dynamic-app-icon",
         {
           "dark": {
-            "image": "./src/assets/images/dark-icon.png",
-            "android": "./src/assets/images/dark-icon.png",
-            "ios": "./src/assets/images/dark-icon.png"
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoBlack.png",
+              "backgroundColor": "#000000"
+            },
+            "ios": "./src/assets/images/app-icons/logoBlack.png"
           },
-          "supporter": {
-            "image": "./src/assets/images/supporter-icon.png",
-            "android": "./src/assets/images/supporter-icon.png",
-            "ios": "./src/assets/images/supporter-icon.png"
-          },
-          "retro": {
-            "image": "./src/assets/images/retro-icon.png",
-            "android": "./src/assets/images/retro-icon.png",
-            "ios": "./src/assets/images/retro-icon.png"
-          },
-          "darkblue": {
-            "image": "./src/assets/images/android-icon-darkblue.png",
-            "android": "./src/assets/images/android-icon-darkblue.png",
-            "ios": "./src/assets/images/android-icon-darkblue.png"
+          "aqua": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoAqua.png",
+              "backgroundColor": "#00656D"
+            },
+            "ios": "./src/assets/images/app-icons/logoAqua.png"
           },
           "develpink": {
-            "image": "./src/assets/images/android-icon-devel-pink.png",
-            "android": "./src/assets/images/android-icon-devel-pink.png",
-            "ios": "./src/assets/images/android-icon-devel-pink.png"
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logodevelETSII.png",
+              "backgroundColor": "#B781D7"
+            },
+            "ios": "./src/assets/images/app-icons/logodevelETSII.png"
           },
           "labgreen": {
-            "image": "./src/assets/images/android-icon-labgreen.png",
-            "android": "./src/assets/images/android-icon-labgreen.png",
-            "ios": "./src/assets/images/android-icon-labgreen.png"
-          },
-          "orange": {
-            "image": "./src/assets/images/android-icon-orange.png",
-            "android": "./src/assets/images/android-icon-orange.png",
-            "ios": "./src/assets/images/android-icon-orange.png"
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoGreen.png",
+              "backgroundColor": "#00592C"
+            },
+            "ios": "./src/assets/images/app-icons/logoGreen.png"
           },
           "pink": {
-            "image": "./src/assets/images/android-icon-pink.png",
-            "android": "./src/assets/images/android-icon-pink.png",
-            "ios": "./src/assets/images/android-icon-pink.png"
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoMagenta.png",
+              "backgroundColor": "#850069"
+            },
+            "ios": "./src/assets/images/app-icons/logoMagenta.png"
           },
           "red": {
-            "image": "./src/assets/images/android-icon-red.png",
-            "android": "./src/assets/images/android-icon-red.png",
-            "ios": "./src/assets/images/android-icon-red.png"
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoRed.png",
+              "backgroundColor": "#820000"
+            },
+            "ios": "./src/assets/images/app-icons/logoRed.png"
           },
           "white": {
-            "image": "./src/assets/images/android-icon-white.png",
-            "android": "./src/assets/images/android-icon-white.png",
-            "ios": "./src/assets/images/android-icon-white.png"
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoWhite.png",
+              "backgroundColor": "#FFFFFF"
+            },
+            "ios": "./src/assets/images/app-icons/logoWhite.png"
+          },
+          "yellow": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoYellow.png",
+              "backgroundColor": "#5D4900"
+            },
+            "ios": "./src/assets/images/app-icons/logoYellow.png"
+          },
+          "supporter": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoAqua.png",
+              "backgroundColor": "#00656D"
+            },
+            "ios": "./src/assets/images/app-icons/logoAqua.png"
+          },
+          "retro": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoMagenta.png",
+              "backgroundColor": "#850069"
+            },
+            "ios": "./src/assets/images/app-icons/logoMagenta.png"
+          },
+          "darkblue": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoAqua.png",
+              "backgroundColor": "#00656D"
+            },
+            "ios": "./src/assets/images/app-icons/logoAqua.png"
+          },
+          "orange": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoYellow.png",
+              "backgroundColor": "#5D4900"
+            },
+            "ios": "./src/assets/images/app-icons/logoYellow.png"
+          },
+          "legend": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoLegend.png",
+              "backgroundColor": "#0A1511"
+            },
+            "ios": "./src/assets/images/app-icons/logoLegend.png"
           }
         }
-      ]
+      ],
+      "./plugins/withAdaptiveIconFallbacks",
+      "./plugins/withAndroidAuto"
     ],
     "web": {
       "output": "static"

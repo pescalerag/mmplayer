@@ -1,3 +1,6 @@
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
+import i18n from '../../constants/i18n';
+import { getMediaDisplayTitle } from '../../utils/libraryMetadata';
 import { TopRatedAlbumsSection } from '@/components/home/TopRatedAlbumsSection';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -50,6 +53,7 @@ import { scheduleScreenRefresh } from '@/utils/scheduleScreenRefresh';
 const { width } = Dimensions.get('window');
 
 const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const [imageError, setImageError] = React.useState(false);
@@ -88,7 +92,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
             )}
             <View style={styles.gridInfo}>
                 <Text style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
-                    {item.title}
+                    {getMediaDisplayTitle(item.type, item.title)}
                 </Text>
                 {isCurrentTrack && (
                     <PlayingIndicator isPaused={!isActuallyPlaying} color={colors.accentLight} />
@@ -203,7 +207,7 @@ const mapAlbumToMediaItem = async (album: Album) => {
         id: album.id,
         type: 'album' as const,
         title: album.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album.coverUrl || '',
     };
 };
@@ -214,7 +218,7 @@ const mapTrackToMediaItem = async (track: Track) => {
         id: track.id,
         type: 'track' as const,
         title: track.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album?.coverUrl || '',
     };
 };
@@ -315,7 +319,7 @@ const homeDataResource = new RetainedResource<HomeData>(2);
 const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
 
 export default function HomeScreen() {
-    const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const { colors, gradients, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -676,14 +680,10 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
+            <ThemeHeaderAccent />
             {/* CAPA DEL HUMO */}
             <LinearGradient
-                colors={[
-                    '#000000',
-                    'rgba(0, 0, 0, 0.95)',
-                    'rgba(0, 0, 0, 0.8)',
-                    'transparent'
-                ]}
+                colors={gradients.header}
                 locations={[0, 0.45, 0.8, 1]}
                 style={{
                     position: 'absolute',
@@ -698,7 +698,7 @@ export default function HomeScreen() {
 
             {/* CAPA DE ILUMINACIÓN MORADA */}
             <LinearGradient
-                colors={[colors.accentAlpha20, "transparent"]}
+                colors={headerGlow}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />

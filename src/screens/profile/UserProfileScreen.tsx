@@ -1,3 +1,7 @@
+import Animated from 'react-native-reanimated';
+import { useCascadeEntry } from '../../hooks/useCascadeEntry';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     View,
@@ -35,11 +39,30 @@ import Track from '../../database/models/Track';
 const { width } = Dimensions.get('window');
 
 interface UserProfileProps {
-    readonly tracksCount: number;
-    readonly albumsCount: number;
-    readonly artistsCount: number;
-    readonly playlistsCount: number;
+    readonly tracksCount: number | null;
+    readonly albumsCount: number | null;
+    readonly artistsCount: number | null;
+    readonly playlistsCount: number | null;
     readonly playlists: Playlist[];
+}
+
+function ProfileSection({ index, ready = true, style, children }: Readonly<{
+    index: number;
+    ready?: boolean;
+    style: React.ComponentProps<typeof View>['style'];
+    children: React.ReactNode;
+}>) {
+    const cascade = useCascadeEntry();
+    return (
+        <View style={style} pointerEvents={ready ? 'auto' : 'none'}
+            accessibilityElementsHidden={!ready} importantForAccessibility={ready ? 'auto' : 'no-hide-descendants'}>
+            {ready ? (
+                <Animated.View entering={cascade.section(index)}>{children}</Animated.View>
+            ) : (
+                <View style={{ opacity: 0 }}>{children}</View>
+            )}
+        </View>
+    );
 }
 
 function UserProfileScreenBase({
@@ -73,8 +96,15 @@ function UserProfileScreenBase({
     const [topAlbums, setTopAlbums] = useState<any[]>([]);
     const [topArtists, setTopArtists] = useState<any[]>([]);
 
+    const [statsReady, setStatsReady] = useState(false);
     useEffect(() => {
-        useStatsStore.getState().fetchStats();
+        let mounted = true;
+        const cancel = scheduleScreenRefresh(() => {
+            void useStatsStore.getState().fetchStats()
+                .catch(error => console.error('Error loading profile statistics:', error))
+                .finally(() => { if (mounted) setStatsReady(true); });
+        });
+        return () => { mounted = false; cancel(); };
     }, []);
 
     useEffect(() => {
@@ -90,8 +120,9 @@ function UserProfileScreenBase({
                 console.error('Error loading top albums/artists in UserProfile:', err);
             }
         };
-        loadTopStats();
+        const cancel = scheduleScreenRefresh(() => { void loadTopStats(); });
         return () => {
+            cancel();
             isMounted = false;
         };
     }, []);
@@ -124,8 +155,9 @@ function UserProfileScreenBase({
             }
         };
 
-        loadSmartLists();
+        const cancel = scheduleScreenRefresh(() => { void loadSmartLists(); });
         return () => {
+            cancel();
             isMounted = false;
         };
     }, [t]);
@@ -266,7 +298,7 @@ function UserProfileScreenBase({
                 />
 
                 {/* --- 1. CONTADOR DE BIBLIOTECA (VISUAL) --- */}
-                <View style={styles.sectionWrapper}>
+                <ProfileSection index={0} style={styles.sectionWrapper} ready={tracksCount !== null && albumsCount !== null && artistsCount !== null && playlistsCount !== null}>
                     <TouchableOpacity
                         style={styles.statsCard}
                         onPress={() => navigation.navigate('Biblioteca')}
@@ -278,31 +310,31 @@ function UserProfileScreenBase({
                         </View>
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{tracksCount}</Text>
+                                <Text style={styles.statValue}>{tracksCount ?? ' '}</Text>
                                 <Text style={styles.statLabel}>{t('library.songs')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{albumsCount}</Text>
+                                <Text style={styles.statValue}>{albumsCount ?? ' '}</Text>
                                 <Text style={styles.statLabel}>{t('library.albums')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{artistsCount}</Text>
+                                <Text style={styles.statValue}>{artistsCount ?? ' '}</Text>
                                 <Text style={styles.statLabel}>{t('library.artists')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{playlistsCount + 1}</Text>
+                                <Text style={styles.statValue}>{playlistsCount === null ? ' ' : playlistsCount + 1}</Text>
                                 <Text style={styles.statLabel}>{t('library.playlists')}</Text>
                             </View>
                         </View>
                     </TouchableOpacity>
-                </View>
+                </ProfileSection>
 
                 {/* --- 2. ARTISTAS FAVORITOS (MÁS ESCUCHADOS TOTAL) --- */}
                 {topArtists.length > 0 && (
-                    <View style={styles.sectionWrapper}>
+                    <ProfileSection index={1} style={styles.sectionWrapper}>
                         <SectionHeader
                             title={t('profile.top_artists_title') || 'Tus artistas favoritos'}
                         />
@@ -324,12 +356,12 @@ function UserProfileScreenBase({
                                 />
                             ))}
                         </ScrollView>
-                    </View>
+                    </ProfileSection>
                 )}
 
                 {/* --- 3. ÁLBUMES FAVORITOS (MÁS ESCUCHADOS TOTAL) --- */}
                 {topAlbums.length > 0 && (
-                    <View style={styles.sectionWrapper}>
+                    <ProfileSection index={2} style={styles.sectionWrapper}>
                         <SectionHeader
                             title={t('profile.top_albums_title') || 'Tus álbumes favoritos'}
                         />
@@ -351,12 +383,12 @@ function UserProfileScreenBase({
                                 />
                             ))}
                         </ScrollView>
-                    </View>
+                    </ProfileSection>
                 )}
 
                 {/* --- 4. LISTAS INTELIGENTES (SMART PLAYLISTS) --- */}
                 {smartLists.length > 0 && (
-                    <View style={styles.sectionWrapper}>
+                    <ProfileSection index={3} style={styles.sectionWrapper}>
                         <SectionHeader
                             title={t('profile.smart_playlists_title') || 'Listas inteligentes'}
                         />
@@ -377,11 +409,11 @@ function UserProfileScreenBase({
                                 />
                             ))}
                         </ScrollView>
-                    </View>
+                    </ProfileSection>
                 )}
 
                 {/* --- 5. SUS PLAYLISTS (MIS LISTAS DE REPRODUCCIÓN) --- */}
-                <View style={styles.sectionWrapper}>
+                <ProfileSection index={4} style={styles.sectionWrapper}>
                     <SectionHeader
                         title={t('profile.my_playlists_title') || 'Tus playlists'}
                     />
@@ -412,10 +444,10 @@ function UserProfileScreenBase({
                             />
                         ))}
                     </ScrollView>
-                </View>
+                </ProfileSection>
 
                 {/* --- 6. RESUMEN RÁPIDO DE ACTIVIDAD / DESTACADOS --- */}
-                <View style={styles.sectionWrapper}>
+                <ProfileSection index={5} style={styles.sectionWrapper} ready={statsReady}>
                     <SectionHeader
                         title={t('profile.quick_stats_title') || 'Destacados de reproducción'}
                     />
@@ -496,7 +528,7 @@ function UserProfileScreenBase({
                             </View>
                         )}
                     </View>
-                </View>
+                </ProfileSection>
             </ScrollView>
         </View>
     );
@@ -703,11 +735,11 @@ const getStyles = (
 });
 
 const ObservableUserProfileScreen = withObservables([], () => ({
-    tracksCount: database.get('tracks').query().observeCount(),
-    albumsCount: database.get('albums').query().observeCount(),
-    artistsCount: database.get('artists').query().observeCount(),
-    playlistsCount: database.get('playlists').query().observeCount(),
-    playlists: database.get<Playlist>('playlists').query().observe(),
+    tracksCount: observeScreenData(() => database.get('tracks').query().observeCount(), null),
+    albumsCount: observeScreenData(() => database.get('albums').query().observeCount(), null),
+    artistsCount: observeScreenData(() => database.get('artists').query().observeCount(), null),
+    playlistsCount: observeScreenData(() => database.get('playlists').query().observeCount(), null),
+    playlists: observeScreenData(() => database.get<Playlist>('playlists').query().observe(), []),
 }))(UserProfileScreenBase);
 
 export default function UserProfileScreen() {

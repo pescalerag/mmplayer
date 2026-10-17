@@ -1,8 +1,10 @@
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { openPlaylistMenu, openPlaylistSelectorEdit } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -678,23 +680,16 @@ function PlaylistDetailErrorFallback() {
   );
 }
 
-const ObservablePlaylistDetail = withObservables(
-  ["playlistId"],
-  ({ playlistId }: { playlistId: string }) => ({
-    playlist: database.collections
-      .get<Playlist>("playlists")
-      .findAndObserve(playlistId)
-      .pipe(catchError(() => of(null))),
-    playlistTracks: database.collections
-      .get<PlaylistTrack>("playlist_tracks")
-      .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc))
-      .observe(),
-  }),
-)(function ObservablePlaylistDetail({ playlist, playlistTracks }: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] }) {
-  if (!playlist) {
-    return <PlaylistDetailErrorFallback />;
-  }
-  return <PlaylistDetailContent playlist={playlist} playlistTracks={playlistTracks} />;
+const ObservablePlaylistDetail = withObservables(["playlistId"], ({ playlistId }: { playlistId: string }) => ({
+  data: observeScreenData(() => combineLatest({
+    playlist: database.collections.get<Playlist>("playlists").findAndObserve(playlistId).pipe(catchError(() => of(null))),
+    playlistTracks: database.collections.get<PlaylistTrack>("playlist_tracks")
+      .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc)).observe(),
+  })),
+}))(function LoadedPlaylistDetail({ data }: { data?: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] } }) {
+  if (!data) return <ScreenLoadingShell />;
+  if (!data.playlist) return <PlaylistDetailErrorFallback />;
+  return <PlaylistDetailContent playlist={data.playlist} playlistTracks={data.playlistTracks} />;
 });
 
 export default function PlaylistDetailScreen() {

@@ -2,12 +2,14 @@ import TrackPlayer from 'react-native-track-player';
 import { database } from '../database';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { handleActiveTrackChangedEvent } from '../components/player/TrackPlayerSync';
+import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 
 const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
 describe('foreground reconciliation after extended background playback', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        useMultipleQueuesStore.setState({ isSwitching: false, activeId: 0 });
         usePlayerStore.setState({ activeTrack: { id: 'song0' } as any, activeTrackInstanceId: null,
             isQueueLoading: false, isRestoring: false, userQueueSize: 0 });
         jest.spyOn(usePlayerStore.getState(), 'updateQueueStatus').mockResolvedValue(undefined);
@@ -23,10 +25,38 @@ describe('foreground reconciliation after extended background playback', () => {
         expect(TrackPlayer.getActiveTrackIndex).not.toHaveBeenCalled();
     });
 
+    it('does not restart or apply a second transport fade when native crossfade already activated the song', async () => {
+        await handleActiveTrackChangedEvent({ crossfade: true, transitionId: 'native-mix',
+            track: { id: 'incoming-instance' }, index: 1, lastIndex: 0 });
+        expect(TrackPlayer.play).not.toHaveBeenCalled();
+        expect(usePlayerStore.getState().activeTrack?.id).toBe('incoming');
+        expect(usePlayerStore.getState().savePlaybackState).toHaveBeenCalled();
+    });
+
     it('does not start playback when restoring a saved paused queue', async () => {
         usePlayerStore.setState({ isRestoring: true });
         await handleActiveTrackChangedEvent({ track: { id: 'restored-instance' }, index: 0 });
         expect(TrackPlayer.play).not.toHaveBeenCalled();
+    });
+
+    it('ignores native reset events during a queue switch instead of restarting playback', async () => {
+        useMultipleQueuesStore.setState({ isSwitching: true });
+        await handleActiveTrackChangedEvent({ track: { id: 'next-instance' }, index: 0 });
+        await usePlayerStore.getState().syncWithTrackPlayer();
+        expect(TrackPlayer.play).not.toHaveBeenCalled();
+        expect(TrackPlayer.getActiveTrack).not.toHaveBeenCalled();
+        expect(usePlayerStore.getState().savePlaybackState).not.toHaveBeenCalled();
+        expect(usePlayerStore.getState().activeTrack?.id).toBe('song0');
+    });
+
+    it('discards a foreground lookup from the previous queue when it finishes after switching', async () => {
+        let finish!: (track: any) => void;
+        (TrackPlayer.getActiveTrack as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const sync = usePlayerStore.getState().syncWithTrackPlayer();
+        useMultipleQueuesStore.setState({ activeId: 1 });
+        finish({ id: 'stale-instance' });
+        await sync;
+        expect(usePlayerStore.getState().activeTrack?.id).toBe('song0');
     });
 
     it('recovers the actual song after 200 native advances with no delivered JS events', async () => {

@@ -35,6 +35,18 @@ it('counts actual playing intervals once across pauses and track changes', () =>
   expect(PlaybackTimeTracker.getCurrentTrackId()).toBeNull();
 });
 
+it('clears running and suspended listening counters when every queue is reset', () => {
+  jest.useFakeTimers();
+  PlaybackTimeTracker.setAccumulatedSeconds('first', 45);
+  PlaybackTimeTracker.onStatePlaying('second');
+  jest.advanceTimersByTime(2000);
+  PlaybackTimeTracker.reset();
+  expect(PlaybackTimeTracker.getCurrentTrackId()).toBeNull();
+  expect(PlaybackTimeTracker.isTimerRunning()).toBe(false);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('first')).toBe(0);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('second')).toBe(0);
+});
+
 it('sends native playback metadata to the widget and handles a failed native read', async () => {
   const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
   (TrackPlayer.getActiveTrack as jest.Mock).mockResolvedValueOnce({ title: 'Song', artist: 'Artist', artwork: 'cover' });
@@ -48,4 +60,19 @@ it('sends native playback metadata to the widget and handles a failed native rea
   (TrackPlayer.getActiveTrack as jest.Mock).mockRejectedValueOnce(Error('Unavailable'));
   await expect(syncWidgetState()).resolves.toBeUndefined();
   expect(errors).toHaveBeenCalled();
+});
+
+
+it('attributes overlapping playback to the incoming entry from the native boundary without counting twice', () => {
+  jest.useFakeTimers().setSystemTime(100000);
+  PlaybackTimeTracker.onStatePlaying('first');
+  jest.advanceTimersByTime(6000);
+  const nativeBoundary = Date.now();
+  jest.advanceTimersByTime(500);
+  PlaybackTimeTracker.onStateNotPlaying(nativeBoundary);
+  PlaybackTimeTracker.onStatePlaying('second', nativeBoundary);
+  jest.advanceTimersByTime(1500);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('first')).toBe(6);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('second')).toBe(2);
+  expect(PlaybackTimeTracker.getAccumulatedSeconds('first') + PlaybackTimeTracker.getAccumulatedSeconds('second')).toBe(8);
 });

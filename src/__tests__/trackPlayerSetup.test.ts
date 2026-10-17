@@ -1,3 +1,4 @@
+jest.mock('../services/CrossfadeService', () => ({ initializeCrossfade: jest.fn().mockResolvedValue(undefined) }));
 import { Platform } from 'react-native';
 import TrackPlayer, { Capability, RepeatMode } from 'react-native-track-player';
 import { initializeReplayGain } from '../services/ReplayGainService';

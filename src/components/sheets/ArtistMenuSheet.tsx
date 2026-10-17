@@ -7,7 +7,7 @@ import { getActiveTabName, navigationRef } from '../../navigation/navigationRef'
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useToastStore } from '../../store/useToastStore';
-import { openPlaylistSelector } from '@/store/useUIStore';
+import { openQueueDestination, openPlaylistSelector } from '@/store/useUIStore';
 import { BaseMenuSheet, MenuOption } from '@/components/sheets/BaseMenuSheet';
 
 export default function ArtistMenuSheet() {
@@ -89,6 +89,8 @@ export default function ArtistMenuSheet() {
           }
         }}
       />
+      <MenuOption icon="duplicate-outline" disabled={tracks.length === 0} text={t('queue.add_to_other')} onPress={() => openQueueDestination(tracks)} />
+
 
       {/* OPTION: Add to Playlist */}
       <MenuOption

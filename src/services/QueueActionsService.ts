@@ -1,5 +1,6 @@
 import TrackPlayer, { Track } from 'react-native-track-player';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import {
     beginQueueMutation, refreshQueueSnapshot, setQueueSnapshot, useQueueSnapshotStore,
 } from '../store/useQueueSnapshotStore';
@@ -43,7 +44,9 @@ function enqueue(command: () => Promise<void>) {
 }
 
 export const QueueActionsService = {
+    waitForPendingActions() { return commands; },
     play(track: Track) {
+        if (useMultipleQueuesStore.getState().isSwitching) return Promise.resolve();
         const snapshot = useQueueSnapshotStore.getState();
         const index = snapshot.queue.findIndex(item => item.id === track.id);
         if (index < 0) return Promise.resolve();
@@ -59,6 +62,7 @@ export const QueueActionsService = {
     },
 
     remove(track: Track, isUserQueued: boolean): QueueRemoval | null {
+        if (useMultipleQueuesStore.getState().isSwitching) return null;
         const snapshot = useQueueSnapshotStore.getState();
         const index = snapshot.queue.findIndex(item => item.id === track.id);
         if (index < 0 || index === snapshot.activeIndex) return null;
@@ -81,6 +85,7 @@ export const QueueActionsService = {
     },
 
     undo(removals: QueueRemoval[]) {
+        if (useMultipleQueuesStore.getState().isSwitching) return Promise.resolve();
         const snapshot = useQueueSnapshotStore.getState();
         const restore = [...removals].reverse().filter(item =>
             !item.failed && !snapshot.queue.some(track => track.id === item.track.id));

@@ -1,8 +1,9 @@
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image as RNImage,
   Keyboard,
   Platform,
@@ -24,6 +25,8 @@ import { MetadataEditorService, EditableMetadata } from '../../services/Metadata
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Album from '../../database/models/Album';
+import * as FileSystem from 'expo-file-system/legacy';
+import { AlbumCoverService, isMissingAlbumCover } from '../../services/AlbumCoverService';
 
 const normalizeText = (text: string) =>
   text
@@ -40,6 +43,8 @@ export default function MetadataEditorSheet() {
   const { exitSelectionMode } = useMultiSelectStore();
   
   const isBatchMode = tracks.length > 1;
+  const firstAlbumId = tracks[0]?.album?.id ?? tracks[0]?._raw?.album_id;
+  const sharesAlbum = Boolean(firstAlbumId) && tracks.every(track => (track.album?.id ?? track._raw?.album_id) === firstAlbumId);
 
   // Form inputs state
   const [title, setTitle] = useState('');
@@ -52,6 +57,56 @@ export default function MetadataEditorSheet() {
   const [genre, setGenre] = useState('');
   const [initialCoverUrl, setInitialCoverUrl] = useState<string | null>(null);
   const [coverArtPath, setCoverArtPath] = useState<string | null>(null);
+  const [isSearchingCover, setIsSearchingCover] = useState(false);
+  const coverSearchId = useRef(0);
+  const savingCover = useRef(false);
+  const downloadedCover = useRef<string | null>(null);
+  const sharedAlbumArtist = useRef('');
+  useEffect(() => {
+    setIsSearchingCover(false);
+    sharedAlbumArtist.current = '';
+    return () => {
+      coverSearchId.current += 1;
+      if (downloadedCover.current && !savingCover.current) {
+        void FileSystem.deleteAsync(downloadedCover.current, { idempotent: true }).catch(() => {});
+        downloadedCover.current = null;
+      }
+    };
+  }, [isVisible, tracks]);
+
+  const searchCover = async () => {
+    const request = ++coverSearchId.current;
+    setIsSearchingCover(true);
+    try {
+      const uri = await AlbumCoverService.downloadCover(album, albumArtist || artist || sharedAlbumArtist.current);
+      if (request !== coverSearchId.current) {
+        if (uri) await FileSystem.deleteAsync(uri, { idempotent: true });
+        return;
+      }
+      if (!uri) {
+        useToastStore.getState().showToast(t('metadata_editor.cover_not_found'), 'information-circle');
+        return;
+      }
+      if (downloadedCover.current) void FileSystem.deleteAsync(downloadedCover.current, { idempotent: true }).catch(() => {});
+      downloadedCover.current = uri;
+      setCoverArtPath(uri);
+    } catch {
+      if (request === coverSearchId.current) useToastStore.getState().showToast(t('settings.album_covers_error'), 'warning');
+    } finally {
+      if (request === coverSearchId.current) setIsSearchingCover(false);
+    }
+  };
+
+  const handleSearchCover = () => {
+    if (isSearchingCover || isSaving || isLoadingPhysical || (isBatchMode && !sharesAlbum)) return;
+    const currentCover = coverArtPath ?? initialCoverUrl;
+    if (!isMissingAlbumCover(currentCover)) {
+      Alert.alert(t('metadata_editor.cover_replace_title'), t('metadata_editor.cover_replace_message'), [
+        { text: t('actions.cancel'), style: 'cancel' },
+        { text: t('metadata_editor.cover_replace'), style: 'destructive', onPress: () => void searchCover() },
+      ]);
+    } else void searchCover();
+  };
 
   // Autocomplete states
   const [allArtists, setAllArtists] = useState<string[]>([]);
@@ -192,10 +247,15 @@ export default function MetadataEditorSheet() {
           const discNumbers: string[] = [];
           const genres: string[] = [];
           const covers: string[] = [];
+          sharedAlbumArtist.current = '';
 
           for (const track of tracks) {
             const albumModel = await track.album.fetch();
             const artistModel = await track.artist.fetch();
+            if (sharesAlbum && !sharedAlbumArtist.current && albumModel) {
+              const albumArtistModel = await albumModel.artist.fetch().catch(() => null);
+              sharedAlbumArtist.current = albumArtistModel?.name || '';
+            }
 
             titles.push(track.title || '');
             artists.push(artistModel?.name || '');
@@ -288,7 +348,7 @@ export default function MetadataEditorSheet() {
           const initialTitle = physical.title || track.title || '';
           const initialArtist = physical.artist || artistModel?.name || '';
           const initialAlbumArtist = physical.albumArtist || '';
-          const initialAlbum = physical.album || albumModel?.name || '';
+          const initialAlbum = physical.album || albumModel?.title || '';
           const initialYear = physical.year || albumModel?.year?.toString() || '';
           const initialTrack = physical.trackNumber || track.trackNumber?.toString() || '';
           const initialDisc = physical.discNumber || '';
@@ -326,7 +386,7 @@ export default function MetadataEditorSheet() {
           setTitle(track.title || '');
           setArtist(artistModel?.name || '');
           setAlbumArtist('');
-          setAlbum(albumModel?.name || '');
+          setAlbum(albumModel?.title || '');
           setYear(albumModel?.year?.toString() || '');
           setTrackNumber(track.trackNumber?.toString() || '');
           setDiscNumber('');
@@ -337,7 +397,7 @@ export default function MetadataEditorSheet() {
             title: track.title || '',
             artist: artistModel?.name || '',
             albumArtist: '',
-            album: albumModel?.name || '',
+            album: albumModel?.title || '',
             year: albumModel?.year?.toString() || '',
             trackNumber: track.trackNumber?.toString() || '',
             discNumber: '',
@@ -350,7 +410,7 @@ export default function MetadataEditorSheet() {
 
       loadSingleTrackMetadata();
     }
-  }, [isVisible, tracks, isBatchMode]);
+  }, [isVisible, tracks, isBatchMode, sharesAlbum]);
 
   const getMetadataPayload = (): EditableMetadata => {
     const payload: EditableMetadata = {};
@@ -367,6 +427,7 @@ export default function MetadataEditorSheet() {
   };
 
   const handlePickImage = async () => {
+    if (isSearchingCover || isSaving) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'image/*',
@@ -383,6 +444,7 @@ export default function MetadataEditorSheet() {
   };
 
   const handleRemoveCover = () => {
+    if (isSearchingCover || isSaving) return;
     setCoverArtPath('');
   };
 
@@ -408,7 +470,9 @@ export default function MetadataEditorSheet() {
   };
 
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving || isSearchingCover) return;
+    const saveSession = coverSearchId.current;
+    savingCover.current = true;
     setIsSaving(true);
     setSaveProgress({ current: 0, total: tracks.length });
 
@@ -436,6 +500,11 @@ export default function MetadataEditorSheet() {
         useToastStore.getState().showToast(t('metadata_editor.error_save'), 'warning');
       }
     } finally {
+      savingCover.current = false;
+      if (saveSession !== coverSearchId.current && downloadedCover.current) {
+        void FileSystem.deleteAsync(downloadedCover.current, { idempotent: true }).catch(() => {});
+        downloadedCover.current = null;
+      }
       setIsSaving(false);
       setSaveProgress({ current: 0, total: 0 });
     }
@@ -503,6 +572,12 @@ export default function MetadataEditorSheet() {
                 </View>
               )}
             </View>
+            {(!isBatchMode || sharesAlbum) && <TouchableOpacity accessibilityRole="button" onPress={handleSearchCover}
+              disabled={isSaving || isSearchingCover || isLoadingPhysical || !album.trim() || !(albumArtist || artist || sharedAlbumArtist.current).trim()}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, opacity: isSaving || isSearchingCover ? 0.5 : 1 }}>
+              {isSearchingCover ? <ActivityIndicator size="small" color={colors.accent} /> : <Ionicons name="search-outline" size={18} color={colors.accent} />}
+              <Text style={{ color: colors.accent, fontFamily: fonts.regular }}>{t('metadata_editor.search_cover')}</Text>
+            </TouchableOpacity>}
             <Text style={styles.coverHelpText}>
               {isBatchMode 
                 ? t('metadata_editor.cover_help_batch') 
@@ -548,7 +623,7 @@ export default function MetadataEditorSheet() {
                 value={trackNumber}
                 onChangeText={setTrackNumber}
                 keyboardType="numeric"
-                editable={!isSaving}
+                editable={!isSaving && !isSearchingCover}
                 placeholder="..."
                 placeholderTextColor={colors.textSecondary}
               />
@@ -601,7 +676,7 @@ export default function MetadataEditorSheet() {
               value={discNumber}
               onChangeText={setDiscNumber}
               keyboardType="numeric"
-              editable={!isSaving}
+              editable={!isSaving && !isSearchingCover}
               placeholder="..."
               placeholderTextColor={colors.textSecondary}
             />
@@ -615,7 +690,7 @@ export default function MetadataEditorSheet() {
               value={artist}
               onChangeText={handleArtistChange}
               onFocus={handleArtistFocus}
-              editable={!isSaving}
+              editable={!isSaving && !isSearchingCover}
               placeholder="..."
               placeholderTextColor={colors.textSecondary}
             />
@@ -650,7 +725,7 @@ export default function MetadataEditorSheet() {
               value={album}
               onChangeText={handleAlbumChange}
               onFocus={handleAlbumFocus}
-              editable={!isSaving}
+              editable={!isSaving && !isSearchingCover}
               placeholder="..."
               placeholderTextColor={colors.textSecondary}
             />
@@ -685,7 +760,7 @@ export default function MetadataEditorSheet() {
               value={albumArtist}
               onChangeText={handleAlbumArtistChange}
               onFocus={handleAlbumArtistFocus}
-              editable={!isSaving}
+              editable={!isSaving && !isSearchingCover}
               placeholder="..."
               placeholderTextColor={colors.textSecondary}
             />
@@ -720,7 +795,7 @@ export default function MetadataEditorSheet() {
               value={year}
               onChangeText={setYear}
               keyboardType="numeric"
-              editable={!isSaving}
+              editable={!isSaving && !isSearchingCover}
               placeholder="..."
               placeholderTextColor={colors.textSecondary}
             />
@@ -733,7 +808,7 @@ export default function MetadataEditorSheet() {
               style={[styles.input, isSaving && styles.inputDisabled]}
               value={genre}
               onChangeText={setGenre}
-              editable={!isSaving}
+              editable={!isSaving && !isSearchingCover}
               placeholder="..."
               placeholderTextColor={colors.textSecondary}
             />
@@ -752,7 +827,7 @@ export default function MetadataEditorSheet() {
             <TouchableOpacity 
               style={[styles.saveBtn, isSaving && { opacity: 0.7 }]} 
               onPress={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || isSearchingCover}
             >
               {isSaving ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -836,7 +911,7 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     fontFamily: fonts.regular,
   },
   input: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
     color: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -844,12 +919,12 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     fontSize: 15,
     fontFamily: fonts.regular,
     borderWidth: 1,
-    borderColor: '#2D2D2D',
+    borderColor: colors.border,
   },
   inputDisabled: {
-    backgroundColor: '#141414',
+    backgroundColor: colors.inputBackground,
     color: colors.textSecondary,
-    borderColor: '#1D1D1D',
+    borderColor: colors.border,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -862,7 +937,7 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
   },
   cancelBtnText: {
     color: colors.text,
@@ -896,9 +971,9 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     height: 140,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
     borderWidth: 1,
-    borderColor: '#2D2D2D',
+    borderColor: colors.border,
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
@@ -913,7 +988,7 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
   },
   coverActionsOverlay: {
     position: 'absolute',
@@ -951,12 +1026,12 @@ const getStyles = (colors: any, fonts: any, fontWeights: any) => StyleSheet.crea
     gap: 8,
   },
   suggestionPill: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#2D2D2D',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,

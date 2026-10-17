@@ -12,6 +12,23 @@ describe('useSettingsStore', () => {
   });
 
   describe('Actions', () => {
+    it('defaults crossfade off and persists a bounded whole-second duration', () => {
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(0);
+      useSettingsStore.getState().setCrossfadeSeconds(6);
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(6);
+      useSettingsStore.getState().setCrossfadeSeconds(50);
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(12);
+      useSettingsStore.getState().setCrossfadeSeconds(NaN);
+      expect(useSettingsStore.getState().crossfadeSeconds).toBe(0);
+    });
+
+    it('defaults the cassette album label off and allows changing its persisted preference', () => {
+      expect(useSettingsStore.getState().showCassetteAlbumName).toBe(false);
+      useSettingsStore.getState().setShowCassetteAlbumName(true);
+      expect(useSettingsStore.getState().showCassetteAlbumName).toBe(true);
+      useSettingsStore.getState().setShowCassetteAlbumName(false);
+    });
+
     it('updates notification preferences', () => {
       const { setNotificationPreferences } = useSettingsStore.getState();
       const newPrefs = {
@@ -56,13 +73,6 @@ describe('useSettingsStore', () => {
       expect(i18nSpy).toHaveBeenCalledWith('en');
     });
 
-    it('updates shuffleOnQueueEnd', async () => {
-      const { setShuffleOnQueueEnd } = useSettingsStore.getState();
-      setShuffleOnQueueEnd(true);
-      expect(useSettingsStore.getState().shuffleOnQueueEnd).toBe(true);
-      // Let import promise resolve
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
   });
 
   describe('onRehydrateStorage initialization functions', () => {
@@ -99,6 +109,8 @@ describe('useSettingsStore', () => {
       homeSectionsVisibility: { stats: true, shuffle_button: true },
       notificationPreferences: {},
       setLanguage: jest.fn(),
+      appIcon: 'DEFAULT',
+      setAppIcon: jest.fn(),
       setActiveAppTheme: jest.fn(),
       setAppTabsOrder: jest.fn(),
       setInitialAppRoute: jest.fn(),
@@ -111,6 +123,18 @@ describe('useSettingsStore', () => {
     it('handles null state safely', () => {
       const fn = getRehydrateFn();
       expect(() => fn(null)).not.toThrow();
+    });
+
+    it('migrates a retired icon on hydration without resetting the choice', () => {
+      const mockState = createMockState({ appIcon: 'darkblue' });
+      getRehydrateFn()(mockState);
+      expect(mockState.setAppIcon).toHaveBeenCalledWith('aqua');
+    });
+
+    it('does not rewrite the icon setting when the choice is current', () => {
+      const mockState = createMockState({ appIcon: 'dark' });
+      getRehydrateFn()(mockState);
+      expect(mockState.setAppIcon).not.toHaveBeenCalled();
     });
 
     it('initializes language when null: default Spanish if system starts with es', () => {
@@ -137,11 +161,21 @@ describe('useSettingsStore', () => {
       expect(i18nSpy).toHaveBeenCalledWith('es');
     });
 
-    it('resets theme to none if theme is not none', () => {
+    it('resets an unsupported theme to none', () => {
       const mockState = createMockState({ activeAppTheme: 'amoled' });
       const fn = getRehydrateFn();
       fn(mockState);
       expect(mockState.setActiveAppTheme).toHaveBeenCalledWith('none');
+    });
+
+    it.each(['legendary', 'develETSII'] as const)('preserves the %s theme between sessions', theme => {
+      const mockState = createMockState({ activeAppTheme: theme });
+      getRehydrateFn()(mockState);
+      expect(mockState.setActiveAppTheme).not.toHaveBeenCalled();
+      useSettingsStore.getState().setActiveAppTheme(theme);
+      expect(useSettingsStore.getState().activeAppTheme).toBe(theme);
+      useSettingsStore.getState().setActiveAppTheme('none');
+      expect(useSettingsStore.getState().activeAppTheme).toBe('none');
     });
 
     it('migrates appTabsOrder and initialAppRoute from Configuración to Actividad', () => {

@@ -1,6 +1,15 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BlurredBackground from '../layouts/BlurredBackground';
+import { ScrollView } from 'react-native-gesture-handler';
+import { PlayerDiscArtwork } from '../player/PlayerDiscArtwork';
+import { CassetteArtwork } from '../player/CassetteArtwork';
+import { useSheetProps } from '../../hooks/useSheetProps';
+import { PlayerMenuAppearance } from '../../store/useUIStore';
 import { useTranslation } from 'react-i18next';
 import {
     PermissionsAndroid,
@@ -36,7 +45,22 @@ const requestAudioPermission = async (): Promise<boolean> => {
     return true;
 };
 
+function PreviewOption({ label, selected, onPress, children, portrait = false }: Readonly<{
+    label: string; selected: boolean; onPress: () => void; children: React.ReactNode; portrait?: boolean;
+}>) {
+    const { colors, fonts } = useAppTheme();
+    return <TouchableOpacity onPress={onPress} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ checked: selected }}
+        style={{ width: portrait ? 132 : 120, gap: 8 }} activeOpacity={0.8}>
+        <View style={{ height: portrait ? 160 : 112, alignItems: 'center', justifyContent: 'center', borderRadius: 12, overflow: 'hidden', backgroundColor: colors.cardBackground, borderWidth: 2, borderColor: selected ? colors.accent : colors.cardBackground }}>
+            {children}
+            {selected && <View style={{ position: 'absolute', top: 5, right: 5, borderRadius: 12, padding: 3, backgroundColor: colors.accent }}><Ionicons name="checkmark" size={13} color={colors.onAccent} /></View>}
+        </View>
+        <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', color: selected ? colors.accent : colors.textSecondary }}>{label}</Text>
+    </TouchableOpacity>;
+}
+
 export default function PlayerMenuSheet() {
+    const insets = useSafeAreaInsets();
     const { colors, fonts, layout, spacing, radii } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii), [colors, fonts, layout, spacing, radii]);
     const {
@@ -48,6 +72,8 @@ export default function PlayerMenuSheet() {
         setPlayerVisualizerColorMode,
         playerCoverStyle,
         setPlayerCoverStyle,
+        showCassetteAlbumName,
+        setShowCassetteAlbumName,
         playerBackgroundStyle,
         setPlayerBackgroundStyle,
         showCanvas,
@@ -55,6 +81,12 @@ export default function PlayerMenuSheet() {
     } = useSettingsStore();
 
     const { t } = useTranslation();
+    const { props } = useSheetProps<Partial<PlayerMenuAppearance>>('player-menu');
+    const appearance = props ?? {};
+    const gradientColors = appearance.gradientColors ?? ['#121212', colors.background, colors.background] as const;
+    const coverPreview = appearance.coverUrl
+        ? <Image source={{ uri: appearance.coverUrl }} recyclingKey={appearance.coverUrl} style={styles.coverPreview} contentFit="contain" transition={0} />
+        : <Ionicons name="musical-notes" size={42} color={colors.textSecondary} />;
 
     const handleVisualizerToggle = async (value: boolean) => {
         if (value) {
@@ -71,86 +103,44 @@ export default function PlayerMenuSheet() {
         <BaseMenuSheet
             title={t('visualizer.menu_title') || 'Opciones de Visualización'}
             subtitle={t('visualizer.menu_desc') || 'Personaliza el visualizador en tiempo real'}
+            footer={<View style={{ height: insets.bottom + 16, flexShrink: 0, backgroundColor: colors.sheetBackground, marginHorizontal: -24 }} />}
         >
         
-                    {/* Cover Art Style */}
-                    <Text style={styles.sectionLabel}>{t('visualizer.cover_style') || 'Estilo de Carátula'}</Text>
-                    <View style={styles.optionsGroup}>
-                        <TouchableOpacity
-                            style={[styles.optionBtn, playerCoverStyle === 'cover' && styles.optionBtnActive]}
-                            onPress={() => setPlayerCoverStyle('cover')}
-                        >
-                            <Ionicons name="image" size={18} color={playerCoverStyle === 'cover' ? colors.accent : colors.textSecondary} />
-                            <Text style={[styles.optionText, playerCoverStyle === 'cover' && styles.optionTextActive]}>
-                                {t('visualizer.cover_style_cover') || 'Carátula Original'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.optionBtn, playerCoverStyle === 'cd' && styles.optionBtnActive]}
-                            onPress={() => setPlayerCoverStyle('cd')}
-                        >
-                            <Ionicons name="disc" size={18} color={playerCoverStyle === 'cd' ? colors.accent : colors.textSecondary} />
-                            <Text style={[styles.optionText, playerCoverStyle === 'cd' && styles.optionTextActive]}>
-                                {t('visualizer.cover_style_cd') || 'CD Giratorio'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.optionBtn, playerCoverStyle === 'vinyl' && styles.optionBtnActive]}
-                            onPress={() => setPlayerCoverStyle('vinyl')}
-                        >
-                            <Ionicons name="radio" size={18} color={playerCoverStyle === 'vinyl' ? colors.accent : colors.textSecondary} />
-                            <Text style={[styles.optionText, playerCoverStyle === 'vinyl' && styles.optionTextActive]}>
-                                {t('visualizer.cover_style_vinyl') || 'Vinilo Giratorio'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.separator} />
-
-                    {/* Background Style */}
-                    <Text style={styles.sectionLabel}>{t('visualizer.background_style') || 'Estilo de Fondo'}</Text>
-                    <View style={styles.optionsGroup}>
-                        <TouchableOpacity
-                            style={[styles.optionBtn, playerBackgroundStyle === 'cover' && styles.optionBtnActive]}
-                            onPress={() => setPlayerBackgroundStyle('cover')}
-                        >
-                            <Ionicons name="image-outline" size={18} color={playerBackgroundStyle === 'cover' ? colors.accent : colors.textSecondary} />
-                            <Text style={[styles.optionText, playerBackgroundStyle === 'cover' && styles.optionTextActive]}>
-                                {t('visualizer.background_style_cover') || 'Carátula Difuminada'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.optionBtn, playerBackgroundStyle === 'gradient' && styles.optionBtnActive]}
-                            onPress={() => setPlayerBackgroundStyle('gradient')}
-                        >
-                            <Ionicons name="color-palette-outline" size={18} color={playerBackgroundStyle === 'gradient' ? colors.accent : colors.textSecondary} />
-                            <Text style={[styles.optionText, playerBackgroundStyle === 'gradient' && styles.optionTextActive]}>
-                                {t('visualizer.background_style_gradient') || 'Degradado de Color'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.separator} />
-
-                    {/* Visualizer toggle */}
-                    <View style={styles.settingRow}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.settingLabel}>{t('visualizer.enable') || 'Visualizador Activo'}</Text>
-                            <Text style={styles.settingDescription}>{t('visualizer.enable_desc') || 'Muestra ondas y barras al ritmo del sonido'}</Text>
-                        </View>
-                        <Switch
-                            value={showPlayerVisualizer}
-                            onValueChange={handleVisualizerToggle}
-                            trackColor={{ false: '#282828', true: colors.accent }}
-                            thumbColor={showPlayerVisualizer ? '#FFFFFF' : '#888888'}
-                            ios_backgroundColor="#282828"
-                        />
-                    </View>
-
-                    <View style={styles.separator} />
+            <Text style={styles.sectionLabel}>{t('visualizer.cover_style')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
+                {(['cover', 'cd', 'vinyl'] as const).map(style => (
+                    <PreviewOption key={style} label={t('visualizer.cover_style_' + style)} selected={playerCoverStyle === style} onPress={() => setPlayerCoverStyle(style)}>
+                        {style === 'cover' ? coverPreview : <PlayerDiscArtwork playerCoverStyle={style} coverUrl={appearance.coverUrl} album={{ cdArtUrl: appearance.cdArtUrl ?? null }} artworkSize={96} holeSize={12} spinStyle={undefined} coverColor={appearance.coverColor ?? null} />}
+                    </PreviewOption>
+                ))}
+                <PreviewOption label={t('visualizer.cover_style_cassette')} selected={playerCoverStyle === 'cassette'} onPress={() => setPlayerCoverStyle('cassette')}>
+                    <CassetteArtwork size={104} coverUrl={appearance.coverUrl} coverColor={appearance.coverColor} albumTitle={showCassetteAlbumName ? appearance.albumTitle : null} progress={0.35} />
+                </PreviewOption>
+            </ScrollView>
+            <View style={styles.settingRow}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.settingLabel}>{t('visualizer.cassette_album_name')}</Text>
+                </View>
+                <Switch value={showCassetteAlbumName} onValueChange={setShowCassetteAlbumName}
+                    accessibilityLabel={t('visualizer.cassette_album_name')}
+                    trackColor={{ false: '#282828', true: colors.accent }}
+                    thumbColor={showCassetteAlbumName ? '#FFFFFF' : '#888888'} ios_backgroundColor="#282828" />
+            </View>
+            <View style={styles.separator} />
+            <Text style={styles.sectionLabel}>{t('visualizer.background_style')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
+                <PreviewOption label={t('visualizer.background_style_cover')} selected={playerBackgroundStyle === 'cover'} onPress={() => setPlayerBackgroundStyle('cover')} portrait>
+                    <BlurredBackground
+                        imageUrl={appearance.coverUrl}
+                        blurIntensity={10}
+                        gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
+                    />
+                </PreviewOption>
+                <PreviewOption label={t('visualizer.background_style_gradient')} selected={playerBackgroundStyle === 'gradient'} onPress={() => setPlayerBackgroundStyle('gradient')} portrait>
+                    <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
+                </PreviewOption>
+            </ScrollView>
+            <View style={styles.separator} />
 
                     {/* Canvas toggle */}
                     <View style={styles.settingRow}>
@@ -160,6 +150,7 @@ export default function PlayerMenuSheet() {
                         </View>
                         <Switch
                             value={showCanvas}
+                            accessibilityLabel={t('visualizer.show_canvas')}
                             onValueChange={setShowCanvas}
                             trackColor={{ false: '#282828', true: colors.accent }}
                             thumbColor={showCanvas ? '#FFFFFF' : '#888888'}
@@ -169,11 +160,29 @@ export default function PlayerMenuSheet() {
 
                     <View style={[styles.separator]} />
 
+                    {/* Visualizer toggle */}
+                    <View style={styles.settingRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.settingLabel}>{t('visualizer.enable') || 'Visualizador Activo'}</Text>
+                            <Text style={styles.settingDescription}>{t('visualizer.enable_desc') || 'Muestra ondas y barras al ritmo del sonido'}</Text>
+                        </View>
+                        <Switch
+                            value={showPlayerVisualizer}
+                            accessibilityLabel={t('visualizer.enable')}
+                            onValueChange={handleVisualizerToggle}
+                            trackColor={{ false: '#282828', true: colors.accent }}
+                            thumbColor={showPlayerVisualizer ? '#FFFFFF' : '#888888'}
+                            ios_backgroundColor="#282828"
+                        />
+                    </View>
+
+                    <View style={styles.separator} />
+
                     <View style={[styles.optionsSection, !showPlayerVisualizer && styles.optionsSectionDisabled]}
                         pointerEvents={showPlayerVisualizer ? 'auto' : 'none'}
                     >
                         <Text style={styles.sectionLabel}>{t('visualizer.style') || 'Estilo del Visualizador'}</Text>
-                        <View style={styles.optionsGroup}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
                             <TouchableOpacity
                                 style={[styles.optionBtn, playerVisualizerType === 'bars' && styles.optionBtnActive]}
                                 onPress={() => setPlayerVisualizerType('bars')}
@@ -213,38 +222,34 @@ export default function PlayerMenuSheet() {
                                     {t('visualizer.style_circle') || 'Círculo Pulsante'}
                                 </Text>
                             </TouchableOpacity>
-                        </View>
+                        </ScrollView>
 
                         <View style={styles.separator} />
 
-                        <Text style={styles.sectionLabel}>{t('visualizer.color_mode') || 'Color'}</Text>
-                        <View style={styles.optionsGroup}>
-                            <TouchableOpacity
-                                style={[styles.optionBtn, playerVisualizerColorMode === 'cover' && styles.optionBtnActive]}
-                                onPress={() => setPlayerVisualizerColorMode('cover')}
-                            >
-                                <Ionicons name="color-palette" size={18} color={playerVisualizerColorMode === 'cover' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
-                                <Text style={[styles.optionText, playerVisualizerColorMode === 'cover' && showPlayerVisualizer && styles.optionTextActive]}>
-                                    {t('visualizer.color_cover') || 'Adaptarse a Portada'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.optionBtn, playerVisualizerColorMode === 'accent' && styles.optionBtnActive]}
-                                onPress={() => setPlayerVisualizerColorMode('accent')}
-                            >
-                                <Ionicons name="color-fill" size={18} color={playerVisualizerColorMode === 'accent' && showPlayerVisualizer ? colors.accent : colors.textSecondary} />
-                                <Text style={[styles.optionText, playerVisualizerColorMode === 'accent' && showPlayerVisualizer && styles.optionTextActive]}>
-                                    {t('visualizer.color_accent') || 'Color Temático Morado'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        <Text style={styles.sectionLabel}>{t('visualizer.color_mode')}</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
+                            {(['cover', 'accent'] as const).map(mode => (
+                                <TouchableOpacity key={mode} accessibilityRole="radio" accessibilityLabel={t('visualizer.color_' + mode)} accessibilityState={{ checked: playerVisualizerColorMode === mode, disabled: !showPlayerVisualizer }}
+                                    style={styles.colorOption} onPress={() => setPlayerVisualizerColorMode(mode)}>
+                                    <View style={[styles.colorRing, { borderColor: playerVisualizerColorMode === mode ? colors.accent : 'transparent' }]}>
+                                        <View style={[styles.colorSwatch, { backgroundColor: mode === 'cover' ? appearance.coverColor || colors.accent : colors.accent }]} />
+                                    </View>
+                                    <Text style={[styles.previewLabel, { color: playerVisualizerColorMode === mode ? colors.accent : colors.textSecondary }]}>{t('visualizer.color_' + mode)}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
         </BaseMenuSheet>
     );
 }
 
 const getStyles = (colors: any, fonts: any, layout: any, spacing: any, radii: any) => StyleSheet.create({
+    previewRow: { gap: 12, paddingBottom: 4 },
+    coverPreview: { width: 96, height: 96, borderRadius: 8 },
+    colorOption: { width: 120, alignItems: 'center', gap: 8 },
+    colorRing: { width: 54, height: 54, borderRadius: 27, borderWidth: 2, padding: 4 },
+    colorSwatch: { flex: 1, borderRadius: 24 },
+    previewLabel: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center' },
     optionsSection: {
         opacity: 1,
     },

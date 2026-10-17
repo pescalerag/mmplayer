@@ -1,3 +1,4 @@
+import { isUnknownArtist, isVariousArtists } from '../utils/libraryMetadata';
 import { Q } from '@nozbe/watermelondb';
 import * as FileSystem from 'expo-file-system/legacy';
 import { database } from '../database';
@@ -109,7 +110,7 @@ export const ArtistImageService = {
             console.log(`[ArtistImageService] Procesando ${missingImageArtists.length} artistas...`);
 
             for (const artist of missingImageArtists) {
-                if (artist.name === 'Artista Desconocido' || artist.name === 'Varios Artistas') {
+                if (isUnknownArtist(artist.name) || isVariousArtists(artist.name)) {
                     continue;
                 }
 

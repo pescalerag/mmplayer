@@ -232,6 +232,15 @@ export default function SettingsStorageScreen() {
             </View>
             <View style={styles.separator} />
 
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}><Ionicons name="albums-outline" size={18} color="#F59E0B" /></View>
+                <Text style={styles.itemTitle}>{t('settings.album_covers_storage')}</Text>
+              </View>
+              <Text style={styles.itemValue}>{formatBytes(data.albumCoversBytes)}</Text>
+            </View>
+            <View style={styles.separator} />
+
             {/* 3. Imágenes de CD */}
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownLeft}>

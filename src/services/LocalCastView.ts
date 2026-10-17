@@ -1,3 +1,15 @@
+export function createLocalCastThemeView(style: { textContent: string | null }, initialTheme: string) {
+  let theme = initialTheme;
+  return {
+    getTheme: () => theme,
+    sync(state: { theme?: string; themeCss?: string }) {
+      if (!state.theme || state.theme === theme || typeof state.themeCss !== 'string') return;
+      style.textContent = state.themeCss;
+      theme = state.theme;
+    },
+  };
+}
+
 interface QueueRow {
   readonly id: string;
   readonly index: number;

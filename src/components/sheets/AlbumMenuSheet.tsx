@@ -1,6 +1,7 @@
+import { isVariousArtists } from '../../utils/libraryMetadata';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 import { useSheetProps } from '@/hooks/useSheetProps';
-import { openPlaylistSelector, openTagManager } from '@/store/useUIStore';
+import { openQueueDestination, openPlaylistSelector, openTagManager } from '@/store/useUIStore';
 import { Q } from '@nozbe/watermelondb';
 import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -124,6 +125,8 @@ export default function AlbumMenuSheet() {
           }
         }}
       />
+      <MenuOption icon="duplicate-outline" disabled={tracks.length === 0} text={t('queue.add_to_other')} onPress={() => openQueueDestination(tracks)} />
+
 
       {/* OPTION: Manage Tags */}
       <MenuOption
@@ -178,10 +181,10 @@ export default function AlbumMenuSheet() {
         onPress={handleChangeCDImage}
       />
       {/* separator */}
-      {artistId && artistName !== "Varios Artistas" && <MenuSeparator />}
+      {artistId && !isVariousArtists(artistName) && <MenuSeparator />}
 
       {/* OPTION: Go to Artist */}
-      {artistId && artistName !== "Varios Artistas" && !isAlreadyOnArtistScreen && (
+      {artistId && !isVariousArtists(artistName) && !isAlreadyOnArtistScreen && (
         <MenuOption
           icon="person-outline"
           text={t('actions.go_to_artist')}

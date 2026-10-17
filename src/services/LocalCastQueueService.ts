@@ -1,6 +1,6 @@
 import TrackPlayer, { RepeatMode, Track } from 'react-native-track-player';
 import { useQueueSnapshotStore, refreshQueueSnapshot } from '../store/useQueueSnapshotStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { database } from '../database';
 import TrackModel from '../database/models/Track';
@@ -43,7 +43,7 @@ export const LocalCastQueueService = {
     if (!useQueueSnapshotStore.getState().ready) await refreshQueueSnapshot();
     const { queue } = useQueueSnapshotStore.getState();
     const repeat = await TrackPlayer.getRepeatMode();
-    const shuffle = useSettingsStore.getState().shuffleOnQueueEnd;
+    const shuffle = selectShuffleOnQueueEnd(useMultipleQueuesStore.getState());
     const current = index ?? -1;
     const key = `${sessionId}:${current}:${repeat}:${shuffle}`;
     if (queue !== lastQueue || key !== lastKey) { revision++; lastQueue = queue; lastKey = key; }
@@ -76,7 +76,7 @@ export const LocalCastQueueService = {
     const next = await TrackPlayer.getTrack(index + 1);
     if (next) await usePlayerStore.getState().skipToNext();
     else if (repeat !== RepeatMode.Off) { await TrackPlayer.skip(0); return true; }
-    else if (useSettingsStore.getState().shuffleOnQueueEnd) await usePlayerStore.getState().playRandomQueueOnEnd();
+    else if (selectShuffleOnQueueEnd(useMultipleQueuesStore.getState())) await usePlayerStore.getState().playRandomQueueOnEnd();
     else return false;
     const afterIndex = await TrackPlayer.getActiveTrackIndex();
     const after = afterIndex == null ? null : await TrackPlayer.getTrack(afterIndex);

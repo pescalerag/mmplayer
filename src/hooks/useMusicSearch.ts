@@ -6,6 +6,7 @@ import Artist from '../database/models/Artist';
 import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import Playlist from '../database/models/Playlist';
+import { getMetadataSearchAliases } from '../utils/libraryMetadata';
 
 export type SearchResults = {
     tracks: Track[];
@@ -23,6 +24,12 @@ export type TopMatch =
     | null;
 
 const TRACKS_PER_PAGE = 50;
+
+const metadataSearchCondition = (field: string, pattern: string, query: string, type: 'artist' | 'album') => {
+    const aliases = getMetadataSearchAliases(query, type).map(normalizeText);
+    const match = Q.where(field, Q.like(pattern));
+    return aliases.length ? Q.or(match, Q.where(field, Q.oneOf(aliases))) : match;
+};
 
 const normalizeText = (text: string | null | undefined) => {
     if (!text) return "";
@@ -173,12 +180,12 @@ export function useMusicSearch(query: string) {
 
                 const [artists, albums, tags, playlists] = await Promise.all([
                     database.collections.get<Artist>('artists').query(
-                        Q.where('normalized_name', Q.like(searchPattern)),
+                        metadataSearchCondition('normalized_name', searchPattern, normalizedQuery, 'artist'),
                         Q.sortBy('name', Q.asc),
                         Q.take(20)
                     ).fetch(),
                     database.collections.get<Album>('albums').query(
-                        Q.where('normalized_title', Q.like(searchPattern)),
+                        metadataSearchCondition('normalized_title', searchPattern, normalizedQuery, 'album'),
                         Q.sortBy('title', Q.asc),
                         Q.take(20)
                     ).fetch(),

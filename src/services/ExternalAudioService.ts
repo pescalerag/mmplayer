@@ -1,3 +1,5 @@
+import i18n from '../constants/i18n';
+import { getArtistDisplayName, getAlbumDisplayTitle, UNKNOWN_ARTIST, UNKNOWN_ALBUM } from '../utils/libraryMetadata';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { Q } from '@nozbe/watermelondb';
@@ -27,8 +29,6 @@ let lastHandledTimestamp = 0;
 let isHandlingAudio = false;
 
 
-export const EXTERNAL_AUDIO_UNSAVED_MSG = 'Archivo externo no guardado en la biblioteca';
-
 /**
  * Creates an in-memory Track representation for external audio (content:// or external files)
  * without persisting anything into WatermelonDB.
@@ -36,8 +36,8 @@ export const EXTERNAL_AUDIO_UNSAVED_MSG = 'Archivo externo no guardado en la bib
 export function createExternalTrack(info: ResolvedAudioInfo): Track {
   const trackId = `ext_${Date.now()}`;
   const title = info.title || 'Audio';
-  const artistName = info.artist || 'Artista desconocido';
-  const albumTitle = info.album || 'Álbum desconocido';
+  const artistName = getArtistDisplayName(info.artist || UNKNOWN_ARTIST);
+  const albumTitle = getAlbumDisplayTitle(info.album || UNKNOWN_ALBUM);
   const coverUrl = info.coverUrl || null;
   const duration = info.duration || 0;
 
@@ -123,7 +123,7 @@ export function createExternalTrack(info: ResolvedAudioInfo): Track {
 
     // In-memory dummy implementations of Track methods
     toggleLike: () => {
-      useToastStore.getState().showToast(EXTERNAL_AUDIO_UNSAVED_MSG, 'information-circle');
+      useToastStore.getState().showToast(i18n.t('external_audio.unsaved'), 'information-circle');
       return Promise.resolve();
     },
     updateRating: () => Promise.resolve(),

@@ -1,14 +1,17 @@
+import { normalizeCrossfadeSeconds } from '../utils/crossfadePolicy';
+import { normalizeAppIcon } from '../utils/appIcon';
+import { AppTheme, normalizeAppTheme } from '../theme/appTheme';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 import i18n from '../constants/i18n';
 import { getDefaultLanguage } from '../constants/languages';
+export type { AppTheme } from '../theme/appTheme';
 
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
 export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 export type LocalCastTheme = 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
-export type AppTheme = 'none' | 'legendary';
 
 interface SettingsState {
     userTier: UserTier;
@@ -92,7 +95,11 @@ interface SettingsState {
     artistImageDownloadMode: 'disabled' | 'main' | 'all';
     setArtistImageDownloadMode: (value: 'disabled' | 'main' | 'all') => void;
     artistImageBackgroundDownload: boolean;
+    albumCoverBackgroundDownload: boolean;
+    setAlbumCoverBackgroundDownload: (value: boolean) => void;
     setArtistImageBackgroundDownload: (value: boolean) => void;
+    crossfadeSeconds: number;
+    setCrossfadeSeconds: (value: number) => void;
     isFadeEnabled: boolean;
     setIsFadeEnabled: (value: boolean) => void;
     isKeepAwakeEnabled: boolean;
@@ -110,8 +117,10 @@ interface SettingsState {
     setPlayerVisualizerType: (value: 'bars' | 'wave' | 'spectrum' | 'circle') => void;
     playerVisualizerColorMode: 'accent' | 'cover';
     setPlayerVisualizerColorMode: (value: 'accent' | 'cover') => void;
-    playerCoverStyle: 'cover' | 'cd' | 'vinyl';
-    setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl') => void;
+    playerCoverStyle: 'cover' | 'cd' | 'vinyl' | 'cassette';
+    setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl' | 'cassette') => void;
+    showCassetteAlbumName: boolean;
+    setShowCassetteAlbumName: (value: boolean) => void;
     playerBackgroundStyle: 'cover' | 'gradient';
     setPlayerBackgroundStyle: (value: 'cover' | 'gradient') => void;
     showCanvas: boolean;
@@ -120,8 +129,8 @@ interface SettingsState {
     setShowPlayerLyrics: (value: boolean) => void;
     homeProfilePosition: 'left' | 'right';
     setHomeProfilePosition: (position: 'left' | 'right') => void;
+    /** Legacy value used only to migrate the first queue's autoplay preference. */
     shuffleOnQueueEnd: boolean;
-    setShuffleOnQueueEnd: (value: boolean) => void;
     homeSectionsVersion: number;
     setHomeSectionsVersion: (version: number) => void;
     notificationPreferences: NotificationPreferences;
@@ -171,8 +180,9 @@ function initLanguage(state: SettingsState): void {
 }
 
 function initTheme(state: SettingsState): void {
-    if (state.activeAppTheme && state.activeAppTheme !== 'none') {
-        state.setActiveAppTheme('none');
+    const theme = normalizeAppTheme(state.activeAppTheme);
+    if (theme !== state.activeAppTheme) {
+        state.setActiveAppTheme(theme);
     }
 }
 
@@ -314,7 +324,11 @@ export const useSettingsStore = create<SettingsState>()(
             artistImageDownloadMode: 'disabled',
             setArtistImageDownloadMode: (value) => set({ artistImageDownloadMode: value }),
             artistImageBackgroundDownload: false,
+            albumCoverBackgroundDownload: false,
+            setAlbumCoverBackgroundDownload: (value) => set({ albumCoverBackgroundDownload: value }),
             setArtistImageBackgroundDownload: (value) => set({ artistImageBackgroundDownload: value }),
+            crossfadeSeconds: 0,
+            setCrossfadeSeconds: value => set({ crossfadeSeconds: normalizeCrossfadeSeconds(value) }),
             isFadeEnabled: true,
             setIsFadeEnabled: (value) => set({ isFadeEnabled: value }),
             isKeepAwakeEnabled: false,
@@ -338,6 +352,8 @@ export const useSettingsStore = create<SettingsState>()(
             setPlayerVisualizerColorMode: (value) => set({ playerVisualizerColorMode: value }),
             playerCoverStyle: 'cover',
             setPlayerCoverStyle: (value) => set({ playerCoverStyle: value }),
+            showCassetteAlbumName: false,
+            setShowCassetteAlbumName: (value) => set({ showCassetteAlbumName: value }),
             playerBackgroundStyle: 'cover',
             setPlayerBackgroundStyle: (value) => set({ playerBackgroundStyle: value }),
             showCanvas: true,
@@ -347,7 +363,7 @@ export const useSettingsStore = create<SettingsState>()(
             userTier: 'USER',
             setUserTier: (tier) => set({ userTier: tier }),
             appIcon: 'DEFAULT',
-            setAppIcon: (iconName) => set({ appIcon: iconName }),
+            setAppIcon: (iconName) => set({ appIcon: normalizeAppIcon(iconName) }),
             statsCardTheme: 'default',
             setStatsCardTheme: (theme) => set({ statsCardTheme: theme }),
             localCastTheme: 'default',
@@ -355,7 +371,7 @@ export const useSettingsStore = create<SettingsState>()(
             customAccentColor: null,
             setCustomAccentColor: (color) => set({ customAccentColor: color }),
             activeAppTheme: 'none',
-            setActiveAppTheme: (_theme) => set({ activeAppTheme: 'none' }),
+            setActiveAppTheme: (theme) => set({ activeAppTheme: normalizeAppTheme(theme) }),
             hasOrphanedUpgrade: false,
             setHasOrphanedUpgrade: (val) => set({ hasOrphanedUpgrade: val }),
             excludedFolders: [],
@@ -407,12 +423,6 @@ export const useSettingsStore = create<SettingsState>()(
             homeProfilePosition: 'left',
             setHomeProfilePosition: (position) => set({ homeProfilePosition: position }),
             shuffleOnQueueEnd: false,
-            setShuffleOnQueueEnd: (value) => {
-                set({ shuffleOnQueueEnd: value });
-                import('./usePlayerStore')
-                    .then(({ usePlayerStore }) => usePlayerStore.getState().updateQueueStatus())
-                    .catch(() => {});
-            },
         }),
         {
             name: 'mmplayer-settings',
@@ -420,11 +430,14 @@ export const useSettingsStore = create<SettingsState>()(
             onRehydrateStorage: () => (state) => {
                 if (!state) return;
 
+                const appIcon = normalizeAppIcon(state.appIcon);
+                if (appIcon !== state.appIcon) state.setAppIcon(appIcon);
                 initLanguage(state);
                 initTheme(state);
                 initAppTabs(state);
                 initHomeSections(state);
                 initNotifications(state);
+                void import('./useMultipleQueuesStore').then(({ migrateQueueShuffleOnEnd }) => migrateQueueShuffleOnEnd(state.shuffleOnQueueEnd)).catch(() => {});
             }
         }
     )

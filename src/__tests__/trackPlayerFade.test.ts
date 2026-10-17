@@ -38,6 +38,7 @@ describe('v2.3.2 playback transport', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    nativeVolume.mockResolvedValue(undefined);
     await TrackPlayer.reset();
     nativeState.mockResolvedValue({ state: State.Playing });
   });
@@ -70,6 +71,26 @@ describe('v2.3.2 playback transport', () => {
     expect(nativeVolume).toHaveBeenLastCalledWith(0);
     await jest.advanceTimersByTimeAsync(400);
     expect(nativeVolume).toHaveBeenLastCalledWith(1);
+  });
+
+  it('acknowledges pause while the native state query is still pending', async () => {
+    let resolveState!: (state: { state: string }) => void;
+    nativeState.mockReturnValueOnce(new Promise(resolve => { resolveState = resolve; }));
+    const pause = TrackPlayer.pause();
+    expect(getIsFadingOut()).toBe(true);
+    resolveState({ state: State.Playing });
+    await pause;
+    await jest.advanceTimersByTimeAsync(400);
+    expect(nativePause).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a pause fade bounded when each native volume update takes 100ms', async () => {
+    nativeVolume.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
+    await TrackPlayer.pause();
+    await jest.advanceTimersByTimeAsync(500);
+    expect(nativePause).toHaveBeenCalledTimes(1);
+    expect(nativeVolume).toHaveBeenLastCalledWith(0);
+    expect(nativeVolume.mock.calls.length).toBeLessThan(16);
   });
 
   it('cancels the pause fade when play is pressed before it finishes', async () => {

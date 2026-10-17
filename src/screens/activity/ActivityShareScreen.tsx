@@ -1,3 +1,4 @@
+import i18n from '../../constants/i18n';
 import React, { useRef, useState } from 'react';
 import {
   View,
@@ -351,7 +352,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
                         {song.title}
                       </Text>
                       <Text style={cardStyles.itemDetail} numberOfLines={1}>
-                        {song.artistName || 'Desconocido'}
+                        {song.artistName || i18n.t('actions.unknown')}
                       </Text>
                     </View>
                   ))}
@@ -466,8 +467,8 @@ export default function ActivityShareScreen() {
 
   const totalLabel =
     metric === 'duration'
-      ? 'TIEMPO TOTAL DE ESCUCHA'
-      : 'TOTAL DE REPRODUCCIONES';
+      ? t('activity.total_listening_label')
+      : t('activity.total_plays_label');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 14) }]}>

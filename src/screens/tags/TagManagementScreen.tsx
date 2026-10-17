@@ -1,8 +1,7 @@
-import { SkeletonTagList } from '@/components/common/Skeleton';
+import { observeScreenData } from '../../utils/observeScreenData';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 import TagSpotlightTutorial from '@/components/modals/TagSpotlightTutorial';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { useDelayedLoader } from '@/hooks/useDelayedLoader';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { openTagForm, openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,10 +18,12 @@ import { database } from '../../database';
 import Tag from '../../database/models/Tag';
 
 interface TagManagementContentProps {
-    tags: Tag[];
+    tags: Tag[] | null;
 }
 
-function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
+function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementContentProps>) {
+    const tags = loadedTags ?? [];
+    const isReady = loadedTags !== null;
     const openForCreate = () => openTagForm();
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
@@ -42,22 +43,12 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
     const createButtonLayout = useRef<any>(null);
     const firstTagLayout = useRef<any>(null);
     const [headerHeight, setHeaderHeight] = useState(100);
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
-
     // Auto-lanzar el tutorial la primera vez que se visita la pantalla
     useEffect(() => {
-        if (isFocused && !hasSeenTagsTutorial) {
+        if (isReady && isFocused && !hasSeenTagsTutorial) {
             setIsTutorialVisible(true);
         }
-    }, [isFocused, hasSeenTagsTutorial]);
+    }, [isReady, isFocused, hasSeenTagsTutorial]);
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -153,13 +144,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                         setHeaderHeight(hHeight);
                     }
 
-                    let content = null;
-                    if (!isReady) {
-                        if (showLoader) {
-                            content = <SkeletonTagList topOffset={hHeight + 30} />;
-                        }
-                    } else {
-                        content = (
+                    const content = (
                             <FlashList
                                 data={effectiveTags}
                                 keyExtractor={t => t.id}
@@ -193,11 +178,10 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                                     </View>
                                 }
                                 ListEmptyComponent={
-                                    <Text style={styles.empty}>{t('tags.empty_tags')}</Text>
+                                    isReady ? <Text style={styles.empty}>{t('tags.empty_tags')}</Text> : <View />
                                 }
                             />
                         );
-                    }
 
                     return (
                         <View style={StyleSheet.absoluteFill}>
@@ -226,7 +210,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
 }
 
 const EnhancedTagManagement = withObservables([], () => ({
-    tags: database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observe(),
+    tags: observeScreenData(() => database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observe(), null),
 }))(TagManagementContent);
 
 export default function TagManagementScreen() {

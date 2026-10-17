@@ -1,3 +1,6 @@
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -282,9 +285,14 @@ const getRatingQuery = (id: string) => {
     return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5, 5.0])));
 };
 
+function LoadedSmartListDetail({ data, smartListId }: { data?: Track[]; smartListId: string }) {
+    if (!data) return <ScreenLoadingShell />;
+    return <SmartListDetailContent tracks={data} smartListId={smartListId} />;
+}
+
 const ObservableRatingDetail = withObservables(['smartListId'], ({ smartListId }: { smartListId: string }) => ({
-    tracks: getRatingQuery(smartListId).observe(),
-}))(SmartListDetailContent);
+    data: observeScreenData(() => getRatingQuery(smartListId).observe()),
+}))(LoadedSmartListDetail);
 
 const getGenreQuery = (genre: string) => {
     return database.collections.get<Track>('tracks').query(
@@ -296,44 +304,28 @@ const getGenreQuery = (genre: string) => {
 const ObservableGenreDetail = withObservables(['smartListId'], ({ smartListId }: { smartListId: string }) => {
     const genre = decodeURIComponent(smartListId.replace('genre_', ''));
     return {
-        tracks: getGenreQuery(genre).observe(),
+        data: observeScreenData(() => getGenreQuery(genre).observe()),
     };
-})(SmartListDetailContent);
+})(LoadedSmartListDetail);
 
 // ─── HISTORY STATE-BASED COMPONENT ───
 function HistorySmartListDetail({ smartListId }: { smartListId: string }) {
-    const [tracks, setTracks] = useState<Track[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const loadTracks = useCallback(async () => {
-        setLoading(true);
-        try {
-            const lists = SmartListService.getSmartLists();
-            const listDef = lists.find(l => l.id === smartListId);
-            if (listDef) {
-                const resolved = await listDef.getTracks();
-                setTracks(resolved);
-            }
-        } catch (e) {
-            console.error('Error loading history smart list:', e);
-        } finally {
-            setLoading(false);
-        }
-    }, [smartListId]);
-
-    useFocusEffect(
-        useCallback(() => {
-            loadTracks();
-        }, [loadTracks])
-    );
-
-    return (
-        <SmartListDetailContent
-            smartListId={smartListId}
-            tracks={tracks}
-            loading={loading}
-        />
-    );
+    const [result, setResult] = useState<{ id: string; tracks: Track[] } | null>(null);
+    useFocusEffect(useCallback(() => {
+        let mounted = true;
+        const cancel = scheduleScreenRefresh(() => {
+            const list = SmartListService.getSmartLists().find(item => item.id === smartListId);
+            void (list?.getTracks() ?? Promise.resolve([])).then(tracks => {
+                if (mounted) setResult({ id: smartListId, tracks });
+            }).catch(error => {
+                console.error('Error loading history smart list:', error);
+                if (mounted) setResult({ id: smartListId, tracks: [] });
+            });
+        });
+        return () => { mounted = false; cancel(); };
+    }, [smartListId]));
+    if (!result || result.id !== smartListId) return <ScreenLoadingShell />;
+    return <SmartListDetailContent smartListId={smartListId} tracks={result.tracks} />;
 }
 
 // ─── MAIN EXPORT CHOOSE COMPONENT ───

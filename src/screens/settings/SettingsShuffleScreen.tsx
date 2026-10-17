@@ -1,3 +1,6 @@
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -14,7 +17,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
@@ -25,6 +27,7 @@ import Track from '../../database/models/Track';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { ShuffleService } from '../../services/ShuffleService';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 import { useToastStore } from '../../store/useToastStore';
 
 const PAGE_SIZE = 30;
@@ -135,8 +138,9 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
     const [activeTab, setActiveTab] = useState<'albums' | 'songs'>('albums');
     const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE);
 
-    const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
-    const setShuffleOnQueueEnd = useSettingsStore(state => state.setShuffleOnQueueEnd);
+    const shuffleOnQueueEnd = useMultipleQueuesStore(selectShuffleOnQueueEnd);
+    const setShuffleOnQueueEnd = useMultipleQueuesStore(state => state.setShuffleOnQueueEnd);
+    const queueLabel = useMultipleQueuesStore(state => state.slots[state.activeId].name || t('queue.slot_name', { number: state.activeId + 1 }));
     const showGlobalShuffle = useSettingsStore(state => state.showGlobalShuffle);
     const setShowGlobalShuffle = useSettingsStore(state => state.setShowGlobalShuffle);
 
@@ -247,6 +251,7 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
                         </Text>
                         <Text style={styles.settingDescription}>
                             {t('settings.shuffle_on_queue_end_desc', 'Inicia canciones aleatorias al finalizar la cola actual')}
+                            {' · '}{queueLabel}
                         </Text>
                     </View>
                     <Switch
@@ -352,6 +357,7 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
         colors,
         shuffleOnQueueEnd,
         setShuffleOnQueueEnd,
+        queueLabel,
         showGlobalShuffle,
         setShowGlobalShuffle,
         activeTab,
@@ -421,15 +427,14 @@ function SettingsShuffleContent({ excludedTracks, excludedAlbums }: SettingsShuf
 }
 
 const ObservableSettingsShuffleScreen = withObservables([], () => ({
-    excludedTracks: database.collections
-        .get<Track>('tracks')
-        .query(Q.where('is_excluded_from_shuffle', true))
-        .observe(),
-    excludedAlbums: database.collections
-        .get<Album>('albums')
-        .query(Q.where('is_excluded_from_shuffle', true))
-        .observe(),
-}))(SettingsShuffleContent);
+    data: observeScreenData(() => combineLatest({
+        excludedTracks: database.collections.get<Track>('tracks').query(Q.where('is_excluded_from_shuffle', true)).observe(),
+        excludedAlbums: database.collections.get<Album>('albums').query(Q.where('is_excluded_from_shuffle', true)).observe(),
+    })),
+}))(function LoadedShuffleSettings({ data }: { data?: SettingsShuffleProps }) {
+    if (!data) return <ScreenLoadingShell titleKey="settings.shuffle_title" />;
+    return <SettingsShuffleContent {...data} />;
+});
 
 export default function SettingsShuffleScreen() {
     return <ObservableSettingsShuffleScreen />;

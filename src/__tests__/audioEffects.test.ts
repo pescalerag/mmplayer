@@ -1,3 +1,4 @@
+import { setCrossfadeSettings, getNativePlaybackSnapshot } from '../../modules/native-equalizer';
 import { EqualizerService } from '../services/EqualizerService';
 import {
   initializeEqualizer,
@@ -238,4 +239,17 @@ describe('Audio Equalization & Effects Test Suite', () => {
       expect(TrackPlayer.setPitch).toHaveBeenCalledWith(1.0);
     });
   });
+});
+
+
+it('passes the crossfade duration and handoff permission to the native coordinator', async () => {
+  await setCrossfadeSettings(6, false);
+  expect(nativeModuleMock.setCrossfadeSettings).toHaveBeenCalledWith(6, false);
+});
+
+it('returns the identity and progress captured together by the native playback snapshot', async () => {
+  const snapshot = { queue: [{ id: 'incoming-instance' }], index: 0,
+    progress: { position: 2, duration: 180, buffered: 10 }, repeatMode: 0, queueRevision: 4, userQueueSize: 0 };
+  nativeModuleMock.getPlaybackSnapshot.mockResolvedValueOnce(snapshot);
+  expect(await getNativePlaybackSnapshot()).toEqual(snapshot);
 });

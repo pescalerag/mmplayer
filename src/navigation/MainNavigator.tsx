@@ -9,7 +9,7 @@ import GlobalSyncIndicator from '@/components/common/GlobalSyncIndicator';
 import { ScannerService } from "../services/ScannerService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { Colors } from "../theme/theme";
+
 import { useAppTheme } from '../hooks/useAppTheme';
 
 import MiniPlayer from '@/components/player/MiniPlayer';
@@ -28,6 +28,7 @@ import SongShareScreen from "../screens/player/SongShareScreen";
 import LyricsShareScreen from "../screens/player/LyricsShareScreen";
 import { RootStackParamList } from "./types";
 import MultiSelectActionBar from '@/components/common/MultiSelectActionBar';
+import TimestampsEditorScreen from '../screens/player/TimestampsEditorScreen';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -65,14 +66,14 @@ const CastingBanner = () => {
   return (
     <Animated.View style={[castBannerStyles.wrapper, { opacity, transform: [{ translateY }] }]}>
       <TouchableOpacity
-        style={[castBannerStyles.banner, { borderColor: colors.accentAlpha40 }]}
+        style={[castBannerStyles.banner, { borderColor: colors.accentAlpha40, backgroundColor: colors.cardBackground }]}
         onPress={openCastSheet}
         activeOpacity={0.8}
       >
         {/* Dot de estado activo */}
         <View style={[castBannerStyles.dot, { backgroundColor: colors.accentLight }]} />
         <Ionicons name={isChromecastConnected ? "tv" : "desktop"} size={13} color="#fff" style={{ marginRight: 5 }} />
-        <Text style={castBannerStyles.label}>
+        <Text style={[castBannerStyles.label, { color: '#FFFFFF' }]}>
           {isChromecastConnected
             ? t('cast.chromecast_connected_to', { device: connectedDeviceName || 'Chromecast' })
             : t('cast.banner_label')}
@@ -177,19 +178,10 @@ const SearchIcon = ({
   focused: boolean;
 }) => <TabBarIcon routeName="Buscar" color={color} focused={focused} />;
 
-const TabBarBackground = () => (
-  <LinearGradient
-    colors={[
-      "rgba(0, 0, 0, 0)",
-      "rgba(0, 0, 0, 0.65)",
-      "rgba(0, 0, 0, 0.90)",
-      "rgba(0, 0, 0, 0.98)",
-      Colors.background,
-    ]}
-    locations={[0, 0.2, 0.45, 0.75, 1]}
-    style={StyleSheet.absoluteFill}
-  />
-);
+const TabBarBackground = () => {
+  const { gradients } = useAppTheme();
+  return <LinearGradient colors={gradients.navigation} locations={[0, 0.2, 0.45, 0.75, 1]} style={StyleSheet.absoluteFill} />;
+};
 
 const createTabListener = (navigation: any, route: any) => ({
   tabPress: (e: any) => {
@@ -353,6 +345,7 @@ export default function MainNavigator() {
       <GlobalSyncIndicator />
       <RootStack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
+        <RootStack.Screen name="TimestampsEditor" component={TimestampsEditorScreen} options={{ animation: 'slide_from_right' }} />
         <RootStack.Screen
           name="Player"
           component={PlayerNavigator}
