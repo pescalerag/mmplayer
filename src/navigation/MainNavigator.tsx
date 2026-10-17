@@ -73,7 +73,7 @@ const CastingBanner = () => {
         {/* Dot de estado activo */}
         <View style={[castBannerStyles.dot, { backgroundColor: colors.accentLight }]} />
         <Ionicons name={isChromecastConnected ? "tv" : "desktop"} size={13} color="#fff" style={{ marginRight: 5 }} />
-        <Text style={[castBannerStyles.label, { color: colors.accentLight }]}>
+        <Text style={[castBannerStyles.label, { color: '#FFFFFF' }]}>
           {isChromecastConnected
             ? t('cast.chromecast_connected_to', { device: connectedDeviceName || 'Chromecast' })
             : t('cast.banner_label')}
