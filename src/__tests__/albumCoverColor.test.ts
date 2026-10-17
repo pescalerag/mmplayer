@@ -42,7 +42,7 @@ it('migrates existing albums with optional fields without replacing any library 
         { name: 'cover_color', type: 'string', isOptional: true },
         { name: 'cover_color_source', type: 'string', isOptional: true },
     ] }]);
-    expect(mySchema.version).toBe(22);
+    expect(mySchema.version).toBeGreaterThanOrEqual(22);
     expect(mySchema.tables.albums.columns.cover_color.isOptional).toBe(true);
     expect(mySchema.tables.albums.columns.cover_color_source.isOptional).toBe(true);
     expect(mySchema.tables.albums.columns.cover_url).toBeDefined();

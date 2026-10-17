@@ -20,6 +20,9 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'src/utils/trackTimestamps.ts',
+    'src/services/TimestampService.ts',
+    'src/services/TimestampReceiver.ts',
     'src/utils/androidAuto.ts',
     'src/services/AndroidAutoCatalog.ts',
     'src/services/AndroidAutoService.ts',

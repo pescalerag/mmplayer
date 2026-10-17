@@ -207,6 +207,16 @@ export const PlaybackService = async function () {
   startAndroidAutoService();
   void ensurePlaybackReady().catch(error => console.error('[Playback] Initialization failed:', error));
   startNotificationFavoritesSync();
+  TrackPlayer.addEventListener('playback-timestamp-loop' as Event, async (event: any) => {
+    const id = event.trackId;
+    if (!id || id !== PlaybackTimeTracker.getCurrentTrackId() || useMultipleQueuesStore.getState().isSwitching) return;
+    PlaybackTimeTracker.onStateNotPlaying();
+    await persistPreviousListen(id);
+    if (id !== PlaybackTimeTracker.getCurrentTrackId() || useMultipleQueuesStore.getState().isSwitching) return;
+    const { state } = await TrackPlayer.getPlaybackState();
+    if (state === State.Playing && id === PlaybackTimeTracker.getCurrentTrackId()
+      && !useMultipleQueuesStore.getState().isSwitching) PlaybackTimeTracker.onStatePlaying(id);
+  });
   TrackPlayer.addEventListener(Event.RemotePlay, async () => {
     await ensurePlaybackReady();
     if (useMultipleQueuesStore.getState().isSwitching) return;

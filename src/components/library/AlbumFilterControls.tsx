@@ -42,7 +42,7 @@ export function AlbumFilterControls({ onApply, draft: controlled, setDraft: upda
     </FilterDisclosure>
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 16, gap: 12 }}>
       <Text style={{ flex: 1, color: colors.text, fontFamily: fonts.regular }}>{t('album_filters.withoutCover')}</Text>
-      <Switch value={draft.withoutCover} accessibilityLabel={t('album_filters.withoutCover')} onValueChange={withoutCover => setDraft(previous => ({ ...previous, withoutCover }))} trackColor={{ false: colors.cardBackground, true: colors.accent }} />
+      <Switch value={draft.withoutCover} accessibilityLabel={t('album_filters.withoutCover')} onValueChange={withoutCover => setDraft(previous => ({ ...previous, withoutCover }))} trackColor={{ false: colors.cardBackground, true: colors.accent }} thumbColor={draft.withoutCover ? '#FFFFFF' : '#888888'} />
     </View>
     {error && <Text accessibilityRole="alert" style={{ color: colors.accent }}>{t('album_filters.invalid')}</Text>}
     {!hideActions && <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 12 }}>

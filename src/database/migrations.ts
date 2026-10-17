@@ -241,5 +241,11 @@ export const myMigrations = schemaMigrations({
         { name: 'cover_color_source', type: 'string', isOptional: true },
       ] })],
     },
+    {
+      toVersion: 23,
+      steps: [addColumns({ table: 'tracks', columns: [
+        { name: 'skip_segments', type: 'string', isOptional: true },
+      ] })],
+    },
   ],
 });

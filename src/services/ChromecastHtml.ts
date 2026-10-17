@@ -1,4 +1,5 @@
 import i18n from '../constants/i18n';
+import { timestampReceiverSource } from './TimestampReceiver';
 
 export function getChromecastHtml(): string {
     const jsLabel = (key: string) => JSON.stringify(i18n.t(key)).replace(/</g, '\\u003c');
@@ -534,6 +535,7 @@ export function getChromecastHtml(): string {
             try {
                 var castContext = cast.framework.CastReceiverContext.getInstance();
                 var CAST_NAMESPACE = 'urn:x-cast:com.pescalerag.mmplayer';
+                var timestampTrackId = '', timestampToken = '', timestampRevision = 0;
 
                 // 1. Canal personalizado: Recibe letras y carátula
                 castContext.addCustomMessageListener(CAST_NAMESPACE, function(customEvent) {
@@ -541,6 +543,12 @@ export function getChromecastHtml(): string {
                     try {
                         var data = typeof customEvent.data === 'string' ? JSON.parse(customEvent.data) : customEvent.data;
                         if (!data) return;
+                        if (data.action === 'UPDATE_TIMESTAMPS' && (!data.trackId || data.trackId === timestampTrackId)) {
+                            timestampSkipper.update(data.skipConfig, timestampToken);
+                        }
+                        if (data.action === 'TIMESTAMP_SEEK' && Number.isFinite(data.position)) {
+                            timestampSkipper.automaticSeek(); playerManager.seek(data.position);
+                        }
 
                         if (data.action === 'UPDATE_LYRICS' || data.lyricsLRC !== undefined) {
                             renderLyrics(data.lyricsLRC || '');
@@ -554,6 +562,22 @@ export function getChromecastHtml(): string {
                 });
 
                 var playerManager = castContext.getPlayerManager();
+                var timestampSkipper = (${timestampReceiverSource})({
+                    position: function() { return playerManager.getCurrentTimeSec(); },
+                    duration: function() { return playerManager.getDurationSec(); },
+                    playing: function() { return playerManager.getPlayerState() === cast.framework.messages.PlayerState.PLAYING; },
+                    seek: function(position) {
+                        playerManager.seek(position);
+                        // The existing TRACK_ENDED path owns tail skips and queue advancement.
+                        if (position < playerManager.getDurationSec()) {
+                            castContext.sendCustomMessage(CAST_NAMESPACE, undefined, { action: 'TIMESTAMP_SKIPPED', trackId: timestampTrackId, position: position });
+                        }
+                    }
+                });
+                playerManager.setMessageInterceptor(cast.framework.messages.MessageType.SEEK, function(request) {
+                    timestampSkipper.manualSeek(request.currentTime);
+                    return request;
+                });
 
                 // 2. Interceptor de Carga Oficial: Extrae metadatos y URLs
                 playerManager.setMessageInterceptor(
@@ -577,6 +601,9 @@ export function getChromecastHtml(): string {
                             testAudioUrl(currentAudioUrl);
 
                             var customData = loadRequestData.customData || loadRequestData.media.customData;
+                            timestampTrackId = customData && customData.trackId || currentAudioUrl;
+                            timestampToken = timestampTrackId + ':' + (++timestampRevision);
+                            timestampSkipper.update(customData && customData.skipConfig, timestampToken);
                             if (customData) {
                                 if (customData.serverUrl) {
                                     currentServerUrl = customData.serverUrl;

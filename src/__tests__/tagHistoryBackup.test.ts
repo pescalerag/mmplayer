@@ -58,6 +58,18 @@ describe('tag snapshot backups', () => {
     expect(useBackupStore.getState().setError).not.toHaveBeenCalled();
   });
 
+  it('preserves timestamp intervals when exporting and importing the library', async () => {
+    const skip_segments = JSON.stringify({ enabled: true, segments: [{ id: 'intro', startMs: 0, endMs: 12000 }] });
+    rows.tracks = [{ id: 'song', title: 'Song', duration: 180, skip_segments }];
+    await BackupService.exportDatabase();
+    const exported = (FileSystem.writeAsStringAsync as jest.Mock).mock.calls[0][1];
+    expect(JSON.parse(exported).tracks[0].skip_segments).toBe(skip_segments);
+    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue(exported);
+    await BackupService.importDatabase();
+    expect(restored.find(row => row.table === 'tracks')?._raw.skip_segments).toBe(skip_segments);
+    expect(useBackupStore.getState().setError).not.toHaveBeenCalled();
+  });
+
   it('restores old backups without inventing historical tags', async () => {
     const { tags_captured: _captured, ...legacy } = history;
     (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue(JSON.stringify({ playback_history: [legacy], track_tags: [{ track_id: 'song', tag_id: 'rock' }] }));

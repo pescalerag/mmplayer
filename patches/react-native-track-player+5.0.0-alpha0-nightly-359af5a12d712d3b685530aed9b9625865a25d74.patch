@@ -1434,7 +1434,7 @@ index 0000000..4211858
 +    }
 +}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..f5397f3 100644
+index b495b5a..44be518 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -20,6 +20,10 @@ import androidx.media3.common.util.UnstableApi
@@ -1456,7 +1456,7 @@ index b495b5a..f5397f3 100644
  import java.util.concurrent.TimeUnit
  import kotlin.system.exitProcess
  
-@@ -67,7 +72,28 @@ class MusicService : HeadlessJsMediaService() {
+@@ -67,7 +72,29 @@ class MusicService : HeadlessJsMediaService() {
      private var sessionCommands: SessionCommands? = null
      private var playerCommands: Player.Commands? = null
      private var customLayout: List<CommandButton> = listOf()
@@ -1467,6 +1467,7 @@ index b495b5a..f5397f3 100644
      private var lastWake: Long = 0
 +    private val autoSubscriptions = mutableSetOf<String>()
 +    private var autoState = JSONObject()
++    private var timestamps: TimestampController? = null
 +
 +    private fun autoButtons(): List<CommandButton> = listOf(
 +        CommandButton.Builder(if (autoState.optBoolean("shuffle")) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
@@ -1485,7 +1486,7 @@ index b495b5a..f5397f3 100644
      var onStartCommandIntentValid: Boolean = true
  
      fun acquireWakeLock() {
-@@ -92,11 +118,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -92,11 +119,29 @@ class MusicService : HeadlessJsMediaService() {
  
      @ExperimentalCoroutinesApi
      override fun onCreate() {
@@ -1515,7 +1516,7 @@ index b495b5a..f5397f3 100644
          fakePlayer = ExoPlayer.Builder(this).build()
          val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
              flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-@@ -104,9 +148,11 @@ class MusicService : HeadlessJsMediaService() {
+@@ -104,9 +149,11 @@ class MusicService : HeadlessJsMediaService() {
              data = Uri.parse("trackplayer://notification.click")
              action = Intent.ACTION_VIEW
          }
@@ -1527,7 +1528,7 @@ index b495b5a..f5397f3 100644
              .setBitmapLoader(CacheBitmapLoader(CoilBitmapLoader(this)))
              // https://github.com/androidx/media/issues/1218
              .setSessionActivity(
-@@ -119,6 +165,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -119,6 +166,7 @@ class MusicService : HeadlessJsMediaService() {
              )
              .build()
          super.onCreate()
@@ -1535,7 +1536,7 @@ index b495b5a..f5397f3 100644
      }
  
      enum class AppKilledPlaybackBehavior(val string: String) {
-@@ -166,12 +213,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -166,12 +214,9 @@ class MusicService : HeadlessJsMediaService() {
      override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
          onStartCommandIntentValid = intent != null
          Timber.d("onStartCommand: ${intent?.action}, ${intent?.`package`}")
@@ -1551,11 +1552,19 @@ index b495b5a..f5397f3 100644
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
          }
-@@ -211,6 +255,13 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +256,21 @@ class MusicService : HeadlessJsMediaService() {
          player = QueuedAudioPlayer(this@MusicService, options)
          fakePlayer.release()
          mediaSession.player = player.forwardingPlayer
-+        player.onPlayerReplaced = { mediaSession.player = player.forwardingPlayer }
++        timestamps = TimestampController(player.exoPlayer, {
++            (currentTrack?.originalItem?.getString("id") ?: "") to currentTrack?.originalItem?.getString("skipSegments")
++        }, {
++            emit("playback-timestamp-loop", Bundle().apply { putString("trackId", currentTrack?.originalItem?.getString("id")) })
++        }).also { it.configure(timestampPolicy) }
++        player.onPlayerReplaced = {
++            mediaSession.player = player.forwardingPlayer
++            timestamps?.replacePlayer(player.exoPlayer)
++        }
 +        player.onCrossfadeTransition = { index, position, transitionId ->
 +            emitPlaybackTrackChangedEvents(index, position.toSeconds(), true, transitionId)
 +        }
@@ -1565,7 +1574,7 @@ index b495b5a..f5397f3 100644
          observeEvents()
      }
  
-@@ -274,7 +325,6 @@ class MusicService : HeadlessJsMediaService() {
+@@ -274,7 +334,6 @@ class MusicService : HeadlessJsMediaService() {
              Player.COMMAND_SEEK_TO_MEDIA_ITEM,
              Player.COMMAND_SET_MEDIA_ITEM,
              Player.COMMAND_PREPARE,
@@ -1573,7 +1582,7 @@ index b495b5a..f5397f3 100644
          )
          notificationCapabilities.forEach {
              when (it) {
-@@ -290,14 +340,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -290,14 +349,29 @@ class MusicService : HeadlessJsMediaService() {
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -1603,7 +1612,7 @@ index b495b5a..f5397f3 100644
          customLayout.forEach { v ->
              v.sessionCommand?.let { sessionCommandsBuilder.add(it) }
          }
-@@ -305,18 +370,13 @@ class MusicService : HeadlessJsMediaService() {
+@@ -305,18 +379,13 @@ class MusicService : HeadlessJsMediaService() {
          sessionCommands = sessionCommandsBuilder.build()
          playerCommands = playerCommandsBuilder.build()
  
@@ -1628,7 +1637,7 @@ index b495b5a..f5397f3 100644
      }
  
      @MainThread
-@@ -335,6 +395,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -335,6 +404,7 @@ class MusicService : HeadlessJsMediaService() {
      private suspend fun progressUpdateEvent(): Bundle {
          return withContext(Dispatchers.Main) {
              Bundle().apply {
@@ -1636,7 +1645,7 @@ index b495b5a..f5397f3 100644
                  putDouble(POSITION_KEY, player.position.toSeconds())
                  putDouble(DURATION_KEY, player.duration.toSeconds())
                  putDouble(BUFFERED_POSITION_KEY, player.bufferedPosition.toSeconds())
-@@ -443,12 +504,41 @@ class MusicService : HeadlessJsMediaService() {
+@@ -443,12 +513,41 @@ class MusicService : HeadlessJsMediaService() {
      @MainThread
      fun getCurrentTrackIndex(): Int = player.currentIndex
  
@@ -1648,7 +1657,8 @@ index b495b5a..f5397f3 100644
 +    private var lastSpeed: Float = 1.0f
 +    private var lastPitch: Float = 1.0f
 +
-+    @MainThread
+     @MainThread
+-    fun getRate(): Float = player.playbackSpeed
 +    fun applyPlaybackParameters(speed: Float, pitch: Float) {
 +        lastSpeed = if (speed.isFinite() && speed > 0f) speed.coerceIn(0.25f, 4.0f) else 1.0f
 +        lastPitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
@@ -1661,8 +1671,7 @@ index b495b5a..f5397f3 100644
 +        }
 +    }
 +
-     @MainThread
--    fun getRate(): Float = player.playbackSpeed
++    @MainThread
 +    fun getRate(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.speed else lastSpeed
  
      @MainThread
@@ -1680,7 +1689,7 @@ index b495b5a..f5397f3 100644
      }
  
      @MainThread
-@@ -495,16 +585,59 @@ class MusicService : HeadlessJsMediaService() {
+@@ -495,16 +594,59 @@ class MusicService : HeadlessJsMediaService() {
          }
      }
  
@@ -1741,7 +1750,7 @@ index b495b5a..f5397f3 100644
          bundle.putDouble("lastPosition", oldPosition)
          if (tracks.isNotEmpty()) {
              bundle.putInt("index", player.currentIndex)
-@@ -538,12 +671,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -538,12 +680,21 @@ class MusicService : HeadlessJsMediaService() {
  
          scope.launch {
              event.audioItemTransition.collect {
@@ -1763,7 +1772,7 @@ index b495b5a..f5397f3 100644
              }
          }
  
-@@ -714,6 +856,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -714,6 +865,7 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onTaskRemoved(rootIntent: Intent?) {
@@ -1771,10 +1780,11 @@ index b495b5a..f5397f3 100644
          onUnbind(rootIntent)
          Timber.d("isInitialized = ${::player.isInitialized}, appKilledPlaybackBehavior = $appKilledPlaybackBehavior")
          if (!::player.isInitialized) {
-@@ -792,12 +935,34 @@ class MusicService : HeadlessJsMediaService() {
+@@ -792,12 +944,35 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onDestroy() {
++        timestamps?.release()
 +        AndroidAutoBridge.cancelAll()
 +        if (::mediaSession.isInitialized) {
 +            Timber.d("Releasing media session")
@@ -1809,7 +1819,7 @@ index b495b5a..f5397f3 100644
          progressUpdateJob?.cancel()
          super.onDestroy()
      }
-@@ -863,6 +1028,67 @@ class MusicService : HeadlessJsMediaService() {
+@@ -863,6 +1038,67 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      private inner class InnerMediaSessionCallback : MediaLibrarySession.Callback {
@@ -1877,7 +1887,7 @@ index b495b5a..f5397f3 100644
          // HACK: I'm sure most of the callbacks were not implemented correctly.
          // ATM I only care that andorid auto still functions.
  
-@@ -892,37 +1118,22 @@ class MusicService : HeadlessJsMediaService() {
+@@ -892,37 +1128,22 @@ class MusicService : HeadlessJsMediaService() {
                  putBoolean("isAutomotiveController", isAutomotiveController)
                  putBoolean("isAutoCompanionController", isAutoCompanionController)
              })
@@ -1929,7 +1939,7 @@ index b495b5a..f5397f3 100644
          }
  
          override fun onCustomCommand(
-@@ -931,6 +1142,18 @@ class MusicService : HeadlessJsMediaService() {
+@@ -931,6 +1152,18 @@ class MusicService : HeadlessJsMediaService() {
              command: SessionCommand,
              args: Bundle
          ): ListenableFuture<SessionResult> {
@@ -1948,7 +1958,7 @@ index b495b5a..f5397f3 100644
              player.forwardingPlayer.let {
                  when (command.customAction) {
                      CustomCommandButton.JUMP_BACKWARD.customAction -> { it.seekBack() }
-@@ -942,12 +1165,31 @@ class MusicService : HeadlessJsMediaService() {
+@@ -942,12 +1175,31 @@ class MusicService : HeadlessJsMediaService() {
              return super.onCustomCommand(session, controller, command, args)
          }
  
@@ -1980,7 +1990,7 @@ index b495b5a..f5397f3 100644
              return onMediaKeyEvent(intent) ?: super.onMediaButtonEvent(
                  session,
                  controllerInfo,
-@@ -962,7 +1204,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -962,7 +1214,7 @@ class MusicService : HeadlessJsMediaService() {
              emit(MusicEvents.PLAYBACK_RESUME, Bundle().apply {
                  putString("package", controller.packageName)
              })
@@ -1989,10 +1999,14 @@ index b495b5a..f5397f3 100644
          }
  
          override fun onSetRating(
-@@ -983,6 +1225,63 @@ class MusicService : HeadlessJsMediaService() {
+@@ -983,6 +1235,67 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      companion object {
++        private var timestampPolicy = "{}"
++        @JvmStatic fun configureTimestamps(json: String) { timestampPolicy = json; instance?.timestamps?.configure(json) }
++        @JvmStatic fun markTimestampSeek(manual: Boolean, position: Double) { instance?.timestamps?.markSeek(manual, position) }
++        @JvmStatic fun finishTimestampSeek() { instance?.timestamps?.finishSeek() }
 +        @JvmStatic fun updateAndroidAutoState(json: String) {
 +            instance?.let { service ->
 +                service.autoState = JSONObject(json)
@@ -2053,6 +2067,126 @@ index b495b5a..f5397f3 100644
          const val EMPTY_NOTIFICATION_ID = 1
          const val STATE_KEY = "state"
          const val ERROR_KEY = "error"
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/TimestampController.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/TimestampController.kt
+new file mode 100644
+index 0000000..adadc91
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/TimestampController.kt
+@@ -0,0 +1,114 @@
++package com.doublesymmetry.trackplayer.service
++
++import android.os.Handler
++import androidx.media3.common.C
++import androidx.media3.common.Player
++import androidx.media3.exoplayer.ExoPlayer
++import org.json.JSONObject
++
++/** Schedules only the next boundary; never performs DB reads or sends progress over the bridge. */
++class TimestampController(private var player: ExoPlayer, private val metadata: () -> Pair<String, String?>,
++    private val onRepeatTail: () -> Unit = {}) : Player.Listener {
++    private val handler = Handler(player.applicationLooper)
++    private var policy = JSONObject()
++    private var cachedKey = ""
++    private var segments = emptyList<Pair<Long, Long>>()
++    private var bypass: Pair<Long, Long>? = null
++    private var automaticSeek = false
++    private var pendingManual: Boolean? = null
++    private val tick = Runnable { check() }
++
++    init { player.addListener(this) }
++
++    fun configure(json: String) { policy = JSONObject(json); check() }
++    fun markSeek(manual: Boolean, position: Double) {
++        refresh()
++        pendingManual = manual
++        bypass = if (manual) segments.find { position * 1000 >= it.first && position * 1000 < it.second } else null
++        handler.removeCallbacks(tick)
++    }
++    fun finishSeek() { pendingManual = null; check() }
++    fun replacePlayer(next: ExoPlayer) {
++        player.removeListener(this)
++        handler.removeCallbacks(tick)
++        player = next
++        cachedKey = ""; bypass = null; pendingManual = null
++        player.addListener(this)
++        check()
++    }
++    fun release() { handler.removeCallbacks(tick); player.removeListener(this) }
++
++    override fun onEvents(player: Player, events: Player.Events) { check() }
++    override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
++        refresh()
++        if (reason == Player.DISCONTINUITY_REASON_SEEK && !automaticSeek && pendingManual == true) {
++            bypass = segments.find { newPosition.positionMs >= it.first && newPosition.positionMs < it.second }
++        } else if (automaticSeek || pendingManual == false || reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) bypass = null
++        pendingManual = null
++    }
++
++    private fun refresh() {
++        val (id, embedded) = metadata()
++        val raw = if (policy.optString("trackId") == id.substringBefore('-')) policy.optJSONObject("config")?.toString() else embedded
++        val key = "$id:$raw"
++        if (key == cachedKey) return
++        val previousId = cachedKey.substringBefore(':')
++        cachedKey = key
++        if (previousId != id) bypass = null
++        segments = try {
++            val config = JSONObject(raw ?: "{}")
++            if (!config.optBoolean("enabled", true)) emptyList() else {
++                val rows = config.optJSONArray("segments")
++                (0 until (rows?.length() ?: 0)).mapNotNull { index ->
++                    val row = rows!!.getJSONObject(index)
++                    val start = row.optLong("startMs", -1); val end = row.optLong("endMs", -1)
++                    if (start >= 0 && start < end) start to end else null
++                }.sortedBy { it.first }
++            }
++        } catch (_: Exception) { emptyList() }
++        if (bypass !in segments) bypass = null
++    }
++
++    private fun jump(position: Long) {
++        automaticSeek = true
++        try { player.seekTo(position) } finally { automaticSeek = false }
++    }
++
++    private fun check() {
++        handler.removeCallbacks(tick)
++        refresh()
++        if (segments.isEmpty() || policy.optBoolean("blocked") || !player.isPlaying || pendingManual != null) return
++        val duration = player.duration
++        if (duration == C.TIME_UNSET || duration <= 0) return
++        val position = player.currentPosition
++        val a = policy.optDouble("pointA", -1.0) * 1000
++        val b = policy.optDouble("pointB", -1.0) * 1000
++        val looping = a >= 0 && b > a && (!policy.has("trackId") || policy.optString("trackId") == metadata().first.substringBefore('-'))
++        if (looping && (position >= b || position < a - 500)) {
++            val target = segments.find { a >= it.first && a < it.second }?.second ?: a.toLong()
++            if (target >= b) { player.pause(); return }
++            bypass = null
++            jump(target)
++            handler.postDelayed(tick, 10)
++            return
++        }
++        if (bypass?.let { position < it.first || position >= it.second } == true) bypass = null
++        val segment = segments.find { position >= it.first && position < it.second && it.second <= duration }
++        if (segment != null && segment != bypass) {
++            val target = if (looping) minOf(segment.second, b.toLong()) else segment.second
++            if (!looping && target >= duration && player.repeatMode == Player.REPEAT_MODE_ONE) onRepeatTail()
++            jump(target)
++            handler.postDelayed(tick, 10)
++            return
++        }
++        var next = segments.firstOrNull { it.first > position }?.first ?: return scheduleAB(looping, b, position)
++        if (looping) next = minOf(next, b.toLong())
++        schedule(next.toDouble(), position)
++    }
++
++    private fun scheduleAB(looping: Boolean, b: Double, position: Long) { if (looping) schedule(b, position) }
++    private fun schedule(next: Double, position: Long) {
++        val delay = ((next - position) / player.playbackParameters.speed.coerceAtLeast(0.1f)).toLong().coerceIn(10, 5000)
++        handler.postDelayed(tick, delay)
++    }
++}
 diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt
 new file mode 100644
 index 0000000..b310a41
@@ -2479,6 +2613,121 @@ index 0000000..4c11bd6
 +            player.focusManager.handleAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN)
 +            assertFalse(player.exoPlayer.playWhenReady)
 +        } finally { player.destroy() }
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/trackplayer/service/TimestampControllerTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/trackplayer/service/TimestampControllerTest.kt
+new file mode 100644
+index 0000000..5debf82
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/trackplayer/service/TimestampControllerTest.kt
+@@ -0,0 +1,109 @@
++package com.doublesymmetry.trackplayer.service
++
++import android.os.Looper
++import androidx.media3.common.PlaybackParameters
++import androidx.media3.common.Player
++import androidx.media3.exoplayer.ExoPlayer
++import org.junit.Assert.*
++import org.junit.After
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.mockito.ArgumentMatchers.anyLong
++import org.mockito.Mockito.*
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.annotation.Config
++
++@RunWith(RobolectricTestRunner::class)
++@Config(sdk = [28], manifest = Config.NONE)
++class TimestampControllerTest {
++    private lateinit var player: ExoPlayer
++    private lateinit var controller: TimestampController
++    private var position = 0L
++    private var playing = true
++    private var duration = 100000L
++    private var id = "song-instance"
++    private var raw = """{"enabled":true,"segments":[{"id":"intro","startMs":0,"endMs":10000},{"id":"middle","startMs":20000,"endMs":40000},{"id":"tail","startMs":90000,"endMs":100000}]}"""
++    private var repeated = 0
++
++    @Before fun setup() {
++        player = mock(ExoPlayer::class.java)
++        `when`(player.applicationLooper).thenReturn(Looper.getMainLooper())
++        `when`(player.isPlaying).thenAnswer { playing }
++        `when`(player.currentPosition).thenAnswer { position }
++        `when`(player.duration).thenAnswer { duration }
++        `when`(player.playbackParameters).thenReturn(PlaybackParameters(1f))
++        doAnswer { position = it.getArgument(0); null }.`when`(player).seekTo(anyLong())
++        controller = TimestampController(player, { id to raw }, { repeated++ })
++    }
++    @After fun cleanup() { controller.release() }
++
++    @Test fun skipsIntroMiddleAndEndUsingTheNativeClock() {
++        controller.configure("{}")
++        assertEquals(10000L, position)
++        position = 25000; controller.configure("{}"); assertEquals(40000L, position)
++        position = 92000; controller.configure("{}"); assertEquals(100000L, position)
++    }
++
++    @Test fun manualSeekOverridesOnlyTheCurrentVisit() {
++        position = 15000; controller.configure("{}")
++        controller.markSeek(true, 25.0); position = 25000; controller.finishSeek()
++        assertEquals(25000L, position)
++        controller.configure("{}"); assertEquals(25000L, position)
++        position = 45000; controller.configure("{}")
++        position = 25000; controller.configure("{}"); assertEquals(40000L, position)
++    }
++
++    @Test fun automaticABSeeksKeepSkippingAndLoopAtB() {
++        position = 15000
++        val policy = """{"pointA":15,"pointB":35}"""
++        controller.configure(policy)
++        position = 21000; controller.configure(policy); assertEquals(35000L, position)
++        controller.configure(policy); assertEquals(15000L, position)
++        controller.markSeek(false, 25.0); position = 25000; controller.finishSeek()
++        assertEquals(35000L, position)
++    }
++
++    @Test fun handlesABStartingInsideAnOmittedSectionAndRefusesAnInaudibleLoop() {
++        position = 50000
++        controller.configure("""{"pointA":25,"pointB":50}""")
++        assertEquals(40000L, position)
++        position = 35000
++        controller.configure("""{"pointA":25,"pointB":35}""")
++        verify(player).pause()
++    }
++
++    @Test fun staysIdleWhilePausedCastingOrEditingAndIgnoresChangedFileDuration() {
++        playing = false; controller.configure("{}"); assertEquals(0L, position)
++        playing = true; controller.configure("""{"blocked":true}"""); assertEquals(0L, position)
++        position = 25000; duration = 30000; controller.configure("{}"); assertEquals(25000L, position)
++    }
++
++    @Test fun aDifferentOccurrenceClearsManualBypassAndUpdatedRulesApplyToTheMatchingSongOnly() {
++        position = 15000; controller.configure("{}")
++        controller.markSeek(true, 25.0); position = 25000; controller.finishSeek()
++        id = "song-new-instance"; controller.configure("{}"); assertEquals(40000L, position)
++        position = 25000
++        controller.configure("""{"trackId":"other","config":{"enabled":false,"segments":[]}}""")
++        assertEquals(40000L, position)
++        position = 25000
++        controller.configure("""{"trackId":"song","config":{"enabled":false,"segments":[]}}""")
++        assertEquals(25000L, position)
++    }
++
++    @Test fun reportsRepeatOneCompletionWithoutCountingTheSkippedTailAsListening() {
++        `when`(player.repeatMode).thenReturn(Player.REPEAT_MODE_ONE)
++        position = 92000; controller.configure("{}"); assertEquals(1, repeated)
++        assertEquals(100000L, position)
++        controller.configure("{}"); assertEquals(1, repeated)
++    }
++
++    @Test fun doesNotApplyThePreviousSongsABRangeBeforeJavaScriptObservesANewTrack() {
++        position = 50000
++        controller.configure("""{"trackId":"previous","pointA":15,"pointB":35}""")
++        assertEquals(50000L, position)
++        position = 25000
++        controller.configure("""{"trackId":"previous","pointA":15,"pointB":35}""")
++        assertEquals(40000L, position)
 +    }
 +}
 diff --git a/node_modules/react-native-track-player/lib/module/constants/Capability.js b/node_modules/react-native-track-player/lib/module/constants/Capability.js

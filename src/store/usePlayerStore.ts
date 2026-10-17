@@ -145,7 +145,8 @@ async function restorePlaybackPosition(position: number): Promise<void> {
   const loaded = await pollDuration(30);
 
   if (loaded) {
-    await TrackPlayer.seekTo(position);
+    const { TimestampService } = await import('../services/TimestampService');
+    await TimestampService.seekAutomatically(position);
     console.log(`[Store] Restaurado minutaje a la posición: ${position}s`);
   } else {
     console.warn(`[Store] No se pudo restaurar el minutaje (posición: ${position}s) porque el track no cargó a tiempo.`);
@@ -266,6 +267,7 @@ export async function mapToTPTrack(track: Track, instanceId?: string): Promise<T
     instanceId: instanceId || uniqueSuffix,
     replayGain: track.replayGain ?? null,
     replayPeak: track.replayPeak ?? null,
+    skipSegments: track.skipSegments ?? null,
   };
 }
 
@@ -1931,6 +1933,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const artist = artistNames;
       const albumTitle = album?.title || i18n.t('metadata.unknown_album');
       const artwork = album?.coverUrl || undefined;
+      const metadata = { title, artist, album: albumTitle, artwork, skipSegments: track.skipSegments ?? null };
 
       const activeTrack = get().activeTrack;
       if (activeTrack?.id === trackId) {
@@ -1945,12 +1948,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const tpTrackId = tpTrack.id.toString();
         if (tpTrackId.startsWith(`${trackId}-`) || tpTrack.url === track.fileUrl) {
           metadataUpdates.push(
-            TrackPlayer.updateMetadataForTrack(i, {
-              title,
-              artist,
-              album: albumTitle,
-              artwork,
-            })
+            TrackPlayer.updateMetadataForTrack(i, metadata)
           );
           updatedAny = true;
         }

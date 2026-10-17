@@ -537,6 +537,11 @@ export default function TrackMenuSheet() {
         </>
       )}
 
+      <MenuOption icon="play-forward-outline" text={t('timestamps.configure')} onPress={() => {
+        closeMenu();
+        navigationRef.navigate('TimestampsEditor', { trackId: selectedTrack.id });
+      }} />
+
       {/* OPTION: Properties */}
       <MenuSeparator />
       <MenuOption

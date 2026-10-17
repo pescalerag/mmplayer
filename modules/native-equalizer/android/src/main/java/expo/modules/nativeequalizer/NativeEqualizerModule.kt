@@ -175,6 +175,18 @@ class NativeEqualizerModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
         Events("androidAutoRequest")
+        AsyncFunction("configureTimestamps") { json: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("configureTimestamps", String::class.java).invoke(null, json)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("markTimestampSeek") { manual: Boolean, position: Double ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("markTimestampSeek", Boolean::class.javaPrimitiveType, Double::class.javaPrimitiveType).invoke(null, manual, position)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("finishTimestampSeek") {
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("finishTimestampSeek").invoke(null)
+        }.runOnQueue(Queues.MAIN)
         AsyncFunction("invalidateAndroidAuto") {
             Class.forName("com.doublesymmetry.trackplayer.service.MusicService").getMethod("invalidateAndroidAuto").invoke(null)
         }.runOnQueue(Queues.MAIN)

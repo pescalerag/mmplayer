@@ -28,6 +28,7 @@ import SongShareScreen from "../screens/player/SongShareScreen";
 import LyricsShareScreen from "../screens/player/LyricsShareScreen";
 import { RootStackParamList } from "./types";
 import MultiSelectActionBar from '@/components/common/MultiSelectActionBar';
+import TimestampsEditorScreen from '../screens/player/TimestampsEditorScreen';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -344,6 +345,7 @@ export default function MainNavigator() {
       <GlobalSyncIndicator />
       <RootStack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: false }}>
         <RootStack.Screen name="Main" component={MainTabs} />
+        <RootStack.Screen name="TimestampsEditor" component={TimestampsEditorScreen} options={{ animation: 'slide_from_right' }} />
         <RootStack.Screen
           name="Player"
           component={PlayerNavigator}

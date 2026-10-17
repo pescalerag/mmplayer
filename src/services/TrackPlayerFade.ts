@@ -25,6 +25,14 @@ const originalGetPlaybackState = TrackPlayer.getPlaybackState.bind(TrackPlayer);
 const originalSeekTo = TrackPlayer.seekTo.bind(TrackPlayer);
 const originalGetProgress = TrackPlayer.getProgress.bind(TrackPlayer);
 
+// Mirror a receiver-side jump without sending another seek back to the receiver.
+export async function syncNativeTimestampSeek(position: number) {
+  const { TimestampService } = require('./TimestampService');
+  await TimestampService.markSeek(position, true);
+  try { await originalSeekTo(position); }
+  finally { await TimestampService.finishSeek(); }
+}
+
 let fadeTimer: any = null;
 let targetVolume = 1.0;
 let currentVolume = 1.0;
@@ -58,21 +66,25 @@ TrackPlayer.getProgress = async () => {
 };
 
 // Override seekTo to sync with Chromecast and LocalCast
-TrackPlayer.seekTo = async (position: number) => {
+TrackPlayer.seekTo = async (position: number, automatic = false) => {
+  const { TimestampService } = require('./TimestampService');
+  await TimestampService.markSeek(position, automatic);
   try {
-    const { useCastStore } = require('../store/useCastStore');
-    if (useCastStore.getState().isChromecastConnected) {
-      const { ChromecastService } = require('./ChromecastService');
-      ChromecastService.seekTo(position);
-    }
-    if (useCastStore.getState().isLocalCastActive) {
-      useCastStore.setState({ castPosition: position });
-      const { LocalCastService } = require('./LocalCastService');
-      LocalCastService.emitSeek(position);
-      return;
-    }
-  } catch (e) {}
-  return originalSeekTo(position);
+    try {
+      const { useCastStore } = require('../store/useCastStore');
+      if (useCastStore.getState().isChromecastConnected) {
+        const { ChromecastService } = require('./ChromecastService');
+        await ChromecastService.seekTo(position, automatic);
+      }
+      if (useCastStore.getState().isLocalCastActive) {
+        useCastStore.setState({ castPosition: position });
+        const { LocalCastService } = require('./LocalCastService');
+        LocalCastService.emitSeek(position, automatic);
+        return;
+      }
+    } catch (e) {}
+    return await originalSeekTo(position);
+  } finally { await TimestampService.finishSeek(); }
 };
 
 // Override getPlaybackState

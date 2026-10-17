@@ -85,6 +85,7 @@ export type PlayerStackParamList = {
 };
 
 export type RootStackParamList = {
+    TimestampsEditor: { trackId: string };
     Main: undefined;
     Player: undefined | NavigatorScreenParams<PlayerStackParamList>;
     DebugHistory: undefined;

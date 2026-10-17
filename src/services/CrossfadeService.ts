@@ -1,6 +1,8 @@
 import { Platform } from 'react-native';
 import { setCrossfadeSettings } from '../../modules/native-equalizer';
 import { getCrossfadePolicy } from '../utils/crossfadePolicy';
+import { useTimestampStore } from '../store/useTimestampStore';
+import { parseSkipConfig } from '../utils/trackTimestamps';
 
 let refresh: (() => Promise<void>) | undefined;
 let blocks = 0;
@@ -21,11 +23,14 @@ export async function initializeCrossfade() {
         const player = usePlayerStore.getState();
         const cast = useCastStore.getState();
         const ab = useABRepeatStore.getState();
+        const timestamps = useTimestampStore.getState().config;
+        const nextTimestamps = parseSkipConfig(player.nextTrack?.skipSegments);
+        const hasTimestamps = (timestamps.enabled && timestamps.segments.length > 0) || (nextTimestamps.enabled && nextTimestamps.segments.length > 0);
         const policy = getCrossfadePolicy({ seconds: settings.crossfadeSeconds,
             casting: cast.isServerRunning || cast.isLocalCastActive || cast.isChromecastConnected,
             switchingQueue: useMultipleQueuesStore.getState().isSwitching,
             restoring: player.isRestoring, syncingLyrics: player.isSyncingLyrics,
-            hasABPoint: ab.pointA !== null || ab.pointB !== null, blocked: blocks > 0 });
+            hasABPoint: ab.pointA !== null || ab.pointB !== null, blocked: blocks > 0 || hasTimestamps });
         const key = JSON.stringify(policy);
         if (key === last) return pending;
         last = key;
@@ -44,6 +49,7 @@ export async function initializeCrossfade() {
     useCastStore.subscribe(apply);
     useMultipleQueuesStore.subscribe(apply);
     useABRepeatStore.subscribe(apply);
+    useTimestampStore.subscribe(apply);
     await refresh();
 }
 

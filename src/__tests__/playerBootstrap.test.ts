@@ -1,5 +1,6 @@
 jest.mock('../services/trackPlayerSetup', () => ({ setupPlayer: jest.fn().mockResolvedValue(true) }));
 jest.mock('../services/EqualizerService', () => ({ EqualizerService: { subscribeToPlayback: jest.fn() } }));
+jest.mock('../services/TimestampService', () => ({ TimestampService: { initialize: jest.fn().mockResolvedValue(undefined) } }));
 jest.mock('../store/usePlayerStore', () => ({ usePlayerStore: { getState: () => ({ restorePlaybackState: mockRestore }) } }));
 const mockRestore = jest.fn().mockResolvedValue(undefined);
 let mockHydrated = true;
@@ -23,6 +24,7 @@ it('shares initialization between the UI and a cold-start car request', async ()
     expect(setupPlayer).toHaveBeenCalledTimes(1);
     expect(mockRestore).toHaveBeenCalledTimes(1);
     expect(EqualizerService.subscribeToPlayback).toHaveBeenCalledTimes(1);
+    expect(require('../services/TimestampService').TimestampService.initialize).toHaveBeenCalledTimes(1);
 });
 
 it('waits for saved settings before setting up or restoring audio', async () => {

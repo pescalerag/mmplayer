@@ -49,6 +49,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
+import { TimestampSliderMarkers } from '@/components/common/TimestampSliderMarkers';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
 import { PlayerArtwork } from '@/components/player/PlayerArtwork';
@@ -1637,6 +1638,7 @@ const PlayerProgressSection = ({
         <View style={styles.progressSection}>
             <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
                 <ABSliderMarkers duration={duration} />
+                <TimestampSliderMarkers duration={duration} />
                 <Slider
                     style={{ width: '100%', height: 40 }}
                     minimumValue={0}

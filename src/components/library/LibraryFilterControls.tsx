@@ -97,7 +97,7 @@ export function LibraryFilterControls({ section, onApply, draft: controlled, set
     })}
     {fields.includes('neverPlayed') && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16 }}>
       <Text style={{ flex: 1, color: colors.text, fontFamily: fonts.regular }}>{t('library_filters.neverPlayed')}</Text>
-      <Switch value={draft.neverPlayed === true} onValueChange={value => change('neverPlayed', value)} accessibilityLabel={t('library_filters.neverPlayed')} trackColor={{ false: colors.cardBackground, true: colors.accent }} />
+      <Switch value={draft.neverPlayed === true} onValueChange={value => change('neverPlayed', value)} accessibilityLabel={t('library_filters.neverPlayed')} trackColor={{ false: colors.cardBackground, true: colors.accent }} thumbColor={draft.neverPlayed === true ? '#FFFFFF' : '#888888'} />
     </View>}
     {error && <Text accessibilityRole="alert" style={{ color: colors.accent }}>{t('library_filters.invalid')}</Text>}
     {!hideActions && <View style={{ flexDirection: 'row', gap: 12, paddingVertical: 12 }}>

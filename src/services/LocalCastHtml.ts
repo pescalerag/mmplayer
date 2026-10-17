@@ -2,6 +2,7 @@ import { castReplayGainSource, castReplayGainMathSource } from './generated/Loca
 import { localCastAudioSource } from './generated/LocalCastAudioSource';
 import { localCastQueueSource, localCastLyricsSource, localCastThemeSource } from './generated/LocalCastViewSource';
 import { LocalCastTheme } from '../store/useSettingsStore';
+import { timestampReceiverSource } from './TimestampReceiver';
 
 export interface LocalCastTranslations {
     appTitle?: string;
@@ -884,6 +885,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             const clickX = e.clientX - rect.left;
             const pct = Math.max(0, Math.min(1, clickX / rect.width));
             const targetTime = pct * audioPlayer.duration;
+            timestampSkipper.manualSeek(targetTime);
             audioPlayer.currentTime = targetTime;
             progressFill.style.width = (pct * 100) + '%';
             timeCurrentEl.innerText = formatTime(targetTime);
@@ -902,6 +904,11 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         let pollTimeoutId          = null;
         let currentSessionId       = null;
         let consecutiveErrors      = 0;
+        const timestampSkipper = (${timestampReceiverSource})({
+            position: () => audioPlayer.currentTime, duration: () => audioPlayer.duration,
+            playing: () => !audioPlayer.paused && !audioPlayer.seeking && audioPlayer.readyState >= 2,
+            seek: position => { castAudio.seek(position); }
+        });
         const castAudio = (${localCastAudioSource})(audioPlayer, (report) => {
             fetch('/api/ended?token=' + encodeURIComponent(report.token) + '&report=' + encodeURIComponent(JSON.stringify(report)), { method: 'POST' })
                 .catch(() => {}).finally(() => scheduleNextPoll(500));
@@ -1012,6 +1019,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 });
                 navigator.mediaSession.setActionHandler('seekto', (details) => {
                     if (details.seekTime !== undefined && audioPlayer.duration) {
+                        timestampSkipper.manualSeek(details.seekTime);
                         audioPlayer.currentTime = details.seekTime;
                         fetch('/api/seek?position=' + details.seekTime.toFixed(2), { method: 'POST' }).catch(() => {});
                     }
@@ -1020,6 +1028,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         }
 
         function resetToIdle(statusMessage) {
+            timestampSkipper.stop();
             audioPlayer.pause();
             audioPlayer.src = '';
             currentSongTitle       = "";
@@ -1160,6 +1169,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 if (!response.ok) throw new Error('Response not OK: ' + response.status);
 
                 const state = await response.json();
+                timestampSkipper.update(state.skipConfig, state.playbackToken);
                 themeView.sync(state);
                 if (state.queueVersion) queueVersion = state.queueVersion;
                 if (typeof state.hasNext === 'boolean') nextBtn.disabled = !state.hasNext;
@@ -1197,6 +1207,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 if (state.command && state.command.id > lastHandledCmdId) {
                     lastHandledCmdId = state.command.id;
                     if (state.command.type === 'SEEK' && typeof state.command.position === 'number') {
+                        if (state.command.automatic) timestampSkipper.automaticSeek();
+                        else timestampSkipper.manualSeek(state.command.position);
                         castAudio.seek(state.command.position);
                         if (audioPlayer.duration) {
                             progressFill.style.width = ((state.command.position / audioPlayer.duration) * 100) + '%';
