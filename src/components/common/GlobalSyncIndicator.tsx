@@ -1,78 +1,62 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Animated, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { useSyncStore } from '../../store/useSyncStore';
 
 export default function GlobalSyncIndicator() {
-    const { colors, fonts, layout } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+    const { colors } = useAppTheme();
     const isScanning = useSyncStore(state => state.isScanning);
     const isSilentScan = useSyncStore(state => state.isSilentScan);
-    const insets = useSafeAreaInsets();
-    const translateY = useRef(new Animated.Value(-100)).current;
+    const translateX = useRef(new Animated.Value(-44)).current;
     const { t } = useTranslation();
 
     const shouldShow = isScanning && !isSilentScan;
+    const [visible, setVisible] = useState(shouldShow);
 
     useEffect(() => {
-        if (shouldShow) {
-            Animated.spring(translateY, {
-                toValue: insets.top > 0 ? insets.top + 10 : 40,
-                useNativeDriver: true,
-                tension: 40,
-                friction: 5,
-            }).start();
-        } else {
-            Animated.timing(translateY, {
-                toValue: -100,
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
-        }
-    }, [shouldShow, insets.top, translateY]);
+        if (shouldShow) setVisible(true);
+        const animation = Animated.timing(translateX, {
+            toValue: shouldShow ? 0 : -44,
+            duration: 200,
+            useNativeDriver: true,
+        });
+        animation.start(({ finished }) => {
+            if (finished && !shouldShow) setVisible(false);
+        });
+        return () => animation.stop();
+    }, [shouldShow, translateX]);
+
+    if (!visible) return null;
 
     return (
-        <Animated.View style={[styles.container, { transform: [{ translateY }] }]} pointerEvents="none">
-            <View style={styles.island}>
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={styles.text}>{t('toasts.syncing')}</Text>
-            </View>
+        <Animated.View style={[styles.container, { backgroundColor: colors.cardBackground,
+            borderColor: colors.overlayAlpha20, transform: [{ translateX }] }]} pointerEvents="none"
+            accessible accessibilityRole="progressbar" accessibilityLabel={t('toasts.syncing')}
+            importantForAccessibility={shouldShow ? 'yes' : 'no-hide-descendants'}>
+            <ActivityIndicator size="small" color={colors.accent} accessible={false} />
         </Animated.View>
     );
 }
 
-const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
+const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
+        top: '30%',
+        marginTop: -26,
+        left: -24,
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        paddingRight: 4,
+        borderWidth: 1,
         zIndex: 9999,
-        elevation: 9999,
-    },
-    island: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#121212',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 24,
+        elevation: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 8,
-        elevation: 8,
-        borderWidth: 1,
-        borderColor: colors.cardBackground,
-    },
-    text: {
-        color: colors.text,
-        marginLeft: 10,
-        fontFamily: fonts.regular,
-        fontSize: 13,
-        fontWeight: '700',
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
     }
 });
