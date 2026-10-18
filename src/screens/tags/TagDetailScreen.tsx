@@ -1,6 +1,9 @@
+import { summarizeTrackRatings } from '../../utils/trackRatings';
+import { RatingSummaryCaption } from '../../components/library/RatingSummaryCaption';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { combineLatest, of } from 'rxjs';
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -150,6 +153,8 @@ function TagDetailContent({
     const { t } = useTranslation();
 
     const tagColor = tag.color || colors.accent;
+    const excludedSongs = useSettingsStore(state => state.excludedSongs);
+    const rating = useMemo(() => summarizeTrackRatings(tracks, excludedSongs), [tracks, excludedSongs]);
 
     const handleBack = useCallback(() => {
         navigation.goBack();
@@ -239,6 +244,7 @@ function TagDetailContent({
                         <Text style={styles.metaInfo}>
                             {albums.length} {albums.length === 1 ? t('library.album_singular') : t('library.album_plural')} · {tracks.length} {tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}
                         </Text>
+                        <View style={{ marginRight: 120 }}><RatingSummaryCaption rating={rating} align="left" /></View>
                     </View>
 
                     {/* Botones de reproducción (solo si hay canciones) */}
@@ -293,7 +299,7 @@ function TagDetailContent({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent, colors.background]);
+    }, [tag, albums, tracks.length, rating, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent, colors.background]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -444,10 +450,10 @@ export default withObservables(['route'], ({ route }: { route: any }) => {
             ).observe(),
             tracks: database.collections.get<Track>('tracks').query(
                 Q.experimentalJoinTables(['track_tags']), Q.on('track_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
-            ).observe(),
+            ).observeWithColumns(['rating', 'duration', 'file_url']),
         })),
     };
 })(function LoadedTagDetail({ data, route }: { data?: TagDetailProps; route: any }) {
-    if (!data) return <ScreenLoadingShell title={route.params.tagName} />;
+    if (!data) return <InvisibleScreenContent />;
     return <TagDetailScreen {...data} />;
 });

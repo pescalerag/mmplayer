@@ -1,6 +1,6 @@
 import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -286,8 +286,7 @@ const getRatingQuery = (id: string) => {
 };
 
 function LoadedSmartListDetail({ data, smartListId }: { data?: Track[]; smartListId: string }) {
-    if (!data) return <ScreenLoadingShell />;
-    return <SmartListDetailContent tracks={data} smartListId={smartListId} />;
+    return <InvisibleScreenContent ready={!!data}><SmartListDetailContent tracks={data ?? []} smartListId={smartListId} loading={!data} /></InvisibleScreenContent>;
 }
 
 const ObservableRatingDetail = withObservables(['smartListId'], ({ smartListId }: { smartListId: string }) => ({
@@ -324,8 +323,8 @@ function HistorySmartListDetail({ smartListId }: { smartListId: string }) {
         });
         return () => { mounted = false; cancel(); };
     }, [smartListId]));
-    if (!result || result.id !== smartListId) return <ScreenLoadingShell />;
-    return <SmartListDetailContent smartListId={smartListId} tracks={result.tracks} />;
+    const ready = result?.id === smartListId;
+    return <InvisibleScreenContent ready={ready}><SmartListDetailContent smartListId={smartListId} tracks={ready ? result.tracks : []} loading={!ready} /></InvisibleScreenContent>;
 }
 
 // ─── MAIN EXPORT CHOOSE COMPONENT ───

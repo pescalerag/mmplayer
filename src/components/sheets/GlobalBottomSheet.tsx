@@ -1,3 +1,4 @@
+import { useColorPickerModalStore } from '../../store/useColorPickerModalStore';
 import QueueDestinationSheet from './QueueDestinationSheet';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import * as NavigationBar from 'expo-navigation-bar';
@@ -58,6 +59,7 @@ export default function GlobalBottomSheet() {
 
   const activeSheet = useUIStore((state) => state.activeSheet);
   const closeSheet = useUIStore((state) => state.closeSheet);
+  const isColorPickerOpen = useColorPickerModalStore(state => state.request !== null);
   const isTagFormOpen = useTagFormStore((state) => state.isVisible);
 
   const [renderedSheet, setRenderedSheet] = useState<SheetType | null>(null);
@@ -79,7 +81,7 @@ export default function GlobalBottomSheet() {
   const isNonDraggable = renderedSheet === 'notification-settings';
 
   const handlePanGesture = Gesture.Pan()
-    .enabled(!isTagFormOpen && !isNonDraggable)
+    .enabled(!isTagFormOpen && !isColorPickerOpen && !isNonDraggable)
     .activeOffsetY(5)
     .onUpdate((event) => {
       if (event.translationY > 0) {
@@ -109,7 +111,7 @@ export default function GlobalBottomSheet() {
   useEffect(() => {
     if (effectiveSheet) {
       setRenderedSheet(effectiveSheet);
-      if (Platform.OS === 'android') {
+      if (Platform.OS === 'android' && !useColorPickerModalStore.getState().request) {
         NavigationBar.setBackgroundColorAsync(colors.sheetBackground).catch(() => { });
       }
       dragTranslateY.value = 0;
@@ -135,14 +137,14 @@ export default function GlobalBottomSheet() {
 
   // Handle hardware back press on Android
   useEffect(() => {
-    if (!isVisible || isTagFormOpen) return;
+    if (!isVisible || isTagFormOpen || isColorPickerOpen) return;
     const onBackPress = () => {
       closeSheet();
       return true;
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [isVisible, isTagFormOpen, closeSheet]);
+  }, [isVisible, isTagFormOpen, isColorPickerOpen, closeSheet]);
 
   // Handle Keyboard height changes for input forms
   useEffect(() => {

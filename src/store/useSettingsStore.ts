@@ -1,3 +1,5 @@
+import { normalizeOpaqueColor } from '../utils/customColors';
+import { DEFAULT_VISUALIZER_COLOR, VisualizerColorMode } from '../utils/visualizerColors';
 import { normalizeCrossfadeSeconds } from '../utils/crossfadePolicy';
 import { normalizeAppIcon } from '../utils/appIcon';
 import { AppTheme, normalizeAppTheme } from '../theme/appTheme';
@@ -11,7 +13,7 @@ export type { AppTheme } from '../theme/appTheme';
 
 export type UserTier = 'USER' | 'SUPPORTER' | 'VIP';
 export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
-export type LocalCastTheme = 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
+export type LocalCastTheme = 'cover' | 'custom' | 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 
 interface SettingsState {
     userTier: UserTier;
@@ -21,6 +23,15 @@ interface SettingsState {
     statsCardTheme: StatsCardTheme;
     setStatsCardTheme: (theme: StatsCardTheme) => void;
     localCastTheme: LocalCastTheme;
+    localCastCustomColor: string;
+    // null preserves the existing global choice until LocalCast is configured separately.
+    localCastReplayGainEnabled: boolean | null;
+    setLocalCastReplayGainEnabled: (enabled: boolean) => void;
+    localCastHideRatings: boolean;
+    localCastHideTags: boolean;
+    setLocalCastHideRatings: (hidden: boolean) => void;
+    setLocalCastHideTags: (hidden: boolean) => void;
+    setLocalCastCustomColor: (color: string) => void;
     setLocalCastTheme: (theme: LocalCastTheme) => void;
     customAccentColor: string | null;
     setCustomAccentColor: (color: string | null) => void;
@@ -115,8 +126,10 @@ interface SettingsState {
     setShowPlayerVisualizer: (value: boolean) => void;
     playerVisualizerType: 'bars' | 'wave' | 'spectrum' | 'circle';
     setPlayerVisualizerType: (value: 'bars' | 'wave' | 'spectrum' | 'circle') => void;
-    playerVisualizerColorMode: 'accent' | 'cover';
-    setPlayerVisualizerColorMode: (value: 'accent' | 'cover') => void;
+    playerVisualizerColorMode: VisualizerColorMode;
+    playerVisualizerCustomColor: string;
+    setPlayerVisualizerCustomColor: (value: string) => void;
+    setPlayerVisualizerColorMode: (value: VisualizerColorMode) => void;
     playerCoverStyle: 'cover' | 'cd' | 'vinyl' | 'cassette';
     setPlayerCoverStyle: (value: 'cover' | 'cd' | 'vinyl' | 'cassette') => void;
     showCassetteAlbumName: boolean;
@@ -348,6 +361,8 @@ export const useSettingsStore = create<SettingsState>()(
             setShowPlayerVisualizer: (value) => set({ showPlayerVisualizer: value }),
             playerVisualizerType: 'bars',
             setPlayerVisualizerType: (value) => set({ playerVisualizerType: value }),
+            playerVisualizerCustomColor: DEFAULT_VISUALIZER_COLOR,
+            setPlayerVisualizerCustomColor: (value) => set({ playerVisualizerCustomColor: normalizeOpaqueColor(value), playerVisualizerColorMode: 'custom' }),
             playerVisualizerColorMode: 'cover',
             setPlayerVisualizerColorMode: (value) => set({ playerVisualizerColorMode: value }),
             playerCoverStyle: 'cover',
@@ -366,6 +381,14 @@ export const useSettingsStore = create<SettingsState>()(
             setAppIcon: (iconName) => set({ appIcon: normalizeAppIcon(iconName) }),
             statsCardTheme: 'default',
             setStatsCardTheme: (theme) => set({ statsCardTheme: theme }),
+            localCastCustomColor: '#8B5CF6',
+            localCastReplayGainEnabled: null,
+            localCastHideRatings: false,
+            localCastHideTags: false,
+            setLocalCastHideRatings: hidden => set({ localCastHideRatings: hidden }),
+            setLocalCastHideTags: hidden => set({ localCastHideTags: hidden }),
+            setLocalCastReplayGainEnabled: enabled => set({ localCastReplayGainEnabled: enabled }),
+            setLocalCastCustomColor: (color) => set({ localCastCustomColor: normalizeOpaqueColor(color), localCastTheme: 'custom' }),
             localCastTheme: 'default',
             setLocalCastTheme: (theme) => set({ localCastTheme: theme }),
             customAccentColor: null,

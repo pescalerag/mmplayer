@@ -1,6 +1,7 @@
+import { normalizeOpaqueColor } from '../utils/customColors';
 import { castReplayGainSource, castReplayGainMathSource } from './generated/LocalCastReplayGainSource';
 import { localCastAudioSource } from './generated/LocalCastAudioSource';
-import { localCastQueueSource, localCastLyricsSource, localCastThemeSource } from './generated/LocalCastViewSource';
+import { localCastQueueSource, localCastLyricsSource, localCastThemeSource, localCastMetadataSource, localCastSettingsSource } from './generated/LocalCastViewSource';
 import { LocalCastTheme } from '../store/useSettingsStore';
 import { timestampReceiverSource } from './TimestampReceiver';
 
@@ -13,6 +14,10 @@ export interface LocalCastTranslations {
     retryingAudio?: string;
     clickToUnmute?: string;
     clickToUnmuteLong?: string;
+    hideRatings?: string;
+    hideTags?: string;
+    settings?: string;
+    replayGain?: string;
     brandName?: string;
     lang?: string;
     queueTitle?: string;
@@ -21,9 +26,13 @@ export interface LocalCastTranslations {
     queueMore?: string;
     shuffleEnabled?: string;
     shuffleDisabled?: string;
+    tags?: string;
+    rating?: string;
+    noRating?: string;
+    saveError?: string;
 }
 
-const THEME_CSS: Record<LocalCastTheme, string> = {
+const THEME_CSS: Record<Exclude<LocalCastTheme, 'custom' | 'cover'>, string> = {
     default: `
         :root {
             --bg-overlay: radial-gradient(circle at center, rgba(13, 15, 18, 0.4) 0%, rgba(13, 15, 18, 0.85) 100%);
@@ -203,15 +212,44 @@ const THEME_CSS: Record<LocalCastTheme, string> = {
 };
 
 export function resolveLocalCastTheme(theme: unknown): LocalCastTheme {
+    if (theme === 'custom' || theme === 'cover') return theme;
     return typeof theme === 'string' && Object.prototype.hasOwnProperty.call(THEME_CSS, theme)
         ? theme as LocalCastTheme : 'default';
 }
 
-export function getLocalCastThemeCss(theme: LocalCastTheme): string {
-    return THEME_CSS[theme];
+export function normalizeLocalCastColor(color: unknown): string {
+    return normalizeOpaqueColor(color);
 }
 
-export function getClientHtml(customTranslations?: Partial<LocalCastTranslations>, theme: LocalCastTheme = 'default'): string {
+export function getLocalCastThemeKey(theme: LocalCastTheme, color?: string): string {
+    return theme === 'custom' || theme === 'cover' ? theme + ':' + normalizeLocalCastColor(color) : theme;
+}
+
+export function getLocalCastThemeCss(theme: LocalCastTheme, color?: string): string {
+    if (theme !== 'custom' && theme !== 'cover') return THEME_CSS[theme];
+    const hex = normalizeLocalCastColor(color);
+    const rgb = [1, 3, 5].map(index => Number.parseInt(hex.slice(index, index + 2), 16)).join(',');
+    return THEME_CSS.default + `:root {
+        --bg-overlay: ${theme === 'cover' ? 'radial-gradient(circle at center, rgba(13,15,18,0.4), rgba(13,15,18,0.85))' : 'radial-gradient(circle at center, rgba(' + rgb + ',0.15), rgba(7,9,14,0.97))'};
+        --panel-bg: linear-gradient(135deg, rgba(${rgb},0.40), rgba(${rgb},0.18)), rgba(13,15,18,0.75);
+        --panel-border: 1px solid rgba(${rgb},0.45);
+        --panel-shadow: 0 30px 60px #00000080, inset 0 1px 0 rgba(${rgb},0.2);
+        --play-btn-bg: rgba(${rgb},0.25);
+        --play-btn-border: rgba(${rgb},0.6);
+        --play-btn-shadow: 0 0 14px rgba(${rgb},0.25);
+        --play-btn-hover-bg: rgba(${rgb},0.45);
+        --play-btn-hover-border: ${hex};
+        --play-btn-hover-shadow: 0 0 20px rgba(${rgb},0.45);
+        --progress-fill-shadow: 0 0 10px rgba(${rgb},0.4);
+        --active-lyric-shadow: 0 0 30px rgba(${rgb},0.6);
+        --badge-bg: rgba(${rgb},0.15);
+        --badge-border: 1px solid rgba(${rgb},0.4);
+        --badge-color: #FFFFFF;
+        --volume-thumb-hover: ${hex};
+    }`;
+}
+
+export function getClientHtml(customTranslations?: Partial<LocalCastTranslations>, theme: LocalCastTheme = 'default', customColor?: string): string {
     const t: LocalCastTranslations = {
         appTitle: 'MMPlayer LocalCast',
         noSong: 'No hay canción',
@@ -221,6 +259,10 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         retryingAudio: 'Reintentando audio...',
         clickToUnmute: 'Clic para activar audio',
         clickToUnmuteLong: 'Haga clic para activar audio',
+        hideRatings: 'Hide ratings',
+        hideTags: 'Hide tags',
+        settings: 'Settings',
+        replayGain: 'ReplayGain',
         brandName: 'MMPlayer',
         lang: 'es',
         queueTitle: 'Cola',
@@ -233,7 +275,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     };
 
     const resolvedTheme = resolveLocalCastTheme(theme);
-    const themeCss = getLocalCastThemeCss(resolvedTheme);
+    const themeCss = getLocalCastThemeCss(resolvedTheme, customColor);
 
     return `<!DOCTYPE html>
 <html lang="${t.lang || 'es'}">
@@ -338,12 +380,19 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            justify-content: safe center;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
             height: 100%;
             max-width: 520px;
             gap: 24px;
             transition: all 0.45s ease;
         }
+
+        .left-column > * { flex-shrink: 0; }
 
         .artwork-wrapper {
             position: relative;
@@ -387,6 +436,36 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
 
+        .track-metadata { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; }
+        .track-metadata[hidden], .track-metadata[data-hide-ratings="true"] .track-rating, .track-metadata[data-hide-tags="true"] .assigned-tags,
+        .track-metadata[data-hide-ratings="true"][data-hide-tags="true"] { display: none; }
+        .track-metadata summary {
+            display: flex; align-items: center; gap: 4px; list-style: none;
+            font: inherit; font-size: 12px; font-weight: 700; color: #94A3B8;
+            background: transparent; border: 0; padding: 3px 0; cursor: pointer;
+        }
+        .track-metadata summary::-webkit-details-marker { display: none; }
+        .tag-add-icon { width: 14px; height: 14px; flex-shrink: 0; }
+        .track-metadata summary:focus-visible, .track-tag:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 2px; }
+        .track-rating { flex-basis: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .rating-caption { color: #888888; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+        .rating-stars { display: flex; align-items: center; gap: 8px; }
+        .rating-star { position: relative; width: 44px; height: 44px; }
+        .rating-star svg { display: block; width: 44px; height: 44px; }
+        .star-outline { position: absolute; inset: 0; color: #888888; }
+        .star-outline path { fill: none; stroke: currentColor; stroke-width: 32; stroke-linejoin: round; }
+        .star-fill { position: absolute; inset: 0; overflow: hidden; color: #FFD700; pointer-events: none; }
+        .star-fill path { fill: currentColor; stroke: currentColor; stroke-width: 32; stroke-linejoin: round; }
+        .star-hit { position: absolute; top: 0; bottom: 0; width: 50%; border: 0; padding: 0; background: transparent; cursor: pointer; }
+        .star-left { left: 0; } .star-right { right: 0; }
+        .star-hit:focus-visible, .rating-clear:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 2px; }
+        .rating-clear { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,0.15); color: #AAAAAA; font-size: 20px; line-height: 24px; cursor: pointer; }
+        .rating-stars button:disabled { cursor: wait; opacity: 0.5; }
+        .track-metadata details { position: relative; }
+        .tag-editor { position: absolute; z-index: 20; top: 100%; right: 0; margin-top: 6px; width: min(240px, 75vw); max-height: 220px; overflow-y: auto; background: #161B22; border: var(--panel-border); border-radius: 12px; padding: 10px; }
+        .tag-editor label { display: flex; gap: 8px; align-items: center; padding: 7px 4px; font-size: 13px; cursor: pointer; }
+        .assigned-tags { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+        .track-tag { font-size: 11px; font-weight: 700; border: 0; border-radius: 6px; padding: 3px 8px; background: rgba(255,255,255,0.08); line-height: 18px; cursor: pointer; }
         .artist {
             font-size: 17px;
             font-weight: 600;
@@ -608,6 +687,17 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             text-transform: uppercase;
         }
 
+        .cast-settings { position: relative; }
+        .cast-settings summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #94A3B8; border-radius: 8px; }
+        .cast-settings summary::-webkit-details-marker { display: none; }
+        .cast-settings summary:hover { color: #FFFFFF; background: rgba(255,255,255,.08); }
+        .cast-settings summary:focus-visible { outline: 2px solid #FFFFFF; }
+        .cast-settings-panel { position: absolute; z-index: 30; bottom: calc(100% + 8px); right: 0; width: min(260px,75vw); padding: 16px; background: var(--panel-bg); backdrop-filter: blur(24px); border: var(--panel-border); box-shadow: var(--panel-shadow); border-radius: 12px; }
+        .cast-settings-panel label + label { margin-top: 12px; }
+        .cast-settings-panel label { display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer; }
+        .cast-settings-panel input { accent-color: var(--play-btn-hover-border); width: 18px; height: 18px; flex-shrink: 0; }
+        .cast-settings-panel p { margin: 8px 0 0; font-size: 12px; }
+        .cast-settings-panel p:empty { display: none; }
         .brand-badge {
             display: inline-flex;
             align-items: center;
@@ -696,6 +786,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             <div class="info-wrapper">
                 <div id="title" class="title">${t.noSong}</div>
                 <div id="artist" class="artist"></div>
+                <div id="track-metadata" class="track-metadata" hidden></div>
             </div>
             <div class="player-controls">
                 <div class="progress-container">
@@ -749,6 +840,17 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             <div class="status-wrapper" style="display: flex; flex-direction: row; align-items: center; gap: 8px; align-self: flex-start;">
                 <div class="status-badge" id="sync-status">${t.noSong}</div>
                 <div class="brand-badge">${t.brandName}</div>
+                <details class="cast-settings">
+                    <summary aria-label="${t.settings}" title="${t.settings}">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 3-.6 2.5-1.8 1L4.2 6l-2 3.5L4 11v2l-1.8 1.5 2 3.5 2.4-.5 1.8 1L9 21h4l.6-2.5 1.8-1 2.4.5 2-3.5L18 13v-2l1.8-1.5-2-3.5-2.4.5-1.8-1L13 3Z"/><circle cx="11" cy="12" r="3"/></svg>
+                    </summary>
+                    <div class="cast-settings-panel">
+                        <label><input id="cast-replaygain" type="checkbox" disabled><span>${t.replayGain}</span></label>
+                        <label><input id="cast-hide-ratings" type="checkbox" disabled><span>${t.hideRatings}</span></label>
+                        <label><input id="cast-hide-tags" type="checkbox" disabled><span>${t.hideTags}</span></label>
+                        <p id="cast-settings-error" role="status"></p>
+                    </div>
+                </details>
             </div>
         </div>
 
@@ -768,8 +870,30 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     </div>
     <script>
         const i18n             = ${JSON.stringify(t)};
-        const themeView = (${localCastThemeSource})(document.getElementById('localcast-theme'), ${JSON.stringify(resolvedTheme)});
+        const themeView = (${localCastThemeSource})(document.getElementById('localcast-theme'), ${JSON.stringify(getLocalCastThemeKey(resolvedTheme, customColor))});
         const audioPlayer      = document.getElementById('audio-player');
+        const metadataView = (${localCastMetadataSource})(document.getElementById('track-metadata'), {
+            tags: i18n.tags || 'Add Tag', rating: i18n.rating || 'Rating', noRating: i18n.noRating || 'Unrated', error: i18n.saveError || 'Could not save changes'
+        }, async params => {
+            params.set('sessionId', String(currentSessionId || ''));
+            const response = await fetch('/api/metadata?' + params.toString(), { method: 'POST' });
+            if (!response.ok) throw new Error('Metadata update failed');
+            const result = await response.json();
+            if (!result.success) throw new Error('Metadata update rejected');
+        });
+        const settingsView = (${localCastSettingsSource})({ replayGainEnabled: document.getElementById('cast-replaygain'), hideRatings: document.getElementById('cast-hide-ratings'), hideTags: document.getElementById('cast-hide-tags') }, document.getElementById('cast-settings-error'), i18n.saveError || 'Could not save changes', async (setting, enabled, sessionId) => {
+            const params = new URLSearchParams({ setting, enabled: String(enabled), sessionId });
+            const response = await fetch('/api/settings?' + params.toString(), { method: 'POST' });
+            if (!response.ok) throw new Error('Settings update failed');
+            const result = await response.json();
+            if (!result.success) throw new Error('Settings update rejected');
+            triggerImmediateUpdate();
+            return result.enabled;
+        }, (hideRatings, hideTags) => {
+            const metadata = document.getElementById('track-metadata');
+            metadata.setAttribute('data-hide-ratings', String(hideRatings));
+            metadata.setAttribute('data-hide-tags', String(hideTags));
+        });
         const titleEl          = document.getElementById('title');
         const artistEl         = document.getElementById('artist');
         const coverEl          = document.getElementById('cover');
@@ -1040,6 +1164,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             
             titleEl.innerText  = i18n.noSong;
             artistEl.innerText = "";
+            metadataView.clear();
             updateCover(null);
             updatePlayPauseUI(false);
             currentLyricsToken = null;
@@ -1161,7 +1286,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                     }
                     const isAudioPlaying = !audioPlayer.paused && !audioPlayer.ended && audioPlayer.readyState > 2;
                     const audioDur = (audioPlayer.duration || 0).toFixed(1);
-                    response = await fetch('/api/state?theme=' + encodeURIComponent(themeView.getTheme()) + '&queueVersion=' + encodeURIComponent(queueVersion) + '&pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || '') + '&report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { signal: controller.signal });
+                    response = await fetch('/api/state?theme=' + encodeURIComponent(themeView.getTheme()) + '&metadataVersion=' + encodeURIComponent(metadataView.getVersion()) + '&queueVersion=' + encodeURIComponent(queueVersion) + '&pos=' + currentPos + '&playing=' + isAudioPlaying + '&dur=' + audioDur + '&file=' + encodeURIComponent(currentLoadedMediaFile || '') + '&lastCmdId=' + lastHandledCmdId + '&sessionId=' + (currentSessionId || '') + '&report=' + encodeURIComponent(JSON.stringify(castAudio.report())), { signal: controller.signal });
                 } finally {
                     clearTimeout(timeoutId);
                 }
@@ -1171,6 +1296,8 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 const state = await response.json();
                 timestampSkipper.update(state.skipConfig, state.playbackToken);
                 themeView.sync(state);
+                settingsView.sync(state);
+                metadataView.sync(state);
                 if (state.queueVersion) queueVersion = state.queueVersion;
                 if (typeof state.hasNext === 'boolean') nextBtn.disabled = !state.hasNext;
                 if (typeof state.shuffleOnQueueEnd === 'boolean') castQueue.update(state);

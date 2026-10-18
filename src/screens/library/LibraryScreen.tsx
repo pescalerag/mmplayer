@@ -1,3 +1,9 @@
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { libraryAlbums, libraryTracks } from '../../services/LibraryDataSources';
+import { useArtistRanking } from '../../hooks/useArtistRanking';
+import { sortRatedArtists } from '../../utils/artistRanking';
+import { RatingSummary } from '../../utils/trackRatings';
 import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import { openAlbumMenu, openArtistMenu, openFolderMenu, openLibraryTabsOrder, openPlaylistMenu, openPlaylistSelectorCreate, openSortModal } from '@/store/useUIStore';
 
@@ -21,7 +27,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
@@ -74,7 +80,6 @@ const LibraryFilterPending = ({ status, topOffset }: { status: ReturnType<typeof
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     return <View style={{ paddingTop: topOffset, paddingHorizontal: 20 }}>
-        {status.showLoader && <ActivityIndicator color={colors.accent} />}
         {status.error && <TouchableOpacity onPress={status.retry}><Text style={{ color: colors.text }}>{t('library_filters.load_error')}</Text></TouchableOpacity>}
     </View>;
 };
@@ -210,12 +215,14 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
     else if (sortOption === 'duration_desc') { orderCol = 'duration'; orderDir = Q.desc; }
 
     return {
-        tracks: database.collections
+        data: observeScreenData(() => database.collections
             .get<Track>('tracks')
             .query(Q.sortBy(orderCol, orderDir))
-            .observeWithColumns(['title', 'duration', 'rating', 'genre', 'file_url', 'is_favorite', 'lyrics_lrc']),
+            .observeWithColumns(['title', 'duration', 'rating', 'genre', 'file_url', 'is_favorite', 'lyrics_lrc'])),
     };
-})(TrackList);
+})(function LoadedTracks({ data, ...props }: Omit<React.ComponentProps<typeof TrackList>, 'tracks'> & { data?: Track[] }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <TrackList {...props} tracks={data} />}</InvisibleScreenContent>;
+});
 
 // ----- ALBUM ITEMS -----
 const AlbumCard = ({ album, artist, onPress, rating }: Readonly<{ album: Album; artist: Artist | null; onPress?: () => void; rating?: RankedAlbum }>) => {
@@ -263,12 +270,13 @@ const AlbumList = ({ albums, albumTrackStats, albumFilters, bottomOffset, topOff
     }, [albums, sortOption, ratingOrder, ranked, albumTrackStats, albumFilters]);
 
     if (ratingOrder && (ranking.loading || ranking.error)) {
-        return <RankingLoadState showLoader={ranking.showLoader} error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
+        return <RankingLoadState error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
     }
     return (
         <FlashList
             ref={scrollRef}
             data={sortedAlbums}
+            extraData={ratingOrder ? ranking.data : undefined}
             keyExtractor={a => a.id}
             renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
@@ -302,16 +310,20 @@ const AlbumList = ({ albums, albumTrackStats, albumFilters, bottomOffset, topOff
 
 const EnhancedAlbumList = withObservables(['albumFilters'], ({ albumFilters }: { albumFilters: AlbumFilters }) => {
     return {
-        albums: database.collections.get<Album>('albums').query().observeWithColumns(['title', 'year', 'is_pinned', 'cover_url']),
+        data: observeScreenData(() => combineLatest({
+        albums: libraryAlbums,
         albumTrackStats: needsAlbumTrackStats(albumFilters)
-            ? database.get<Track>('tracks').query().observeWithColumns(['album_id', 'duration', 'rating']).pipe(map(summarizeAlbumTracks))
+            ? libraryTracks.pipe(map(summarizeAlbumTracks))
             : of(new Map<string, AlbumTrackStats>()),
+        })),
     };
-})(AlbumList);
+})(function LoadedAlbums({ data, ...props }: Omit<React.ComponentProps<typeof AlbumList>, 'albums' | 'albumTrackStats'> & { data?: { albums: Album[]; albumTrackStats: Map<string, AlbumTrackStats> } }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <AlbumList {...props} {...data} />}</InvisibleScreenContent>;
+});
 
 
 // ----- ARTIST ITEMS -----
-const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void }) => {
+const ArtistCard = ({ artist, onPress, rating }: Readonly<{ artist: Artist; onPress?: () => void; rating?: RatingSummary }>) => {
     const navigation = useNavigation<LibraryNavigationProp>();
 
     const handlePress = React.useCallback(() => {
@@ -325,6 +337,7 @@ const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void 
             imageUrl={artist.imageUrl}
             placeholderIcon="person"
             isPinned={artist.isPinned}
+            footer={<AlbumRatingCaption rating={rating} />}
             onPress={handlePress}
             onLongPress={() => {
                 openArtistMenu(artist);
@@ -339,6 +352,9 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
     const filtering = useLibraryFilters('artists');
+    const section = React.useContext(LibraryFilterSectionContext);
+    const ratingOrder = sortOption === 'rating_desc' || sortOption === 'rating_asc';
+    const ranking = useArtistRanking(ratingOrder && (section === null || section === 'artists'));
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
@@ -347,7 +363,9 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
 
     const sortedArtists = React.useMemo(() => {
         const isDesc = sortOption === 'name_desc';
-        return artists.filter(artist => matchesArtistFilters(artist, filtering.filters, filtering.index)).sort((a, b) => {
+        const filtered = artists.filter(artist => matchesArtistFilters(artist, filtering.filters, filtering.index));
+        if (sortOption === 'rating_desc' || sortOption === 'rating_asc') return sortRatedArtists(filtered, ranking.data, sortOption);
+        return filtered.sort((a, b) => {
             if (a.isPinned !== b.isPinned) {
                 return a.isPinned ? -1 : 1;
             }
@@ -356,15 +374,16 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
             const cmp = nameCollator.compare(nameA, nameB);
             return isDesc ? -cmp : cmp;
         });
-    }, [artists, sortOption, filtering.filters, filtering.index]);
+    }, [artists, sortOption, filtering.filters, filtering.index, ranking.data]);
 
+    if (ratingOrder && (ranking.loading || ranking.error)) return <RankingLoadState error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
     if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
             key={`artist-list-${artistFilter}`}
             ref={scrollRef}
             data={sortedArtists}
-            extraData={artistFilter}
+            extraData={ratingOrder ? ranking.data : artistFilter}
             keyExtractor={a => a.id}
             renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
@@ -381,6 +400,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
                     >
                         <EnhancedArtistCard
                             artist={item}
+                            rating={ratingOrder ? ranking.data.get(item.id) ?? { average: null, ratedCount: 0, totalCount: 0 } : undefined}
                         />
                     </Animated.View>
                 );
@@ -452,11 +472,13 @@ const EnhancedArtistList = withObservables(['sortOption', 'artistFilter'], ({ so
     );
 
     return {
-        artists: database.collections.get<Artist>('artists').query(
+        data: observeScreenData(() => database.collections.get<Artist>('artists').query(
             ...conditions
-        ).observeWithColumns(['name', 'image_url', 'is_pinned']),
+        ).observeWithColumns(['name', 'image_url', 'is_pinned'])),
     };
-})(ArtistList);
+})(function LoadedArtists({ data, ...props }: Omit<React.ComponentProps<typeof ArtistList>, 'artists'> & { data?: Artist[] }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <ArtistList {...props} artists={data} />}</InvisibleScreenContent>;
+});
 
 
 // ----- PLAYLIST ITEMS -----
@@ -936,6 +958,7 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
     }
 
     return {
+        data: observeScreenData(() => combineLatest({
         playlists: database.collections.get<Playlist>('playlists').query(
             Q.sortBy('is_pinned', Q.desc),
             Q.sortBy(orderCol, orderDir)
@@ -944,8 +967,11 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
             Q.where('genre', Q.notEq(null)),
             Q.where('genre', Q.notEq(''))
         ).observeWithColumns(['genre', 'duration']).pipe(catchError(() => of([]))),
+        })),
     };
-})(PlaylistsList);
+})(function LoadedPlaylists({ data, ...props }: Omit<React.ComponentProps<typeof PlaylistsList>, 'playlists' | 'genreTracks'> & { data?: { playlists: Playlist[]; genreTracks: Track[] } }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <PlaylistsList {...props} {...data} />}</InvisibleScreenContent>;
+});
 
 
 type Folder = { path: string; name: string; trackCount: number };
@@ -1043,8 +1069,10 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
 };
 
 const EnhancedFolderList = withObservables([], () => ({
-    tracks: database.collections.get<Track>('tracks').query().observeWithColumns(['file_url', 'last_modified']),
-}))(FolderList);
+    data: observeScreenData(() => database.collections.get<Track>('tracks').query().observeWithColumns(['file_url', 'last_modified'])),
+}))(function LoadedFolders({ data, ...props }: Omit<React.ComponentProps<typeof FolderList>, 'tracks'> & { data?: Track[] }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <FolderList {...props} tracks={data} />}</InvisibleScreenContent>;
+});
 
 
 export default function LibraryScreen() {
@@ -1158,7 +1186,7 @@ export default function LibraryScreen() {
             case 'folders': return <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'tracks': return <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'playlists': return <EnhancedPlaylistsList playlistFilter={playlistFilter} sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} selectorRef={playlistSelectorRef} />;
-            default: return null;
+            default: return <InvisibleScreenContent />;
         }
     };
 

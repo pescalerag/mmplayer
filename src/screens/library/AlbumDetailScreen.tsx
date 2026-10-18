@@ -1,6 +1,7 @@
+import { summarizeTrackRatings } from '../../utils/trackRatings';
 import { combineLatest, Observable, of } from 'rxjs';
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { isVariousArtists } from '../../utils/libraryMetadata';
 import { openAlbumMenu, openTagManager } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
@@ -112,6 +113,8 @@ function AlbumDetailContent({
     const excluded = excludedSongs || [];
     return rawTracks.filter((t) => !excluded.includes(t.fileUrl));
   }, [rawTracks, excludedSongs]);
+
+  const rating = React.useMemo(() => summarizeTrackRatings(tracks), [tracks]);
 
   // ─── ESTADOS DEL REPRODUCTOR ───
   const playbackState = usePlaybackState();
@@ -288,6 +291,7 @@ function AlbumDetailContent({
         ]
           .filter(Boolean)
           .join(" · ")}
+        rating={isLoadingTracks ? undefined : rating}
         onBack={handleBack}
         onMore={handleOpenAlbumMenu}
         renderExtra={() =>
@@ -412,18 +416,19 @@ const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { albu
     Q.where("album_id", album.id),
     Q.sortBy("disc_number", Q.asc),
     Q.sortBy("track_number", Q.asc),
-  ).observe(),
+  ).observeWithColumns(['rating', 'duration', 'file_url', 'disc_number', 'track_number']),
   tags: album.queryTags.observe() as Observable<Tag[]>,
   })),
 }))(function LoadedAlbumDetail({ data, album }: { data?: Props; album: Album }) {
-  if (!data) return <ScreenLoadingShell title={album.title} />;
-  return <AlbumDetailContent {...data} isLoadingTracks={false} />;
+  return <InvisibleScreenContent ready={!!data}>
+    <AlbumDetailContent album={data?.album ?? album} artist={data?.artist ?? null} tracks={data?.tracks ?? []} tags={data?.tags ?? []} isLoadingTracks={!data} />
+  </InvisibleScreenContent>;
 });
 
 const ObservableAlbumDetailMiddle = withObservables(["albumId"], ({ albumId }: { albumId: string }) => ({
   album: observeScreenData(() => database.collections.get<Album>("albums").findAndObserve(albumId).pipe(catchError(() => of(null)))),
 }))(function ObservableAlbumDetailMiddle({ album }: { album: Album | null | undefined }) {
-  if (album === undefined) return <ScreenLoadingShell />;
+  if (album === undefined) return <InvisibleScreenContent />;
   if (!album) {
     return <AlbumDetailErrorFallback />;
   }

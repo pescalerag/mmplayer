@@ -1,6 +1,7 @@
+import { summarizeTrackRatings } from '../../utils/trackRatings';
 import { combineLatest, of } from 'rxjs';
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu, openArtistMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -129,6 +130,7 @@ const ArtistHeader = memo(function ArtistHeader({
     setShowAllTracks,
     onMore,
 }: any) {
+    const rating = useMemo(() => summarizeTrackRatings(tracks), [tracks]);
     const { colors } = useAppTheme();
     const handleBack = () => {
         navigation.goBack();
@@ -207,6 +209,7 @@ const ArtistHeader = memo(function ArtistHeader({
                 imageUrl={showHeaderImage ? artist.imageUrl : null}
                 placeholderIcon="person"
                 metaInfo={metaInfo}
+                rating={isLoadingContent ? undefined : rating}
                 onBack={handleBack}
                 onMore={onMore}
                 onPickPhoto={handlePickPhoto}
@@ -486,12 +489,13 @@ const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { a
         .query(Q.where('artist_id', artist.id))
         .observe(),
     tracks: database.collections.get<Track>('tracks')
-        .query(Q.on('track_collaborators', 'artist_id', artist.id))
-        .observe(),
+        .query(Q.experimentalJoinTables(['track_collaborators']), Q.or(Q.where('artist_id', artist.id), Q.on('track_collaborators', 'artist_id', artist.id)))
+        .observeWithColumns(['rating', 'duration', 'file_url', 'artist_id']),
     })),
 }))(function LoadedArtistDetail({ data, artist }: { data?: Omit<Props, 'isLoadingContent'>; artist: Artist }) {
-    if (!data) return <ScreenLoadingShell title={artist.name} />;
-    return <ArtistDetailContentBase {...data} isLoadingContent={false} />;
+    return <InvisibleScreenContent ready={!!data}>
+        <ArtistDetailContentBase artist={data?.artist ?? artist} albums={data?.albums ?? []} tracks={data?.tracks ?? []} isLoadingContent={!data} />
+    </InvisibleScreenContent>;
 });
 
 function ArtistDetailErrorFallback() {
@@ -517,7 +521,7 @@ function ArtistDetailErrorFallback() {
 const ObservableArtistDetailMiddle = withObservables(['artistId'], ({ artistId }: { artistId: string }) => ({
     artist: observeScreenData(() => database.collections.get<Artist>('artists').findAndObserve(artistId).pipe(catchError(() => of(null)))),
 }))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist | null | undefined }) {
-    if (artist === undefined) return <ScreenLoadingShell />;
+    if (artist === undefined) return <InvisibleScreenContent />;
     if (!artist) {
         return <ArtistDetailErrorFallback />;
     }

@@ -1,6 +1,7 @@
+import { summarizeTrackRatings } from '../../utils/trackRatings';
 import { combineLatest, of } from 'rxjs';
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openPlaylistMenu, openPlaylistSelectorEdit } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
@@ -241,8 +242,9 @@ function PlaylistDetailContent({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
-  const [resolvedItems, setResolvedItems] = useState<{ track: Track; playlistTrackId: string }[]>([]);
+  const [trackModels, setTrackModels] = useState<Track[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
+  const [hasLoadedTracks, setHasLoadedTracks] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [localPlaylistTracks, setLocalPlaylistTracks] = useState<PlaylistTrack[]>(playlistTracks);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
@@ -272,28 +274,27 @@ function PlaylistDetailContent({
     }
   }, [canReorder, isReorderMode]);
 
-  // Resolve Track records from PlaylistTrack relation
+  const trackIdKey = React.useMemo(() => JSON.stringify([...new Set(localPlaylistTracks.map(item => item.track.id as string))].sort((a, b) => a.localeCompare(b))), [localPlaylistTracks]);
   useEffect(() => {
-    let isMounted = true;
-    const loadTracks = async () => {
-      setLoadingTracks(true);
-      try {
-        const validItems = await PlaylistService.resolvePlaylistTracks(localPlaylistTracks);
+    const ids: string[] = JSON.parse(trackIdKey);
+    setLoadingTracks(true);
+    if (!ids.length) { setTrackModels([]); setLoadingTracks(false); setHasLoadedTracks(true); return; }
+    const subscription = database.get<Track>('tracks').query(Q.where('id', Q.oneOf(ids)))
+      .observeWithColumns(['rating', 'duration', 'file_url'])
+      .subscribe({
+        next: models => { setTrackModels([...models]); setLoadingTracks(false); setHasLoadedTracks(true); },
+        error: error => { console.error('Error loading playlist tracks:', error); setLoadingTracks(false); setHasLoadedTracks(true); },
+      });
+    return () => subscription.unsubscribe();
+  }, [trackIdKey]);
 
-        if (isMounted) {
-          setResolvedItems(validItems);
-          setLoadingTracks(false);
-        }
-      } catch (err) {
-        console.error("Error loading playlist tracks:", err);
-        if (isMounted) setLoadingTracks(false);
-      }
-    };
-    loadTracks();
-    return () => {
-      isMounted = false;
-    };
-  }, [localPlaylistTracks]);
+  const resolvedItems = React.useMemo(() => {
+    const byId = new Map(trackModels.map(track => [track.id, track]));
+    return localPlaylistTracks.flatMap(item => {
+      const track = byId.get(item.track.id);
+      return track ? [{ track, playlistTrackId: item.id }] : [];
+    });
+  }, [trackModels, localPlaylistTracks]);
 
   const { tracks, instanceIds } = React.useMemo(() => {
     const excluded = excludedSongs || [];
@@ -309,6 +310,8 @@ function PlaylistDetailContent({
 
     return { tracks: validTracks, instanceIds: validInstanceIds };
   }, [resolvedItems, excludedSongs]);
+
+  const rating = React.useMemo(() => summarizeTrackRatings(tracks), [tracks]);
 
   // Player States
   const playbackState = usePlaybackState();
@@ -490,6 +493,7 @@ function PlaylistDetailContent({
           />
         )}
         subtitle={playlist.description || t('actions.custom_playlist_subtitle')}
+        rating={loadingTracks ? undefined : rating}
         metaInfo={`${localPlaylistTracks.length} ${localPlaylistTracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
         onBack={handleBack}
         onDelete={handleDelete}
@@ -645,6 +649,7 @@ function PlaylistDetailContent({
   }
 
   return (
+    <InvisibleScreenContent ready={hasLoadedTracks}>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlashList
         data={localPlaylistTracks}
@@ -656,6 +661,7 @@ function PlaylistDetailContent({
         showsVerticalScrollIndicator={false}
       />
     </View>
+    </InvisibleScreenContent>
   );
 }
 
@@ -687,9 +693,9 @@ const ObservablePlaylistDetail = withObservables(["playlistId"], ({ playlistId }
       .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc)).observe(),
   })),
 }))(function LoadedPlaylistDetail({ data }: { data?: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] } }) {
-  if (!data) return <ScreenLoadingShell />;
+  if (!data) return <InvisibleScreenContent />;
   if (!data.playlist) return <PlaylistDetailErrorFallback />;
-  return <PlaylistDetailContent playlist={data.playlist} playlistTracks={data.playlistTracks} />;
+  return <PlaylistDetailContent key={data.playlist.id} playlist={data.playlist} playlistTracks={data.playlistTracks} />;
 });
 
 export default function PlaylistDetailScreen() {
