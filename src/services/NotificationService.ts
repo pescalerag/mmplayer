@@ -399,7 +399,7 @@ class NotificationServiceImpl {
       const data = await this.fetchRemoteUpdateData();
       if (!data?.latestVersion) return;
 
-      const currentVersion = Constants.expoConfig?.version || '2.3.2';
+      const currentVersion = Constants.expoConfig?.version || '3.0.0';
       if (isNewerVersion(data.latestVersion, currentVersion)) {
         await this.addAppUpdateNotification(data.latestVersion);
       }

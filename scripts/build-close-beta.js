@@ -7,7 +7,8 @@ const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const android = path.join(root, 'android');
 const app = path.join(android, 'app');
-const packageName = 'com.pescalerag.mmplayer.closebeta';
+const packageName = 'com.pescalerag.mmplayerbeta';
+const version = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8')).expo.version;
 const originals = new Map();
 
 function edit(relativePath, transform) {
@@ -28,7 +29,7 @@ try {
   ));
   edit('src/main/res/values/strings.xml', text => text.replace(
     '<string name="app_name">MMPlayer</string>',
-    '<string name="app_name">MMPlayer - Close Beta</string>',
+    '<string name="app_name">MMPlayer Beta</string>',
   ));
   edit('src/main/AndroidManifest.xml', text => {
     text = text.replaceAll(
@@ -53,7 +54,8 @@ try {
   });
 
   const command = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
-  const result = spawnSync(command, [':app:assembleRelease', '--offline', '--console=plain'], {
+  const result = spawnSync(command, [':app:assembleRelease', '-x', 'lint', '-x', 'test',
+    '--configure-on-demand', '--build-cache', '--console=plain', '--max-workers=4'], {
     cwd: android,
     stdio: 'inherit',
     shell: process.platform === 'win32',
@@ -61,9 +63,10 @@ try {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Gradle exited with status ${result.status}`);
-  const output = path.join(app, 'build/outputs/apk/release/MMPlayer-Close-Beta.apk');
+  const output = path.join(root, 'dist', `MMPlayer-v${version}-beta-release.apk`);
+  fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.copyFileSync(path.join(app, 'build/outputs/apk/release/app-release.apk'), output);
-  console.log(`Close Beta APK: ${output}\nPackage: ${packageName}`);
+  console.log(`Beta APK: ${output}\nPackage: ${packageName}`);
 } finally {
   for (const [filename, original] of originals) fs.writeFileSync(filename, original);
 }
