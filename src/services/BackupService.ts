@@ -1,216 +1,199 @@
+import { Alert } from 'react-native';
 import { pickDocumentForCopy } from './DocumentPickerService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import RNRestart from 'react-native-restart';
+import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { database } from '../database';
-import { mySchema } from '../database/schema';
 import { useBackupStore } from '../store/useBackupStore';
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useCastStore } from '../store/useCastStore';
 import { clearAllQueueSessions } from '../store/useMultipleQueuesStore';
-import { ScannerService } from './ScannerService';
 import i18n from '../constants/i18n';
-import { initializeExistingPlaylistCovers } from './PlaylistCoverService';
+import { BACKUP_TABLES, BackupData, BackupImportOptions, mergeBackupData, validateBackupData } from '../utils/backupData';
+import { BackupArchive, createBackupArchive, listOwnedBackupAssets, openBackupArchive, stageArchiveAssets } from './BackupArchiveService';
 
-// Use the database schema for both export and restore so new tables cannot be
-// accidentally omitted from backups (as happened with notifications).
-const COLLECTIONS_TO_BACKUP = Object.keys(mySchema.tables);
+type BackupFormat = 'json' | 'zip';
+let busy = false;
 
-// ─────────────────────────────────────────────────────────────
-// Helpers de I/O: Lectura y escritura directa en UTF-8 seguro.
-// Evita el uso de expresiones regulares globales sobre strings gigantes
-// (que causaban "Out of memory for regexp results" en Hermes).
-// ─────────────────────────────────────────────────────────────
-
-/** 
- * Lee el contenido de un archivo de backup y devuelve el string JSON.
- * Detecta automáticamente si el archivo es texto plano UTF-8 o texto Base64.
- */
 async function readBackupFile(uri: string): Promise<string> {
-    let plain = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.UTF8,
-    });
-    if (plain.charCodeAt(0) === 0xFEFF) {
-        plain = plain.slice(1); // eliminar BOM si existe
-    }
-    const trimmed = plain.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        return trimmed;
-    }
-
-    // Fallback por si el archivo viniera en texto Base64
+    const plain = (await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 })).replace(/^\uFEFF/, '').trim();
+    if (plain.startsWith('{') || plain.startsWith('[')) return plain;
     try {
-        if (typeof TextDecoder !== 'undefined') {
-            const binary = atob(trimmed);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
-            const decoded = new TextDecoder('utf-8').decode(bytes);
-            if (decoded.trimStart().startsWith('{') || decoded.trimStart().startsWith('[')) {
-                return decoded.trim();
-            }
-        }
-    } catch {
-        // La decodificación base64 falló; devolvemos plain
-    }
-
-    return trimmed;
+        const binary = atob(plain), bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+        return new TextDecoder('utf-8').decode(bytes).trim();
+    } catch { return plain; }
 }
 
-// ─────────────────────────────────────────────────────────────
+export function chooseBackupImportOptions(): Promise<BackupImportOptions | null> {
+    return new Promise(resolve => {
+        Alert.alert(i18n.t('backup.import_mode_title'), i18n.t('backup.import_mode_description'), [
+            { text: i18n.t('actions.cancel'), style: 'cancel', onPress: () => resolve(null) },
+            { text: i18n.t('backup.merge'), onPress: () => {
+                Alert.alert(i18n.t('backup.conflicts_title'), i18n.t('backup.conflicts_description'), [
+                    { text: i18n.t('actions.cancel'), style: 'cancel', onPress: () => resolve(null) },
+                    { text: i18n.t('backup.keep_current'), onPress: () => resolve({ mode: 'merge', conflicts: 'current' }) },
+                    { text: i18n.t('backup.use_imported'), onPress: () => resolve({ mode: 'merge', conflicts: 'imported' }) },
+                ], { cancelable: true, onDismiss: () => resolve(null) });
+            } },
+            { text: i18n.t('backup.replace'), style: 'destructive', onPress: () => resolve({ mode: 'replace', conflicts: 'imported' }) },
+        ], { cancelable: true, onDismiss: () => resolve(null) });
+    });
+}
 
-export const BackupService = {
-    exportDatabase: async () => {
-        const store = useBackupStore.getState();
-        store.startExport(i18n.t('backup.preparing'));
+async function snapshot() {
+    return database.read(async () => {
+        const entries = await Promise.all(BACKUP_TABLES.map(async table => {
+            const records = await database.collections.get(table).query().fetch();
+            return [table, records] as const;
+        }));
+        return Object.fromEntries(entries);
+    });
+}
+
+function rawData(records: Awaited<ReturnType<typeof snapshot>>): BackupData {
+    return Object.fromEntries(Object.entries(records).map(([table, rows]) => [table, rows.map(record => ({ ...record._raw }))])) as BackupData;
+}
+
+async function applyBackupData(incoming: BackupData, options: BackupImportOptions) {
+    await database.write(async () => {
+        const tables = await Promise.all(BACKUP_TABLES.map(async table => [table, await database.collections.get(table).query().fetch()] as const));
+        const current = Object.fromEntries(tables);
+        const data = options.mode === 'merge' ? mergeBackupData(validateBackupData(rawData(current)), incoming, options.conflicts) : incoming;
+        const previous = new Map(Object.values(current).flat().map(record => [record, { ...record._raw }]));
+        const operations = [];
         try {
-            const backupData: Record<string, any[]> = {};
-
-            for (const collectionName of COLLECTIONS_TO_BACKUP) {
-                store.startExport(i18n.t('backup.exporting_table', { table: collectionName }));
-                const collection = database.collections.get(collectionName);
-                const records = await collection.query().fetch();
-                // Extraemos solo la data cruda (_raw)
-                backupData[collectionName] = records.map(r => r._raw);
+            for (const table of BACKUP_TABLES) {
+                const collection = database.collections.get(table);
+                const existing = new Map(current[table].map(record => [record.id, record]));
+                if (options.mode === 'replace') operations.push(...current[table].map(record => record.prepareDestroyPermanently()));
+                for (const row of data[table]) {
+                    const record = options.mode === 'merge' ? existing.get(row.id) : undefined;
+                    if (record) {
+                        const changed = Object.keys(row).some(key => record._raw[key as keyof typeof record._raw] !== row[key]);
+                        if (changed) operations.push(record.prepareUpdate(item => { Object.assign(item._raw, row); }));
+                    } else {
+                        operations.push(collection.prepareCreate(item => { Object.assign(item._raw, row); }));
+                    }
+                }
             }
-
-            store.startExport(i18n.t('backup.writing_file'));
-            const jsonString = JSON.stringify(backupData);
-
-            const fileUri = FileSystem.cacheDirectory + 'backup_music_app.json';
-            await FileSystem.writeAsStringAsync(fileUri, jsonString, {
-                encoding: FileSystem.EncodingType.UTF8,
-            });
-
-            // Verificar si el compartir está disponible en la plataforma
-            const isSharingAvailable = await Sharing.isAvailableAsync();
-            if (!isSharingAvailable) {
-                throw new Error(i18n.t('backup.sharing_unavailable'));
+            // One native SQLite transaction. An invalid/corrupt backup cannot leave
+            // the app with a half-erased database after several separate batches.
+            if (operations.length) await database.batch(operations);
+        } catch (error) {
+            // SQLite rolled back; also restore the model snapshots that
+            // prepareUpdate changes in memory before the native batch runs.
+            for (const [record, raw] of previous) {
+                for (const key of Object.keys(record._raw)) {
+                    if (!(key in raw)) delete (record._raw as unknown as Record<string, unknown>)[key];
+                }
+                Object.assign(record._raw, raw);
+                record._preparedState = null;
             }
-
-            store.startExport(i18n.t('backup.opening_share'));
-            await Sharing.shareAsync(fileUri, {
-                mimeType: 'application/json',
-                dialogTitle: i18n.t('backup.export_title'),
-                UTI: 'public.json',
-            });
-
-            store.setSuccess(i18n.t('backup.export_success'));
-        } catch (error: any) {
-            console.error('Error al exportar base de datos:', error);
-            store.setError(error?.message || String(error) || i18n.t('backup.export_error'));
+            throw error;
         }
-    },
+    });
+}
 
-    importDatabase: async () => {
-        const store = useBackupStore.getState();
-        const cachedUri = FileSystem.cacheDirectory + 'import_backup_tmp.json';
-        try {
-            const pickerResult = await pickDocumentForCopy('application/json');
+async function exportDatabase(format: BackupFormat = 'json') {
+    if (busy) return;
+    busy = true;
+    const store = useBackupStore.getState();
+    const root = FileSystem.cacheDirectory + 'backup-export-' + randomId() + '/';
+    store.startExport(i18n.t('backup.preparing'));
+    try {
+        const data = rawData(await snapshot());
+        const fileUri = FileSystem.cacheDirectory + (format === 'zip' ? 'backup_music_app.zip' : 'backup_music_app.json');
+        let missing = 0;
+        if (format === 'zip') {
+            const { userAlias, userAvatarUri } = useSettingsStore.getState();
+            const archive = await createBackupArchive(data, root, { userAlias, userAvatarUri }, count => store.startExport(i18n.t('backup.copying_assets', { count })));
+            missing = archive.missing;
+            await FileSystem.deleteAsync(fileUri, { idempotent: true });
+            await FileSystem.moveAsync({ from: archive.uri, to: fileUri });
+        } else {
+            await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(data), { encoding: FileSystem.EncodingType.UTF8 });
+        }
+        if (!await Sharing.isAvailableAsync()) throw new Error(i18n.t('backup.sharing_unavailable'));
+        store.startExport(i18n.t('backup.opening_share'));
+        await Sharing.shareAsync(fileUri, { mimeType: format === 'zip' ? 'application/zip' : 'application/json',
+            dialogTitle: i18n.t('backup.export_title'), UTI: format === 'zip' ? 'public.zip-archive' : 'public.json' });
+        store.setSuccess(i18n.t(missing ? 'backup.export_missing_assets' : 'backup.export_success', { count: missing }));
+    } catch (error) {
+        store.setError(errorMessage(error, 'backup.export_error'));
+    } finally {
+        await FileSystem.deleteAsync(root, { idempotent: true }).catch(() => {});
+        busy = false;
+    }
+}
 
-            if (pickerResult.canceled || !pickerResult.assets || pickerResult.assets.length === 0) {
-                return;
-            }
+function errorMessage(error: unknown, fallback: string) {
+    const message = error instanceof Error ? error.message : '';
+    return message.startsWith('backup.') ? i18n.t(message) : message || i18n.t(fallback);
+}
 
-            store.startImport(i18n.t('backup.stopping_player'));
-            await usePlayerStore.getState().clearPlayer().catch(err => {
-                console.warn('No se pudo detener el reproductor durante la importación:', err);
-            });
-
-            store.startImport(i18n.t('backup.reading_file'));
-            const fileAsset = pickerResult.assets[0];
-
-            // Copiamos primero a cache para obtener un file:// URI limpio.
-            // Las URIs content:// de Android no siempre son legibles directamente.
-            await FileSystem.copyAsync({ from: fileAsset.uri, to: cachedUri });
-
-            // ✅ Usamos nuestro helper que detecta Base64 (nuevo) o plain-UTF-8 (legado)
-            const fileContent = await readBackupFile(cachedUri);
-
-            store.startImport(i18n.t('backup.processing_data'));
-            const backupData = JSON.parse(fileContent);
-
-            if (!backupData || typeof backupData !== 'object') {
-                throw new Error(i18n.t('backup.invalid_format'));
-            }
-
-            const hasRequiredCollections = COLLECTIONS_TO_BACKUP.some(col => Array.isArray(backupData[col]));
-            if (!hasRequiredCollections) {
-                throw new Error(i18n.t('backup.incompatible_data'));
-            }
-
-            store.startImport(i18n.t('backup.clearing_db'));
-            await database.write(async () => {
-                await database.unsafeResetDatabase();
-                clearAllQueueSessions();
-            });
-
-            // Clear player recents to match the new database state
+async function importDatabase(format: BackupFormat = 'json') {
+    if (busy) return;
+    busy = true;
+    const store = useBackupStore.getState();
+    const token = randomId(), root = FileSystem.cacheDirectory + 'backup-import-' + token + '/';
+    let stagedPaths: string[] = [], retainedAssets: string[] = [], committed = false;
+    try {
+        const result = await pickDocumentForCopy(format === 'zip' ? ['application/zip', 'application/x-zip-compressed'] : 'application/json');
+        if (result.canceled || !result.assets?.length) return;
+        store.startImport(i18n.t('backup.reading_file'));
+        await FileSystem.makeDirectoryAsync(root, { intermediates: true });
+        const cached = root + 'backup.' + format;
+        await FileSystem.copyAsync({ from: result.assets[0].uri, to: cached });
+        let archive: BackupArchive | undefined;
+        let data: BackupData;
+        if (format === 'zip') {
+            archive = await openBackupArchive(cached, root);
+            data = archive.data;
+        } else data = validateBackupData(JSON.parse(await readBackupFile(cached)));
+        const options = await chooseBackupImportOptions();
+        if (!options) { store.close(); return; }
+        const previousAssets = archive && options.mode === 'replace' ? await listOwnedBackupAssets() : [];
+        if (archive) {
+            store.startImport(i18n.t('backup.restoring_assets'));
+            const staged = await stageArchiveAssets(archive, token);
+            data = staged.data; stagedPaths = staged.paths; retainedAssets = staged.retainedPaths;
+            archive.manifest.profile.userAvatarUri = staged.avatar;
+        }
+        store.startImport(i18n.t('backup.stopping_player'));
+        const cast = useCastStore.getState();
+        if (cast.isLocalCastActive) await cast.stopLocalCast();
+        if (cast.isChromecastConnected) await cast.disconnectChromecast();
+        await usePlayerStore.getState().clearPlayer();
+        store.startImport(i18n.t('backup.restoring_data'));
+        await applyBackupData(data, options);
+        committed = true;
+        if (options.mode === 'replace') {
+            clearAllQueueSessions();
             usePlayerStore.setState({ recentMedia: [], recentPlaylists: [] });
-            await usePlayerStore.getState().saveRecentsState().catch(err => {
-                console.warn('No se pudieron limpiar las escuchas recientes:', err);
-            });
-
-            store.startImport(i18n.t('backup.restoring_data'));
-            const batchOperations: any[] = [];
-
-            await database.write(async () => {
-                for (const collectionName of COLLECTIONS_TO_BACKUP) {
-                    const items = backupData[collectionName];
-                    if (!Array.isArray(items)) continue;
-
-                    const collection = database.collections.get(collectionName);
-                    for (const item of items) {
-                        const op = collection.prepareCreate((record: any) => {
-                            Object.assign(record._raw, item);
-                            if (collectionName === 'artists') {
-                                record._raw.image_url = null;
-                            }
-                            if (collectionName === 'tracks') {
-                                if (record._raw.rating === undefined) {
-                                    record._raw.rating = null;
-                                }
-                            }
-                        });
-                        batchOperations.push(op);
-                    }
-                }
-
-                if (batchOperations.length > 0) {
-                    const BATCH_SIZE = 1000;
-                    for (let i = 0; i < batchOperations.length; i += BATCH_SIZE) {
-                        const chunk = batchOperations.slice(i, i + BATCH_SIZE);
-                        store.startImport(i18n.t('backup.saving_records', {
-                            count: `${Math.min(i + BATCH_SIZE, batchOperations.length)} / ${batchOperations.length}`
-                        }));
-                        await database.batch(chunk);
-                    }
-                }
-            });
-
-            store.setReconciling(i18n.t('backup.reconciling'));
-
-            // NOTA: usamos skipFileCheck=true para no borrar los tracks del backup
-            // (sus file_url no existen en este dispositivo pero los datos son válidos).
-            await ScannerService.cleanDeletedFiles(
-                { skipFileCheck: true },
-                (phase) => store.setReconciling(i18n.t('backup.reconciling_phase', { phase }))
-            );
-
-            await initializeExistingPlaylistCovers();
-            store.setSuccess(i18n.t('backup.import_success'));
-
-            // Limpiar archivo temporal
-            await FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
-
-            // Reiniciar la aplicación para recargar las conexiones y limpiar la memoria
-            setTimeout(() => {
-                RNRestart.restart();
-            }, 1000);
-        } catch (error: any) {
-            console.error('Error al importar base de datos:', error);
-            FileSystem.deleteAsync(cachedUri, { idempotent: true }).catch(() => {});
-            store.setError(error?.message || String(error) || i18n.t('backup.import_error'));
+            await usePlayerStore.getState().saveRecentsState().catch(() => {});
         }
-    },
-};
+        if (archive) {
+            const current = useSettingsStore.getState();
+            const preferImported = options.mode === 'replace' || options.conflicts === 'imported';
+            useSettingsStore.setState({
+                userAlias: preferImported || !current.userAlias ? archive.manifest.profile.userAlias : current.userAlias,
+                userAvatarUri: preferImported || !current.userAvatarUri ? archive.manifest.profile.userAvatarUri : current.userAvatarUri,
+            });
+            const retained = new Set([...retainedAssets, ...Object.values(data).flatMap(rows => rows.flatMap(row => Object.values(row)
+                .filter((value): value is string => typeof value === 'string' && value.startsWith('file://')).map(uri => uri.split('?')[0])))]);
+            await Promise.all(previousAssets.filter(path => !retained.has(path)).map(path => FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {})));
+        }
+        store.setSuccess(i18n.t('backup.import_success'));
+        setTimeout(() => RNRestart.restart(), 1000);
+    } catch (error) {
+        store.setError(errorMessage(error, 'backup.import_error'));
+    } finally {
+        if (!committed) await Promise.all(stagedPaths.map(path => FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {})));
+        await FileSystem.deleteAsync(root, { idempotent: true }).catch(() => {});
+        busy = false;
+    }
+}
+
+export const BackupService = { exportDatabase, importDatabase };

@@ -210,7 +210,7 @@ index 33743a5..e6f19e4 100644
 @@ -1,4 +1,4 @@
  export interface DynamicAppIconRegistry {
 -    IconName: string;
-+    IconName: "dark" | "aqua" | "develpink" | "labgreen" | "pink" | "red" | "white" | "yellow" | "supporter" | "retro" | "darkblue" | "orange" | "legend"
++    IconName: "dark" | "aqua" | "develpink" | "labgreen" | "pink" | "red" | "white" | "yellow" | "supporter" | "retro" | "darkblue" | "orange" | "legend" | "crt"
  }
  //# sourceMappingURL=types.d.ts.map
 \ No newline at end of file

@@ -19,6 +19,13 @@ describe('launcher icon upgrade', () => {
         }
     );
 
+    it('includes every configured icon in the registry patch applied by clean CI installs', () => {
+        const patch = fs.readFileSync(path.join(__dirname, '../../patches/@howincodes+expo-dynamic-app-icon+3.0.2.patch'), 'utf8');
+        const registry = patch.match(/^\+\s+IconName:(.*)$/m)?.[1] ?? '';
+        const patchedIcons = [...registry.matchAll(/"([^"]+)"/g)].map(match => match[1]);
+        expect(patchedIcons.sort()).toEqual(Object.keys(icons).sort());
+    });
+
     it('uses adaptive layers and existing assets for every selectable and legacy alias', () => {
         for (const icon of Object.values(icons) as { android: { foregroundImage: string; backgroundColor: string }; ios: string }[]) {
             expect(typeof icon.android).toBe('object');

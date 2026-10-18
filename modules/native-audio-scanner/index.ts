@@ -2,6 +2,18 @@ import { requireNativeModule } from 'expo-modules-core';
 
 const NativeAudioScannerModule = requireNativeModule('NativeAudioScanner');
 
+export interface MusicZipResult { folder: string; imported: number; skipped: number }
+export interface MusicZipProgress { completed: number; total: number; folder: string }
+export async function getOpenedFileInfo(uri: string): Promise<{ name: string; mimeType: string }> {
+  return NativeAudioScannerModule.getOpenedFileInfo(uri);
+}
+export async function importMusicZip(uri: string, name = ''): Promise<MusicZipResult> {
+  return NativeAudioScannerModule.importMusicZip(uri, name);
+}
+export function addMusicZipProgressListener(callback: (event: MusicZipProgress) => void): { remove: () => void } {
+  return NativeAudioScannerModule.addListener('onMusicZipImportProgress', callback);
+}
+
 export type AudioTag = {
   id: string;
   uri: string;
