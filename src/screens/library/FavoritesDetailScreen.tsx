@@ -1,5 +1,5 @@
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -225,8 +225,7 @@ function FavoritesDetailContent({ tracks }: Readonly<FavoritesDetailProps>) {
 const ObservableFavoritesDetail = withObservables([], () => ({
     data: observeScreenData(() => database.collections.get<Track>('tracks').query(Q.where('is_favorite', true)).observe()),
 }))(function LoadedFavorites({ data }: { data?: Track[] }) {
-    if (!data) return <ScreenLoadingShell titleKey="home.your_favourites" />;
-    return <FavoritesDetailContent tracks={data} />;
+    return <InvisibleScreenContent ready={!!data}><FavoritesDetailContent tracks={data ?? []} /></InvisibleScreenContent>;
 });
 
 export default function FavoritesDetailScreen() {

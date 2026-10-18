@@ -1,18 +1,13 @@
+import { libraryTracks as tracks, libraryAlbums as albums, libraryCredits as collaborators } from './LibraryDataSources';
 import { combineLatest, defer, map, of, shareReplay, switchMap } from 'rxjs';
 import * as FileSystem from 'expo-file-system/legacy';
 import { resolveAudioUriInfo } from '../../modules/native-audio-scanner';
 import { database } from '../database';
-import Track from '../database/models/Track';
-import Album from '../database/models/Album';
 import PlaylistTrack from '../database/models/PlaylistTrack';
-import TrackCollaborator from '../database/models/TrackCollaborator';
 import PlaybackHistory from '../database/models/PlaybackHistory';
 import { buildLibraryFilterIndex, emptyLibraryFilterIndex, FilterSection, FilterTrack, hasSectionFilters, SectionFilters } from '../utils/libraryFilters';
 
-const tracks = defer(() => database.get<Track>('tracks').query().observeWithColumns(['album_id', 'artist_id', 'file_url', 'last_modified', 'duration', 'rating', 'genre', 'is_favorite', 'lyrics_lrc'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-const albums = defer(() => database.get<Album>('albums').query().observeWithColumns(['artist_id'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 const memberships = defer(() => database.get<PlaylistTrack>('playlist_tracks').query().observeWithColumns(['playlist_id', 'track_id'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-const collaborators = defer(() => database.get<TrackCollaborator>('track_collaborators').query().observeWithColumns(['artist_id', 'track_id'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 const history = defer(() => database.get<PlaybackHistory>('playback_history').query().observeWithColumns(['item_id', 'item_type', 'played_at'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 const sizes = new Map<string, Promise<number | null>>();
 

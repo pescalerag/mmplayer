@@ -30,7 +30,7 @@ describe('launcher icon upgrade', () => {
     });
 
     it('keeps current choices unchanged', () => {
-        for (const name of ['DEFAULT', 'dark', 'aqua', 'develpink', 'labgreen', 'pink', 'red', 'white', 'yellow', 'legend']) {
+        for (const name of ['DEFAULT', 'dark', 'aqua', 'develpink', 'labgreen', 'pink', 'red', 'white', 'yellow', 'legend', 'crt']) {
             expect(normalizeAppIcon(name)).toBe(name);
         }
     });
@@ -42,9 +42,11 @@ describe('launcher icon upgrade', () => {
         expect(useSettingsStore.getState().appIcon).toBe('legend');
     });
 
-    it('reserves both theme icons while retaining their native aliases for upgrades', () => {
+    it('reserves theme icons while retaining their native aliases for upgrades', () => {
         expect(isStandaloneAppIcon('develpink')).toBe(false);
         expect(isStandaloneAppIcon('legend')).toBe(false);
+        expect(isStandaloneAppIcon('crt')).toBe(false);
+        expect(icons.crt.android.foregroundImage).toContain('logoCRTRetro.png');
         expect(isStandaloneAppIcon('DEFAULT')).toBe(true);
         expect(isStandaloneAppIcon('aqua')).toBe(true);
         expect(icons.develpink.android.foregroundImage).toContain('logodevelETSII.png');

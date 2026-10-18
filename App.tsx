@@ -1,3 +1,4 @@
+import ColorPickerModal from "./src/components/modals/ColorPickerModal";
 import { NavigationContainer } from "@react-navigation/native";
 import * as Font from "expo-font";
 import * as NavigationBar from "expo-navigation-bar";
@@ -335,6 +336,7 @@ export default function App() {
             <TagFormModal />
             <ActivityCustomDateModal />
             <QueueRenameModal />
+            <ColorPickerModal />
           </NavigationContainer>
         </View>
       </SafeAreaProvider>

@@ -1,5 +1,5 @@
 import { observeScreenData } from '../../utils/observeScreenData';
-import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu, openFolderMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -423,8 +423,9 @@ const EnhancedFolderDetailContent = withObservables(['folderPath'], ({ folderPat
     data: observeScreenData(() => database.collections.get<Track>('tracks')
         .query(Q.where('file_url', Q.like(`${folderPath}%`))).observe()),
 }))(function LoadedFolderDetail({ data, folderPath, folderName }: { data?: Track[]; folderPath: string; folderName: string }) {
-    if (!data) return <ScreenLoadingShell title={folderName} />;
-    return <FolderDetailContentBase rawTracks={data} folderPath={folderPath} folderName={folderName} isLoadingContent={false} />;
+    return <InvisibleScreenContent ready={!!data}>
+        <FolderDetailContentBase rawTracks={data ?? []} folderPath={folderPath} folderName={folderName} isLoadingContent={!data} />
+    </InvisibleScreenContent>;
 });
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────

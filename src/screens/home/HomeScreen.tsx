@@ -319,7 +319,7 @@ const homeDataResource = new RetainedResource<HomeData>(2);
 const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
 
 export default function HomeScreen() {
-    const { colors, gradients, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const { colors, gradients, headerTitleStyle, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -878,7 +878,7 @@ export default function HomeScreen() {
                     <View>
                         {showHomeGreeting && (
                             <View style={styles.greetingContainer}>
-                                <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
+                                <Text style={[styles.welcomeText, headerTitleStyle]}>{t(getGreetingKey())}</Text>
                             </View>
                         )}
                     </View>

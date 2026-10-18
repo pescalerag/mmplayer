@@ -1,7 +1,7 @@
-export type AppTheme = 'none' | 'legendary' | 'develETSII';
+export type AppTheme = 'none' | 'legendary' | 'develETSII' | 'retro';
 
 export function normalizeAppTheme(theme: unknown): AppTheme {
-  return theme === 'legendary' || theme === 'develETSII' ? theme : 'none';
+  return theme === 'legendary' || theme === 'develETSII' || theme === 'retro' ? theme : 'none';
 }
 
 export function resolveAppTheme(theme: unknown, tier: string, ignoreTheme = false): AppTheme {
@@ -12,5 +12,6 @@ export function resolveAppTheme(theme: unknown, tier: string, ignoreTheme = fals
 export function getAppThemeIcon(theme: AppTheme) {
   if (theme === 'legendary') return 'legend';
   if (theme === 'develETSII') return 'develpink';
+  if (theme === 'retro') return 'crt';
   return null;
 }

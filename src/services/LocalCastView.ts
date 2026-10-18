@@ -129,3 +129,153 @@ export function createLocalCastLyricsView(scroller: HTMLElement, presence: (hasL
   }
   return { select, sync };
 }
+
+
+export function createLocalCastMetadataView(container: HTMLElement,
+  labels: { tags: string; rating: string; noRating: string; error: string },
+  save: (params: URLSearchParams) => Promise<void>) {
+  let version = '';
+  let pending = false;
+  let selected: { trackId: string; rating: number | null; tagIds: string[]; availableTags: { id: string; name: string; color: string }[] } | null = null;
+  function clear() {
+    version = ''; selected = null; container.hidden = true; container.replaceChildren();
+  }
+  async function edit(params: URLSearchParams) {
+    if (pending || !selected) return;
+    params.set('trackId', selected.trackId);
+    pending = true;
+    container.querySelectorAll('input, button').forEach(control => { (control as HTMLInputElement).disabled = true; });
+    try {
+      await save(params);
+    } catch {
+      const error = document.createElement('span');
+      error.textContent = labels.error; error.setAttribute('role', 'status');
+      container.append(error);
+    } finally {
+      pending = false;
+      container.querySelectorAll('input, button').forEach(control => { (control as HTMLInputElement).disabled = false; });
+      version = '';
+    }
+  }
+  function render() {
+    if (!selected) return;
+    const wasOpen = container.querySelector('details')?.open ?? false;
+    container.hidden = false;
+    const rating = document.createElement('div'); rating.className = 'track-rating';
+    const currentRating = selected.rating ?? 0;
+    const caption = document.createElement('span'); caption.className = 'rating-caption';
+    caption.textContent = labels.rating + ': ' + (currentRating ? currentRating.toFixed(1) : labels.noRating);
+    const stars = document.createElement('div'); stars.className = 'rating-stars';
+    stars.setAttribute('role', 'group'); stars.setAttribute('aria-label', labels.rating);
+    for (let i = 1; i <= 5; i++) {
+      const star = document.createElement('div'); star.className = 'rating-star';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 512 512'); svg.setAttribute('aria-hidden', 'true');
+      const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      shape.setAttribute('d', 'M256 32 325 176 480 198 368 307 394 464 256 390 118 464 144 307 32 198 187 176Z');
+      svg.append(shape);
+      const outline = document.createElement('span'); outline.className = 'star-outline'; outline.append(svg);
+      if (currentRating >= i - 0.5) outline.style.color = '#FFD700';
+      const fill = document.createElement('span'); fill.className = 'star-fill';
+      fill.style.width = Math.max(0, Math.min(100, (currentRating - i + 1) * 100)) + '%';
+      fill.append(svg.cloneNode(true)); star.append(outline, fill);
+      for (const value of [i - 0.5, i]) {
+        const button = document.createElement('button'); button.type = 'button';
+        button.className = value === i ? 'star-hit star-right' : 'star-hit star-left';
+        button.setAttribute('aria-label', labels.rating + ': ' + value + '/5');
+        button.setAttribute('aria-pressed', String(currentRating === value));
+        button.addEventListener('click', () => { void edit(new URLSearchParams({ action: 'rating', rating: String(currentRating === value ? 0 : value) })); });
+        star.append(button);
+      }
+      stars.append(star);
+    }
+    const clearRating = document.createElement('button'); clearRating.type = 'button'; clearRating.className = 'rating-clear';
+    clearRating.textContent = '×'; clearRating.setAttribute('aria-label', labels.noRating);
+    clearRating.addEventListener('click', () => { void edit(new URLSearchParams({ action: 'rating', rating: '0' })); });
+    stars.append(clearRating); rating.append(caption, stars);
+    const details = document.createElement('details'); details.open = wasOpen;
+    const summary = document.createElement('summary');
+    const addIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    addIcon.setAttribute('viewBox', '0 0 24 24'); addIcon.setAttribute('class', 'tag-add-icon'); addIcon.setAttribute('aria-hidden', 'true');
+    const addPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    addPath.setAttribute('d', 'M12 8v8M8 12h8M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0');
+    addPath.setAttribute('fill', 'none'); addPath.setAttribute('stroke', 'currentColor'); addPath.setAttribute('stroke-width', '1.5');
+    addPath.setAttribute('stroke-linecap', 'round'); addIcon.append(addPath);
+    const addText = document.createElement('span'); addText.textContent = labels.tags;
+    summary.append(addIcon, addText);
+    const list = document.createElement('div'); list.className = 'tag-editor';
+    selected.availableTags.forEach(tag => {
+      const row = document.createElement('label');
+      const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = selected!.tagIds.includes(tag.id);
+      checkbox.addEventListener('change', () => { void edit(new URLSearchParams({ action: 'tag', tagId: tag.id, associated: String(checkbox.checked) })); });
+      const name = document.createElement('span'); name.textContent = tag.name;
+      row.append(checkbox, name); list.append(row);
+    });
+    details.append(summary, list);
+    const assigned = selected.availableTags.filter(tag => selected!.tagIds.includes(tag.id)).map(tag => {
+      const badge = document.createElement('button'); badge.type = 'button'; badge.className = 'track-tag'; badge.textContent = tag.name;
+      badge.addEventListener('click', () => { details.open = true; });
+      if (/^#[\da-f]{6}$/i.test(tag.color)) {
+        badge.style.backgroundColor = tag.color;
+        const [r, g, b] = [1, 3, 5].map(offset => Number.parseInt(tag.color.slice(offset, offset + 2), 16));
+        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+        badge.style.color = yiq > 150
+          ? '#' + [r, g, b].map(channel => Math.floor(channel * 0.3).toString(16).padStart(2, '0')).join('')
+          : '#FFFFFF';
+      }
+      return badge;
+    });
+    const badges = document.createElement('div'); badges.className = 'assigned-tags'; badges.append(...assigned, details);
+    container.replaceChildren(rating, badges);
+  }
+  return {
+    getVersion: () => version,
+    clear,
+    sync(state: { metadataVersion?: string; trackMetadata?: typeof selected; isStopped?: boolean; handoff?: boolean; activeTrack?: unknown; trackId?: string }) {
+      if (state.isStopped || state.handoff || state.activeTrack === null) { clear(); return; }
+      if (selected && state.trackId && state.trackId !== selected.trackId) clear();
+      if (pending || !state.trackMetadata || !state.metadataVersion || state.metadataVersion === version) return;
+      selected = state.trackMetadata; version = state.metadataVersion; render();
+    },
+  };
+}
+
+// Uses the persisted app setting rather than browser storage, so another client
+// and future casting sessions receive the same choice through the existing poll.
+export function createLocalCastSettingsView(controls: { replayGainEnabled: HTMLInputElement; hideRatings: HTMLInputElement; hideTags: HTMLInputElement },
+  status: HTMLElement, errorLabel: string, save: (key: string, enabled: boolean, sessionId: string) => Promise<boolean>,
+  visibility: (hideRatings: boolean, hideTags: boolean) => void) {
+  let sessionId = '';
+  let values = { replayGainEnabled: false, hideRatings: false, hideTags: false };
+  let pending = false;
+  function apply() {
+    for (const key of Object.keys(controls) as (keyof typeof controls)[]) {
+      controls[key].checked = values[key]; controls[key].disabled = pending || !sessionId;
+    }
+    visibility(values.hideRatings, values.hideTags);
+  }
+  for (const key of Object.keys(controls) as (keyof typeof controls)[]) {
+    controls[key].addEventListener('change', () => {
+      if (pending || !sessionId) return;
+      const next = controls[key].checked;
+      pending = true; status.textContent = '';
+      Object.values(controls).forEach(control => { control.disabled = true; });
+      void save(key, next, sessionId).then(value => {
+        values = { ...values, [key]: value };
+      }).catch(() => {
+        status.textContent = errorLabel;
+      }).finally(() => { pending = false; apply(); });
+    });
+  }
+  return {
+    sync(state: { localCastSettings?: { replayGainEnabled: boolean; hideRatings: boolean; hideTags: boolean; sessionId: string } }) {
+      if (pending || !state.localCastSettings) return;
+      const next = state.localCastSettings;
+      if (sessionId === next.sessionId && values.replayGainEnabled === next.replayGainEnabled
+        && values.hideRatings === next.hideRatings && values.hideTags === next.hideTags) return;
+      sessionId = next.sessionId;
+      values = { replayGainEnabled: next.replayGainEnabled, hideRatings: next.hideRatings, hideTags: next.hideTags };
+      apply();
+    },
+  };
+}

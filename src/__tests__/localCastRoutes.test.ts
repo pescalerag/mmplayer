@@ -1,3 +1,4 @@
+import { AlbumCoverColorService } from '../services/AlbumCoverColorService';
 import TrackPlayer from 'react-native-track-player';
 import { BridgeServer } from 'react-native-http-bridge-refurbished';
 import { LocalCastService } from '../services/LocalCastService';
@@ -247,7 +248,8 @@ describe('LocalCast HTTP integration', () => {
     expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({
       replayGain: { enabled: false, gainDb: -6, peak: 0.8, preampDb: 0, fallbackDb: -5 },
     }), 200);
-    expect(find).toHaveBeenCalledTimes(1);
+    // One initial read for playback metadata and one for editable metadata; neither repeats on polling.
+    expect(find).toHaveBeenCalledTimes(2);
   });
   it('uses queue ReplayGain when DB metadata is absent and leaves missing gain and peak unknown', async () => {
     (TrackPlayer.getTrack as jest.Mock).mockResolvedValue({ id: 'native-instance', url: 'file:///native.mp3', replayGain: -4, replayPeak: 0.7 });
@@ -291,4 +293,98 @@ describe('LocalCast HTTP integration', () => {
     const response = await request('/api/state');
     expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ title: 'Song', mediaFileName: 'cast_track_song.mp3' }), 200);
   });
+  it('reuses stored album colors, follows song changes and restricts the artwork theme to VIP', async () => {
+    const settings = useSettingsStore.getState();
+    const extract = jest.spyOn(AlbumCoverColorService, 'getColor');
+    const album = { coverUrl: 'file:///first.jpg', coverColorSource: 'file:///first.jpg', coverColor: '#12ABCD' };
+    const fetchAlbum = jest.fn().mockResolvedValue(album);
+    try {
+      useSettingsStore.setState({ userTier: 'VIP', localCastTheme: 'cover' });
+      (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ album: { fetch: fetchAlbum } }) });
+      const first = (await request('/api/state')).json.mock.calls[0][0];
+      expect(first).toMatchObject({ theme: 'cover:#12ABCD', themeCss: expect.stringContaining('--play-btn-hover-border: #12ABCD') });
+      expect((await request('/api/state?theme=' + encodeURIComponent(first.theme))).json.mock.calls[0][0]).not.toHaveProperty('themeCss');
+      expect(fetchAlbum).toHaveBeenCalledTimes(1);
+      expect(extract).not.toHaveBeenCalled();
+      album.coverUrl = album.coverColorSource = 'file:///second.jpg'; album.coverColor = '#CC2244';
+      (TrackPlayer.getTrack as jest.Mock).mockResolvedValue({ id: 'next-instance', title: 'Next', url: 'file:///next.mp3' });
+      expect((await request('/api/state?theme=' + encodeURIComponent(first.theme))).json.mock.calls[0][0]).toMatchObject({ theme: 'cover:#CC2244', themeCss: expect.stringContaining('#CC2244') });
+      useSettingsStore.setState({ userTier: 'SUPPORTER' });
+      expect((await request('/api/state')).json.mock.calls[0][0].theme).toBe('default');
+    } finally {
+      useSettingsStore.setState({ userTier: settings.userTier, localCastTheme: settings.localCastTheme });
+    }
+  });
+  it('extracts a missing album color once without blocking state and updates the receiver afterwards', async () => {
+    const settings = useSettingsStore.getState();
+    let resolveColor!: (color: string) => void;
+    const extract = jest.spyOn(AlbumCoverColorService, 'getColor').mockImplementation(() => new Promise(resolve => { resolveColor = resolve; }));
+    try {
+      useSettingsStore.setState({ userTier: 'VIP', localCastTheme: 'cover' });
+      (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ album: { fetch: async () => ({ coverUrl: 'file:///missing-color.jpg' }) } }) });
+      const first = (await request('/api/state')).json.mock.calls[0][0];
+      expect(first.theme).toBe('cover:#8B5CF6');
+      await request('/api/state');
+      expect(extract).toHaveBeenCalledTimes(1);
+      resolveColor('#77CC22');
+      await Promise.resolve();
+      expect((await request('/api/state?theme=' + encodeURIComponent(first.theme))).json.mock.calls[0][0]).toMatchObject({ theme: 'cover:#77CC22', themeCss: expect.stringContaining('#77CC22') });
+    } finally {
+      useSettingsStore.setState({ userTier: settings.userTier, localCastTheme: settings.localCastTheme });
+    }
+  });
+  it('changes and synchronizes persisted LocalCast settings while leaving global normalization unchanged', async () => {
+    const original = useSettingsStore.getState();
+    const session = LocalCastService.getSessionId();
+    try {
+      useSettingsStore.setState({ isNormalizationEnabled: true, localCastReplayGainEnabled: null, localCastHideTags: false, localCastHideRatings: false });
+      expect((await request('/api/settings?sessionId=' + session + '&setting=replayGainEnabled&enabled=false', 'POST')).json).toHaveBeenCalledWith({ success: true, enabled: false }, 200);
+      expect(useSettingsStore.getState().isNormalizationEnabled).toBe(true);
+      expect((await request('/api/state')).json.mock.calls[0][0]).toMatchObject({ replayGain: { enabled: false }, localCastSettings: { replayGainEnabled: false, hideRatings: false, hideTags: false, sessionId: session } });
+      for (const setting of ['hideRatings', 'hideTags', 'replayGainEnabled']) {
+        expect((await request('/api/settings?sessionId=' + session + '&setting=' + setting + '&enabled=true', 'POST')).json).toHaveBeenCalledWith({ success: true, enabled: true }, 200);
+      }
+      expect((await request('/api/state')).json.mock.calls[0][0]).toMatchObject({ replayGain: { enabled: true }, localCastSettings: { hideRatings: true, hideTags: true } });
+      useCastStore.setState({ isLocalCastActive: false });
+      expect((await request('/api/state')).json.mock.calls[0][0]).toMatchObject({ isStopped: true, localCastSettings: { replayGainEnabled: true, hideRatings: true, hideTags: true } });
+    } finally {
+      useSettingsStore.setState({ isNormalizationEnabled: original.isNormalizationEnabled, localCastReplayGainEnabled: original.localCastReplayGainEnabled, localCastHideRatings: original.localCastHideRatings, localCastHideTags: original.localCastHideTags });
+    }
+  });
+  it('rejects stale and malformed settings updates', async () => {
+    const session = LocalCastService.getSessionId();
+    expect((await request('/api/settings?sessionId=old&setting=hideTags&enabled=true', 'POST')).json).toHaveBeenCalledWith({ success: false }, 409);
+    for (const query of ['setting=hideTags&enabled=invalid', 'setting=userTier&enabled=true', 'setting=__proto__&enabled=true']) {
+      expect((await request('/api/settings?sessionId=' + session + '&' + query, 'POST')).json).toHaveBeenCalledWith({ success: false }, 400);
+    }
+  });
+  it('synchronizes changes between two custom colors and enforces VIP on the receiver', async () => {
+    const settings = useSettingsStore.getState();
+    try {
+      useSettingsStore.setState({ userTier: 'VIP', localCastTheme: 'custom', localCastCustomColor: '#123456' });
+      const first = (await request('/api/state?theme=default')).json.mock.calls[0][0];
+      expect(first.theme).toBe('custom:#123456');
+      expect(first.themeCss).toContain('--play-btn-hover-border: #123456');
+      expect((await request('/')).html).toHaveBeenCalledWith(expect.stringContaining('--play-btn-hover-border: #123456'), 200);
+      expect((await request('/api/state?theme=' + encodeURIComponent(first.theme))).json.mock.calls[0][0]).not.toHaveProperty('themeCss');
+      useSettingsStore.getState().setLocalCastCustomColor('#ABCDEF');
+      expect((await request('/api/state?theme=' + encodeURIComponent(first.theme))).json.mock.calls[0][0]).toMatchObject({ theme: 'custom:#ABCDEF', themeCss: expect.stringContaining('#ABCDEF') });
+      useSettingsStore.setState({ userTier: 'SUPPORTER' });
+      expect((await request('/api/state?theme=custom')).json.mock.calls[0][0].theme).toBe('default');
+    } finally {
+      useSettingsStore.setState({ userTier: settings.userTier, localCastTheme: settings.localCastTheme, localCastCustomColor: settings.localCastCustomColor });
+    }
+  });
+  it('rejects editing from a stale session or for a song that has changed', async () => {
+    const session = LocalCastService.getSessionId();
+    for (const query of ['sessionId=old&trackId=song', 'sessionId=' + session + '&trackId=other']) {
+      expect((await request('/api/metadata?' + query + '&action=rating&rating=4', 'POST')).json).toHaveBeenCalledWith({ success: false }, 409);
+    }
+    const updateRating = jest.fn().mockResolvedValue(undefined);
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ updateRating }) });
+    expect((await request('/api/metadata?sessionId=' + session + '&trackId=song&action=rating&rating=4.5', 'POST')).json).toHaveBeenCalledWith({ success: true }, 200);
+    expect(updateRating).toHaveBeenCalledWith(4.5);
+    expect((await request('/api/metadata?sessionId=' + session + '&trackId=song&action=rating&rating=99', 'POST')).json).toHaveBeenCalledWith({ success: false }, 400);
+  });
+
 });

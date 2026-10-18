@@ -1,3 +1,8 @@
+import ThemePreviewPicker from '../common/ThemePreviewPicker';
+import { openColorPickerModal } from '../../store/useColorPickerModalStore';
+import { LOCALCAST_THEMES } from '../../theme/shareThemes';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { ScrollView } from 'react-native-gesture-handler';
 import i18n from '../../constants/i18n';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +11,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  useWindowDimensions,
   AppState,
   Platform,
   StyleSheet,
@@ -44,6 +50,11 @@ export default function LocalCastSheet() {
   } = useCastStore();
 
   const { t } = useTranslation();
+  const { height } = useWindowDimensions();
+  const userTier = useSettingsStore(state => state.userTier);
+  const localCastTheme = useSettingsStore(state => state.localCastTheme);
+  const customColor = useSettingsStore(state => state.localCastCustomColor);
+  const themeOptions = [...LOCALCAST_THEMES, { id: 'custom' as const, nameKey: 'visualizer.color_custom', colors: ['#0D0F12', '#161B22', customColor] as const, accent: customColor, isVipOnly: true }];
   const devices = useDevices();
   const activeTrack = useActiveTrack();
 
@@ -213,6 +224,7 @@ export default function LocalCastSheet() {
   if (activeMode === 'local') {
     return (
       <View style={styles.container}>
+        <ScrollView style={{ maxHeight: height * 0.72 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
         {/* Navigation & Header */}
         <View style={styles.header}>
           {!isLocalCastActive && (
@@ -279,6 +291,21 @@ export default function LocalCastSheet() {
           </View>
         )}
 
+        <Text style={styles.headerLabel}>{t('support.localcast_themes_title')}</Text>
+        <ThemePreviewPicker kind="localcast" options={themeOptions}
+          value={userTier === 'VIP' ? localCastTheme : 'default'} isVip={userTier === 'VIP'}
+          onSelect={theme => {
+            if (userTier !== 'VIP' && theme !== 'default') return;
+            if (theme === 'custom') openColorPickerModal({
+              title: t('visualizer.color_custom'), initialColor: customColor,
+              onConfirm: color => {
+                if (useSettingsStore.getState().userTier === 'VIP') useSettingsStore.getState().setLocalCastCustomColor(color);
+              },
+            });
+            else useSettingsStore.getState().setLocalCastTheme(theme);
+          }} />
+        {userTier !== 'VIP' && <Text style={styles.optionDesc}>{t('support.localcast_vip_hint')}</Text>}
+
         {/* Action buttons */}
         <View style={styles.actionContainer}>
           {isLocalCastActive ? (
@@ -311,6 +338,7 @@ export default function LocalCastSheet() {
             </TouchableOpacity>
           )}
         </View>
+        </ScrollView>
       </View>
     );
   }

@@ -1,3 +1,4 @@
+import { getRetroColors, RETRO_PALETTE, RETRO_GRADIENTS } from '../theme/retroTheme';
 import { getLegendaryColors, isLegendaryThemeEnabled, LEGENDARY_PALETTE } from '../theme/legendaryTheme';
 import { getDevelColors, DEVEL_PALETTE } from '../theme/develTheme';
 import { getAppThemeIcon, normalizeAppTheme, resolveAppTheme } from '../theme/appTheme';
@@ -70,5 +71,29 @@ describe('develETSII appearance', () => {
     expect(contrast(colors.onAccentLight, colors.accentLight)).toBeGreaterThanOrEqual(4.5);
     expect(colors.background).toBe(DEVEL_PALETTE.background);
     expect(colors.tabIconSelected).toBe(DEVEL_PALETTE.coral);
+  });
+});
+
+
+describe('Retro CRT appearance', () => {
+  it.each(['SUPPORTER', 'VIP'])('retains the theme for %s while respecting access', tier => {
+    expect(normalizeAppTheme('retro')).toBe('retro');
+    expect(resolveAppTheme('retro', tier)).toBe('retro');
+    expect(resolveAppTheme('retro', tier, true)).toBe('none');
+    expect(resolveAppTheme('retro', 'USER')).toBe('none');
+    expect(getAppThemeIcon('retro')).toBe('crt');
+  });
+
+  it('keeps text and both phosphor accents readable on all surfaces', () => {
+    const colors = getRetroColors();
+    for (const surface of [colors.background, colors.cardBackground, colors.sheetBackground, colors.inputBackground]) {
+      for (const foreground of [colors.text, colors.textSecondary, colors.accent, colors.accentSecondary]) {
+        expect(contrast(foreground, surface)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(contrast(colors.onAccent, colors.accent)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colors.onAccentLight, colors.accentLight)).toBeGreaterThanOrEqual(4.5);
+    expect(colors.background).toBe(RETRO_PALETTE.background);
+    expect(RETRO_GRADIENTS.navigation.at(-1)).toBe(colors.background);
   });
 });

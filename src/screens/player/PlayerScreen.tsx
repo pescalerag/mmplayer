@@ -1,3 +1,4 @@
+import { resolveVisualizerColor } from '../../utils/visualizerColors';
 import { ArtworkFadeIn } from '../../components/player/ArtworkFadeIn';
 import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 import { useDismissEmptyPlayer } from '../../hooks/useDismissEmptyPlayer';
@@ -1001,9 +1002,8 @@ interface ActiveArtworkCenterProps {
     isImmersive: boolean;
     showPlayerVisualizer: boolean;
     playerVisualizerType: any;
-    playerVisualizerColorMode: string;
+    playerVisualizerColor: string;
     currentCoverUrl: string | null;
-    accentLightColor: string;
     showCanvas: boolean;
     bgVideo?: string | null;
     artworkSize: number;
@@ -1021,9 +1021,8 @@ const ActiveArtworkCenter = ({
     isImmersive,
     showPlayerVisualizer,
     playerVisualizerType,
-    playerVisualizerColorMode,
+    playerVisualizerColor,
     currentCoverUrl,
-    accentLightColor,
     showCanvas,
     bgVideo,
     artworkSize,
@@ -1044,7 +1043,7 @@ const ActiveArtworkCenter = ({
             <NativeVisualizer
                 active={true}
                 type={playerVisualizerType}
-                color={playerVisualizerColorMode === 'cover' ? 'cover' : accentLightColor || '#8B5CF6'}
+                color={playerVisualizerColor}
                 coverColor={coverColor || undefined}
                 style={{
                     width: '100%',
@@ -1157,9 +1156,8 @@ interface PlayerArtworkStageProps {
     textSecondaryColor: string;
     showPlayerVisualizer: boolean;
     playerVisualizerType: any;
-    playerVisualizerColorMode: string;
+    playerVisualizerColor: string;
     currentCoverUrl: string | null;
-    accentLightColor: string;
     track: Track;
     playerCoverStyle: string;
     album: Album | null;
@@ -1191,9 +1189,8 @@ const PlayerArtworkStage = ({
     textSecondaryColor,
     showPlayerVisualizer,
     playerVisualizerType,
-    playerVisualizerColorMode,
+    playerVisualizerColor,
     currentCoverUrl,
-    accentLightColor,
     track,
     playerCoverStyle,
     album,
@@ -1264,9 +1261,8 @@ const PlayerArtworkStage = ({
                             isImmersive={isImmersive}
                             showPlayerVisualizer={showPlayerVisualizer}
                             playerVisualizerType={playerVisualizerType}
-                            playerVisualizerColorMode={playerVisualizerColorMode}
+                            playerVisualizerColor={playerVisualizerColor}
                             currentCoverUrl={currentCoverUrl}
-                            accentLightColor={accentLightColor}
                             showCanvas={showCanvas}
                             bgVideo={track.bgVideo}
                             artworkSize={artworkSize}
@@ -2303,6 +2299,9 @@ const PlayerScreenUI = ({
     const showPlayerVisualizer = useSettingsStore(state => state.showPlayerVisualizer);
     const playerVisualizerType = useSettingsStore(state => state.playerVisualizerType);
     const playerVisualizerColorMode = useSettingsStore(state => state.playerVisualizerColorMode);
+    const playerVisualizerCustomColor = useSettingsStore(state => state.playerVisualizerCustomColor);
+    const visualizerAccent = useAppTheme().colors.accent;
+    const playerVisualizerColor = resolveVisualizerColor(playerVisualizerColorMode, visualizerAccent, playerVisualizerCustomColor);
     const playerCoverStyle = useSettingsStore(state => state.playerCoverStyle);
     const playerBackgroundStyle = useSettingsStore(state => state.playerBackgroundStyle);
     const showPlayerLyrics = useSettingsStore(state => state.showPlayerLyrics);
@@ -2513,9 +2512,8 @@ const PlayerScreenUI = ({
                             textSecondaryColor={colors.textSecondary}
                             showPlayerVisualizer={showPlayerVisualizer}
                             playerVisualizerType={playerVisualizerType}
-                            playerVisualizerColorMode={playerVisualizerColorMode}
+                            playerVisualizerColor={playerVisualizerColor}
                             currentCoverUrl={currentCoverUrl}
-                            accentLightColor={colors.accentLight}
                             track={track}
                             playerCoverStyle={playerCoverStyle}
                             album={album}

@@ -22,6 +22,8 @@ import {
 } from 'react-native';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { BaseMenuSheet } from './BaseMenuSheet';
+import { openColorPickerModal } from '../../store/useColorPickerModalStore';
+import { VisualizerColorMode, VISUALIZER_RAINBOW } from '../../utils/visualizerColors';
 
 const requestAudioPermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
@@ -69,6 +71,7 @@ export default function PlayerMenuSheet() {
         playerVisualizerType,
         setPlayerVisualizerType,
         playerVisualizerColorMode,
+        playerVisualizerCustomColor,
         setPlayerVisualizerColorMode,
         playerCoverStyle,
         setPlayerCoverStyle,
@@ -87,6 +90,19 @@ export default function PlayerMenuSheet() {
     const coverPreview = appearance.coverUrl
         ? <Image source={{ uri: appearance.coverUrl }} recyclingKey={appearance.coverUrl} style={styles.coverPreview} contentFit="contain" transition={0} />
         : <Ionicons name="musical-notes" size={42} color={colors.textSecondary} />;
+
+    const renderColorSwatch = (mode: VisualizerColorMode) => {
+        if (mode === 'rainbow') {
+            return <LinearGradient colors={VISUALIZER_RAINBOW} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.colorSwatch} />;
+        }
+        if (mode === 'custom') {
+            return <View style={[styles.colorSwatch, { backgroundColor: colors.cardBackground, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="color-palette" size={26} color={playerVisualizerCustomColor} />
+            </View>;
+        }
+        const color = mode === 'cover' ? appearance.coverColor || colors.accent : colors.accent;
+        return <View style={[styles.colorSwatch, { backgroundColor: color }]} />;
+    };
 
     const handleVisualizerToggle = async (value: boolean) => {
         if (value) {
@@ -228,11 +244,17 @@ export default function PlayerMenuSheet() {
 
                         <Text style={styles.sectionLabel}>{t('visualizer.color_mode')}</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
-                            {(['cover', 'accent'] as const).map(mode => (
+                            {(['cover', 'accent', 'rainbow', 'custom'] as const).map(mode => (
                                 <TouchableOpacity key={mode} accessibilityRole="radio" accessibilityLabel={t('visualizer.color_' + mode)} accessibilityState={{ checked: playerVisualizerColorMode === mode, disabled: !showPlayerVisualizer }}
-                                    style={styles.colorOption} onPress={() => setPlayerVisualizerColorMode(mode)}>
+                                    style={styles.colorOption} onPress={() => {
+                                        if (mode === 'custom') openColorPickerModal({
+                                            title: t('visualizer.color_custom'), initialColor: playerVisualizerCustomColor,
+                                            onConfirm: color => useSettingsStore.getState().setPlayerVisualizerCustomColor(color),
+                                        });
+                                        else setPlayerVisualizerColorMode(mode);
+                                    }}>
                                     <View style={[styles.colorRing, { borderColor: playerVisualizerColorMode === mode ? colors.accent : 'transparent' }]}>
-                                        <View style={[styles.colorSwatch, { backgroundColor: mode === 'cover' ? appearance.coverColor || colors.accent : colors.accent }]} />
+                                        {renderColorSwatch(mode)}
                                     </View>
                                     <Text style={[styles.previewLabel, { color: playerVisualizerColorMode === mode ? colors.accent : colors.textSecondary }]}>{t('visualizer.color_' + mode)}</Text>
                                 </TouchableOpacity>

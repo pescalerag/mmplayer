@@ -1,3 +1,5 @@
+import { isValidRating } from './trackRatings';
+
 export interface RatingTrack {
   readonly albumId: string | null;
   readonly rating: number | null;
@@ -24,7 +26,7 @@ export function calculateAlbumRatings<T extends RankableAlbum>(albums: readonly 
     if (!track.albumId) continue;
     const value = totals.get(track.albumId) ?? { sum: 0, rated: 0, total: 0 };
     value.total++;
-    if (track.rating !== null && Number.isFinite(track.rating) && track.rating > 0 && track.rating <= 5) {
+    if (isValidRating(track.rating)) {
       value.sum += track.rating;
       value.rated++;
     }

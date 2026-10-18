@@ -33,6 +33,8 @@ const SORT_OPTIONS: Record<string, SortOptionItem[]> = {
     { value: "year_asc", labelKey: "sort.year_asc" },
   ],
   artists: [
+    { value: "rating_desc", labelKey: "sort.rating_desc" },
+    { value: "rating_asc", labelKey: "sort.rating_asc" },
     { value: "name_asc", labelKey: "sort.az" },
     { value: "name_desc", labelKey: "sort.za" },
   ],
