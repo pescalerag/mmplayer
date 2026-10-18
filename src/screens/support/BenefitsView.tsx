@@ -15,6 +15,7 @@ import { getDynamicTagTextColor, hexToRgba } from '../../utils/color';
 import { normalizeAppIcon } from '../../utils/appIcon';
 import { LEGENDARY_PALETTE } from '../../theme/legendaryTheme';
 import { DEVEL_BRAND_GRADIENT, DEVEL_PALETTE } from '../../theme/develTheme';
+import { RETRO_PALETTE } from '../../theme/retroTheme';
 import { applyAppTheme, applyStandaloneAppIcon } from '../../services/AppThemeService';
 
 // Using require to safely handle the dynamic import if not installed fully native
@@ -47,6 +48,11 @@ const APP_THEME_OPTIONS = [
         id: 'develETSII', nameKey: 'support.app_theme_devel', descKey: 'support.app_theme_devel_desc',
         accent: DEVEL_PALETTE.coral, gradient: DEVEL_BRAND_GRADIENT,
         image: require('../../assets/images/app-icons/logodevelETSII.png'),
+    },
+    {
+        id: 'retro', nameKey: 'support.app_theme_retro', descKey: 'support.app_theme_retro_desc',
+        accent: RETRO_PALETTE.amber, gradient: [RETRO_PALETTE.background, '#442716', '#382342'],
+        image: require('../../assets/images/app-icons/logoCRTRetro.png'),
     },
 ] as const;
 
@@ -319,6 +325,7 @@ export default function BenefitsView() {
                 getAppIcon()
                     .then((currentIcon) => {
                         if (currentIcon === 'develpink' && useSettingsStore.getState().activeAppTheme !== 'develETSII') return;
+                        if (currentIcon === 'crt' && useSettingsStore.getState().activeAppTheme !== 'retro') return;
                         if (currentIcon && normalizeAppIcon(currentIcon) !== activeAppIcon) {
                             setStoreAppIcon(normalizeAppIcon(currentIcon));
                         }

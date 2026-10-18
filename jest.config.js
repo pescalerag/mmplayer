@@ -29,6 +29,7 @@ module.exports = {
     'src/services/playerBootstrap.ts',
     'src/theme/legendaryTheme.ts',
     'src/theme/develTheme.ts',
+    'src/theme/retroTheme.ts',
     'src/theme/appTheme.ts',
     'src/services/AppThemeService.ts',
     'src/utils/crossfadePolicy.ts',

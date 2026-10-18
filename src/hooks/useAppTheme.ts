@@ -5,6 +5,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { getLegendaryColors, LEGENDARY_PALETTE, DEFAULT_GRADIENTS, LEGENDARY_GRADIENTS } from '../theme/legendaryTheme';
 import { DEVEL_GRADIENTS, DEVEL_HEADER_GLOW, getDevelColors } from '../theme/develTheme';
 import { resolveAppTheme } from '../theme/appTheme';
+import { getRetroColors, RETRO_GRADIENTS, RETRO_HEADER_GLOW, RETRO_TITLE_GLOW } from '../theme/retroTheme';
 
 export const LEGENDARY_ACCENT = LEGENDARY_PALETTE.gold;
 
@@ -20,6 +21,7 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   const appTheme = resolveAppTheme(activeAppTheme, userTier, options?.ignoreTheme);
   const isLegendaryTheme = appTheme === 'legendary';
   const isDevelTheme = appTheme === 'develETSII';
+  const isRetroTheme = appTheme === 'retro';
 
   const effectiveAccent = appTheme === 'none' && isVip && customAccentColor ? customAccentColor : null;
 
@@ -27,12 +29,18 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   const colors = useMemo(() => {
     if (appTheme === 'legendary') return getLegendaryColors();
     if (appTheme === 'develETSII') return getDevelColors();
+    if (appTheme === 'retro') return getRetroColors();
     return getAppColors(effectiveAccent);
   }, [effectiveAccent, appTheme]);
 
-  let gradients = DEFAULT_GRADIENTS as typeof DEFAULT_GRADIENTS | typeof LEGENDARY_GRADIENTS | typeof DEVEL_GRADIENTS;
+  let gradients = DEFAULT_GRADIENTS as typeof DEFAULT_GRADIENTS | typeof LEGENDARY_GRADIENTS | typeof DEVEL_GRADIENTS | typeof RETRO_GRADIENTS;
   if (isLegendaryTheme) gradients = LEGENDARY_GRADIENTS;
   if (isDevelTheme) gradients = DEVEL_GRADIENTS;
+  if (isRetroTheme) gradients = RETRO_GRADIENTS;
+
+  let headerGlow: readonly [string, string, ...string[]] = [colors.accentAlpha20, 'transparent'];
+  if (isDevelTheme) headerGlow = DEVEL_HEADER_GLOW;
+  if (isRetroTheme) headerGlow = RETRO_HEADER_GLOW;
 
   const navigationTheme = useMemo(() => ({
     ...NavigationThemeDark,
@@ -50,7 +58,8 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   return {
     colors,
     gradients,
-    headerGlow: isDevelTheme ? DEVEL_HEADER_GLOW : [colors.accentAlpha20, 'transparent'] as const,
+    headerGlow,
+    headerTitleStyle: isRetroTheme ? RETRO_TITLE_GLOW : undefined,
     fonts: Fonts,
     layout: Layout,
     typography: Typography,
@@ -62,6 +71,7 @@ export function useAppTheme(options?: UseAppThemeOptions) {
     isDark: true,
     isLegendaryTheme,
     isDevelTheme,
+    isRetroTheme,
     appTheme,
   };
 }

@@ -197,6 +197,13 @@
               "backgroundColor": "#0A1511"
             },
             "ios": "./src/assets/images/app-icons/logoLegend.png"
+          },
+          "crt": {
+            "android": {
+              "foregroundImage": "./src/assets/images/app-icons/logoCRTRetro.png",
+              "backgroundColor": "#C44E14"
+            },
+            "ios": "./src/assets/images/app-icons/logoCRTRetro.png"
           }
         }
       ],

@@ -1162,7 +1162,7 @@ export default function LibraryScreen() {
         }
     };
 
-    const { colors, gradients, headerGlow } = useAppTheme();
+    const { colors, gradients, headerTitleStyle, headerGlow } = useAppTheme();
 
     return (
         <View
@@ -1215,7 +1215,7 @@ export default function LibraryScreen() {
                 style={{ paddingTop: insets.top + 10 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>{t('library.title')}</Text>
+                    <Text style={[styles.title, headerTitleStyle]}>{t('library.title')}</Text>
                     <View
                         ref={headerToolsRef}
                         collapsable={false}

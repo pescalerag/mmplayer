@@ -39,7 +39,7 @@ export function ScreenHeaderLayout({
 }: ScreenHeaderLayoutProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { colors, gradients, headerGlow } = useAppTheme();
+  const { colors, gradients, headerTitleStyle, headerGlow } = useAppTheme();
   const estimatedHeight = insets.top + (showBackButton ? 66 : 60);
   const [headerHeight, setHeaderHeight] = useState(estimatedHeight);
 
@@ -91,7 +91,7 @@ export function ScreenHeaderLayout({
             </TouchableOpacity>
           ) : null}
           <Text
-            style={[styles.headerTitle, { color: colors.text }, !showBackButton && { marginLeft: 0 }, titleStyle]}
+            style={[styles.headerTitle, headerTitleStyle, { color: colors.text }, !showBackButton && { marginLeft: 0 }, titleStyle]}
             numberOfLines={1}
           >
             {title}

@@ -1134,6 +1134,8 @@
     "app_theme_legendary_desc": "Forest green, aged gold and geometric details",
     "app_theme_devel": "develETSII",
     "app_theme_devel_desc": "Coral and violet, plum surfaces and pixel details",
+    "app_theme_retro": "Retro CRT",
+    "app_theme_retro_desc": "Deep black, glowing amber, violet and subtle CRT scanlines",
     "app_theme_updated_success": "The app theme has been activated successfully.",
     "app_theme_active": "THEME ACTIVE",
     "stats_cards_title": "Premium Stats Cards",

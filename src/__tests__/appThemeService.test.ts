@@ -20,7 +20,7 @@ describe('theme and launcher icon consistency', () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
   });
 
-  it.each([['develETSII', 'develpink'], ['legendary', 'legend']] as const)('applies %s with its own icon in a single settings update', async (theme, icon) => {
+  it.each([['develETSII', 'develpink'], ['legendary', 'legend'], ['retro', 'crt']] as const)('applies %s with its own icon in a single settings update', async (theme, icon) => {
     await applyAppTheme(theme);
     expect(setAppIcon).toHaveBeenCalledWith(icon, false);
     expect(useSettingsStore.getState()).toMatchObject({ activeAppTheme: theme, appIcon: icon, customAccentColor: null });
@@ -36,6 +36,7 @@ describe('theme and launcher icon consistency', () => {
   it('rejects theme icons as standalone choices and protects paid themes', async () => {
     await expect(applyStandaloneAppIcon('develpink')).rejects.toThrow('exclusive');
     await expect(applyStandaloneAppIcon('legend')).rejects.toThrow('exclusive');
+    await expect(applyStandaloneAppIcon('crt')).rejects.toThrow('exclusive');
     useSettingsStore.setState({ userTier: 'USER' });
     await expect(applyAppTheme('develETSII')).rejects.toThrow('not available');
     await expect(applyStandaloneAppIcon('aqua')).rejects.toThrow('not available');
@@ -59,12 +60,12 @@ describe('theme and launcher icon consistency', () => {
     expect(useSettingsStore.getState()).toMatchObject({ activeAppTheme: 'none', appIcon: 'DEFAULT' });
   });
 
-  it('preserves the icon while the devel theme is active', async () => {
-    useSettingsStore.setState({ activeAppTheme: 'develETSII', appIcon: 'develpink' });
-    (getAppIcon as jest.Mock).mockResolvedValue('develpink');
+  it.each([['develETSII', 'develpink'], ['retro', 'crt']] as const)('preserves the icon while %s is active', async (theme, icon) => {
+    useSettingsStore.setState({ activeAppTheme: theme, appIcon: icon });
+    (getAppIcon as jest.Mock).mockResolvedValue(icon);
     await reconcileExclusiveThemeIcon();
     expect(setAppIcon).not.toHaveBeenCalled();
-    expect(useSettingsStore.getState().appIcon).toBe('develpink');
+    expect(useSettingsStore.getState().appIcon).toBe(icon);
   });
 
   it('reconciles a stale stored icon with another actual launcher choice', async () => {

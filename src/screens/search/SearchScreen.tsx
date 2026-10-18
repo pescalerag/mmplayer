@@ -914,7 +914,7 @@ export default function SearchScreen() {
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [headerHeight, setHeaderHeight] = useState(150);
-  const { colors, gradients, headerGlow } = useAppTheme();
+  const { colors, gradients, headerTitleStyle, headerGlow } = useAppTheme();
 
   const getFilterLabel = (id: FilterOption) => {
     switch (id) {
@@ -1367,7 +1367,7 @@ export default function SearchScreen() {
         }]}
       >
         <View style={styles.titleRow}>
-          <Text style={styles.title}>{t('search.title')}</Text>
+          <Text style={[styles.title, headerTitleStyle]}>{t('search.title')}</Text>
           <TouchableOpacity
             onPress={() => {
               Keyboard.dismiss();

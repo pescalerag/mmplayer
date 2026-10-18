@@ -1134,6 +1134,8 @@
     "app_theme_legendary_desc": "Verde bosque, dorado envejecido y detalles geométricos",
     "app_theme_devel": "develETSII",
     "app_theme_devel_desc": "Coral y violeta, superficies ciruela y detalles pixelados",
+    "app_theme_retro": "Retro CRT",
+    "app_theme_retro_desc": "Negro profundo, ámbar luminoso, violeta y líneas CRT sutiles",
     "app_theme_updated_success": "El tema de la aplicación se ha activado correctamente.",
     "app_theme_active": "TEMA ACTIVO",
     "stats_cards_title": "Estadísticas Premium",

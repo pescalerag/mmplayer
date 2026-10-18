@@ -47,9 +47,10 @@ export function reconcileExclusiveThemeIcon(): Promise<void> {
     const { getAppIcon, setAppIcon } = await import('@howincodes/expo-dynamic-app-icon');
     const icon = await getAppIcon();
     const settings = useSettingsStore.getState();
-    if (resolveAppTheme(settings.activeAppTheme, settings.userTier) === 'develETSII') return;
-    if (icon !== 'develpink') {
-      if (settings.appIcon === 'develpink') settings.setAppIcon(icon);
+    const theme = resolveAppTheme(settings.activeAppTheme, settings.userTier);
+    if (theme === 'develETSII' || theme === 'retro') return;
+    if (icon !== 'develpink' && icon !== 'crt') {
+      if (settings.appIcon === 'develpink' || settings.appIcon === 'crt') settings.setAppIcon(icon);
       return;
     }
     const result = await setAppIcon(null, false);
