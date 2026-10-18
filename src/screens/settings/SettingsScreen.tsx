@@ -16,6 +16,7 @@ import {
 import { database } from '../../database';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { BackupService } from '../../services/BackupService';
+import { MusicZipImportService } from '../../services/MusicZipImportService';
 import { startWith, tap } from 'rxjs/operators';
 
 const libraryCounts: Record<'tracks' | 'albums' | 'artists', number | null> = {
@@ -324,6 +325,69 @@ function SettingsContent({ tracksCount, albumsCount, artistsCount }: SettingsPro
                                     <Text style={styles.settingLabel}>{t('settings.backup_import')}</Text>
                                     <Text style={styles.settingDescription}>
                                         {t('settings.backup_import_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => BackupService.exportDatabase('zip')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="archive-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_export_zip')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.backup_export_zip_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => BackupService.importDatabase('zip')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="folder-open-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_import_zip')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.backup_import_zip_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => MusicZipImportService.pickAndImportZip()}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="musical-notes-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.music_zip_import')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.music_zip_import_desc')}
                                     </Text>
                                 </View>
                             </View>

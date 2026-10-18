@@ -797,7 +797,8 @@ export const ScannerService = {
     syncLibrary: async (
         onProgress?: (current: number, total: number, phase: string) => void,
         isSilent: boolean = false,
-        forcedFileUrls?: Set<string> | string[] | Map<string, any>
+        forcedFileUrls?: Set<string> | string[] | Map<string, any>,
+        throwOnError: boolean = false
     ) => {
         if (useSyncStore.getState().isScanning) {
             let waitCount = 0;
@@ -805,7 +806,10 @@ export const ScannerService = {
                 await new Promise(r => setTimeout(r, 200));
                 waitCount++;
             }
-            if (useSyncStore.getState().isScanning) return;
+            if (useSyncStore.getState().isScanning) {
+                if (throwOnError) throw new Error('Library scan is still running');
+                return;
+            }
         }
         try {
             coverExistsCache.clear();
@@ -1341,6 +1345,7 @@ export const ScannerService = {
         } catch (error: any) {
             console.error("Error en syncLibrary:", error);
             useMigrationStore.getState().close();
+            if (throwOnError) throw error;
             if (!isSilent) {
                 import('react-native').then(({ Alert }) => {
                     Alert.alert(i18n.t('scanner.scan_error'), error?.message || String(error));

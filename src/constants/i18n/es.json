@@ -464,6 +464,12 @@
     "batch_tags": "Etiquetas en lote"
   },
   "settings": {
+    "music_zip_import": "Importar ZIP de música",
+    "music_zip_import_desc": "Guarda los audios del ZIP en Music/nombre-del-zip.",
+    "backup_export_zip": "Exportar copia completa (ZIP)",
+    "backup_export_zip_desc": "DB, estadísticas, letras, canvas y fotos. Sin archivos de música.",
+    "backup_import_zip": "Importar copia completa (ZIP)",
+    "backup_import_zip_desc": "Restaurar o combinar la DB y sus recursos.",
     "crossfade": "Crossfade",
     "crossfade_desc": "Solapa el final de una canción con el inicio de la siguiente. No se aplica durante Cast ni al generar una cola aleatoria al finalizar.",
     "crossfade_off": "Desactivado",
@@ -1630,6 +1636,18 @@
     "rating_asc": "Peor valorados"
   },
   "backup": {
+    "import_mode_title": "¿Cómo quieres importar los datos?",
+    "import_mode_description": "Combinar conserva tu biblioteca y añade los datos de la copia. Reemplazar elimina todos los datos actuales de la DB y restaura la copia. Los archivos de música no se borran.",
+    "merge": "Combinar datos",
+    "replace": "Reemplazar datos",
+    "conflicts_title": "Datos que ya existen",
+    "conflicts_description": "Si la misma canción u otro elemento tiene datos distintos, ¿cuáles quieres conservar? Las etiquetas y playlists se unen; las escuchas idénticas no se cuentan dos veces.",
+    "keep_current": "Mantener los actuales",
+    "use_imported": "Usar los importados",
+    "copying_assets": "Copiando recursos: {{count}}",
+    "restoring_assets": "Restaurando imágenes y canvas…",
+    "insufficient_space": "No hay suficiente espacio para extraer y restaurar esta copia.",
+    "export_missing_assets": "Copia exportada. No se pudieron incluir {{count}} recursos que ya no estaban disponibles.",
     "preparing": "Preparando datos para la copia de seguridad...",
     "exporting_table": "Exportando tabla {{table}}...",
     "writing_file": "Escribiendo archivo de copia de seguridad...",
@@ -1892,5 +1910,20 @@
     "empty_queue": "Esta cola está vacía.",
     "shuffle": "Aleatorio",
     "repeat": "Repetición"
-  }
+  },
+  "music_zip": {
+    "preparing": "Preparando importación de música…",
+    "progress": "Copiando audios: {{count}} / {{total}}",
+    "scanning": "Añadiendo los audios a la biblioteca…",
+    "success": "{{count}} audios importados en {{folder}}. {{skipped}} archivos idénticos omitidos.",
+    "scan_error": "Los audios están guardados en {{folder}}, pero no se pudo actualizar la biblioteca. Vuelve a escanearla desde ajustes.",
+    "no_audio": "El ZIP no contiene archivos de audio compatibles.",
+    "not_enough_space": "No hay suficiente espacio para importar los audios.",
+    "unsafe_path": "El ZIP contiene rutas no válidas. No se ha importado.",
+    "permission_denied": "Se necesita permiso de almacenamiento para guardar los audios en Music.",
+    "storage_unavailable": "El almacenamiento no está disponible.",
+    "file_conflict": "Otro proceso ha creado un archivo con el mismo nombre. Vuelve a importar el ZIP.",
+    "invalid_archive": "El ZIP está dañado o no es compatible. No se ha importado.",
+    "import_error": "No se ha podido importar el ZIP de música."
+}
 }

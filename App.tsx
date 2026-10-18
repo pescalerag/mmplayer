@@ -39,6 +39,7 @@ import MainNavigator from "./src/navigation/MainNavigator";
 import { navigationRef, waitForNavigationReady } from "./src/navigation/navigationRef";
 import { ChromecastService } from "./src/services/ChromecastService";
 import { ExternalAudioService } from "./src/services/ExternalAudioService";
+import { MusicZipImportService } from "./src/services/MusicZipImportService";
 import { MediaAssetService } from "./src/services/MediaAssetService";
 import { NotificationService } from "./src/services/NotificationService";
 import { PurchasesService } from "./src/services/PurchasesService";
@@ -241,6 +242,7 @@ export default function App() {
         await handleNotificationClickUrl();
         return;
       }
+      if (await MusicZipImportService.handleOpenedZip(url)) return;
       if (ExternalAudioService.isAudioUrl(url)) {
         await ExternalAudioService.handleOpenedAudioUrl(url);
       }

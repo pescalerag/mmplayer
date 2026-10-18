@@ -32,6 +32,8 @@ it('preserves scan options, metadata and byte offsets at the native boundary', a
 });
 
 it.each([
+  ['getOpenedFileInfo', ['content://zip'], { name: 'Album.zip', mimeType: 'application/zip' }],
+  ['importMusicZip', ['content://zip', 'Album.zip'], { folder: 'Music/Album', imported: 2, skipped: 0 }],
   ['getReplayGainMetadata', ['uri'], { gain: -3, peak: 0.8 }],
   ['getReplayGain', ['uri'], -3],
   ['readMetadata', ['uri'], { title: 'Song' }],
@@ -54,6 +56,16 @@ it.each([
   const call = scanner[name] as (...args: any[]) => Promise<unknown>;
   expect(await call(...args)).toEqual(result);
   expect(native[name]).toHaveBeenCalledWith(...args);
+});
+
+it('passes ZIP progress subscriptions through and supplies the default native archive name', async () => {
+  const callback = jest.fn(); const remove = jest.fn();
+  native.addListener.mockReturnValue({ remove });
+  scanner.addMusicZipProgressListener(callback).remove();
+  expect(native.addListener).toHaveBeenCalledWith('onMusicZipImportProgress', callback);
+  expect(remove).toHaveBeenCalledTimes(1);
+  await scanner.importMusicZip('content://zip');
+  expect(native.importMusicZip).toHaveBeenCalledWith('content://zip', '');
 });
 
 it.each([
