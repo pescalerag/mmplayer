@@ -97,6 +97,7 @@
         }
       ],
       "./plugins/withJetifier",
+      "./plugins/withAndroidOptimization",
       [
         "react-native-google-cast",
         {

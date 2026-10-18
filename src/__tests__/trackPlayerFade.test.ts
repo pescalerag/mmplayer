@@ -1,4 +1,6 @@
 import TrackPlayer, { State } from 'react-native-track-player';
+import { Platform } from 'react-native';
+import { setNativeTransportPlaying } from '../../modules/native-equalizer';
 import { getIsFadingOut, setIsFadingOut } from '../hooks/usePlaybackState';
 
 jest.mock('react-native-track-player', () => ({
@@ -17,7 +19,14 @@ jest.mock('react-native-track-player', () => ({
     updateNowPlayingMetadata: jest.fn(),
   },
 }));
-jest.mock('../store/useSettingsStore', () => ({ useSettingsStore: { getState: () => ({ isFadeEnabled: true }) } }));
+let mockFadeEnabled = true;
+const mockCast = { isServerRunning: false, isLocalCastActive: false, isChromecastConnected: false,
+  setCastPlaying: jest.fn() };
+jest.mock('../store/useSettingsStore', () => ({ useSettingsStore: { getState: () => ({ isFadeEnabled: mockFadeEnabled }) } }));
+jest.mock('../../modules/native-equalizer', () => ({ setNativeTransportPlaying: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../store/useCastStore', () => ({ useCastStore: { getState: () => mockCast } }));
+jest.mock('../services/LocalCastService', () => ({ LocalCastService: { emitPlay: jest.fn(), emitPause: jest.fn() } }));
+jest.mock('../services/ChromecastService', () => ({ ChromecastService: { play: jest.fn(), pause: jest.fn() } }));
 jest.mock('react-native-background-timer', () => ({
   __esModule: true,
   default: {
@@ -34,8 +43,9 @@ const nativeState = TrackPlayer.getPlaybackState as jest.Mock;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require('../services/TrackPlayerFade');
 
-describe('v2.3.2 playback transport', () => {
+describe('JavaScript playback transport fallback', () => {
   beforeEach(async () => {
+    Platform.OS = 'ios';
     jest.useFakeTimers();
     jest.clearAllMocks();
     nativeVolume.mockResolvedValue(undefined);
@@ -116,5 +126,117 @@ describe('v2.3.2 playback transport', () => {
     expect(skip).toHaveBeenCalledTimes(1);
     expect(nativeState).not.toHaveBeenCalled();
     expect(nativePlay).not.toHaveBeenCalled();
+  });
+});
+
+describe('Android native playback transport', () => {
+  const command = setNativeTransportPlaying as jest.Mock;
+  beforeEach(async () => {
+    Platform.OS = 'android';
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockFadeEnabled = true;
+    Object.assign(mockCast, { isServerRunning: false, isLocalCastActive: false, isChromecastConnected: false });
+    command.mockResolvedValue(undefined);
+    nativeVolume.mockResolvedValue(undefined);
+    await TrackPlayer.reset();
+    await TrackPlayer.setVolume(1);
+    jest.clearAllMocks();
+  });
+  afterEach(async () => {
+    await TrackPlayer.reset();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('starts play immediately without waiting for a native state query or JS volume steps', async () => {
+    nativeState.mockImplementation(() => new Promise(() => {}));
+    await TrackPlayer.play();
+    expect(command).toHaveBeenCalledWith(true, 1, 400);
+    expect(nativeState).not.toHaveBeenCalled();
+    expect(nativeVolume).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(command).toHaveBeenCalledTimes(1);
+    expect(nativePlay).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges pause immediately and delegates the complete fade to Android', async () => {
+    let resolve!: () => void;
+    command.mockImplementationOnce(() => new Promise<void>(done => { resolve = done; }));
+    const pending = TrackPlayer.pause();
+    expect(getIsFadingOut()).toBe(true);
+    expect(command).toHaveBeenCalledWith(false, 1, 400);
+    expect(nativeState).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1600);
+    expect(getIsFadingOut()).toBe(true);
+    resolve();
+    await pending;
+    expect(nativePause).not.toHaveBeenCalled();
+  });
+
+  it('sends the latest play request even while the previous pause acknowledgement is pending', async () => {
+    let resolve!: () => void;
+    command.mockImplementationOnce(() => new Promise<void>(done => { resolve = done; }));
+    const pending = TrackPlayer.pause();
+    await TrackPlayer.play();
+    expect(command.mock.calls).toEqual([[false, 1, 400], [true, 1, 400]]);
+    expect(getIsFadingOut()).toBe(false);
+    resolve();
+    await pending;
+  });
+
+  it('does not let an old failure clear the state of a newer pause', async () => {
+    let reject!: (error: Error) => void;
+    command.mockImplementationOnce(() => new Promise<void>((_, fail) => { reject = fail; }));
+    const first = TrackPlayer.pause().catch(() => {});
+    await TrackPlayer.play();
+    await TrackPlayer.pause();
+    reject(new Error('stale request'));
+    await first;
+    expect(getIsFadingOut()).toBe(true);
+  });
+
+  it('clears the optimistic pause if Android rejects the current command', async () => {
+    command.mockRejectedValueOnce(new Error('service unavailable'));
+    await expect(TrackPlayer.pause()).rejects.toThrow('service unavailable');
+    expect(getIsFadingOut()).toBe(false);
+  });
+
+  it('supports immediate transport both with fade disabled and with an explicit bypass', async () => {
+    mockFadeEnabled = false;
+    await TrackPlayer.play();
+    await TrackPlayer.pause();
+    mockFadeEnabled = true;
+    await (TrackPlayer.play as (bypass?: boolean) => Promise<void>)(true);
+    await (TrackPlayer.pause as (bypass?: boolean) => Promise<void>)(true);
+    expect(command.mock.calls).toEqual([[true, 1, 0], [false, 1, 0], [true, 1, 0], [false, 1, 0]]);
+  });
+
+  it('passes volume changes to Android during a pause without losing the logical volume', async () => {
+    await TrackPlayer.pause();
+    await TrackPlayer.setVolume(0.6);
+    expect(nativeVolume).toHaveBeenLastCalledWith(0.6);
+    expect(await TrackPlayer.getVolume()).toBe(0.6);
+    await TrackPlayer.play();
+    expect(command).toHaveBeenLastCalledWith(true, 0.6, 400);
+  });
+
+  it('keeps LocalCast muted and uses the receiver transport instead of a native fade', async () => {
+    Object.assign(mockCast, { isServerRunning: true, isLocalCastActive: true });
+    await TrackPlayer.play();
+    await TrackPlayer.pause();
+    expect(command).not.toHaveBeenCalled();
+    expect(nativeVolume).toHaveBeenLastCalledWith(0);
+    expect(mockCast.setCastPlaying.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it('keeps Chromecast on the existing transport path without a local fade', async () => {
+    Object.assign(mockCast, { isServerRunning: true, isChromecastConnected: true });
+    await TrackPlayer.play();
+    await TrackPlayer.pause();
+    expect(command).not.toHaveBeenCalled();
+    expect(nativeVolume).toHaveBeenLastCalledWith(0);
+    expect(nativePlay).toHaveBeenCalledTimes(1);
+    expect(nativePause).toHaveBeenCalledTimes(1);
   });
 });

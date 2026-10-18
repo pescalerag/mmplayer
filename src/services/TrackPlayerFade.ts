@@ -1,4 +1,6 @@
 import TrackPlayer, { State } from 'react-native-track-player';
+import { Platform } from 'react-native';
+import { setNativeTransportPlaying } from '../../modules/native-equalizer';
 import BackgroundTimer from 'react-native-background-timer';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { 
@@ -138,6 +140,11 @@ TrackPlayer.setVolume = async (volume: number) => {
     targetVolume = 0;
   }
 
+  if (Platform.OS === 'android') {
+    currentVolume = volume;
+    return originalSetVolume(volume);
+  }
+
   // Si hay un fade en progreso (in o out), dejamos que el timer de fade continúe
   // actualizando el volumen hasta targetVolume de forma progresiva.
   if (fadeTimer !== null || getIsFadingOut()) {
@@ -155,6 +162,7 @@ TrackPlayer.getVolume = async () => {
 
 // Override reset
 TrackPlayer.reset = async () => {
+  ++currentOperationId;
   clearFadeTimer();
   setIsFadingOut(false);
   currentVolume = targetVolume;
@@ -204,6 +212,11 @@ TrackPlayer.play = async (bypassFade = false) => {
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
   if (!isFadeEnabled) {
     bypassFade = true;
+  }
+
+  if (Platform.OS === 'android') {
+    currentVolume = targetVolume;
+    return setNativeTransportPlaying(true, targetVolume, bypassFade ? 0 : FADE_DURATION);
   }
 
   if (bypassFade) {
@@ -292,6 +305,17 @@ TrackPlayer.pause = async (bypassFade = false) => {
   const isFadeEnabled = useSettingsStore.getState().isFadeEnabled;
   if (!isFadeEnabled || isCasting) {
     bypassFade = true;
+  }
+
+  if (Platform.OS === 'android' && !isCasting) {
+    setIsFadingOut(!bypassFade, true);
+    try {
+      await setNativeTransportPlaying(false, targetVolume, bypassFade ? 0 : FADE_DURATION);
+    } catch (error) {
+      if (opId === currentOperationId) setIsFadingOut(false);
+      throw error;
+    }
+    return;
   }
 
   if (bypassFade) {

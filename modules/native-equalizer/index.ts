@@ -57,6 +57,10 @@ export async function setCrossfadeSettings(seconds: number, allowed: boolean): P
     return NativeEqualizerModule.setCrossfadeSettings(seconds, allowed);
 }
 
+export function setNativeTransportPlaying(playing: boolean, volume: number, durationMs: number): Promise<void> {
+    return NativeEqualizerModule.setTransportPlaying(playing, volume, durationMs);
+}
+
 export async function getNativePlaybackSnapshot(): Promise<{
     queue: import('react-native-track-player').Track[];
     index: number;

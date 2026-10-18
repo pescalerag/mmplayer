@@ -14,23 +14,23 @@ interface Props {
 export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, iconType = 'normal' }: Readonly<Props>) {
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
-    const isTogglingRef = useRef(false);
+    const requestedPlaying = useRef<boolean | null>(null);
+    const requestVersion = useRef(0);
 
     const togglePlayback = async () => {
-        if (isTogglingRef.current) return;
-        isTogglingRef.current = true;
+        const nextPlaying = !(requestedPlaying.current ?? isPlaying);
+        requestedPlaying.current = nextPlaying;
+        const version = ++requestVersion.current;
         try {
-            if (isPlaying) {
-                await TrackPlayer.pause();
-            } else {
+            if (nextPlaying) {
                 await TrackPlayer.play();
+            } else {
+                await TrackPlayer.pause();
             }
         } catch (e) {
             console.error('❌ [PlayPauseButton] Error alternando estado:', e);
         } finally {
-            setTimeout(() => {
-                isTogglingRef.current = false;
-            }, 120);
+            if (version === requestVersion.current) requestedPlaying.current = null;
         }
     };
 

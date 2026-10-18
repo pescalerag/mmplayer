@@ -221,6 +221,14 @@ class NativeEqualizerModule : Module() {
                 .getMethod("setListener", java.util.function.Consumer::class.java).invoke(null, null)
         }
 
+        AsyncFunction("setTransportPlaying") { playing: Boolean, volume: Double, durationMs: Int ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("setTransportPlaying", Boolean::class.javaPrimitiveType,
+                    Double::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                .invoke(null, playing, volume, durationMs)
+            Unit
+        }.runOnQueue(Queues.MAIN)
+
         AsyncFunction("setCrossfadeSettings") { seconds: Double, allowed: Boolean ->
             require(seconds.isFinite()) { "Invalid crossfade duration" }
             val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")

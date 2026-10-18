@@ -6,7 +6,7 @@ let isFadingOut = false;
 let fadeOutTimeout: any = null;
 const listeners = new Set<(fading: boolean) => void>();
 
-export function setIsFadingOut(val: boolean) {
+export function setIsFadingOut(val: boolean, nativeManaged = false) {
   if (fadeOutTimeout) {
     clearTimeout(fadeOutTimeout);
     fadeOutTimeout = null;
@@ -23,9 +23,9 @@ export function setIsFadingOut(val: boolean) {
     });
   }
 
-  if (val) {
-    // Safety fallback: a fade-out can NEVER legitimately last more than 1500ms.
-    // If anything fails to call setIsFadingOut(false), automatically reset it.
+  if (val && !nativeManaged) {
+    // Only the JS fallback needs a watchdog. Android owns its fade deadline;
+    // a late bridge acknowledgement must not flip the icon back to Playing.
     fadeOutTimeout = setTimeout(() => {
       if (isFadingOut) {
         setIsFadingOut(false);
