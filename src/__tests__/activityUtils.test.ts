@@ -126,6 +126,15 @@ describe('activityStatUtils', () => {
     expect(realStats.topSong).toBe('Test Song');
   });
 
+  test('shows the annual smart playlist only for the current year', () => {
+    const lists = ['top_50', 'top_50_year', 'top_50_month', 'top_50_week'].map(id => ({
+      id, name: id, placeholderIcon: 'star', trackCount: 10,
+    }));
+    expect(getVisibleSmartLists(lists, 'year', 0, false).map(list => list.id)).toEqual(['top_50', 'top_50_year']);
+    expect(getVisibleSmartLists(lists, 'year', -1, false).map(list => list.id)).toEqual(['top_50']);
+    expect(getVisibleSmartLists(lists, 'month', 0, false).map(list => list.id)).toEqual(['top_50', 'top_50_month']);
+  });
+
   test('getVisibleSmartLists filters correctly', () => {
     const lists = [
       { id: 'top_50', name: 'Global', placeholderIcon: 'star', trackCount: 50 },

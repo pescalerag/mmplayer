@@ -117,7 +117,7 @@ export default function PlaylistMenuSheet() {
             }
 
             closeMenu();
-            useMultiSelectStore.getState().selectMultipleTracks(tracks);
+            useMultiSelectStore.getState().selectMultipleTracks(tracks, selectedPlaylist.id === 'favorites' ? undefined : selectedPlaylist.id);
           } catch (e) {
             console.error('Error selecting playlist tracks', e);
           }

@@ -9,7 +9,7 @@ import { SmartListService } from './SmartListService';
 export function calculateSmartListCounts(
     tracks: readonly { id: string; rating?: number | null }[],
     history: readonly { itemId: string; durationPlayed: number | null; playedAt: Date }[],
-    weekStart: number, monthStart: number,
+    weekStart: number, monthStart: number, yearStart: number,
 ): Record<string, number> {
     const result: Record<string, number> = { rating_unrated: 0, rating_1_2: 0, rating_2_3: 0, rating_3_4: 0, rating_4_5: 0, rating_5: 0 };
     const ids = new Set(tracks.map(track => track.id));
@@ -22,7 +22,7 @@ export function calculateSmartListCounts(
         if ([4, 4.5, 5].includes(rating)) result.rating_4_5++;
         if (rating === 5) result.rating_5++;
     }
-    for (const [key, since] of [['top_50', 0], ['top_50_week', weekStart], ['top_50_month', monthStart]] as const) {
+    for (const [key, since] of [['top_50', 0], ['top_50_week', weekStart], ['top_50_month', monthStart], ['top_50_year', yearStart]] as const) {
         result[key] = countTopTracks(history, ids, since);
     }
     return result;
@@ -47,7 +47,8 @@ export const SmartListSummaryService = {
             ]);
             return calculateSmartListCounts(tracks, history,
                 HistoryService.getPeriodRange('week').from?.getTime() || 0,
-                HistoryService.getPeriodRange('month').from?.getTime() || 0);
+                HistoryService.getPeriodRange('month').from?.getTime() || 0,
+                HistoryService.getPeriodRange('year').from?.getTime() || 0);
         });
         return SmartListService.getSmartLists().map(list => ({ ...list, trackCount: counts[list.id] || 0 }));
     },

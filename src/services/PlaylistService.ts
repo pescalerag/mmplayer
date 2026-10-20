@@ -103,11 +103,16 @@ export const PlaylistService = {
      * Remove a track from a playlist.
      */
     async removeTrackFromPlaylist(playlistId: string, trackId: string): Promise<void> {
+        await PlaylistService.removeMultipleTracksFromPlaylist(playlistId, [trackId]);
+    },
+
+    async removeMultipleTracksFromPlaylist(playlistId: string, trackIds: string[]): Promise<void> {
+        if (trackIds.length === 0) return;
         await database.write(async () => {
             const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks')
                 .query(
                     Q.where('playlist_id', playlistId),
-                    Q.where('track_id', trackId)
+                    Q.where('track_id', Q.oneOf([...new Set(trackIds)]))
                 )
                 .fetch();
 

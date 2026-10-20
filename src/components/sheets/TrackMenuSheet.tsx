@@ -325,7 +325,7 @@ export default function TrackMenuSheet() {
         text={t('actions.select') || 'Seleccionar'}
         onPress={() => {
           closeMenu();
-          useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
+          useMultiSelectStore.getState().enterSelectionMode(selectedTrack, playlistId);
         }}
       />
 
