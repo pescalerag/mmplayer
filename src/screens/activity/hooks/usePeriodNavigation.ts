@@ -1,3 +1,4 @@
+import { useObservedRefresh } from '../../../hooks/useObservedRefresh';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { HistoryService } from '../../../services/HistoryService';
 import {
@@ -14,6 +15,7 @@ export function usePeriodNavigation(
   const [dateOffset, setDateOffset] = useState<number>(0);
   const [customFrom, setCustomFrom] = useState<Date | null>(null);
   const [customTo, setCustomTo] = useState<Date>(new Date());
+  const [calendarDay, setCalendarDay] = useState(() => new Date().toDateString());
   const [firstHistoryDate, setFirstHistoryDate] = useState<Date | null>(null);
 
   const activePeriodRef = useRef(period);
@@ -21,17 +23,18 @@ export function usePeriodNavigation(
   const dateOffsetRef = useRef(dateOffset);
   dateOffsetRef.current = dateOffset;
 
-  useEffect(() => {
-    HistoryService.getFirstHistoryDate()
-      .then((d) => setFirstHistoryDate(d))
-      .catch((error) => {
-        console.error('Failed to get first history date:', error);
-      });
+  const loadFirstHistory = useCallback(async (signal: AbortSignal) => {
+    const date = await HistoryService.getFirstHistoryDate();
+    if (!signal.aborted) {
+      setCalendarDay(new Date().toDateString());
+      setFirstHistoryDate(previous => previous?.getTime() === date?.getTime() ? previous : date);
+    }
   }, []);
+  useObservedRefresh(loadFirstHistory, ['playback_history']);
 
   const dateRangeInfo: DateRangeInfo = useMemo(
     () => calculateDateRangeInfo(period, dateOffset, firstHistoryDate, customFrom, customTo, t),
-    [period, dateOffset, firstHistoryDate, customFrom, customTo, t]
+    [period, dateOffset, firstHistoryDate, customFrom, customTo, t, calendarDay]
   );
 
   const handlePrevPeriod = useCallback(() => {

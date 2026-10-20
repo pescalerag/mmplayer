@@ -197,5 +197,8 @@ export function getVisibleSmartLists(
   if (period === 'month' && dateOffset === 0) {
     return nonKeys.filter((l) => l.id === 'top_50_month' || l.id === 'top_50');
   }
+  if (period === 'year' && dateOffset === 0) {
+    return nonKeys.filter((l) => l.id === 'top_50_year' || l.id === 'top_50');
+  }
   return nonKeys.filter((l) => l.id === 'top_50');
 }

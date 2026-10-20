@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -10,28 +10,37 @@ import {
     Platform,
     ScrollView
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { useLyricsDocument } from '../../hooks/useLyricsDocument';
+import { useUnsavedDocument } from '../../hooks/useUnsavedDocument';
+import { PlayerStackParamList } from '../../navigation/types';
+import Track from '../../database/models/Track';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { LyricsService } from '../../services/LyricsService';
 
 export default function LyricsEditorScreen() {
+    const { trackId } = useRoute<RouteProp<PlayerStackParamList, 'LyricsEditor'>>().params;
+    const { document, missing } = useLyricsDocument(trackId);
+    const navigation = useNavigation();
+    const { t } = useTranslation();
+    if (!document) return <InvisibleScreenContent ready={missing}>{missing && <TouchableOpacity style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }} onPress={() => navigation.goBack()}><Text style={{ color: '#FFFFFF', textAlign: 'center' }}>{t('timestamps.load_error')}</Text></TouchableOpacity>}</InvisibleScreenContent>;
+    return <LyricsEditorDocument key={trackId} track={document.track} initialText={document.text} />;
+}
+
+function LyricsEditorDocument({ track, initialText }: { track: Track; initialText: string }) {
     const { colors, fonts, fontWeights, spacing } = useAppTheme({ ignoreTheme: true });
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { t } = useTranslation();
 
-    const activeTrack = usePlayerStore(state => state.activeTrack);
-
-    const initialTextValue = useMemo(() => {
-        return activeTrack?.lyricsLRC || '';
-    }, [activeTrack]);
-
-    const [editedText, setEditedText] = useState(initialTextValue);
+    const [editedText, setEditedText] = useState(initialText);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+    useUnsavedDocument(hasUnsavedChanges);
 
     const handleTextChange = (text: string) => {
         setEditedText(text);
@@ -39,9 +48,9 @@ export default function LyricsEditorScreen() {
     };
 
     const handleSave = async () => {
-        if (!activeTrack) return;
+        if (track._raw._status === 'deleted') return;
         try {
-            await LyricsService.saveLyrics(activeTrack, editedText);
+            await LyricsService.saveLyrics(track, editedText);
             setHasUnsavedChanges(false);
             Alert.alert(t('actions.success') || 'Éxito', t('lyrics.save_success') || 'Letra guardada con éxito.', [
                 { text: 'OK', onPress: () => navigation.goBack() }
@@ -52,20 +61,7 @@ export default function LyricsEditorScreen() {
         }
     };
 
-    const handleBack = () => {
-        if (hasUnsavedChanges) {
-            Alert.alert(
-                t('actions.warning') || 'Atención',
-                t('lyrics.unsaved_warning') || 'Tienes cambios sin guardar. ¿Deseas salir de todas formas?',
-                [
-                    { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
-                    { text: t('actions.discard') || 'Descartar', style: 'destructive', onPress: () => navigation.goBack() }
-                ]
-            );
-        } else {
-            navigation.goBack();
-        }
-    };
+    const handleBack = () => navigation.goBack();
 
     return (
         <KeyboardAvoidingView

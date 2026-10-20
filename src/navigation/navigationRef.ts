@@ -1,11 +1,12 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
+import type { RootStackParamList } from './types';
 
 /**
  * Referencia global al NavigationContainer.
  * Permite navegar desde cualquier componente fuera del árbol de navegación
  * (p.ej. TrackMenuSheet, TrackPlayerSync, etc.) sin necesitar useNavigation().
  */
-export const navigationRef = createNavigationContainerRef<any>();
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 /**
  * Espera de forma asíncrona a que el contenedor de navegación esté listo (montado),

@@ -3,7 +3,7 @@
     "name": "MMPlayer",
     "slug": "mmplayer",
     "icon": "./src/assets/images/icon.png",
-    "version": "2.5.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "scheme": ["mmplayer", "trackplayer"],
     "userInterfaceStyle": "automatic",
@@ -38,7 +38,7 @@
         "monochromeImage": "./src/assets/images/splash-icon.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 33,
+      "versionCode": 34,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
@@ -97,6 +97,7 @@
         }
       ],
       "./plugins/withJetifier",
+      "./plugins/withAndroidOptimization",
       [
         "react-native-google-cast",
         {

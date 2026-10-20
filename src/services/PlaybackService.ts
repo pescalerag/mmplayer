@@ -95,6 +95,7 @@ export const PlaybackTimeTracker = {
 };
 
 async function syncActiveTrackToStore(event: PlaybackActiveTrackChangedEvent, revision: number) {
+  if (usePlayerStore.getState().isPreparingQueue || usePlayerStore.getState().isRestoring) return;
   // ── Sync Zustand store so PlayerScreen always reflects the real active track ──
   // This is the single source of truth for the UI. Without this, skipping from
   // the notification, lock screen, or LocalCast /api/next leaves activeTrack stale.
@@ -149,25 +150,6 @@ export async function syncWidgetState() {
   }
 }
 
-
-async function restoreLyricsSyncTrack(event: PlaybackActiveTrackChangedEvent): Promise<boolean> {
-    const isSyncActive = usePlayerStore.getState().isSyncingLyrics;
-    if (isSyncActive && event.track) {
-        const syncedTrack = usePlayerStore.getState().activeTrack;
-        if (syncedTrack && event.track.id !== syncedTrack.id) {
-            console.log("[PlaybackService] Lyrics sync active. Reverting track change.");
-            const queue = await TrackPlayer.getQueue();
-            const syncedIndex = queue.findIndex(t => t.id?.toString().startsWith(syncedTrack.id.toString()));
-            if (syncedIndex !== -1) {
-                await TrackPlayer.skip(syncedIndex);
-                await TrackPlayer.seekTo(0);
-                await TrackPlayer.pause();
-            }
-            return true;
-        }
-    }
-    return false;
-}
 
 async function persistPreviousListen(previousTrackId: string | undefined) {
   if (!previousTrackId) return;
@@ -238,20 +220,12 @@ export const PlaybackService = async function () {
     await ensurePlaybackReady();
     if (useMultipleQueuesStore.getState().isSwitching) return;
     console.log("[PlaybackService] Event.RemoteNext triggered");
-    if (usePlayerStore.getState().isSyncingLyrics) {
-      console.log("[PlaybackService] Ignored RemoteNext during lyrics sync");
-      return;
-    }
     await usePlayerStore.getState().skipToNext();
   });
   TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
     await ensurePlaybackReady();
     if (useMultipleQueuesStore.getState().isSwitching) return;
     console.log("[PlaybackService] Event.RemotePrevious triggered");
-    if (usePlayerStore.getState().isSyncingLyrics) {
-      console.log("[PlaybackService] Ignored RemotePrevious during lyrics sync");
-      return;
-    }
     try {
       const { position } = await TrackPlayer.getProgress();
       if (position > SKIP_PREVIOUS_THRESHOLD) {
@@ -266,17 +240,11 @@ export const PlaybackService = async function () {
 
   TrackPlayer.addEventListener(Event.RemoteJumpForward, async () => {
     console.log("[PlaybackService] Event.RemoteJumpForward triggered -> skipToNext");
-    if (usePlayerStore.getState().isSyncingLyrics) {
-      return;
-    }
     await usePlayerStore.getState().skipToNext();
   });
 
   TrackPlayer.addEventListener(Event.RemoteJumpBackward, async () => {
     console.log("[PlaybackService] Event.RemoteJumpBackward triggered -> skipToPrevious");
-    if (usePlayerStore.getState().isSyncingLyrics) {
-      return;
-    }
     try {
       const { position } = await TrackPlayer.getProgress();
       if (position > SKIP_PREVIOUS_THRESHOLD) {
@@ -358,7 +326,7 @@ export const PlaybackService = async function () {
       const previousTrackId = event.lastTrack?.id?.toString() || PlaybackTimeTracker.getCurrentTrackId();
       const nextTrackId = event.track?.id?.toString();
       let crossfadeHistory: Promise<void> | undefined;
-      if (crossfade.crossfade && nextTrackId && !usePlayerStore.getState().isSyncingLyrics) {
+      if (crossfade.crossfade && nextTrackId) {
         const boundary = Number.isFinite(crossfade.occurredAt) ? Math.min(Date.now(), crossfade.occurredAt!) : Date.now();
         // Commit time before any DB/bridge await: a later transition must not erase this listen.
         PlaybackTimeTracker.onStateNotPlaying(boundary);
@@ -366,7 +334,6 @@ export const PlaybackService = async function () {
         crossfadeHistory = persistPreviousListen(previousTrackId ?? undefined);
         void crossfadeHistory.catch(error => console.error('[Crossfade] Could not persist the outgoing listen:', error));
       }
-      if (await restoreLyricsSyncTrack(event)) return;
       if (revision !== activeTrackEventRevision || useMultipleQueuesStore.getState().isSwitching) return;
 
       void syncActiveTrackToStore(event, revision);

@@ -1,4 +1,20 @@
 {
+  "runtimeDebug": {
+    "errors": "Errores de la aplicación",
+    "tests": "Pruebas en el dispositivo",
+    "errorsDescription": "Consultar y compartir errores de JavaScript y Android.",
+    "testsDescription": "Comprobar los módulos nativos de la APK instalada y su compatibilidad con R8.",
+    "errorScope": "Registro local de los últimos 200 errores de JavaScript, promesas rechazadas, último cierre inesperado de Java y errores recientes del proceso Android. Los cierres anteriores al inicio del registro o del sistema pueden no aparecer. Compartir el informe puede incluir nombres de archivos y otros datos de diagnóstico.",
+    "testScope": "Estas pruebas se ejecutan en la APK instalada: almacenamiento, base de datos, reproductor, colores y llamadas nativas por reflexión. No modifican tu biblioteca ni la reproducción. Las suites completas de Jest y Gradle requieren un PC; un resultado correcto aquí no garantiza la ausencia de todos los errores de R8.",
+    "refresh": "Actualizar",
+    "share": "Compartir informe",
+    "clear": "Borrar registro",
+    "empty": "No hay errores registrados.",
+    "nativeErrors": "Android: último cierre y errores recientes",
+    "run": "Ejecutar pruebas",
+    "running": "Ejecutando…",
+    "results": "Correctas: {{passed}} · Fallidas: {{failed}}"
+  },
   "timestamps": {
     "configure": "Configurar saltos",
     "title": "Saltos de reproducción",
@@ -306,6 +322,7 @@
         "tip": "💡 Puedes restablecer los valores originales a 1.0x en cualquier momento desde el menú emergente."
       },
       "lyrics": {
+    "sync_different_track": "Vuelve a reproducir la canción que estás editando para continuar marcando tiempos.",
         "title": "Letras Sincronizadas (Karaoke)",
         "desc": "Abre la pantalla completa de letras con seguimiento en tiempo real, modo karaoke dinámico y navegación táctil verso a verso para cantar tus temas preferidos.",
         "tip": "💡 Si una canción no tiene letra sincronizada, puedes buscarla o editarla manualmente."
@@ -549,6 +566,8 @@
     "tag_colors_desc": "Mostrar las etiquetas con su color asignado en el reproductor y detalle de álbum. Si se desactiva, se mostrarán en gris con baja opacidad.",
     "show_lyrics": "Mostrar letras en el reproductor",
     "show_lyrics_desc": "Muestra la frase de la letra actual (si está disponible) sobre las etiquetas en el reproductor y en modo inmersivo.",
+    "library_refresh_policy": "Actualizar biblioteca",
+    "library_refresh_policy_desc": "La biblioteca se escanea al arrancar la app desde cero o al actualizar manualmente desde Inicio o Biblioteca. Volver desde segundo plano no inicia otro escaneo.",
     "silent_sync": "Escaneo silencioso al volver",
     "silent_sync_desc": "Oculta el aviso de 'Sincronizando Biblioteca...' cuando vuelves a la aplicación, pero sigue escaneando en segundo plano.",
     "audio_section": "Audio y reproducción",
@@ -751,6 +770,7 @@
     "add_to_queue": "Añadir al final de la cola",
     "add_to_playlist": "Añadir a playlist",
     "remove_from_playlist": "Eliminar de esta lista",
+    "remove_from_playlist_error": "No se pudieron quitar las canciones seleccionadas de la playlist.",
     "add_to_favorites": "Añadir a favoritos",
     "remove_from_favorites": "Quitar de favoritos",
     "unknown": "Desconocido",
@@ -1834,6 +1854,8 @@
     "week_desc": "Tus 50 canciones más escuchadas de esta semana",
     "month_title": "Mes de {{month}}",
     "month_desc": "Tus 50 canciones más escuchadas en {{month}}",
+    "year_title": "Tu {{year}}",
+    "year_desc": "Tus 50 canciones más escuchadas de {{year}}",
     "all_title": "Tus más escuchadas",
     "all_desc": "Tus 50 canciones más escuchadas en MMPlayer",
     "unrated_title": "Sin puntuar",

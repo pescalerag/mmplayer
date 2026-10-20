@@ -1,3 +1,6 @@
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { STAT_TABLES } from '../../services/ScreenDataChanges';
+import { SmartListSummaryService } from '../../services/SmartListSummaryService';
 import Animated from 'react-native-reanimated';
 import { useCascadeEntry } from '../../hooks/useCascadeEntry';
 import { observeScreenData } from '../../utils/observeScreenData';
@@ -97,70 +100,28 @@ function UserProfileScreenBase({
     const [topArtists, setTopArtists] = useState<any[]>([]);
 
     const [statsReady, setStatsReady] = useState(false);
-    useEffect(() => {
-        let mounted = true;
-        const cancel = scheduleScreenRefresh(() => {
-            void useStatsStore.getState().fetchStats()
-                .catch(error => console.error('Error loading profile statistics:', error))
-                .finally(() => { if (mounted) setStatsReady(true); });
-        });
-        return () => { mounted = false; cancel(); };
-    }, []);
-
-    useEffect(() => {
-        let isMounted = true;
-        const loadTopStats = async () => {
-            try {
-                const stats = await HistoryService.getDetailedStatsForPeriod('all', 'duration');
-                if (isMounted) {
-                    setTopAlbums(stats.topAlbums.slice(0, 10));
-                    setTopArtists(stats.topArtists.slice(0, 10));
-                }
-            } catch (err) {
-                console.error('Error loading top albums/artists in UserProfile:', err);
-            }
-        };
-        const cancel = scheduleScreenRefresh(() => { void loadTopStats(); });
-        return () => {
-            cancel();
-            isMounted = false;
-        };
-    }, []);
-
-    // Smart playlists
     const [smartLists, setSmartLists] = useState<any[]>([]);
-
-    useEffect(() => {
-        let isMounted = true;
-        const loadSmartLists = async () => {
-            try {
-                const lists = SmartListService.getSmartLists();
-                const loaded = await Promise.all(
-                    lists.map(async (list) => {
-                        const tracks = await list.getTracks();
-                        return {
-                            id: `smart-list-${list.id}`,
-                            smartId: list.id,
-                            title: list.name,
-                            subtitle: `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
-                            trackCount: tracks.length,
-                        };
-                    })
-                );
-                if (isMounted) {
-                    setSmartLists(loaded.filter(item => item.trackCount > 0));
-                }
-            } catch (err) {
-                console.error('Error loading smart lists in UserProfile:', err);
-            }
-        };
-
-        const cancel = scheduleScreenRefresh(() => { void loadSmartLists(); });
-        return () => {
-            cancel();
-            isMounted = false;
-        };
+    const mounted = React.useRef(true);
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const loadProfileStats = useCallback(async () => {
+        try {
+            const [, stats] = await Promise.all([
+                useStatsStore.getState().fetchStats(),
+                HistoryService.getDetailedStatsForPeriod('all', 'duration'),
+            ]);
+            if (mounted.current) { setTopAlbums(stats.topAlbums.slice(0, 10)); setTopArtists(stats.topArtists.slice(0, 10)); }
+        } finally { if (mounted.current) setStatsReady(true); }
+    }, []);
+    const loadSmartLists = useCallback(async () => {
+        const lists = await SmartListSummaryService.get();
+        if (mounted.current) setSmartLists(lists.filter(list => list.trackCount > 0).map(list => ({
+            id: `smart-list-${list.id}`, smartId: list.id, title: list.name,
+            subtitle: `${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`,
+            trackCount: list.trackCount,
+        })));
     }, [t]);
+    useObservedRefresh(loadProfileStats, STAT_TABLES);
+    useObservedRefresh(loadSmartLists, ['tracks', 'playback_history']);
 
     // Edit Name via EditAliasSheet
     const handleEditName = useCallback(() => {
@@ -234,19 +195,19 @@ function UserProfileScreenBase({
 
     const handleTopArtistPress = useCallback(() => {
         if (topArtistId) {
-            navigation.navigate('ArtistDetail', { artistId: topArtistId });
+            navigation.navigate('ArtistDetail', { artistId: topArtistId }, { pop: true });
         }
     }, [topArtistId, navigation]);
 
     const handleSmartListPress = useCallback((smartListId: string) => {
-        navigation.navigate('SmartListDetail', { smartListId });
+        navigation.navigate('SmartListDetail', { smartListId }, { pop: true });
     }, [navigation]);
 
     const handlePlaylistPress = useCallback((playlistId: string) => {
         if (playlistId === 'favorites') {
             navigation.navigate('FavoritesDetail');
         } else {
-            navigation.navigate('PlaylistDetail', { playlistId });
+            navigation.navigate('PlaylistDetail', { playlistId }, { pop: true });
         }
     }, [navigation]);
 
@@ -352,7 +313,7 @@ function UserProfileScreenBase({
                                     title={artist.name}
                                     subtitle={t('library.artist_singular')}
                                     imageUrl={artist.imageUrl}
-                                    onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id })}
+                                    onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id }, { pop: true })}
                                 />
                             ))}
                         </ScrollView>
@@ -379,7 +340,7 @@ function UserProfileScreenBase({
                                     title={album.title}
                                     subtitle={album.artistName || t('library.album_singular')}
                                     imageUrl={album.coverUrl}
-                                    onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id })}
+                                    onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true })}
                                 />
                             ))}
                         </ScrollView>
@@ -739,7 +700,7 @@ const ObservableUserProfileScreen = withObservables([], () => ({
     albumsCount: observeScreenData(() => database.get('albums').query().observeCount(), null),
     artistsCount: observeScreenData(() => database.get('artists').query().observeCount(), null),
     playlistsCount: observeScreenData(() => database.get('playlists').query().observeCount(), null),
-    playlists: observeScreenData(() => database.get<Playlist>('playlists').query().observe(), []),
+    playlists: observeScreenData(() => database.get<Playlist>('playlists').query().observeWithColumns(['name', 'description', 'cover_url', 'cover_custom_url']), []),
 }))(UserProfileScreenBase);
 
 export default function UserProfileScreen() {

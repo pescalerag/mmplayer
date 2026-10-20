@@ -174,6 +174,10 @@ class NativeEqualizerModule : Module() {
 
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
+        OnCreate { appContext.reactContext?.let { RuntimeDiagnostics.install(it.applicationContext) } }
+        AsyncFunction("readRuntimeErrors") { RuntimeDiagnostics.errors(appContext.reactContext ?: error("React context unavailable")) }
+        AsyncFunction("clearRuntimeErrors") { RuntimeDiagnostics.clear(appContext.reactContext ?: error("React context unavailable")) }
+        AsyncFunction("runRuntimeDiagnostics") { RuntimeDiagnostics.run(appContext.reactContext ?: error("React context unavailable")) }
         Events("androidAutoRequest")
         AsyncFunction("configureTimestamps") { json: String ->
             Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
@@ -220,6 +224,14 @@ class NativeEqualizerModule : Module() {
             Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
                 .getMethod("setListener", java.util.function.Consumer::class.java).invoke(null, null)
         }
+
+        AsyncFunction("setTransportPlaying") { playing: Boolean, volume: Double, durationMs: Int ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("setTransportPlaying", Boolean::class.javaPrimitiveType,
+                    Double::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                .invoke(null, playing, volume, durationMs)
+            Unit
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("setCrossfadeSettings") { seconds: Double, allowed: Boolean ->
             require(seconds.isFinite()) { "Invalid crossfade duration" }

@@ -201,7 +201,7 @@ function TrackRow({
             delayPressIn={85}
             onPress={() => {
               if (isSelectionMode) {
-                useMultiSelectStore.getState().toggleTrack(track);
+                useMultiSelectStore.getState().toggleTrack(track, playlistId);
                 return;
               }
               if (!preventAutoHistory) {

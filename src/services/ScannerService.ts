@@ -1387,6 +1387,9 @@ export const ScannerService = {
             onProgress?.(0, 0, i18n.t('scanner.resetting_database'));
             await database.write(async () => {
                 await database.unsafeResetDatabase();
+                // Reset emits no collection changes. Invalidate retained screen results explicitly.
+                const { notifyScreenDataReset } = await import('./ScreenDataChanges');
+                notifyScreenDataReset();
             });
 
             await ScannerService.autoScanAndroid(onProgress);

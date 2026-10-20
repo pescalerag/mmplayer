@@ -61,6 +61,7 @@ error.log
 *.tsbuildinfo
 
 # Build artifacts
+.tmp/
 *.tgz
 coverage/
 build/

@@ -1434,7 +1434,7 @@ index 0000000..4211858
 +    }
 +}
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index b495b5a..44be518 100644
+index b495b5a..7dfb6d0 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 @@ -20,6 +20,10 @@ import androidx.media3.common.util.UnstableApi
@@ -1456,7 +1456,16 @@ index b495b5a..44be518 100644
  import java.util.concurrent.TimeUnit
  import kotlin.system.exitProcess
  
-@@ -67,7 +72,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -64,10 +69,38 @@ class MusicService : HeadlessJsMediaService() {
+     private lateinit var fakePlayer: ExoPlayer
+     private lateinit var mediaSession: MediaLibrarySession
+     private var progressUpdateJob: Job? = null
++    private var transportFade: TransportFadeController? = null
++
++    private fun transportController(): TransportFadeController = transportFade
++        ?: TransportFadeController(android.os.Handler(player.exoPlayer.applicationLooper),
++            { player.volume }, { player.volume = it }, { player.playWhenReady },
++            { player.play() }, { player.pause() }).also { transportFade = it }
      private var sessionCommands: SessionCommands? = null
      private var playerCommands: Player.Commands? = null
      private var customLayout: List<CommandButton> = listOf()
@@ -1486,7 +1495,7 @@ index b495b5a..44be518 100644
      var onStartCommandIntentValid: Boolean = true
  
      fun acquireWakeLock() {
-@@ -92,11 +119,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -92,11 +125,29 @@ class MusicService : HeadlessJsMediaService() {
  
      @ExperimentalCoroutinesApi
      override fun onCreate() {
@@ -1516,7 +1525,7 @@ index b495b5a..44be518 100644
          fakePlayer = ExoPlayer.Builder(this).build()
          val openAppIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
              flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-@@ -104,9 +149,11 @@ class MusicService : HeadlessJsMediaService() {
+@@ -104,9 +155,11 @@ class MusicService : HeadlessJsMediaService() {
              data = Uri.parse("trackplayer://notification.click")
              action = Intent.ACTION_VIEW
          }
@@ -1528,7 +1537,7 @@ index b495b5a..44be518 100644
              .setBitmapLoader(CacheBitmapLoader(CoilBitmapLoader(this)))
              // https://github.com/androidx/media/issues/1218
              .setSessionActivity(
-@@ -119,6 +166,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -119,6 +172,7 @@ class MusicService : HeadlessJsMediaService() {
              )
              .build()
          super.onCreate()
@@ -1536,7 +1545,15 @@ index b495b5a..44be518 100644
      }
  
      enum class AppKilledPlaybackBehavior(val string: String) {
-@@ -166,12 +214,9 @@ class MusicService : HeadlessJsMediaService() {
+@@ -157,6 +211,7 @@ class MusicService : HeadlessJsMediaService() {
+     var playWhenReady: Boolean
+         get() = player.playWhenReady
+         set(value) {
++            transportFade?.cancel()
+             player.playWhenReady = value
+         }
+ 
+@@ -166,12 +221,9 @@ class MusicService : HeadlessJsMediaService() {
      override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
          onStartCommandIntentValid = intent != null
          Timber.d("onStartCommand: ${intent?.action}, ${intent?.`package`}")
@@ -1552,7 +1569,7 @@ index b495b5a..44be518 100644
              commandStarted = true
              super.onStartCommand(intent, flags, startId)
          }
-@@ -211,6 +256,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -211,6 +263,21 @@ class MusicService : HeadlessJsMediaService() {
          player = QueuedAudioPlayer(this@MusicService, options)
          fakePlayer.release()
          mediaSession.player = player.forwardingPlayer
@@ -1574,7 +1591,7 @@ index b495b5a..44be518 100644
          observeEvents()
      }
  
-@@ -274,7 +334,6 @@ class MusicService : HeadlessJsMediaService() {
+@@ -274,7 +341,6 @@ class MusicService : HeadlessJsMediaService() {
              Player.COMMAND_SEEK_TO_MEDIA_ITEM,
              Player.COMMAND_SET_MEDIA_ITEM,
              Player.COMMAND_PREPARE,
@@ -1582,7 +1599,7 @@ index b495b5a..44be518 100644
          )
          notificationCapabilities.forEach {
              when (it) {
-@@ -290,14 +349,29 @@ class MusicService : HeadlessJsMediaService() {
+@@ -290,14 +356,29 @@ class MusicService : HeadlessJsMediaService() {
                      playerCommandsBuilder.add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
                  }
  
@@ -1612,7 +1629,7 @@ index b495b5a..44be518 100644
          customLayout.forEach { v ->
              v.sessionCommand?.let { sessionCommandsBuilder.add(it) }
          }
-@@ -305,18 +379,13 @@ class MusicService : HeadlessJsMediaService() {
+@@ -305,18 +386,13 @@ class MusicService : HeadlessJsMediaService() {
          sessionCommands = sessionCommandsBuilder.build()
          playerCommands = playerCommandsBuilder.build()
  
@@ -1637,7 +1654,7 @@ index b495b5a..44be518 100644
      }
  
      @MainThread
-@@ -335,6 +404,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -335,6 +411,7 @@ class MusicService : HeadlessJsMediaService() {
      private suspend fun progressUpdateEvent(): Bundle {
          return withContext(Dispatchers.Main) {
              Bundle().apply {
@@ -1645,7 +1662,45 @@ index b495b5a..44be518 100644
                  putDouble(POSITION_KEY, player.position.toSeconds())
                  putDouble(DURATION_KEY, player.duration.toSeconds())
                  putDouble(BUFFERED_POSITION_KEY, player.bufferedPosition.toSeconds())
-@@ -443,12 +513,41 @@ class MusicService : HeadlessJsMediaService() {
+@@ -362,6 +439,7 @@ class MusicService : HeadlessJsMediaService() {
+ 
+     @MainThread
+     fun load(track: Track) {
++        transportFade?.cancel()
+         player.load(track.toAudioItem())
+     }
+ 
+@@ -382,22 +460,29 @@ class MusicService : HeadlessJsMediaService() {
+ 
+     @MainThread
+     fun clear() {
++        transportFade?.cancel(restoreVolume = false)
+         player.clear()
++        transportFade?.cancel()
+     }
+ 
+     @MainThread
+     fun play() {
++        transportFade?.cancel()
+         player.play()
+     }
+ 
+     @MainThread
+     fun pause() {
++        transportFade?.cancel(restoreVolume = false)
+         player.pause()
++        transportFade?.cancel()
+     }
+ 
+     @MainThread
+     fun stop() {
++        transportFade?.cancel(restoreVolume = false)
+         player.stop()
++        transportFade?.cancel()
+     }
+ 
+     @MainThread
+@@ -443,12 +528,41 @@ class MusicService : HeadlessJsMediaService() {
      @MainThread
      fun getCurrentTrackIndex(): Int = player.currentIndex
  
@@ -1657,8 +1712,7 @@ index b495b5a..44be518 100644
 +    private var lastSpeed: Float = 1.0f
 +    private var lastPitch: Float = 1.0f
 +
-     @MainThread
--    fun getRate(): Float = player.playbackSpeed
++    @MainThread
 +    fun applyPlaybackParameters(speed: Float, pitch: Float) {
 +        lastSpeed = if (speed.isFinite() && speed > 0f) speed.coerceIn(0.25f, 4.0f) else 1.0f
 +        lastPitch = if (pitch.isFinite() && pitch > 0f) pitch.coerceIn(0.25f, 4.0f) else 1.0f
@@ -1671,7 +1725,8 @@ index b495b5a..44be518 100644
 +        }
 +    }
 +
-+    @MainThread
+     @MainThread
+-    fun getRate(): Float = player.playbackSpeed
 +    fun getRate(): Float = if (::player.isInitialized) player.exoPlayer.playbackParameters.speed else lastSpeed
  
      @MainThread
@@ -1689,7 +1744,16 @@ index b495b5a..44be518 100644
      }
  
      @MainThread
-@@ -495,16 +594,59 @@ class MusicService : HeadlessJsMediaService() {
+@@ -464,7 +578,7 @@ class MusicService : HeadlessJsMediaService() {
+ 
+     @MainThread
+     fun setVolume(value: Float) {
+-        player.volume = value
++        transportFade?.updateVolume(value) ?: run { player.volume = value }
+     }
+ 
+     @MainThread
+@@ -495,16 +609,59 @@ class MusicService : HeadlessJsMediaService() {
          }
      }
  
@@ -1750,7 +1814,7 @@ index b495b5a..44be518 100644
          bundle.putDouble("lastPosition", oldPosition)
          if (tracks.isNotEmpty()) {
              bundle.putInt("index", player.currentIndex)
-@@ -538,12 +680,21 @@ class MusicService : HeadlessJsMediaService() {
+@@ -538,12 +695,21 @@ class MusicService : HeadlessJsMediaService() {
  
          scope.launch {
              event.audioItemTransition.collect {
@@ -1772,7 +1836,7 @@ index b495b5a..44be518 100644
              }
          }
  
-@@ -714,6 +865,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -714,6 +880,7 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onTaskRemoved(rootIntent: Intent?) {
@@ -1780,10 +1844,11 @@ index b495b5a..44be518 100644
          onUnbind(rootIntent)
          Timber.d("isInitialized = ${::player.isInitialized}, appKilledPlaybackBehavior = $appKilledPlaybackBehavior")
          if (!::player.isInitialized) {
-@@ -792,12 +944,35 @@ class MusicService : HeadlessJsMediaService() {
+@@ -792,12 +959,36 @@ class MusicService : HeadlessJsMediaService() {
  
      @MainThread
      override fun onDestroy() {
++        transportFade?.cancel(restoreVolume = false)
 +        timestamps?.release()
 +        AndroidAutoBridge.cancelAll()
 +        if (::mediaSession.isInitialized) {
@@ -1819,7 +1884,7 @@ index b495b5a..44be518 100644
          progressUpdateJob?.cancel()
          super.onDestroy()
      }
-@@ -863,6 +1038,67 @@ class MusicService : HeadlessJsMediaService() {
+@@ -863,6 +1054,67 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      private inner class InnerMediaSessionCallback : MediaLibrarySession.Callback {
@@ -1887,7 +1952,7 @@ index b495b5a..44be518 100644
          // HACK: I'm sure most of the callbacks were not implemented correctly.
          // ATM I only care that andorid auto still functions.
  
-@@ -892,37 +1128,22 @@ class MusicService : HeadlessJsMediaService() {
+@@ -892,37 +1144,22 @@ class MusicService : HeadlessJsMediaService() {
                  putBoolean("isAutomotiveController", isAutomotiveController)
                  putBoolean("isAutoCompanionController", isAutoCompanionController)
              })
@@ -1939,7 +2004,7 @@ index b495b5a..44be518 100644
          }
  
          override fun onCustomCommand(
-@@ -931,6 +1152,18 @@ class MusicService : HeadlessJsMediaService() {
+@@ -931,6 +1168,18 @@ class MusicService : HeadlessJsMediaService() {
              command: SessionCommand,
              args: Bundle
          ): ListenableFuture<SessionResult> {
@@ -1958,7 +2023,7 @@ index b495b5a..44be518 100644
              player.forwardingPlayer.let {
                  when (command.customAction) {
                      CustomCommandButton.JUMP_BACKWARD.customAction -> { it.seekBack() }
-@@ -942,12 +1175,31 @@ class MusicService : HeadlessJsMediaService() {
+@@ -942,12 +1191,31 @@ class MusicService : HeadlessJsMediaService() {
              return super.onCustomCommand(session, controller, command, args)
          }
  
@@ -1990,7 +2055,7 @@ index b495b5a..44be518 100644
              return onMediaKeyEvent(intent) ?: super.onMediaButtonEvent(
                  session,
                  controllerInfo,
-@@ -962,7 +1214,7 @@ class MusicService : HeadlessJsMediaService() {
+@@ -962,7 +1230,7 @@ class MusicService : HeadlessJsMediaService() {
              emit(MusicEvents.PLAYBACK_RESUME, Bundle().apply {
                  putString("package", controller.packageName)
              })
@@ -1999,10 +2064,18 @@ index b495b5a..44be518 100644
          }
  
          override fun onSetRating(
-@@ -983,6 +1235,67 @@ class MusicService : HeadlessJsMediaService() {
+@@ -983,6 +1251,75 @@ class MusicService : HeadlessJsMediaService() {
      }
  
      companion object {
++        @androidx.annotation.Keep
++        @JvmStatic fun setTransportPlaying(playing: Boolean, volume: Double, durationMs: Int) {
++            val service = instance ?: error("Playback service is not initialized")
++            check(service::player.isInitialized) { "Playback player is not initialized" }
++            require(volume.isFinite()) { "Invalid transport volume" }
++            if (!playing) service.player.focusManager.preventAutomaticResume()
++            service.transportController().setPlaying(playing, volume.toFloat(), durationMs.coerceIn(0, 400))
++        }
 +        private var timestampPolicy = "{}"
 +        @JvmStatic fun configureTimestamps(json: String) { timestampPolicy = json; instance?.timestamps?.configure(json) }
 +        @JvmStatic fun markTimestampSeek(manual: Boolean, position: Double) { instance?.timestamps?.markSeek(manual, position) }
@@ -2185,6 +2258,93 @@ index 0000000..adadc91
 +    private fun schedule(next: Double, position: Long) {
 +        val delay = ((next - position) / player.playbackParameters.speed.coerceAtLeast(0.1f)).toLong().coerceIn(10, 5000)
 +        handler.postDelayed(tick, delay)
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/TransportFadeController.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/TransportFadeController.kt
+new file mode 100644
+index 0000000..043c4ed
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/TransportFadeController.kt
+@@ -0,0 +1,81 @@
++package com.doublesymmetry.trackplayer.service
++
++import android.os.Handler
++import android.os.SystemClock
++
++/** All methods run on the player's looper. No JS callbacks are needed during a fade. */
++class TransportFadeController(
++    private val handler: Handler,
++    private val volume: () -> Float,
++    private val setVolume: (Float) -> Unit,
++    private val isPlaying: () -> Boolean,
++    private val play: () -> Unit,
++    private val pause: () -> Unit,
++) {
++    private var targetVolume = volume()
++    private var direction: Boolean? = null
++    private var startedAt = 0L
++    private var duration = 0L
++    private var startVolume = 0f
++    private val tick = Runnable { step() }
++
++    fun setPlaying(playing: Boolean, target: Float, durationMs: Int) {
++        if (direction == playing && durationMs > 0 && (!playing || isPlaying())) {
++            targetVolume = target.coerceIn(0f, 1f)
++            return
++        }
++        val interrupted = direction != null
++        cancel(restoreVolume = false)
++        targetVolume = target.coerceIn(0f, 1f)
++        val running = isPlaying()
++        if (durationMs <= 0 || (!playing && (!running || volume() <= 0f))) {
++            setVolume(if (playing) targetVolume else 0f)
++            if (playing) play() else pause()
++            return
++        }
++        if (playing && running && !interrupted) {
++            setVolume(targetVolume)
++            play()
++            return
++        }
++        startVolume = if (playing && !running) 0f else volume()
++        direction = playing
++        startedAt = SystemClock.uptimeMillis()
++        duration = durationMs.toLong()
++        setVolume(startVolume)
++        if (playing) play()
++        handler.postDelayed(tick, minOf(25L, duration))
++    }
++
++    fun updateVolume(value: Float) {
++        targetVolume = value.coerceIn(0f, 1f)
++        if (targetVolume == 0f) {
++            val finishPause = direction == false
++            cancel(restoreVolume = false)
++            setVolume(0f)
++            if (finishPause) pause()
++        } else if (direction == null) {
++            setVolume(targetVolume)
++        }
++    }
++
++    fun cancel(restoreVolume: Boolean = true) {
++        handler.removeCallbacks(tick)
++        direction = null
++        if (restoreVolume) setVolume(targetVolume)
++    }
++
++    private fun step() {
++        val playing = direction ?: return
++        val elapsed = SystemClock.uptimeMillis() - startedAt
++        val fraction = (elapsed.toFloat() / duration).coerceIn(0f, 1f)
++        val destination = if (playing) targetVolume else 0f
++        setVolume(startVolume + (destination - startVolume) * fraction)
++        if (fraction >= 1f) {
++            direction = null
++            if (!playing) pause()
++        } else {
++            handler.postDelayed(tick, minOf(25L, duration - elapsed))
++        }
 +    }
 +}
 diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/kotlinaudio/players/CrossfadeCoordinatorTest.kt
@@ -2728,6 +2888,158 @@ index 0000000..5debf82
 +        position = 25000
 +        controller.configure("""{"trackId":"previous","pointA":15,"pointB":35}""")
 +        assertEquals(40000L, position)
++    }
++}
+diff --git a/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/trackplayer/service/TransportFadeControllerTest.kt b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/trackplayer/service/TransportFadeControllerTest.kt
+new file mode 100644
+index 0000000..f5a6c8a
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/src/test/java/com/doublesymmetry/trackplayer/service/TransportFadeControllerTest.kt
+@@ -0,0 +1,146 @@
++package com.doublesymmetry.trackplayer.service
++
++import android.os.Handler
++import android.os.Looper
++import org.junit.Assert.*
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.Shadows.shadowOf
++import org.robolectric.annotation.Config
++import org.robolectric.annotation.LooperMode
++import org.robolectric.shadows.ShadowSystemClock
++import java.time.Duration
++
++@RunWith(RobolectricTestRunner::class)
++@Config(sdk = [28], manifest = Config.NONE)
++@LooperMode(LooperMode.Mode.PAUSED)
++class TransportFadeControllerTest {
++    private var volume = 1f
++    private var playing = true
++    private var pauses = 0
++    private var plays = 0
++    private lateinit var controller: TransportFadeController
++    private fun advance(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
++
++    @Before fun setup() {
++        controller = TransportFadeController(Handler(Looper.getMainLooper()), { volume },
++            { volume = it }, { playing }, { playing = true; plays++ }, { playing = false; pauses++ })
++    }
++
++    @Test fun pauseCompletesAt400msWithoutJavaScriptOrNativeStateQueries() {
++        controller.setPlaying(false, 1f, 400)
++        advance(200)
++        assertEquals(0.5f, volume, 0.001f)
++        assertTrue(playing)
++        advance(200)
++        assertFalse(playing)
++        assertEquals(0f, volume, 0f)
++        assertEquals(1, pauses)
++    }
++
++    @Test fun playStartsImmediatelyAndFadesFromSilence() {
++        playing = false
++        controller.setPlaying(true, 0.8f, 400)
++        assertTrue(playing)
++        assertEquals(1, plays)
++        assertEquals(0f, volume, 0f)
++        advance(200)
++        assertEquals(0.4f, volume, 0.001f)
++        advance(200)
++        assertEquals(0.8f, volume, 0.001f)
++    }
++
++    @Test fun playDuringPauseContinuesFromTheCurrentVolumeAndCancelsTheOldPause() {
++        controller.setPlaying(false, 1f, 400)
++        advance(200)
++        controller.setPlaying(true, 1f, 400)
++        assertEquals(0.5f, volume, 0.001f)
++        advance(500)
++        assertTrue(playing)
++        assertEquals(0, pauses)
++        assertEquals(1f, volume, 0f)
++    }
++
++    @Test fun pauseDuringPlayAndRapidAlternationRespectTheLastCommand() {
++        playing = false
++        controller.setPlaying(true, 1f, 400)
++        advance(100)
++        controller.setPlaying(false, 1f, 400)
++        advance(100)
++        controller.setPlaying(true, 1f, 400)
++        advance(50)
++        controller.setPlaying(false, 1f, 400)
++        advance(400)
++        assertFalse(playing)
++        assertEquals(1, pauses)
++        assertEquals(0f, volume, 0f)
++    }
++
++    @Test fun delayedNativeTickDoesNotRestartThe400msDuration() {
++        controller.setPlaying(false, 1f, 400)
++        ShadowSystemClock.advanceBy(Duration.ofMillis(700))
++        shadowOf(Looper.getMainLooper()).idle()
++        assertEquals(1, pauses)
++        assertFalse(playing)
++    }
++
++    @Test fun duplicatePauseDoesNotExtendTheDeadline() {
++        controller.setPlaying(false, 1f, 400)
++        advance(300)
++        controller.setPlaying(false, 1f, 400)
++        advance(100)
++        assertFalse(playing)
++        assertEquals(1, pauses)
++    }
++
++    @Test fun bypassCancelsAnExistingFadeAndAppliesImmediately() {
++        controller.setPlaying(false, 1f, 400)
++        advance(100)
++        controller.setPlaying(true, 0.7f, 0)
++        advance(1000)
++        assertTrue(playing)
++        assertEquals(0.7f, volume, 0f)
++        assertEquals(0, pauses)
++        controller.setPlaying(false, 0.7f, 0)
++        assertFalse(playing)
++    }
++
++    @Test fun resetOrServiceReleaseCancelsPendingCallbacks() {
++        controller.setPlaying(false, 0.6f, 400)
++        advance(100)
++        controller.cancel()
++        advance(1000)
++        assertEquals(0, pauses)
++        assertEquals(0.6f, volume, 0f)
++    }
++
++    @Test fun castMutingCannotBeUndoneByAnOldFade() {
++        playing = false
++        controller.setPlaying(true, 1f, 400)
++        advance(100)
++        controller.updateVolume(0f)
++        advance(1000)
++        assertEquals(0f, volume, 0f)
++    }
++
++    @Test fun changingTargetVolumeDuringPlayFadeKeepsTheNewTarget() {
++        playing = false
++        controller.setPlaying(true, 1f, 400)
++        advance(100)
++        controller.updateVolume(0.4f)
++        advance(300)
++        assertEquals(0.4f, volume, 0.001f)
++    }
++
++    @Test fun alreadyPausedAndAlreadyPlayingDoNotCreateUnnecessaryFades() {
++        controller.setPlaying(true, 0.6f, 400)
++        assertEquals(0.6f, volume, 0f)
++        playing = false
++        controller.setPlaying(false, 0.6f, 400)
++        assertEquals(1, pauses)
++        advance(1000)
++        assertEquals(1, pauses)
 +    }
 +}
 diff --git a/node_modules/react-native-track-player/lib/module/constants/Capability.js b/node_modules/react-native-track-player/lib/module/constants/Capability.js

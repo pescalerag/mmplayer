@@ -1,5 +1,7 @@
 import { useRef } from 'react';
 import { useUIStore, SheetType } from '../store/useUIStore';
+import { sheetTransition } from '../utils/sheetTransition';
+import { navigationRef } from '../navigation/navigationRef';
 
 export function useSheetProps<TProps = any>(type: SheetType) {
     const activeSheet = useUIStore(state => state.activeSheet);
@@ -18,5 +20,12 @@ export function useSheetProps<TProps = any>(type: SheetType) {
         isVisible,
         props: (isVisible ? sheetProps : lastPropsRef.current) as TProps,
         close: closeSheet,
+        closeThen: (run: () => void) => {
+            if (useUIStore.getState().activeSheet !== type) return;
+            const originKey = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.key : undefined;
+            sheetTransition.request(type, closeSheet, () => {
+                if (!originKey || navigationRef.getCurrentRoute()?.key === originKey) run();
+            });
+        },
     };
 }

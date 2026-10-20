@@ -58,7 +58,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
   ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
   }),
 )(function PlaylistTrackRowWithMetadata({
   track,
@@ -135,7 +135,7 @@ const ReorderTrackRowWithMetadata = withObservables(
   ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
   }),
 )(function ReorderTrackRowWithMetadata({
   track,
@@ -690,7 +690,7 @@ const ObservablePlaylistDetail = withObservables(["playlistId"], ({ playlistId }
   data: observeScreenData(() => combineLatest({
     playlist: database.collections.get<Playlist>("playlists").findAndObserve(playlistId).pipe(catchError(() => of(null))),
     playlistTracks: database.collections.get<PlaylistTrack>("playlist_tracks")
-      .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc)).observe(),
+      .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc)).observeWithColumns(['order', 'track_id']),
   })),
 }))(function LoadedPlaylistDetail({ data }: { data?: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] } }) {
   if (!data) return <InvisibleScreenContent />;

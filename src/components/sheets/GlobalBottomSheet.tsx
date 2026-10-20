@@ -16,6 +16,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { sheetTransition } from '../../utils/sheetTransition';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetType, useUIStore } from '../../store/useUIStore';
 import { useTagFormStore } from '@/store/useTagFormStore';
@@ -63,6 +64,10 @@ export default function GlobalBottomSheet() {
   const isTagFormOpen = useTagFormStore((state) => state.isVisible);
 
   const [renderedSheet, setRenderedSheet] = useState<SheetType | null>(null);
+  const finishClosing = React.useCallback((sheet: SheetType | null) => {
+    setRenderedSheet(null);
+    if (sheet) sheetTransition.complete(sheet);
+  }, []);
 
   const effectiveSheet = activeSheet === 'queue' ? null : activeSheet;
   const isVisible = effectiveSheet !== null;
@@ -110,6 +115,7 @@ export default function GlobalBottomSheet() {
   // Track activeSheet changes to handle mount/unmount and transitions
   useEffect(() => {
     if (effectiveSheet) {
+      sheetTransition.cancel();
       setRenderedSheet(effectiveSheet);
       if (Platform.OS === 'android' && !useColorPickerModalStore.getState().request) {
         NavigationBar.setBackgroundColorAsync(colors.sheetBackground).catch(() => { });
@@ -129,7 +135,7 @@ export default function GlobalBottomSheet() {
       }).start();
       slideTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, (finished) => {
         if (finished) {
-          scheduleOnRN(setRenderedSheet, null);
+          scheduleOnRN(finishClosing, renderedSheet);
         }
       });
     }
@@ -139,6 +145,7 @@ export default function GlobalBottomSheet() {
   useEffect(() => {
     if (!isVisible || isTagFormOpen || isColorPickerOpen) return;
     const onBackPress = () => {
+      if (Keyboard.isVisible()) { Keyboard.dismiss(); return true; }
       closeSheet();
       return true;
     };

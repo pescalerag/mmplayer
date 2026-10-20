@@ -39,6 +39,16 @@ describe('foreground reconciliation after extended background playback', () => {
         expect(TrackPlayer.play).not.toHaveBeenCalled();
     });
 
+    it('does not replay or reload intermediate native events while preparing a replacement', async () => {
+        usePlayerStore.setState({ isPreparingQueue: true });
+        try {
+            await handleActiveTrackChangedEvent({ track: { id: 'intermediate' }, index: 0 });
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+            expect(usePlayerStore.getState().updateQueueStatus).not.toHaveBeenCalled();
+            expect(usePlayerStore.getState().savePlaybackState).not.toHaveBeenCalled();
+        } finally { usePlayerStore.setState({ isPreparingQueue: false }); }
+    });
+
     it('ignores native reset events during a queue switch instead of restarting playback', async () => {
         useMultipleQueuesStore.setState({ isSwitching: true });
         await handleActiveTrackChangedEvent({ track: { id: 'next-instance' }, index: 0 });

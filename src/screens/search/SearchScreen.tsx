@@ -1,3 +1,4 @@
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
 import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import LibraryCard from '@/components/cards/LibraryCard';
 import TopMatchCard from '@/components/cards/TopMatchCard';
@@ -139,7 +140,7 @@ const SearchTrackRow = withObservables(
   ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any, // Cast to any to match Artist[] expectation
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any, // Cast to any to match Artist[] expectation
   }),
 )(SearchTrackRowBase);
 SearchTrackRow.displayName = "SearchTrackRow";
@@ -540,7 +541,7 @@ const SearchTagSection = ({
                   tagId: tag.id,
                   tagName: tag.name,
                   tagColor: tag.color || colors.accent
-                });
+                }, { pop: true });
               }}
             />
           </View>
@@ -802,7 +803,10 @@ export default function SearchScreen() {
   }, [t]);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const { isCompactTags, setIsCompactTags, hasSeenSearchTutorial, setHasSeenSearchTutorial } = useSettingsStore();
+  const isCompactTags = useSettingsStore(state => state.isCompactTags);
+  const setIsCompactTags = useSettingsStore(state => state.setIsCompactTags);
+  const hasSeenSearchTutorial = useSettingsStore(state => state.hasSeenSearchTutorial);
+  const setHasSeenSearchTutorial = useSettingsStore(state => state.setHasSeenSearchTutorial);
 
   // Spotlight Tutorial Refs & State
   const rootRef = useRef<View>(null);
@@ -861,6 +865,11 @@ export default function SearchScreen() {
       if (revision === advancedSearchRevision.current) setIsAdvancedLoading(false);
     }
   }, []);
+
+  const refreshAdvancedSearch = useCallback(async () => {
+    if (isAdvancedSearching) await executeAdvancedTagSearch(advancedIncludes, advancedExcludes, advancedMatchAll, advancedNoPlaylists);
+  }, [isAdvancedSearching, executeAdvancedTagSearch, advancedIncludes, advancedExcludes, advancedMatchAll, advancedNoPlaylists]);
+  useObservedRefresh(refreshAdvancedSearch, ['track_tags', 'album_tags', 'playlist_tracks', 'tracks', 'tags', 'playlists'], isAdvancedSearching);
 
   const handleClearAdvancedSearch = useCallback(() => {
     advancedSearchRevision.current++;
@@ -981,12 +990,12 @@ export default function SearchScreen() {
 
   const handleAlbumPress = useCallback((albumId: string) => {
     handleResultClick();
-    navigation.navigate("AlbumDetail", { albumId });
+    navigation.navigate("AlbumDetail", { albumId }, { pop: true });
   }, [handleResultClick, navigation]);
 
   const handleArtistPress = useCallback((artistId: string) => {
     handleResultClick();
-    navigation.navigate("ArtistDetail", { artistId });
+    navigation.navigate("ArtistDetail", { artistId }, { pop: true });
   }, [handleResultClick, navigation]);
 
   const handleTrackPress = useCallback(() => {
@@ -995,7 +1004,7 @@ export default function SearchScreen() {
 
   const handlePlaylistPress = useCallback((playlistId: string) => {
     handleResultClick();
-    navigation.navigate("PlaylistDetail", { playlistId });
+    navigation.navigate("PlaylistDetail", { playlistId }, { pop: true });
   }, [handleResultClick, navigation]);
 
   const handleTopMatchPress = useCallback(() => {
@@ -1006,15 +1015,15 @@ export default function SearchScreen() {
     if (currentTopMatch.type === "artist") {
       navigation.navigate("ArtistDetail", {
         artistId: (currentTopMatch.item as Artist).id,
-      });
+      }, { pop: true });
     } else if (currentTopMatch.type === "album") {
       navigation.navigate("AlbumDetail", {
         albumId: (currentTopMatch.item as Album).id,
-      });
+      }, { pop: true });
     } else if (currentTopMatch.type === "playlist") {
       navigation.navigate("PlaylistDetail", {
         playlistId: (currentTopMatch.item as Playlist).id,
-      });
+      }, { pop: true });
     } else if (currentTopMatch.type === "track") {
       const track = currentTopMatch.item as Track;
       void (async () => {
@@ -1186,7 +1195,7 @@ export default function SearchScreen() {
                         tagId: tag.id,
                         tagName: tag.name,
                         tagColor: tag.color || colors.accent
-                      });
+                      }, { pop: true });
                     }}
                   />
                 </Animated.View>
@@ -1218,7 +1227,7 @@ export default function SearchScreen() {
                     smartList={list}
                     cardWidth={GENRE_CARD_WIDTH}
                     onPress={() => {
-                      navigation.navigate('SmartListDetail', { smartListId: list.id });
+                      navigation.navigate('SmartListDetail', { smartListId: list.id }, { pop: true });
                     }}
                   />
                 </Animated.View>

@@ -1,6 +1,6 @@
+jest.mock('../utils/scheduleScreenRefresh', () => ({ scheduleScreenRefresh: (run: () => void) => { run(); return () => {}; } }));
 import React from 'react';
 import { Subject } from 'rxjs';
-import { useIsFocused } from '@react-navigation/native';
 import { useLibraryFilters } from '../hooks/useLibraryFilters';
 import { LibraryFilterService } from '../services/LibraryFilterService';
 import { EMPTY_SECTION_FILTERS, emptyLibraryFilterIndex, LibraryFilterIndex } from '../utils/libraryFilters';
@@ -9,7 +9,19 @@ let mockFilters = { ...EMPTY_SECTION_FILTERS };
 jest.mock('../store/useLibraryStore', () => ({ useLibraryStore: (selector: any) => selector({ sectionFilters: { tracks: mockFilters } }) }));
 jest.mock('../services/LibraryFilterService', () => ({ LibraryFilterService: { observe: jest.fn() } }));
 jest.mock('../hooks/useDelayedLoader', () => ({ useDelayedLoader: (loading: boolean) => loading }));
-jest.mock('@react-navigation/native', () => ({ useIsFocused: jest.fn(() => true) }));
+let mockFocused = true;
+const mockFocusListeners = { focus: new Set<() => void>(), blur: new Set<() => void>() };
+const mockNavigation = {
+    isFocused: () => mockFocused,
+    addListener: (event: 'focus' | 'blur', listener: () => void) => {
+        mockFocusListeners[event].add(listener); return () => { mockFocusListeners[event].delete(listener); };
+    },
+};
+const changeFocus = (focused: boolean) => {
+    mockFocused = focused;
+    mockFocusListeners[focused ? 'focus' : 'blur'].forEach(listener => listener());
+};
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => mockNavigation }));
 
 describe('library filter subscription lifecycle', () => {
   let states: any[], cursor: number, source: Subject<LibraryFilterIndex>;
@@ -23,7 +35,7 @@ describe('library filter subscription lifecycle', () => {
     states = []; cursor = 0; effect = undefined; pending = [];
     mockFilters = { ...EMPTY_SECTION_FILTERS, neverPlayed: true };
     source = new Subject();
-    (useIsFocused as jest.Mock).mockReturnValue(true);
+    changeFocus(true);
     (LibraryFilterService.observe as jest.Mock).mockReset().mockImplementation(() => source);
     jest.spyOn(React, 'useContext').mockReturnValue('tracks');
     jest.spyOn(React, 'useState').mockImplementation(((initial: any) => {
@@ -43,7 +55,7 @@ describe('library filter subscription lifecycle', () => {
     render(); expect(LibraryFilterService.observe).not.toHaveBeenCalled();
     (React.useContext as jest.Mock).mockReturnValue('tracks');
     render(); expect(source.observed).toBe(true);
-    (useIsFocused as jest.Mock).mockReturnValue(false);
+    changeFocus(false);
     render(); expect(source.observed).toBe(false);
   });
 

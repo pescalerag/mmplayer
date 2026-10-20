@@ -1,9 +1,21 @@
+jest.mock('../hooks/useObservedRefresh', () => ({
+  useObservedRefresh: (load: (signal: AbortSignal) => unknown, _tables: string[], enabled = true) => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    React.useEffect(() => {
+      if (!enabled) return;
+      const abort = new AbortController();
+      void load(abort.signal);
+      return () => abort.abort();
+    }, [load, enabled]);
+  },
+}));
 import React from 'react';
 import { useFilterChoices } from '../hooks/useFilterChoices';
 import { database } from '../database';
 
 describe('filter choices load and retry', () => {
   let states: any[], cursor: number;
+  let memo: { callback: any; deps?: React.DependencyList } | undefined;
   let effect: { deps?: React.DependencyList; cleanup?: () => void } | undefined;
   let pending: (() => void)[];
   const fetch = jest.fn();
@@ -13,7 +25,7 @@ describe('filter choices load and retry', () => {
   };
   const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
   beforeEach(() => {
-    states = []; cursor = 0; effect = undefined; pending = [];
+    memo = undefined; states = []; cursor = 0; effect = undefined; pending = [];
     fetch.mockReset();
     (database.get as jest.Mock).mockReturnValue({ query: () => ({ fetch }) });
     jest.spyOn(React, 'useState').mockImplementation(((initial: any) => {
@@ -21,6 +33,10 @@ describe('filter choices load and retry', () => {
       if (!(slot in states)) states[slot] = typeof initial === 'function' ? initial() : initial;
       return [states[slot], (value: any) => { states[slot] = typeof value === 'function' ? value(states[slot]) : value; }];
     }) as any);
+    jest.spyOn(React, 'useCallback').mockImplementation((callback, deps) => {
+      if (!memo || deps?.some((value, index) => !Object.is(value, memo?.deps?.[index]))) memo = { callback, deps };
+      return memo.callback;
+    });
     jest.spyOn(React, 'useEffect').mockImplementation((callback, deps) => {
       if (effect?.deps && deps?.every((value, index) => Object.is(value, effect?.deps?.[index]))) return;
       pending.push(() => { effect?.cleanup?.(); effect = { deps, cleanup: callback() || undefined }; });

@@ -492,8 +492,8 @@ export default function ActivityHistoryScreen() {
     const handleOpenMenu = useCallback((item: HistoryItem) => {
         if (item.trackDoc) {
             openTrackMenu(item.trackDoc, {
-                album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }),
-                artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }),
+                album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }, { pop: true }),
+                artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }, { pop: true }),
             });
         }
     }, [navigation]);

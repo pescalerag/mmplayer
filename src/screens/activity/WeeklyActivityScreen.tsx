@@ -1,3 +1,5 @@
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { STAT_TABLES } from '../../services/ScreenDataChanges';
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -254,21 +256,18 @@ export default function WeeklyActivityScreen() {
 
   const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 0 });
 
-  useFocusEffect(
-    useCallback(() => {
-      void useStatsStore.getState().fetchStats();
-    }, [])
-  );
+  const refreshStats = useCallback(() => useStatsStore.getState().fetchStats(), []);
+  useObservedRefresh(refreshStats, STAT_TABLES);
 
   const handleArtistPress = useCallback(() => {
     if (topArtistId) {
-      navigation.navigate('ArtistDetail', { artistId: topArtistId });
+      navigation.navigate('ArtistDetail', { artistId: topArtistId }, { pop: true });
     }
   }, [navigation, topArtistId]);
 
   const handleAlbumPress = useCallback(() => {
     if (topAlbumId) {
-      navigation.navigate('AlbumDetail', { albumId: topAlbumId });
+      navigation.navigate('AlbumDetail', { albumId: topAlbumId }, { pop: true });
     }
   }, [navigation, topAlbumId]);
 

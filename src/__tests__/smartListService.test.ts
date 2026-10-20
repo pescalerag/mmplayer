@@ -19,9 +19,28 @@ it.each(['en', 'es', 'pt', ''])('builds localized lists for %s and queries each 
   for (const list of lists) expect(await list.getTracks()).toEqual(results);
   expect(range).toHaveBeenCalledWith('week');
   expect(range).toHaveBeenCalledWith('month');
+  expect(range).toHaveBeenCalledWith('year');
   expect(top).toHaveBeenCalledWith(50, new Date(1000));
   expect(top).toHaveBeenCalledWith(50);
   expect(query).toHaveBeenCalledTimes(lists.filter(list => list.group === 'rating').length);
+});
+
+it('uses the current calendar year and rolls over its title and listening range in January', async () => {
+  jest.useFakeTimers();
+  try {
+    const top = jest.spyOn(SmartListService, 'getTopTracksByDuration').mockResolvedValue([]);
+    for (const year of [2026, 2027]) {
+      jest.setSystemTime(new Date(year, 0, 1, 12));
+      const list = SmartListService.getSmartLists('es').find(item => item.id === 'top_50_year')!;
+      expect(list.name).toBe(`Tu ${year}`);
+      expect(list.description).toContain(String(year));
+      expect(list.group).toBe('listening');
+      await list.getTracks();
+      expect(top).toHaveBeenLastCalledWith(50, new Date(year, 0, 1));
+    }
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it('ranks by cumulative listening time and skips deleted tracks', async () => {

@@ -81,6 +81,7 @@ const mockTrackPlayer = {
   getActiveTrackIndex: jest.fn().mockResolvedValue(0),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),
   reset: jest.fn().mockResolvedValue(undefined),
+    setQueue: jest.fn().mockResolvedValue(undefined),
   play: jest.fn().mockResolvedValue(undefined),
   pause: jest.fn().mockResolvedValue(undefined),
   stop: jest.fn().mockResolvedValue(undefined),
@@ -212,7 +213,7 @@ jest.mock('./src/store/useCastStore', () => ({
   },
 }));
 jest.mock('./src/navigation/navigationRef', () => {
-  const navigationRef = { isReady: () => false, navigate: jest.fn() };
+  const navigationRef = { isReady: () => false, navigate: jest.fn(), dispatch: jest.fn(), getRootState: jest.fn(() => ({ key: 'root', type: 'stack', routeNames: ['Main'], routes: [{ name: 'Main' }], index: 0 })), getCurrentRoute: jest.fn() };
   return {
     navigationRef,
     waitForNavigationReady: jest.fn(async () => navigationRef.isReady()),

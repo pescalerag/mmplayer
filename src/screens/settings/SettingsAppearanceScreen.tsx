@@ -14,8 +14,6 @@ export default function SettingsAppearanceScreen() {
     const {
         showTagColors,
         setShowTagColors,
-        hideSyncToastOnResume,
-        setHideSyncToastOnResume,
         userAlias,
         isKeepAwakeEnabled,
         setIsKeepAwakeEnabled,
@@ -116,18 +114,12 @@ export default function SettingsAppearanceScreen() {
 
                         <View style={styles.settingRow}>
                             <View style={{ flex: 1, paddingRight: 15 }}>
-                                <Text style={styles.settingLabel}>{t('settings.silent_sync')}</Text>
+                                <Text style={styles.settingLabel}>{t('settings.library_refresh_policy')}</Text>
                                 <Text style={styles.settingDescription}>
-                                    {t('settings.silent_sync_desc')}
+                                    {t('settings.library_refresh_policy_desc')}
                                 </Text>
                             </View>
-                            <Switch
-                                value={hideSyncToastOnResume}
-                                onValueChange={setHideSyncToastOnResume}
-                                trackColor={{ false: '#282828', true: colors.accent }}
-                                thumbColor={hideSyncToastOnResume ? '#FFFFFF' : '#888888'}
-                                ios_backgroundColor="#282828"
-                            />
+                            <Ionicons name="refresh" size={22} color={colors.accent} />
                         </View>
 
                         <View style={styles.separator} />

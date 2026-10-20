@@ -1,3 +1,14 @@
+jest.mock('../hooks/useObservedRefresh', () => ({
+  useObservedRefresh: (load: (signal: AbortSignal) => unknown, _tables: string[], enabled = true) => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    React.useEffect(() => {
+      if (!enabled) return;
+      const abort = new AbortController();
+      void load(abort.signal);
+      return () => abort.abort();
+    }, [load, enabled]);
+  },
+}));
 import React from 'react';
 import { useActivityCharts } from '../hooks/useActivityCharts';
 import { ActivityChartsService, TagChartFilter } from '../services/ActivityChartsService';
@@ -123,7 +134,7 @@ describe('chart loading lifecycle', () => {
     expect(ActivityChartsService.getStats).toHaveBeenLastCalledWith(from, to, new Date(to.getTime() + 500), 'artist-a');
     expect(harness.render(from, to, 0, 'artist-a').data).toBe(stats);
     harness.render(from, to, 0, 'artist-a', false);
-    expect(harness.render(from, to, 0, 'artist-a').data).toBeNull();
+    expect(harness.render(from, to, 0, 'artist-a').data).toBe(stats);
     await jest.advanceTimersByTimeAsync(0);
     expect(ActivityChartsService.getStats).toHaveBeenCalledTimes(2);
   });

@@ -89,7 +89,7 @@ interface ExcludedTrackItemProps {
 const ExcludedTrackItem = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe().pipe(catchError(() => of([]))) as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']).pipe(catchError(() => of([]))) as any,
 }))(function ExcludedTrackItemBase({ track, album, artists, onRestore, colors }: ExcludedTrackItemProps) {
     const { t } = useTranslation();
     const artistName = artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : t('actions.unknown', 'Desconocido');

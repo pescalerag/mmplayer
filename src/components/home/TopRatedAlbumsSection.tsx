@@ -39,7 +39,7 @@ export function TopRatedAlbumsSection() {
         renderItem={({ item, index }) => (
           <Animated.View entering={cascade.item(index)} style={{ width: 120 }}>
             <MediaCard id={item.album.id} type="album" title={item.album.title} imageUrl={item.album.coverUrl}
-              onPress={id => navigation.navigate('AlbumDetail', { albumId: id })}
+              onPress={id => navigation.navigate('AlbumDetail', { albumId: id }, { pop: true })}
               onLongPress={() => openAlbumMenu(item.album)} />
             <AlbumRatingCaption rating={item} />
           </Animated.View>

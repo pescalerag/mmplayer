@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
 import TrackPlayer, {
     Event,
     useTrackPlayerEvents
@@ -21,6 +20,10 @@ const resumeTrackPlayback = async (track: any) => {
 let trackEventRevision = 0;
 
 export const handleActiveTrackChangedEvent = async (event: any) => {
+    const player = usePlayerStore.getState();
+    // Explicit queue replacement/restoration publishes its final model once.
+    // Ignore intermediate clear/add/seek events rather than auto-playing them.
+    if (player.isPreparingQueue || player.isRestoring || useMultipleQueuesStore.getState().isSwitching) return;
     const revision = ++trackEventRevision;
     const queueAtEvent = useMultipleQueuesStore.getState().activeId;
     const isCurrent = () => revision === trackEventRevision && !useMultipleQueuesStore.getState().isSwitching
@@ -64,14 +67,8 @@ export const handleActiveTrackChangedEvent = async (event: any) => {
 export const TrackPlayerSync = () => {
     useEffect(subscribeToPlaybackSnapshot, []);
     useEffect(subscribeToQueueSnapshot, []);
-    useEffect(() => {
-        const subscription = AppState.addEventListener('change', (nextAppState) => {
-            if (nextAppState === 'active') {
-                usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
-            }
-        });
-        return () => subscription.remove();
-    }, []);
+    // AppLifecycleService owns foreground restoration. A second listener here
+    // duplicated native/DB reads and invalidated the first restoration request.
 
     useTrackPlayerEvents([
         Event.PlaybackQueueEnded,
@@ -85,6 +82,8 @@ export const TrackPlayerSync = () => {
                 await handleActiveTrackChangedEvent(event);
                 break;
             case Event.PlaybackError:
+                // Retain native playback failures even when a retry later succeeds.
+                require('../../services/AppErrorService').AppErrorService.record('TrackPlayer', event);
                 console.error('❌ [TrackPlayerSync] Error Crítico TrackPlayer:', event.message);
                 try {
                     await (TrackPlayer as any).retry();

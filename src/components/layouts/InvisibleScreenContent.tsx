@@ -6,8 +6,8 @@ import { useAppTheme } from '../../hooks/useAppTheme';
 export function InvisibleScreenContent({ ready = false, children }: Readonly<{ ready?: boolean; children?: React.ReactNode }>) {
     const { colors } = useAppTheme();
     return (
-        <View style={[styles.fill, { backgroundColor: colors.background }]}>
-            <View style={[styles.fill, !ready && styles.hidden]} pointerEvents={ready ? 'auto' : 'none'}
+        <View collapsable={false} style={[styles.fill, { backgroundColor: colors.background }]}>
+            <View collapsable={false} style={[styles.fill, !ready && styles.hidden]} pointerEvents={ready ? 'auto' : 'none'}
                 accessibilityElementsHidden={!ready} importantForAccessibility={ready ? 'auto' : 'no-hide-descendants'}>
                 {children}
             </View>

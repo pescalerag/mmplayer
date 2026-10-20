@@ -1,3 +1,5 @@
+import { navigationRef } from '../../navigation/navigationRef';
+import { openArtist } from '../../navigation/destinations';
 import { isVariousArtists } from '../../utils/libraryMetadata';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 import { useSheetProps } from '@/hooks/useSheetProps';
@@ -10,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import { database } from '../../database';
 import Artist from '../../database/models/Artist';
 import Track from '../../database/models/Track';
-import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -19,7 +20,7 @@ import { ShuffleService } from '../../services/ShuffleService';
 
 export default function AlbumMenuSheet() {
   const { t } = useTranslation();
-  const { props: { album: selectedAlbum, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ album: any; callbacks: any }>('album-menu');
+  const { props: { album: selectedAlbum, callbacks: navCallbacks }, close: closeMenu, closeThen } = useSheetProps<{ album: any; callbacks: any }>('album-menu');
   const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
   const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
 
@@ -189,29 +190,8 @@ export default function AlbumMenuSheet() {
           icon="person-outline"
           text={t('actions.go_to_artist')}
           onPress={() => {
-            closeMenu();
-            if (navCallbacks.artist) {
-              navCallbacks.artist(artistId);
-            } else if (navigationRef.isReady()) {
-              const rootState = navigationRef.getRootState();
-              const activeRoute = rootState.routes[rootState.index];
-              const isPlayerActive = activeRoute?.name === 'Player';
-
-              let tabName = getActiveTabName();
-              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                tabName = 'Biblioteca';
-              }
-
-              const currentTab = getActiveTabName();
-              if (isPlayerActive || tabName === currentTab) {
-                navigationRef.navigate('ArtistDetail', { artistId });
-              } else {
-                navigationRef.navigate('Main', {
-                  screen: tabName,
-                  params: { screen: 'ArtistDetail', params: { artistId } }
-                });
-              }
-            }
+            const destinationArtistId = artistId;
+            closeThen(() => openArtist(destinationArtistId));
           }}
         />
       )}

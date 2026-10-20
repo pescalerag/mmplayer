@@ -214,9 +214,10 @@ export default function App() {
 
         // Si ya estamos en PlayerScreen o una de sus subpantallas, no duplicar navegación
         const currentRoute = navigationRef.getCurrentRoute()?.name;
+        const rootState = navigationRef.getRootState();
         if (
+          rootState.routes[rootState.index]?.name === 'Player' ||
           currentRoute === 'PlayerHome' ||
-          currentRoute === 'Player' ||
           currentRoute === 'Lyrics' ||
           currentRoute === 'LyricsEditor' ||
           currentRoute === 'LyricsSync' ||

@@ -51,6 +51,13 @@ describe('LocalCast HTTP integration', () => {
     await handler({ url, type }, res);
     return res;
   }
+  it('logs bounded browser errors only from the active casting session', async () => {
+    expect((await request('/api/client-error?sessionId=old&message=ignored', 'POST')).json).toHaveBeenCalledWith({ success: false }, 409);
+    const message = 'x'.repeat(3000);
+    const response = await request('/api/client-error?sessionId=' + LocalCastService.getSessionId() + '&message=' + message, 'POST');
+    expect(response.json).toHaveBeenCalledWith({ success: true }, 200);
+    expect(console.error).toHaveBeenCalledWith('[LocalCast browser]', message.slice(0, 2000));
+  });
   it('prepares the active album cover and sends its cached filename', async () => {
     (database.get as jest.Mock).mockReturnValue({ find: jest.fn().mockResolvedValue({ lyricsLRC: '[00:01]Song', album: { fetch: async () => ({ coverUrl: 'file:///cover.jpg' }) } }) });
     expect((await request('/api/state')).json).toHaveBeenCalledWith(expect.objectContaining({ coverFileName: 'cast_cover_song.jpg', lyricsLRC: '[00:01]Song' }), 200);

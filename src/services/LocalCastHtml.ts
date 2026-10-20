@@ -1,7 +1,7 @@
 import { normalizeOpaqueColor } from '../utils/customColors';
 import { castReplayGainSource, castReplayGainMathSource } from './generated/LocalCastReplayGainSource';
 import { localCastAudioSource } from './generated/LocalCastAudioSource';
-import { localCastQueueSource, localCastLyricsSource, localCastThemeSource, localCastMetadataSource, localCastSettingsSource } from './generated/LocalCastViewSource';
+import { localCastQueueSource, localCastLyricsSource, localCastThemeSource, localCastMetadataSource, localCastSettingsSource, localCastLayoutSource } from './generated/LocalCastViewSource';
 import { LocalCastTheme } from '../store/useSettingsStore';
 import { timestampReceiverSource } from './TimestampReceiver';
 
@@ -692,7 +692,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
         .cast-settings summary::-webkit-details-marker { display: none; }
         .cast-settings summary:hover { color: #FFFFFF; background: rgba(255,255,255,.08); }
         .cast-settings summary:focus-visible { outline: 2px solid #FFFFFF; }
-        .cast-settings-panel { position: absolute; z-index: 30; bottom: calc(100% + 8px); right: 0; width: min(260px,75vw); padding: 16px; background: var(--panel-bg); backdrop-filter: blur(24px); border: var(--panel-border); box-shadow: var(--panel-shadow); border-radius: 12px; }
+        .cast-settings-panel { position: absolute; z-index: 30; bottom: calc(100% + 8px); right: 0; width: min(260px,75vw); padding: 16px; background: linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.02)), #161b22; color: #FFFFFF; opacity: 1; border: var(--panel-border); box-shadow: var(--panel-shadow); border-radius: 12px; }
         .cast-settings-panel label + label { margin-top: 12px; }
         .cast-settings-panel label { display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer; }
         .cast-settings-panel input { accent-color: var(--play-btn-hover-border); width: 18px; height: 18px; flex-shrink: 0; }
@@ -770,6 +770,23 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             .right-column {
                 display: none;
             }
+        }
+        /* Keep the actual viewport at 100%: shrink artwork before introducing scroll. */
+        .cast-layout .main-container { padding: clamp(16px, 3vh, 32px); gap: clamp(16px, 2vw, 32px); }
+        .left-column { gap: clamp(10px, 2vh, 24px); transition: none; }
+        .artwork-wrapper { transition: none; max-width: 100%; }
+        .track-tag { color: #FFFFFF; background-color: #334155; }
+        @media (max-height: 800px) {
+            .left-column { gap: 10px; }
+            .track-metadata { margin-top: 8px; gap: 6px; }
+            .rating-stars { gap: 5px; }
+            .rating-star, .rating-star svg { width: 32px; height: 32px; }
+            .track-rating { gap: 4px; }
+            .player-controls { gap: 10px; }
+        }
+        @media (min-width: 1101px) { .cast-layout { height: 92dvh; } }
+        @media (max-width: 1100px) {
+            .cast-layout .main-container { height: 88dvh; min-height: 540px; }
         }
     </style>
 </head>
@@ -870,6 +887,7 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
     </div>
     <script>
         const i18n             = ${JSON.stringify(t)};
+        (${localCastLayoutSource})(document.querySelector('.left-column'), document.querySelector('.artwork-wrapper'));
         const themeView = (${localCastThemeSource})(document.getElementById('localcast-theme'), ${JSON.stringify(getLocalCastThemeKey(resolvedTheme, customColor))});
         const audioPlayer      = document.getElementById('audio-player');
         const metadataView = (${localCastMetadataSource})(document.getElementById('track-metadata'), {
@@ -1095,6 +1113,16 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
             statusEl.onclick = clickHandler;
         }
 
+        let lastBrowserError = 0;
+        function reportBrowserError(error) {
+            // Avoid flooding the phone or recursively reporting a failed report.
+            if (!currentSessionId || Date.now() - lastBrowserError < 3000) return;
+            lastBrowserError = Date.now();
+            const message = String(error && (error.stack || error.message) || error).slice(0, 2000);
+            const params = new URLSearchParams({ sessionId: String(currentSessionId), message });
+            fetch('/api/client-error?' + params.toString(), { method: 'POST' }).catch(() => {});
+        }
+        window.addEventListener('error', event => { reportBrowserError(event.error || event.message); });
         // Global Unhandled Rejection Filter (catches benign Chrome extension / Media Router port closures)
         window.addEventListener('unhandledrejection', (event) => {
             const reason = event.reason;
@@ -1106,7 +1134,9 @@ export function getClientHtml(customTranslations?: Partial<LocalCastTranslations
                 msg.includes('play() failed')
             )) {
                 event.preventDefault();
+                return;
             }
+            reportBrowserError(reason);
         });
 
         function updateMediaSession(title, artist, coverUrl) {
