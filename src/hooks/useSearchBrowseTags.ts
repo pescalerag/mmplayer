@@ -12,7 +12,7 @@ export function useSearchBrowseTags() {
         let subscription: Subscription | undefined;
         let mounted = true;
         const cancel = scheduleScreenRefresh(() => {
-            subscription = database.get<Tag>('tags').query().observe().subscribe({
+            subscription = database.get<Tag>('tags').query().observeWithColumns(['name', 'color']).subscribe({
                 next: rows => { if (mounted) setTags(rows); },
                 error: error => {
                     console.warn('Error loading search browse tags:', error);

@@ -1,7 +1,7 @@
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -24,17 +24,19 @@ export default function SettingsStorageScreen() {
   const [clearingItem, setClearingItem] = useState<string | null>(null);
   const [data, setData] = useState<StorageBreakdown | null>(null);
 
+  const hasLoaded = useRef(false);
   const loadData = useCallback(async (isInitial: boolean = false) => {
-    if (isInitial && !data) setLoading(true);
+    if (isInitial && !hasLoaded.current) setLoading(true);
     try {
       const result = await StorageService.getStorageBreakdown();
       setData({ ...result });
+      hasLoaded.current = true;
     } catch (e) {
       console.error('[SettingsStorageScreen] Error loading storage stats:', e);
     } finally {
       setLoading(false);
     }
-  }, [data]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -229,6 +231,15 @@ export default function SettingsStorageScreen() {
                   )}
                 </TouchableOpacity>
               </View>
+            </View>
+            <View style={styles.separator} />
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <View style={[styles.itemIconBg, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}><Ionicons name="albums-outline" size={18} color="#F59E0B" /></View>
+                <Text style={styles.itemTitle}>{t('settings.album_covers_storage')}</Text>
+              </View>
+              <Text style={styles.itemValue}>{formatBytes(data.albumCoversBytes)}</Text>
             </View>
             <View style={styles.separator} />
 

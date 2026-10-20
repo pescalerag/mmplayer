@@ -1,3 +1,4 @@
+import i18n from '../constants/i18n';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Playlist from '../database/models/Playlist';
@@ -31,7 +32,7 @@ export const PlaylistService = {
      */
     async createPlaylist(name: string, description?: string): Promise<Playlist> {
         const trimmedName = name.trim();
-        if (!trimmedName) throw new Error('El nombre de la lista de reproducción no puede estar vacío');
+        if (!trimmedName) throw new Error(i18n.t('playlists.name_required'));
 
         return database.write(async () => {
             return database.collections.get<Playlist>('playlists').create(playlist => {
@@ -102,11 +103,16 @@ export const PlaylistService = {
      * Remove a track from a playlist.
      */
     async removeTrackFromPlaylist(playlistId: string, trackId: string): Promise<void> {
+        await PlaylistService.removeMultipleTracksFromPlaylist(playlistId, [trackId]);
+    },
+
+    async removeMultipleTracksFromPlaylist(playlistId: string, trackIds: string[]): Promise<void> {
+        if (trackIds.length === 0) return;
         await database.write(async () => {
             const playlistTracks = await database.collections.get<PlaylistTrack>('playlist_tracks')
                 .query(
                     Q.where('playlist_id', playlistId),
-                    Q.where('track_id', trackId)
+                    Q.where('track_id', Q.oneOf([...new Set(trackIds)]))
                 )
                 .fetch();
 
@@ -122,7 +128,7 @@ export const PlaylistService = {
      */
     async updatePlaylist(playlistId: string, name: string, description?: string): Promise<void> {
         const trimmedName = name.trim();
-        if (!trimmedName) throw new Error('El nombre de la lista de reproducción no puede estar vacío');
+        if (!trimmedName) throw new Error(i18n.t('playlists.name_required'));
 
         await database.write(async () => {
             const playlist = await database.collections.get<Playlist>('playlists').find(playlistId);

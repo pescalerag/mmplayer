@@ -79,7 +79,7 @@ export default function MigrationBlockingModal() {
         >
             <Animated.View style={[styles.overlay, { opacity: fadeAnim, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
                 <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.card, { backgroundColor: '#161616', borderColor: '#2A2A2A' }]}>
+                    <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
                         {/* Icon Header */}
                         {isConfirming ? (
                             <View style={[styles.iconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>

@@ -1,3 +1,4 @@
+import i18n from '../../constants/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import { useNavigation } from '@react-navigation/native';
@@ -359,8 +360,8 @@ export default function ActivityHistoryScreen() {
                 return {
                     id: rec.id,
                     trackId: rec.itemId,
-                    title: track?.title || 'Canción desconocida',
-                    artistName: artist?.name || 'Artista desconocido',
+                    title: track?.title || i18n.t('metadata.unknown_song'),
+                    artistName: artist?.name || i18n.t('metadata.unknown_artist'),
                     coverUrl: album?.coverUrl || null,
                     playedAt: rec.playedAt,
                     durationPlayed: rec.durationPlayed || 0,
@@ -491,8 +492,8 @@ export default function ActivityHistoryScreen() {
     const handleOpenMenu = useCallback((item: HistoryItem) => {
         if (item.trackDoc) {
             openTrackMenu(item.trackDoc, {
-                album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }),
-                artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }),
+                album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }, { pop: true }),
+                artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }, { pop: true }),
             });
         }
     }, [navigation]);

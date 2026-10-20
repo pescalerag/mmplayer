@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useObservedRefresh } from './useObservedRefresh';
+import { STAT_TABLES } from '../services/ScreenDataChanges';
 import { ActivityChartsService, ActivityChartResult, TagChartFilter } from '../services/ActivityChartsService';
 import { useDelayedLoader } from './useDelayedLoader';
 
@@ -28,28 +29,25 @@ export function useActivityCharts(from: Date | null, to: Date, refreshKey: numbe
   const isLoading = enabled && (!isCurrent || snapshot.loading);
   const showLoader = useDelayedLoader(isLoading, { delay: 250, minDisplayTime: 0 });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     if (!enabled) {
       setSnapshot({ key, data: null, error: false, loading: false });
       return;
     }
     const id = ++requestId.current;
-    setSnapshot({ key, data: null, error: false, loading: true });
+    setSnapshot(previous => ({ key, data: previous.key === key ? previous.data : null, error: false, loading: previous.key !== key || !previous.data }));
     try {
       const fromDate = fromTime === null ? null : new Date(fromTime);
       const endDate = fromTime === null ? new Date() : new Date(toTime);
       const filter = tagId !== undefined && tagScope !== undefined ? { tagId, scope: tagScope } : undefined;
       const data = await fetchChartStats(fromDate, endDate, artistId, filter);
-      if (id === requestId.current) setSnapshot({ key, data, error: false, loading: false });
+      if (!signal?.aborted && id === requestId.current) setSnapshot({ key, data, error: false, loading: false });
     } catch {
-      if (id === requestId.current) setSnapshot({ key, data: null, error: true, loading: false });
+      if (!signal?.aborted && id === requestId.current) setSnapshot({ key, data: null, error: true, loading: false });
     }
   }, [key, fromTime, toTime, artistId, enabled, tagId, tagScope]);
 
-  useFocusEffect(useCallback(() => {
-    void load();
-    return () => { requestId.current++; };
-  }, [load]));
+  useObservedRefresh(load, STAT_TABLES, enabled);
 
   return {
     data: isCurrent ? snapshot.data : null,

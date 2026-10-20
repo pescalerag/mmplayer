@@ -1,8 +1,13 @@
+import { summarizeTrackRatings } from '../../utils/trackRatings';
+import { RatingSummaryCaption } from '../../components/library/RatingSummaryCaption';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -69,7 +74,7 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({
 const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function TagTrackRow({
     track,
     album,
@@ -148,13 +153,15 @@ function TagDetailContent({
     const { t } = useTranslation();
 
     const tagColor = tag.color || colors.accent;
+    const excludedSongs = useSettingsStore(state => state.excludedSongs);
+    const rating = useMemo(() => summarizeTrackRatings(tracks, excludedSongs), [tracks, excludedSongs]);
 
     const handleBack = useCallback(() => {
         navigation.goBack();
     }, [navigation]);
 
     const handleAlbumPress = useCallback((album: Album) => {
-        navigation.navigate('AlbumDetail', { albumId: album.id });
+        navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
@@ -211,7 +218,7 @@ function TagDetailContent({
                 {/* Custom Gradient Header */}
                 <View style={styles.headerContainer}>
                     <LinearGradient
-                        colors={[tagColor, 'rgba(0,0,0,0.5)', Colors.background]}
+                        colors={[tagColor, 'rgba(0,0,0,0.5)', colors.background]}
                         locations={[0, 0.8, 1]}
                         style={styles.headerGradient}
                     />
@@ -237,6 +244,7 @@ function TagDetailContent({
                         <Text style={styles.metaInfo}>
                             {albums.length} {albums.length === 1 ? t('library.album_singular') : t('library.album_plural')} · {tracks.length} {tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}
                         </Text>
+                        <View style={{ marginRight: 120 }}><RatingSummaryCaption rating={rating} align="left" /></View>
                     </View>
 
                     {/* Botones de reproducción (solo si hay canciones) */}
@@ -291,7 +299,7 @@ function TagDetailContent({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent]);
+    }, [tag, albums, tracks.length, rating, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent, colors.background]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -435,16 +443,17 @@ const styles = StyleSheet.create({
 export default withObservables(['route'], ({ route }: { route: any }) => {
     const { tagId } = route.params;
     return {
-        tag: database.collections.get<Tag>('tags').findAndObserve(tagId).pipe(catchError(() => of(null))),
-        albums: database.collections.get<Album>('albums').query(
-            Q.experimentalJoinTables(['album_tags']),
-            Q.on('album_tags', 'tag_id', tagId),
-            Q.sortBy('title', Q.asc)
-        ).observe(),
-        tracks: database.collections.get<Track>('tracks').query(
-            Q.experimentalJoinTables(['track_tags']),
-            Q.on('track_tags', 'tag_id', tagId),
-            Q.sortBy('title', Q.asc)
-        ).observe(),
+        data: observeScreenData(() => combineLatest({
+            tag: database.collections.get<Tag>('tags').findAndObserve(tagId).pipe(catchError(() => of(null))),
+            albums: database.collections.get<Album>('albums').query(
+                Q.experimentalJoinTables(['album_tags']), Q.on('album_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
+            ).observeWithColumns(['title', 'cover_url']),
+            tracks: database.collections.get<Track>('tracks').query(
+                Q.experimentalJoinTables(['track_tags']), Q.on('track_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
+            ).observeWithColumns(['title', 'rating', 'duration', 'file_url']),
+        })),
     };
-})(TagDetailScreen);
+})(function LoadedTagDetail({ data, route }: { data?: TagDetailProps; route: any }) {
+    if (!data) return <InvisibleScreenContent />;
+    return <TagDetailScreen {...data} />;
+});

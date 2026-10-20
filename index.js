@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import './src/services/installErrorCapture';
 // index.js
 import { registerRootComponent } from 'expo';
 import * as SystemUI from 'expo-system-ui';

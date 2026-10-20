@@ -1,9 +1,10 @@
+import { openAlbum, openArtist } from '../../navigation/destinations';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, View, Text, TouchableOpacity, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
-import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
+import { navigationRef } from '../../navigation/navigationRef';
 import { PlaylistService } from '../../services/PlaylistService';
 import { ScannerService } from '../../services/ScannerService';
 import { ShuffleService } from '../../services/ShuffleService';
@@ -14,7 +15,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import type { TrackMenuMetadata } from '@/store/useUIStore';
-import { openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
+import { openQueueDestination, openArtistsList, openMetadataEditor, openTagManager, openPlaylistSelector, openCanvasManager, openTrackDetails } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 
@@ -157,7 +158,7 @@ TrackRatingRow.displayName = 'TrackRatingRow';
 export default function TrackMenuSheet() {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
-  const { props: { track: selectedTrack, callbacks: navCallbacks = {}, playlistId, metadata }, close: closeMenu } = useSheetProps<{ track: any; callbacks?: any; playlistId?: string; metadata?: TrackMenuMetadata }>('track-menu');
+  const { props: { track: selectedTrack, callbacks: navCallbacks = {}, playlistId, metadata }, close: closeMenu, closeThen } = useSheetProps<{ track: any; callbacks?: any; playlistId?: string; metadata?: TrackMenuMetadata }>('track-menu');
   const addToQueueNext = usePlayerStore(state => state.addToQueueNext);
   const addToQueueEnd = usePlayerStore(state => state.addToQueueEnd);
   const excludeSong = useSettingsStore(state => state.excludeSong);
@@ -315,6 +316,8 @@ export default function TrackMenuSheet() {
           closeMenu();
         }}
       />
+      <MenuOption icon="duplicate-outline" text={t('queue.add_to_other')} onPress={() => openQueueDestination([selectedTrack])} />
+
 
       {/* OPTION: Select */}
       <MenuOption
@@ -322,7 +325,7 @@ export default function TrackMenuSheet() {
         text={t('actions.select') || 'Seleccionar'}
         onPress={() => {
           closeMenu();
-          useMultiSelectStore.getState().enterSelectionMode(selectedTrack);
+          useMultiSelectStore.getState().enterSelectionMode(selectedTrack, playlistId);
         }}
       />
 
@@ -421,29 +424,7 @@ export default function TrackMenuSheet() {
           icon="disc-outline"
           text={t('actions.go_to_album')}
           onPress={() => {
-            closeMenu();
-            if (navCallbacks.album) {
-              navCallbacks.album(albumId);
-            } else if (navigationRef.isReady()) {
-              const rootState = navigationRef.getRootState();
-              const activeRoute = rootState.routes[rootState.index];
-              const isPlayerActive = activeRoute?.name === 'Player';
-
-              let tabName = getActiveTabName();
-              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                tabName = 'Biblioteca';
-              }
-
-              const currentTab = getActiveTabName();
-              if (isPlayerActive || tabName === currentTab) {
-                navigationRef.navigate('AlbumDetail', { albumId });
-              } else {
-                navigationRef.navigate('Main', {
-                  screen: tabName,
-                  params: { screen: 'AlbumDetail', params: { albumId } }
-                });
-              }
-            }
+            closeThen(() => openAlbum(albumId));
           }}
         />
       )}
@@ -454,31 +435,10 @@ export default function TrackMenuSheet() {
           icon="person-outline"
           text={t('actions.go_to_artist')}
           onPress={() => {
-            closeMenu();
-            if (artistsList.length > 1) {
-              openArtistsList(artistsList);
-            } else if (navCallbacks.artist) {
-              navCallbacks.artist(artistId);
-            } else if (navigationRef.isReady()) {
-              const rootState = navigationRef.getRootState();
-              const activeRoute = rootState.routes[rootState.index];
-              const isPlayerActive = activeRoute?.name === 'Player';
-
-              let tabName = getActiveTabName();
-              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                tabName = 'Biblioteca';
-              }
-
-              const currentTab = getActiveTabName();
-              if (isPlayerActive || tabName === currentTab) {
-                navigationRef.navigate('ArtistDetail', { artistId });
-              } else {
-                navigationRef.navigate('Main', {
-                  screen: tabName,
-                  params: { screen: 'ArtistDetail', params: { artistId } }
-                });
-              }
-            }
+            closeThen(() => {
+              if (artistsList.length > 1) openArtistsList(artistsList);
+              else openArtist(artistId);
+            });
           }}
         />
       )}
@@ -534,6 +494,11 @@ export default function TrackMenuSheet() {
           />
         </>
       )}
+
+      <MenuOption icon="play-forward-outline" text={t('timestamps.configure')} onPress={() => {
+        const trackId = selectedTrack.id;
+        closeThen(() => navigationRef.navigate('TimestampsEditor', { trackId }));
+      }} />
 
       {/* OPTION: Properties */}
       <MenuSeparator />

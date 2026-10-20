@@ -1,3 +1,4 @@
+import { isUnknownArtist } from '../utils/libraryMetadata';
 import { Q } from '@nozbe/watermelondb';
 import i18n from "../constants/i18n";
 import { database } from "../database";
@@ -285,9 +286,9 @@ export const HistoryService = {
           finalImageUrl = album?.coverUrl || null;
         }
 
-        if (!finalSubtitle || finalSubtitle === 'Artista desconocido') {
+        if (!finalSubtitle || isUnknownArtist(finalSubtitle)) {
           const artist = await track.artist.fetch();
-          finalSubtitle = artist?.name || 'Artista desconocido';
+          finalSubtitle = artist?.name || i18n.t('metadata.unknown_artist');
         }
       } catch (error) {
         console.warn("No se pudo autocompletar la info del track:", error);
@@ -297,7 +298,7 @@ export const HistoryService = {
     if (item.type === "playlist") {
       usePlayerStore.getState().addPlaylistToRecents({
         id: item.id,
-        name: finalTitle || "Lista de reproducción sin título",
+        name: finalTitle || i18n.t('metadata.untitled_playlist'),
         description: finalSubtitle || null,
         imageUrl: finalImageUrl || null,
       });
@@ -305,8 +306,8 @@ export const HistoryService = {
       usePlayerStore.getState().addMediaToRecents({
         id: item.id.split('-')[0],
         type: item.type as "track" | "album" | "artist",
-        title: finalTitle || "Sin título",
-        subtitle: finalSubtitle || "Artista desconocido",
+        title: finalTitle || i18n.t('metadata.untitled'),
+        subtitle: finalSubtitle || i18n.t('metadata.unknown_artist'),
         imageUrl: finalImageUrl || null,
       });
     }
@@ -426,7 +427,7 @@ export const HistoryService = {
             id: album.id,
             type: 'album' as const,
             title: album.title,
-            subtitle: artist?.name || 'Artista desconocido',
+            subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
             imageUrl: album.coverUrl || null,
             timestamp: Date.now(),
           };
@@ -441,7 +442,7 @@ export const HistoryService = {
             id: track.id,
             type: 'track' as const,
             title: track.title,
-            subtitle: artist?.name || 'Artista desconocido',
+            subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
             imageUrl: album?.coverUrl || null,
             timestamp: Date.now(),
           };

@@ -1,3 +1,4 @@
+import i18n from '../constants/i18n';
 import { create } from 'zustand';
 import { useTagFormStore } from './useTagFormStore';
 import type Album from '../database/models/Album';
@@ -8,6 +9,14 @@ export interface TrackMenuMetadata {
   artistName: string | null;
   albumId: string | null;
   artists: Artist[];
+}
+
+export interface PlayerMenuAppearance {
+  albumTitle?: string | null;
+  coverUrl: string | null;
+  cdArtUrl: string | null;
+  coverColor: string | null;
+  gradientColors: readonly [string, string, string];
 }
 
 // Any new opening or dismissal invalidates pending track metadata requests.
@@ -41,7 +50,8 @@ export type SheetType =
   | 'clear-queue'
   | 'canvas-manager'
   | 'track-details'
-  | 'notification-settings';
+  | 'notification-settings'
+  | 'queue-destination';
 
 interface UIState {
   activeSheet: SheetType | null;
@@ -181,8 +191,8 @@ export const openTagManagerForTrack = (track: any) =>
 export const openTagManagerForAlbum = (album: any) =>
   useUIStore.getState().openSheet('tag-manager', { targetType: 'album', targetId: album.id, targetTitle: album.title });
 
-export const openPlayerMenu = () =>
-  useUIStore.getState().openSheet('player-menu');
+export const openPlayerMenu = (appearance?: PlayerMenuAppearance) =>
+  useUIStore.getState().openSheet('player-menu', appearance ?? {});
 
 export const openBatchMenu = (tracks: any[]) =>
   useUIStore.getState().openSheet('batch-menu', { tracks });
@@ -191,7 +201,7 @@ export const openTagManagerForBatch = (tracks: any[]) =>
   useUIStore.getState().openSheet('tag-manager', {
     targetType: 'batch',
     targetId: 'batch',
-    targetTitle: `${tracks.length} canciones`,
+    targetTitle: i18n.t('library.song_count', { count: tracks.length }),
     tracks,
   });
 
@@ -209,3 +219,5 @@ export const openTrackDetails = (track: any) =>
 export const openNotificationSettings = () =>
   useUIStore.getState().openSheet('notification-settings');
 
+
+export const openQueueDestination = (tracks: any[], onAdded?: () => void) => useUIStore.getState().openSheet('queue-destination', { tracks, onAdded });

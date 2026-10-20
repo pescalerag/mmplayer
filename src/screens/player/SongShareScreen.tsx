@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,14 @@ import {
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { extractColorFromImage } from '../../../modules/native-equalizer';
+import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -213,10 +213,10 @@ const SongShareCard = React.forwardRef<any, SongCardProps>(
             {/* Song Details */}
             <View style={cardStyles.metadataContainer}>
               <Text style={cardStyles.songTitle} numberOfLines={2}>
-                {title || t('player.unknown', { defaultValue: 'Canción desconocida' })}
+                {title || t('metadata.unknown_song')}
               </Text>
               <Text style={cardStyles.artistName} numberOfLines={1}>
-                {artist || t('player.unknown', { defaultValue: 'Artista desconocido' })}
+                {artist || t('metadata.unknown_artist')}
               </Text>
               {!!album && (
                 <Text style={cardStyles.albumName} numberOfLines={1}>
@@ -259,31 +259,10 @@ export default function SongShareScreen() {
     duration = 0,
   } = route.params || {};
 
-  const [extractedHex, setExtractedHex] = useState<string | null>(null);
+  const extractedHex = useAlbumCoverColor(coverUrl);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSharingAudio, setIsSharingAudio] = useState(false);
   const viewShotRef = useRef<any>(null);
-
-  // Extract cover color for dynamic background
-  useEffect(() => {
-    let isMounted = true;
-    if (coverUrl) {
-      extractColorFromImage(coverUrl)
-        .then((color) => {
-          if (isMounted && color) {
-            setExtractedHex(color);
-          }
-        })
-        .catch(() => {
-          if (isMounted) setExtractedHex(null);
-        });
-    } else {
-      setExtractedHex(null);
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [coverUrl]);
 
   const { colors: gradientColors, accent: accentColor } = useMemo(
     () => generateCoverGradients(extractedHex),

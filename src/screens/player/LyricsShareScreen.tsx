@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useToastStore } from '@/store/useToastStore';
-import { extractColorFromImage } from '../../../modules/native-equalizer';
+import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -272,10 +272,10 @@ const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
             </View>
             <View style={cardStyles.miniSongInfo}>
               <Text style={cardStyles.miniSongTitle} numberOfLines={1}>
-                {title || t('player.unknown', { defaultValue: 'Canción desconocida' })}
+                {title || t('metadata.unknown_song')}
               </Text>
               <Text style={cardStyles.miniArtistName} numberOfLines={1}>
-                {artist || t('player.unknown', { defaultValue: 'Artista desconocido' })}
+                {artist || t('metadata.unknown_artist')}
               </Text>
             </View>
           </View>
@@ -674,30 +674,9 @@ export default function LyricsShareScreen() {
   });
 
   const [step, setStep] = useState<'select' | 'preview'>('select');
-  const [extractedHex, setExtractedHex] = useState<string | null>(null);
+  const extractedHex = useAlbumCoverColor(coverUrl);
   const [isCapturing, setIsCapturing] = useState(false);
   const viewShotRef = useRef<any>(null);
-
-  // Extract cover color for dynamic gradient
-  useEffect(() => {
-    let isMounted = true;
-    if (coverUrl) {
-      extractColorFromImage(coverUrl)
-        .then((color) => {
-          if (isMounted && color) {
-            setExtractedHex(color);
-          }
-        })
-        .catch(() => {
-          if (isMounted) setExtractedHex(null);
-        });
-    } else {
-      setExtractedHex(null);
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [coverUrl]);
 
   const { colors: gradientColors, accent: gradientAccentColor } = useMemo(
     () => generateCoverGradients(extractedHex),

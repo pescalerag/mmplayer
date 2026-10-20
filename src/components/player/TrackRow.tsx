@@ -201,7 +201,7 @@ function TrackRow({
             delayPressIn={85}
             onPress={() => {
               if (isSelectionMode) {
-                useMultiSelectStore.getState().toggleTrack(track);
+                useMultiSelectStore.getState().toggleTrack(track, playlistId);
                 return;
               }
               if (!preventAutoHistory) {
@@ -210,7 +210,7 @@ function TrackRow({
                   type: "track",
                   context: "manual",
                   title: track.title,
-                  subtitle: artistName || "Artista desconocido",
+                  subtitle: artistName || i18n.t('metadata.unknown_artist'),
                   imageUrl: coverUrl || null,
                 });
               }

@@ -1,3 +1,6 @@
+import { observeScreenData } from '../../utils/observeScreenData';
+import { ScreenLoadingShell } from '../../components/layouts/ScreenLoadingShell';
+import i18n from '../../constants/i18n';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -62,7 +65,7 @@ function HistoryRow({ historyItem }: Readonly<HistoryRowProps>) {
         return (
             <View style={styles.row}>
                 <View style={styles.rowInfo}>
-                    <Text style={styles.title}>Cargando...</Text>
+                    <Text style={styles.title}>{i18n.t('debug.history_loading')}</Text>
                     <Text style={styles.subtitle}>ID: {historyItem.itemId}</Text>
                 </View>
             </View>
@@ -73,10 +76,10 @@ function HistoryRow({ historyItem }: Readonly<HistoryRowProps>) {
         return (
             <View style={styles.row}>
                 <View style={styles.rowInfo}>
-                    <Text style={[styles.title, { color: '#E53E3E' }]}>Track no encontrado (Borrado)</Text>
+                    <Text style={[styles.title, { color: '#E53E3E' }]}>{i18n.t('debug.history_deleted_track')}</Text>
                     <Text style={styles.subtitle}>ID: {historyItem.itemId}</Text>
                     <Text style={styles.metadataText}>
-                        Contexto: {historyItem.playContext} · Escuchado: {historyItem.durationPlayed}s
+                        {i18n.t('debug.history_context', { context: historyItem.playContext, seconds: historyItem.durationPlayed })}
                     </Text>
                     <Text style={styles.dateText}>{formattedTime}</Text>
                 </View>
@@ -89,17 +92,17 @@ function HistoryRow({ historyItem }: Readonly<HistoryRowProps>) {
             <View style={styles.rowInfo}>
                 <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
                 <Text style={styles.subtitle} numberOfLines={1}>
-                    {artist?.name || 'Artista desconocido'} · {album?.title || 'Álbum desconocido'}
+                    {artist?.name || i18n.t('metadata.unknown_artist')} · {album?.title || i18n.t('metadata.unknown_album')}
                 </Text>
                 <Text style={styles.metadataText}>
-                    Contexto: {historyItem.playContext === 'manual' ? 'Manual (Clic)' : 'Automático (Cola)'} · Escuchado: {historyItem.durationPlayed}s
+                    {i18n.t('debug.history_context', { context: historyItem.playContext === 'manual' ? i18n.t('debug.history_manual') : i18n.t('debug.history_queue'), seconds: historyItem.durationPlayed })}
                 </Text>
                 <Text style={styles.dateText}>{formattedTime}</Text>
             </View>
             <View style={styles.badgeContainer}>
                 <View style={[styles.badge, historyItem.playContext === 'manual' ? styles.badgeManual : styles.badgeQueue]}>
                     <Text style={styles.badgeText}>
-                        {historyItem.playContext === 'manual' ? 'CLICK' : 'COLA'}
+                        {historyItem.playContext === 'manual' ? i18n.t('debug.history_manual') : i18n.t('queue.title')}
                     </Text>
                 </View>
             </View>
@@ -130,12 +133,12 @@ function DebugHistoryContent({ history }: Readonly<DebugHistoryContentProps>) {
 
     const handleClearHistory = () => {
         Alert.alert(
-            "Limpiar Historial",
-            "¿Estás seguro de que quieres borrar el historial de reproducción de la base de datos?",
+            i18n.t('debug.history_clear_title'),
+            i18n.t('debug.history_clear_confirm'),
             [
-                { text: "Cancelar", style: "cancel" },
+                { text: i18n.t('actions.cancel'), style: "cancel" },
                 {
-                    text: "Borrar todo",
+                    text: i18n.t('actions.clear_all'),
                     style: "destructive",
                     onPress: async () => {
                         try {
@@ -157,7 +160,7 @@ function DebugHistoryContent({ history }: Readonly<DebugHistoryContentProps>) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Debug Historial</Text>
+                <Text style={styles.headerTitle}>{i18n.t('debug.history_title')}</Text>
                 {history.length > 0 && (
                     <TouchableOpacity onPress={handleClearHistory} style={styles.clearButton}>
                         <Ionicons name="trash-outline" size={22} color={colors.heartIcon} />
@@ -179,8 +182,8 @@ function DebugHistoryContent({ history }: Readonly<DebugHistoryContentProps>) {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="time-outline" size={60} color="#555555" />
-                        <Text style={styles.emptyText}>El historial de reproducción está vacío.</Text>
-                        <Text style={styles.emptySubtitle}>Las canciones escuchadas por más de 10 segundos aparecerán aquí.</Text>
+                        <Text style={styles.emptyText}>{i18n.t('activity.history_empty')}</Text>
+                        <Text style={styles.emptySubtitle}>{i18n.t('debug.history_empty_desc')}</Text>
                     </View>
                 }
                 showsVerticalScrollIndicator={false}
@@ -190,10 +193,12 @@ function DebugHistoryContent({ history }: Readonly<DebugHistoryContentProps>) {
 }
 
 const ObservableDebugHistoryScreen = withObservables([], () => ({
-    history: database.collections.get<PlaybackHistory>('playback_history')
-        .query(Q.sortBy('played_at', Q.desc))
-        .observe()
-}))(DebugHistoryContent);
+    data: observeScreenData(() => database.collections.get<PlaybackHistory>('playback_history')
+        .query(Q.sortBy('played_at', Q.desc)).observe()),
+}))(function LoadedDebugHistory({ data }: { data?: PlaybackHistory[] }) {
+    if (!data) return <ScreenLoadingShell titleKey="debug.history_title" />;
+    return <DebugHistoryContent history={data} />;
+});
 
 export default function DebugHistoryScreen() {
     return <ObservableDebugHistoryScreen />;

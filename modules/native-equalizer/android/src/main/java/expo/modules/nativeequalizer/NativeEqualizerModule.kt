@@ -1,7 +1,6 @@
 package expo.modules.nativeequalizer
 
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.net.Uri
 import androidx.palette.graphics.Palette
 import android.media.audiofx.BassBoost
@@ -175,6 +174,79 @@ class NativeEqualizerModule : Module() {
 
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
+        OnCreate { appContext.reactContext?.let { RuntimeDiagnostics.install(it.applicationContext) } }
+        AsyncFunction("readRuntimeErrors") { RuntimeDiagnostics.errors(appContext.reactContext ?: error("React context unavailable")) }
+        AsyncFunction("clearRuntimeErrors") { RuntimeDiagnostics.clear(appContext.reactContext ?: error("React context unavailable")) }
+        AsyncFunction("runRuntimeDiagnostics") { RuntimeDiagnostics.run(appContext.reactContext ?: error("React context unavailable")) }
+        Events("androidAutoRequest")
+        AsyncFunction("configureTimestamps") { json: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("configureTimestamps", String::class.java).invoke(null, json)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("markTimestampSeek") { manual: Boolean, position: Double ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("markTimestampSeek", Boolean::class.javaPrimitiveType, Double::class.javaPrimitiveType).invoke(null, manual, position)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("finishTimestampSeek") {
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("finishTimestampSeek").invoke(null)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("invalidateAndroidAuto") {
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService").getMethod("invalidateAndroidAuto").invoke(null)
+        }.runOnQueue(Queues.MAIN)
+        AsyncFunction("updateAndroidAutoState") { json: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService").getMethod("updateAndroidAutoState", String::class.java).invoke(null, json)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("startAndroidAutoBridge") {
+            val bridge = Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+            val consumer = java.util.function.Consumer<android.os.Bundle> { request ->
+                val payload = request.keySet().associateWith { key ->
+                    val value = request.get(key)
+                    if (value is android.os.Bundle) value.keySet().associateWith { value.getString(it) } else value
+                }
+                sendEvent("androidAutoRequest", payload)
+            }
+            bridge.getMethod("setListener", java.util.function.Consumer::class.java).invoke(null, consumer)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("completeAndroidAutoRequest") { id: String, result: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+                .getMethod("complete", String::class.java, String::class.java).invoke(null, id, result)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("isAndroidAutoRequestPending") { id: String ->
+            Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+                .getMethod("isPending", String::class.java).invoke(null, id) as Boolean
+        }.runOnQueue(Queues.MAIN)
+
+        OnDestroy {
+            Class.forName("com.doublesymmetry.trackplayer.service.AndroidAutoBridge")
+                .getMethod("setListener", java.util.function.Consumer::class.java).invoke(null, null)
+        }
+
+        AsyncFunction("setTransportPlaying") { playing: Boolean, volume: Double, durationMs: Int ->
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("setTransportPlaying", Boolean::class.javaPrimitiveType,
+                    Double::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                .invoke(null, playing, volume, durationMs)
+            Unit
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("setCrossfadeSettings") { seconds: Double, allowed: Boolean ->
+            require(seconds.isFinite()) { "Invalid crossfade duration" }
+            val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")
+            check(context.getSharedPreferences("mmplayer_crossfade", android.content.Context.MODE_PRIVATE)
+                .edit().putInt("durationMs", (seconds.coerceIn(0.0, 12.0) * 1000).toInt())
+                .putBoolean("allowed", allowed).commit()) { "Could not save crossfade settings" }
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("applyCrossfadePolicy").invoke(null)
+        }.runOnQueue(Queues.MAIN)
+
+        AsyncFunction("getPlaybackSnapshot") {
+            Class.forName("com.doublesymmetry.trackplayer.service.MusicService")
+                .getMethod("crossfadePlaybackSnapshot").invoke(null)
+        }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("setReplayGainSettings") { enabled: Boolean, preamp: Double, fallback: Double ->
             require(preamp.isFinite() && fallback.isFinite()) { "Invalid ReplayGain settings" }
@@ -245,30 +317,38 @@ class NativeEqualizerModule : Module() {
         }.runOnQueue(Queues.MAIN)
 
         AsyncFunction("extractColorFromImage") { url: String ->
-            var resultColor = "#8B5CF6"
             try {
-                val bitmap = if (url.startsWith("content://")) {
-                    val uri = Uri.parse(url)
-                    appContext.reactContext?.contentResolver?.openInputStream(uri).use { inputStream ->
-                        BitmapFactory.decodeStream(inputStream)
+                val uri = Uri.parse(url)
+                // Read dimensions first, then decode a small bitmap for Palette.
+                // Full-resolution album artwork can consume tens of MB otherwise.
+                fun decode(options: BitmapFactory.Options): android.graphics.Bitmap? {
+                    return if (uri.scheme == "content") {
+                        appContext.reactContext?.contentResolver?.openInputStream(uri).use { stream ->
+                            if (stream == null) null else BitmapFactory.decodeStream(stream, null, options)
+                        }
+                    } else {
+                        val path = if (uri.scheme == "file") uri.path else url
+                        BitmapFactory.decodeFile(path, options)
                     }
-                } else {
-                    val cleanPath = url.removePrefix("file://")
-                    BitmapFactory.decodeFile(cleanPath)
                 }
-
-                if (bitmap != null) {
-                    val palette = Palette.from(bitmap).generate()
-                    val extractedColor = palette.getDominantColor(Color.parseColor("#8B5CF6"))
-                        ?: palette.getVibrantColor(Color.parseColor("#8B5CF6"))
-                        ?: Color.parseColor("#8B5CF6")
-                    
-                    resultColor = String.format("#%06X", 0xFFFFFF and extractedColor)
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                decode(bounds)
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = calculateCoverSampleSize(bounds.outWidth, bounds.outHeight)
+                }
+                val bitmap = decode(options)
+                if (bitmap == null) null else {
+                    try {
+                        val color = Palette.from(bitmap).generate().dominantSwatch?.rgb
+                        color?.let { String.format("#%06X", 0xFFFFFF and it) }
+                    } finally {
+                        bitmap.recycle()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("NativeEqualizer", "Error in extractColorFromImage: ${e.message}", e)
+                null
             }
-            resultColor
         }
 
         View(NativeVisualizerView::class) {
@@ -281,8 +361,8 @@ class NativeEqualizerModule : Module() {
             Prop("active") { view: NativeVisualizerView, active: Boolean ->
                 view.setActive(active)
             }
-            Prop("coverUrl") { view: NativeVisualizerView, coverUrl: String? ->
-                view.setCoverUrl(coverUrl)
+            Prop("coverColor") { view: NativeVisualizerView, coverColor: String? ->
+                view.setCoverColor(coverColor)
             }
         }
     }

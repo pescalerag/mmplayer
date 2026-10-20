@@ -1,3 +1,6 @@
+import { getArtistDisplayName, UNKNOWN_ARTIST } from '../../utils/libraryMetadata';
+import { QueueSelector } from '../player/QueueSelector';
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -31,9 +34,8 @@ import Track from '../../database/models/Track';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
-import { Colors, Layout } from '../../theme/theme';
+import { Layout } from '../../theme/theme';
 import { refreshQueueSnapshot, useQueueSnapshotStore } from '../../store/useQueueSnapshotStore';
 import { QueueActionsService, QueueRemoval } from '../../services/QueueActionsService';
 import { useCastStore } from '../../store/useCastStore';
@@ -50,15 +52,16 @@ let undoDeletionTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export default function QueueSheet() {
     const { colors } = useAppTheme();
+    const styles = getQueueStyles(colors);
     const { t } = useTranslation();
     const activeSheet = useUIStore(state => state.activeSheet);
     const closeQueue = useUIStore(state => state.closeSheet);
     const isVisible = activeSheet === 'queue';
     const insets = useSafeAreaInsets();
+    const activeQueueId = useMultipleQueuesStore(state => state.activeId);
     const userQueueSize = usePlayerStore(state => state.userQueueSize);
-    const queueVersion = usePlayerStore(state => state.queueVersion);
-    const shuffleOnQueueEnd = useSettingsStore(state => state.shuffleOnQueueEnd);
-    const setShuffleOnQueueEnd = useSettingsStore(state => state.setShuffleOnQueueEnd);
+    const shuffleOnQueueEnd = useMultipleQueuesStore(selectShuffleOnQueueEnd);
+    const setShuffleOnQueueEnd = useMultipleQueuesStore(state => state.setShuffleOnQueueEnd);
 
     const playbackState = usePlaybackState();
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
@@ -66,6 +69,13 @@ export default function QueueSheet() {
     const queue = useQueueSnapshotStore(state => state.queue);
     const activeIndex = useQueueSnapshotStore(state => state.activeIndex);
     const queueReady = useQueueSnapshotStore(state => state.ready);
+    const isQueueEmpty = queue.length === 0;
+    useEffect(() => {
+        deletedQueueStack = [];
+        if (undoDeletionTimeout) clearTimeout(undoDeletionTimeout);
+        undoDeletionTimeout = null;
+        setShowTrashMenu(false); setShowAddPlaylistMenu(false);
+    }, [activeQueueId, isQueueEmpty]);
     const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
     const [showTrashMenu, setShowTrashMenu] = useState(false);
     const [showAddPlaylistMenu, setShowAddPlaylistMenu] = useState(false);
@@ -122,7 +132,7 @@ export default function QueueSheet() {
         if (isVisible) {
             void refreshQueueSnapshot().catch(error => console.error('QueueSheet: error cargando cola', error));
         }
-    }, [isVisible, queueVersion]);
+    }, [isVisible]);
 
     const [shouldRender, setShouldRender] = useState(false);
     useEffect(() => {
@@ -287,11 +297,12 @@ export default function QueueSheet() {
     const renderRecentItem = React.useCallback(({ item }: { item: TPTrack }) => {
         return (
             <RecentTrackRow
+                colors={colors}
                 item={item}
                 onSkip={handleSkipTo}
             />
         );
-    }, [handleSkipTo]);
+    }, [handleSkipTo, colors]);
 
     if (!shouldRender && !isVisible) return null;
 
@@ -307,7 +318,7 @@ export default function QueueSheet() {
             <AnimatedReanimated.View style={[
                 styles.sheetContainer,
                 {
-                    height: height * 0.82,
+                    height: Math.min(height * 0.92, height - insets.top - 8),
                 },
                 sheetAnimatedStyle
             ]}>
@@ -317,7 +328,7 @@ export default function QueueSheet() {
                     </View>
                 </GestureDetector>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24 }}>
                     <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
                         <Animated.View
                             style={[
@@ -334,7 +345,7 @@ export default function QueueSheet() {
                             <Ionicons
                                 name="list"
                                 size={15}
-                                color={activeTab === 'queue' ? Colors.tint : Colors.disabled}
+                                color={activeTab === 'queue' ? colors.tint : colors.disabled}
                                 style={{ marginRight: 6 }}
                             />
                             <Text style={[styles.tabLabel, activeTab === 'queue' && styles.tabLabelActive]}>
@@ -355,7 +366,7 @@ export default function QueueSheet() {
                             <Ionicons
                                 name="time-outline"
                                 size={15}
-                                color={activeTab === 'recent' ? Colors.tint : Colors.disabled}
+                                color={activeTab === 'recent' ? colors.tint : colors.disabled}
                                 style={{ marginRight: 6 }}
                             />
                             <Text style={[styles.tabLabel, activeTab === 'recent' && styles.tabLabelActive]}>
@@ -374,7 +385,7 @@ export default function QueueSheet() {
                             onPress={() => setShowAddPlaylistMenu(true)}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <Ionicons name="add-outline" size={26} color={Colors.tint} />
+                            <Ionicons name="add-outline" size={26} color={colors.tint} />
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
@@ -382,17 +393,19 @@ export default function QueueSheet() {
                         onPress={handleTrashPress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Ionicons name="trash-outline" size={24} color={Colors.heartIcon} />
+                        <Ionicons name="trash-outline" size={24} color={colors.heartIcon} />
                     </TouchableOpacity>
                 </View>
 
+                <QueueSelector />
+
                 {activeTab === 'queue' ? (
                     <View style={{ flex: 1 }}>
-                        <View style={{ backgroundColor: colors.background || Colors.background, zIndex: 5, elevation: 5 }}>
+                        <View style={{ backgroundColor: colors.background, zIndex: 5, elevation: 5 }}>
                             {listHeader}
                             {Boolean(currentTrack) && <View style={[styles.separator, { marginBottom: 0 }]} />}
                         </View>
-                        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background || Colors.background }}>
+                        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
                             <DraggableFlatList
                                 data={upcomingTracks}
                                 keyExtractor={(item, index) => item?.id ? String(item.id) : `queue-item-${index}`}
@@ -417,7 +430,7 @@ export default function QueueSheet() {
                                 extraData={queue}
                                 ListEmptyComponent={queueReady ? (
                                     <View style={styles.emptyState}>
-                                        <Ionicons name="musical-notes-outline" size={40} color={Colors.disabled} />
+                                        <Ionicons name="musical-notes-outline" size={40} color={colors.disabled} />
                                         <Text style={styles.emptyText}>{t('queue.empty')}</Text>
                                     </View>
                                 ) : <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />}
@@ -425,7 +438,7 @@ export default function QueueSheet() {
                                 showsVerticalScrollIndicator={false}
                             />
                         </GestureHandlerRootView>
-                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background || Colors.background, zIndex: 5, elevation: 5 }]}>
+                        <View style={[styles.bottomFooterContainer, { paddingBottom: Math.max(insets.bottom, 10), backgroundColor: colors.background, zIndex: 5, elevation: 5 }]}>
                             <View style={[styles.separator, { marginTop: 6, marginBottom: 6 }]} />
                             <View style={styles.shuffleOnEndRow}>
                                 <View style={styles.shuffleOnEndLeft}>
@@ -456,7 +469,7 @@ export default function QueueSheet() {
                             renderItem={renderRecentItem}
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
-                                    <Ionicons name="time-outline" size={40} color={Colors.disabled} />
+                                    <Ionicons name="time-outline" size={40} color={colors.disabled} />
                                     <Text style={styles.emptyText}>{t('queue.history_empty')}</Text>
                                 </View>
                             }
@@ -476,7 +489,7 @@ export default function QueueSheet() {
                     <TouchableWithoutFeedback onPress={() => setShowTrashMenu(false)}>
                         <View style={styles.trashMenuOverlay}>
                             <TouchableWithoutFeedback>
-                                <View style={[styles.trashMenuPanel, { backgroundColor: '#121212', borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
+                                <View style={[styles.trashMenuPanel, { backgroundColor: colors.sheetBackground, borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
                                     <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>{t('queue.manage')}</Text>
                                     {hasManualUpcoming && (
                                         <TouchableOpacity
@@ -552,7 +565,7 @@ export default function QueueSheet() {
                     <TouchableWithoutFeedback onPress={() => setShowAddPlaylistMenu(false)}>
                         <View style={styles.trashMenuOverlay}>
                             <TouchableWithoutFeedback>
-                                <View style={[styles.trashMenuPanel, { backgroundColor: '#121212', borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
+                                <View style={[styles.trashMenuPanel, { backgroundColor: colors.sheetBackground, borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
                                     <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>{t('queue.save_to_playlist_title')}</Text>
 
                                     <TouchableOpacity
@@ -617,6 +630,8 @@ interface CurrentTrackHeaderProps {
 }
 
 const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal, colors }: CurrentTrackHeaderProps) => {
+    const styles = getQueueStyles(colors);
+    useTranslation();
     const artworkUrl = currentTrack?.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
@@ -649,7 +664,7 @@ const CurrentTrackHeader = React.memo(({ currentTrack, isPlayingGlobal, colors }
                     <PlayingIndicator isPaused={!isPlayingGlobal} color={colors.accentLight || colors.accent} />
                 </View>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {artist || 'Desconocido'}
+                    {getArtistDisplayName(artist || UNKNOWN_ARTIST)}
                 </Text>
             </View>
         </View>
@@ -669,6 +684,8 @@ interface QueueTrackRowProps {
 }
 
 const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove, drag, isActive, colors }: QueueTrackRowProps) => {
+    const styles = getQueueStyles(colors);
+    useTranslation();
     const isUserQueued = index < userQueueSize;
     const isManual = item.isManual === true || isUserQueued;
     const artworkUrl = item.artwork;
@@ -680,7 +697,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
     const artist = item.artist;
 
     return (
-        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 || Colors.accentAlpha10 }]]}>
+        <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 }]]}>
             <GHTouchableOpacity
                 onLongPress={drag}
                 delayLongPress={60}
@@ -688,7 +705,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
                 hitSlop={{ top: 15, bottom: 15, left: 10, right: 10 }}
                 activeOpacity={0.6}
             >
-                <Ionicons name="reorder-two" size={24} color={isActive ? (colors.accent || Colors.accent) : colors.disabled} />
+                <Ionicons name="reorder-two" size={24} color={isActive ? (colors.accent) : colors.disabled} />
             </GHTouchableOpacity>
 
             <TouchableOpacity
@@ -718,7 +735,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
                             </View>
                         )}
                     </View>
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{artist || 'Desconocido'}</Text>
+                    <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>{getArtistDisplayName(artist || UNKNOWN_ARTIST)}</Text>
                 </View>
             </TouchableOpacity>
 
@@ -736,11 +753,14 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
 QueueTrackRow.displayName = 'QueueTrackRow';
 
 interface RecentTrackRowProps {
+    colors: ReturnType<typeof useAppTheme>['colors'];
     item: TPTrack;
     onSkip: (track: TPTrack) => void;
 }
 
-const RecentTrackRow = React.memo(({ item, onSkip }: RecentTrackRowProps) => {
+const RecentTrackRow = React.memo(({ item, onSkip, colors }: RecentTrackRowProps) => {
+    const styles = getQueueStyles(colors);
+    useTranslation();
     const artworkUrl = item.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
@@ -764,35 +784,45 @@ const RecentTrackRow = React.memo(({ item, onSkip }: RecentTrackRowProps) => {
                 />
             ) : (
                 <View style={[styles.thumbnail, styles.placeholder, { opacity: 0.55 }]}>
-                    <Ionicons name="musical-notes" size={20} color={Colors.disabled} />
+                    <Ionicons name="musical-notes" size={20} color={colors.disabled} />
                 </View>
             )}
             <View style={styles.trackInfo}>
                 <Text style={[styles.title, styles.textDimmed]} numberOfLines={1}>{title}</Text>
                 <Text style={[styles.subtitle, styles.subtitleDimmed]} numberOfLines={1}>
-                    {artist || 'Desconocido'}
+                    {getArtistDisplayName(artist || UNKNOWN_ARTIST)}
                 </Text>
             </View>
-            <Ionicons name="play-back-outline" size={18} color={Colors.disabled} />
+            <Ionicons name="play-back-outline" size={18} color={colors.disabled} />
         </GHTouchableOpacity>
     );
 });
 RecentTrackRow.displayName = 'RecentTrackRow';
 
-const styles = StyleSheet.create({
+type QueueColors = ReturnType<typeof useAppTheme>['colors'];
+const queueStyleCache = new WeakMap<QueueColors, ReturnType<typeof createQueueStyles>>();
+function getQueueStyles(colors: QueueColors) {
+    let styles = queueStyleCache.get(colors);
+    if (!styles) {
+        styles = createQueueStyles(colors);
+        queueStyleCache.set(colors, styles);
+    }
+    return styles;
+}
+const createQueueStyles = (colors: QueueColors) => StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.7)',
     },
     sheetContainer: {
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         position: 'absolute',
         bottom: 0,
         width: '100%',
         borderTopWidth: 1,
-        borderColor: Colors.cardBackground,
+        borderColor: colors.cardBackground,
         overflow: 'hidden',
     },
     handleContainer: {
@@ -806,14 +836,14 @@ const styles = StyleSheet.create({
     dragIndicator: {
         width: 40,
         height: 4,
-        backgroundColor: Colors.disabled,
+        backgroundColor: colors.disabled,
         borderRadius: 2,
         alignSelf: 'center',
     },
     tabBar: {
         flexDirection: 'row',
         marginHorizontal: 24,
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         borderRadius: 14,
         padding: 4,
         marginBottom: 16,
@@ -825,7 +855,7 @@ const styles = StyleSheet.create({
         top: 4,
         left: 4,
         bottom: 4,
-        backgroundColor: Colors.disabled,
+        backgroundColor: colors.disabled,
         borderRadius: 10,
     },
     tabButton: {
@@ -836,26 +866,26 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     tabLabel: {
-        color: Colors.disabled,
+        color: colors.disabled,
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
     },
     tabLabelActive: {
-        color: Colors.tint,
+        color: colors.tint,
     },
     badge: {
-        backgroundColor: Colors.disabled,
+        backgroundColor: colors.disabled,
         borderRadius: 8,
         paddingHorizontal: 6,
         paddingVertical: 2,
         marginLeft: 6,
     },
     badgeActive: {
-        backgroundColor: Colors.disabled,
+        backgroundColor: colors.disabled,
     },
     badgeText: {
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
         fontSize: 11,
         fontFamily: 'Montserrat',
         fontWeight: '700',
@@ -865,11 +895,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 14,
         paddingHorizontal: 20,
-        backgroundColor: Colors.accentAlpha8,
+        backgroundColor: colors.accentAlpha8,
     },
     separator: {
         height: 1,
-        backgroundColor: Colors.overlayAlpha10,
+        backgroundColor: colors.overlayAlpha10,
         marginHorizontal: 20,
         marginTop: 12,
         marginBottom: 8,
@@ -900,7 +930,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     trackRowActive: {
-        backgroundColor: Colors.accentAlpha10,
+        backgroundColor: colors.accentAlpha10,
         borderRadius: 12,
     },
     dragHandle: {
@@ -922,7 +952,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     placeholder: {
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -938,9 +968,9 @@ const styles = StyleSheet.create({
     userQueueBadge: {
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.accentLightAlpha12,
+        backgroundColor: colors.accentLightAlpha12,
         borderWidth: 1,
-        borderColor: Colors.accentLightAlpha30,
+        borderColor: colors.accentLightAlpha30,
         borderRadius: 5,
         padding: 3,
     },
@@ -951,27 +981,27 @@ const styles = StyleSheet.create({
         maxWidth: '100%',
     },
     title: {
-        color: Colors.text,
+        color: colors.text,
         fontSize: 15,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         flexShrink: 1,
     },
     textActive: {
-        color: Colors.accentLight,
+        color: colors.accentLight,
     },
     textDimmed: {
-        color: Colors.disabled,
+        color: colors.disabled,
     },
     subtitle: {
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
         fontSize: 13,
         fontFamily: 'Montserrat',
         fontWeight: '700',
         marginTop: 3,
     },
     subtitleDimmed: {
-        color: Colors.disabled,
+        color: colors.disabled,
     },
     removeButton: {
         padding: 8,
@@ -992,7 +1022,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     emptyText: {
-        color: Colors.disabled,
+        color: colors.disabled,
         fontSize: 14,
         fontFamily: 'Montserrat',
         fontWeight: '700',
@@ -1003,14 +1033,14 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     trashMenuPanel: {
-        backgroundColor: Colors.cardBackground,
+        backgroundColor: colors.cardBackground,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         paddingTop: 14,
         paddingHorizontal: 24,
     },
     trashMenuTitle: {
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
         fontSize: 12,
         fontFamily: 'Montserrat',
         fontWeight: '700',
@@ -1032,14 +1062,14 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     trashMenuButtonText: {
-        color: Colors.text,
+        color: colors.text,
         fontSize: 16,
         fontFamily: 'Montserrat',
         fontWeight: '700',
     },
     trashMenuDivider: {
         height: 1,
-        backgroundColor: Colors.overlayAlpha10,
+        backgroundColor: colors.overlayAlpha10,
         marginVertical: 8,
     },
 });

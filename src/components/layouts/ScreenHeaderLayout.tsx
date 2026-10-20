@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Layout } from '../../theme/theme';
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { ThemeHeaderAccent } from './ThemeHeaderAccent';
 
 interface ScreenHeaderLayoutProps {
   title: string;
@@ -38,7 +39,7 @@ export function ScreenHeaderLayout({
 }: ScreenHeaderLayoutProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { colors } = useAppTheme();
+  const { colors, gradients, headerTitleStyle, headerGlow } = useAppTheme();
   const estimatedHeight = insets.top + (showBackButton ? 66 : 60);
   const [headerHeight, setHeaderHeight] = useState(estimatedHeight);
 
@@ -61,10 +62,10 @@ export function ScreenHeaderLayout({
     insets.bottom;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
+    <View collapsable={false} style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
       {/* CAPA DEL HUMO */}
       <LinearGradient
-        colors={['#000000', 'rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.7)', 'transparent']}
+        colors={gradients.header}
         locations={[0, 0.4, 0.7, 1]}
         style={[styles.smokeEffect, { height: headerHeight + 30 }]}
         pointerEvents="none"
@@ -72,12 +73,13 @@ export function ScreenHeaderLayout({
 
       {/* CAPA DE ILUMINACIÓN DE ACENTO */}
       <LinearGradient
-        colors={[colors.accentAlpha20, 'transparent']}
+        colors={headerGlow}
         style={styles.purpleGlow}
         pointerEvents="none"
       />
 
       {/* INTERFAZ HEADER */}
+      <ThemeHeaderAccent />
       <View
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
         style={[styles.headerContainer, { paddingTop: insets.top + 10 }, headerContainerStyle]}
@@ -89,7 +91,7 @@ export function ScreenHeaderLayout({
             </TouchableOpacity>
           ) : null}
           <Text
-            style={[styles.headerTitle, !showBackButton && { marginLeft: 0 }, titleStyle]}
+            style={[styles.headerTitle, headerTitleStyle, { color: colors.text }, !showBackButton && { marginLeft: 0 }, titleStyle]}
             numberOfLines={1}
           >
             {title}

@@ -1,3 +1,5 @@
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -34,7 +36,7 @@ import { formatAlbumDuration } from '../../utils/time';
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function FavoriteTrackRow({
     track,
     album,
@@ -221,10 +223,10 @@ function FavoritesDetailContent({ tracks }: Readonly<FavoritesDetailProps>) {
 
 // ─── ENHANCED COMPONENT WITH WATERMELONDB OBSERVABLE ───
 const ObservableFavoritesDetail = withObservables([], () => ({
-    tracks: database.collections.get<Track>('tracks').query(
-        Q.where('is_favorite', true)
-    ).observe()
-}))(FavoritesDetailContent);
+    data: observeScreenData(() => database.collections.get<Track>('tracks').query(Q.where('is_favorite', true)).observeWithColumns(['title', 'duration', 'rating', 'file_url'])),
+}))(function LoadedFavorites({ data }: { data?: Track[] }) {
+    return <InvisibleScreenContent ready={!!data}><FavoritesDetailContent tracks={data ?? []} /></InvisibleScreenContent>;
+});
 
 export default function FavoritesDetailScreen() {
     return <ObservableFavoritesDetail />;

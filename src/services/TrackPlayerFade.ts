@@ -1,4 +1,6 @@
 import TrackPlayer, { State } from 'react-native-track-player';
+import { Platform } from 'react-native';
+import { setNativeTransportPlaying } from '../../modules/native-equalizer';
 import BackgroundTimer from 'react-native-background-timer';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { 
@@ -24,6 +26,14 @@ const originalSetVolume = TrackPlayer.setVolume.bind(TrackPlayer);
 const originalGetPlaybackState = TrackPlayer.getPlaybackState.bind(TrackPlayer);
 const originalSeekTo = TrackPlayer.seekTo.bind(TrackPlayer);
 const originalGetProgress = TrackPlayer.getProgress.bind(TrackPlayer);
+
+// Mirror a receiver-side jump without sending another seek back to the receiver.
+export async function syncNativeTimestampSeek(position: number) {
+  const { TimestampService } = require('./TimestampService');
+  await TimestampService.markSeek(position, true);
+  try { await originalSeekTo(position); }
+  finally { await TimestampService.finishSeek(); }
+}
 
 let fadeTimer: any = null;
 let targetVolume = 1.0;
@@ -58,21 +68,25 @@ TrackPlayer.getProgress = async () => {
 };
 
 // Override seekTo to sync with Chromecast and LocalCast
-TrackPlayer.seekTo = async (position: number) => {
+TrackPlayer.seekTo = async (position: number, automatic = false) => {
+  const { TimestampService } = require('./TimestampService');
+  await TimestampService.markSeek(position, automatic);
   try {
-    const { useCastStore } = require('../store/useCastStore');
-    if (useCastStore.getState().isChromecastConnected) {
-      const { ChromecastService } = require('./ChromecastService');
-      ChromecastService.seekTo(position);
-    }
-    if (useCastStore.getState().isLocalCastActive) {
-      useCastStore.setState({ castPosition: position });
-      const { LocalCastService } = require('./LocalCastService');
-      LocalCastService.emitSeek(position);
-      return;
-    }
-  } catch (e) {}
-  return originalSeekTo(position);
+    try {
+      const { useCastStore } = require('../store/useCastStore');
+      if (useCastStore.getState().isChromecastConnected) {
+        const { ChromecastService } = require('./ChromecastService');
+        await ChromecastService.seekTo(position, automatic);
+      }
+      if (useCastStore.getState().isLocalCastActive) {
+        useCastStore.setState({ castPosition: position });
+        const { LocalCastService } = require('./LocalCastService');
+        LocalCastService.emitSeek(position, automatic);
+        return;
+      }
+    } catch (e) {}
+    return await originalSeekTo(position);
+  } finally { await TimestampService.finishSeek(); }
 };
 
 // Override getPlaybackState
@@ -126,6 +140,11 @@ TrackPlayer.setVolume = async (volume: number) => {
     targetVolume = 0;
   }
 
+  if (Platform.OS === 'android') {
+    currentVolume = volume;
+    return originalSetVolume(volume);
+  }
+
   // Si hay un fade en progreso (in o out), dejamos que el timer de fade continúe
   // actualizando el volumen hasta targetVolume de forma progresiva.
   if (fadeTimer !== null || getIsFadingOut()) {
@@ -143,6 +162,7 @@ TrackPlayer.getVolume = async () => {
 
 // Override reset
 TrackPlayer.reset = async () => {
+  ++currentOperationId;
   clearFadeTimer();
   setIsFadingOut(false);
   currentVolume = targetVolume;
@@ -151,6 +171,8 @@ TrackPlayer.reset = async () => {
 
 // Override play
 TrackPlayer.play = async (bypassFade = false) => {
+  const { usePlayerStore } = require('../store/usePlayerStore');
+  if (usePlayerStore.getState().isPreparingExternal) usePlayerStore.setState({ isPreparingExternal: false });
   const opId = ++currentOperationId;
   clearFadeTimer();
   setIsFadingOut(false);
@@ -192,6 +214,11 @@ TrackPlayer.play = async (bypassFade = false) => {
     bypassFade = true;
   }
 
+  if (Platform.OS === 'android') {
+    currentVolume = targetVolume;
+    return setNativeTransportPlaying(true, targetVolume, bypassFade ? 0 : FADE_DURATION);
+  }
+
   if (bypassFade) {
     currentVolume = targetVolume;
     await originalSetVolume(targetVolume);
@@ -228,23 +255,22 @@ TrackPlayer.play = async (bypassFade = false) => {
       return;
     }
 
-    const stepVal = volDiff / TOTAL_STEPS;
-    let step = 0;
+    const fadeStartedAt = Date.now();
 
     const runFadeInStep = async () => {
       if (opId !== currentOperationId) return;
 
-      step++;
-      currentVolume = Math.min(Math.max(startVol + (stepVal * step), 0), targetVolume);
+      const fraction = Math.min(1, (Date.now() - fadeStartedAt) / FADE_DURATION);
+      currentVolume = Math.min(Math.max(startVol + (volDiff * fraction), 0), targetVolume);
       await originalSetVolume(currentVolume);
 
       if (opId !== currentOperationId) return;
 
-      if (step < TOTAL_STEPS && currentVolume < targetVolume) {
-        fadeTimer = BackgroundTimer.setTimeout(runFadeInStep, STEP_INTERVAL);
+      if (fraction < 1 && currentVolume < targetVolume) {
+        const remaining = FADE_DURATION - (Date.now() - fadeStartedAt);
+        fadeTimer = BackgroundTimer.setTimeout(runFadeInStep, Math.max(0, Math.min(STEP_INTERVAL, remaining)));
       } else {
         currentVolume = targetVolume;
-        await originalSetVolume(targetVolume);
         fadeTimer = null;
       }
     };
@@ -281,6 +307,17 @@ TrackPlayer.pause = async (bypassFade = false) => {
     bypassFade = true;
   }
 
+  if (Platform.OS === 'android' && !isCasting) {
+    setIsFadingOut(!bypassFade, true);
+    try {
+      await setNativeTransportPlaying(false, targetVolume, bypassFade ? 0 : FADE_DURATION);
+    } catch (error) {
+      if (opId === currentOperationId) setIsFadingOut(false);
+      throw error;
+    }
+    return;
+  }
+
   if (bypassFade) {
     setIsFadingOut(false);
     currentVolume = 0;
@@ -304,6 +341,8 @@ TrackPlayer.pause = async (bypassFade = false) => {
     return;
   }
 
+  // Acknowledge the pause before waiting for the native state query.
+  setIsFadingOut(true);
   let isPlaying = false;
   try {
     const state = await originalGetPlaybackState();
@@ -333,27 +372,27 @@ TrackPlayer.pause = async (bypassFade = false) => {
 
   setIsFadingOut(true);
 
-  const stepVal = startVol / TOTAL_STEPS;
-  let step = 0;
+  // Native volume calls and JS stalls must not accumulate on top of the fade duration.
+  const fadeStartedAt = Date.now();
 
   const runFadeOutStep = async () => {
     if (opId !== currentOperationId) {
       return;
     }
 
-    step++;
-    currentVolume = Math.max(startVol - (stepVal * step), 0);
+    const fraction = Math.min(1, (Date.now() - fadeStartedAt) / FADE_DURATION);
+    currentVolume = Math.max(startVol * (1 - fraction), 0);
     await originalSetVolume(currentVolume);
 
     if (opId !== currentOperationId) {
       return;
     }
 
-    if (step < TOTAL_STEPS && currentVolume > 0) {
-      fadeTimer = BackgroundTimer.setTimeout(runFadeOutStep, STEP_INTERVAL);
+    if (fraction < 1 && currentVolume > 0) {
+      const remaining = FADE_DURATION - (Date.now() - fadeStartedAt);
+      fadeTimer = BackgroundTimer.setTimeout(runFadeOutStep, Math.max(0, Math.min(STEP_INTERVAL, remaining)));
     } else {
       currentVolume = 0;
-      await originalSetVolume(0);
       await originalPause();
       if (opId !== currentOperationId) {
         return;

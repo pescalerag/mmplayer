@@ -1,3 +1,5 @@
+import { useObservedRefresh } from './useObservedRefresh';
+import { SEARCH_TABLES } from '../services/ScreenDataChanges';
 import { Q } from '@nozbe/watermelondb';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { database } from '../database';
@@ -6,6 +8,7 @@ import Artist from '../database/models/Artist';
 import Tag from '../database/models/Tag';
 import Track from '../database/models/Track';
 import Playlist from '../database/models/Playlist';
+import { getMetadataSearchAliases } from '../utils/libraryMetadata';
 
 export type SearchResults = {
     tracks: Track[];
@@ -23,6 +26,12 @@ export type TopMatch =
     | null;
 
 const TRACKS_PER_PAGE = 50;
+
+const metadataSearchCondition = (field: string, pattern: string, query: string, type: 'artist' | 'album') => {
+    const aliases = getMetadataSearchAliases(query, type).map(normalizeText);
+    const match = Q.where(field, Q.like(pattern));
+    return aliases.length ? Q.or(match, Q.where(field, Q.oneOf(aliases))) : match;
+};
 
 const normalizeText = (text: string | null | undefined) => {
     if (!text) return "";
@@ -107,6 +116,7 @@ const fetchRelatedForTopTrack = async (track: Track, artists: Artist[], albums: 
 };
 
 export function useMusicSearch(query: string) {
+    const [dataRevision, setDataRevision] = useState(0);
     const [results, setResults] = useState<SearchResults>({ tracks: [], albums: [], artists: [], tags: [], playlists: [] });
     const [suggestions, setSuggestions] = useState<SearchResults>({ tracks: [], albums: [], artists: [], tags: [], playlists: [] });
     const [topMatch, setTopMatch] = useState<TopMatch>(null);
@@ -120,31 +130,22 @@ export function useMusicSearch(query: string) {
     const searchRevision = useRef(0);
     const paginationBusy = useRef(false);
 
-    useEffect(() => {
-        let active = true;
-        const loadSuggestions = async () => {
-            try {
-                const [recentAlbums, randomArtists, recentTags, recentPlaylists] = await Promise.all([
-                    database.collections.get<Album>('albums').query(Q.take(10)).fetch(),
-                    database.collections.get<Artist>('artists').query(Q.take(10)).fetch(),
-                    database.collections.get<Tag>('tags').query(Q.take(10)).fetch(),
-                    database.collections.get<Playlist>('playlists').query(Q.take(10)).fetch(),
-                ]);
-                if (!active) return;
-                setSuggestions({
-                    tracks: [],
-                    albums: recentAlbums,
-                    artists: randomArtists,
-                    tags: recentTags,
-                    playlists: recentPlaylists
-                });
-            } catch (error) {
-                console.error('Error loading suggestions:', error);
-            }
-        };
-        void loadSuggestions();
-        return () => { active = false; };
+    const currentQuery = useRef(query);
+    currentQuery.current = query;
+    const suggestionsLoaded = useRef(false);
+    const refreshBrowse = useCallback(async (signal: AbortSignal) => {
+        const [recentAlbums, randomArtists, recentTags, recentPlaylists] = await Promise.all([
+            database.collections.get<Album>('albums').query(Q.take(10)).fetch(),
+            database.collections.get<Artist>('artists').query(Q.take(10)).fetch(),
+            database.collections.get<Tag>('tags').query(Q.take(10)).fetch(),
+            database.collections.get<Playlist>('playlists').query(Q.take(10)).fetch(),
+        ]);
+        if (signal.aborted) return;
+        setSuggestions({ tracks: [], albums: recentAlbums, artists: randomArtists, tags: recentTags, playlists: recentPlaylists });
+        if (suggestionsLoaded.current && currentQuery.current.trim()) setDataRevision(value => value + 1);
+        suggestionsLoaded.current = true;
     }, []);
+    useObservedRefresh(refreshBrowse, SEARCH_TABLES);
 
     useEffect(() => {
         const revision = ++searchRevision.current;
@@ -173,12 +174,12 @@ export function useMusicSearch(query: string) {
 
                 const [artists, albums, tags, playlists] = await Promise.all([
                     database.collections.get<Artist>('artists').query(
-                        Q.where('normalized_name', Q.like(searchPattern)),
+                        metadataSearchCondition('normalized_name', searchPattern, normalizedQuery, 'artist'),
                         Q.sortBy('name', Q.asc),
                         Q.take(20)
                     ).fetch(),
                     database.collections.get<Album>('albums').query(
-                        Q.where('normalized_title', Q.like(searchPattern)),
+                        metadataSearchCondition('normalized_title', searchPattern, normalizedQuery, 'album'),
                         Q.sortBy('title', Q.asc),
                         Q.take(20)
                     ).fetch(),
@@ -316,7 +317,7 @@ export function useMusicSearch(query: string) {
             isActive = false;
             clearTimeout(timeout);
         };
-    }, [query]);
+    }, [query, dataRevision]);
 
     const loadMoreTracks = useCallback(async () => {
         if (paginationBusy.current || isLoading || isLoadingMore || !hasMoreTracks || !query.trim() || trackConditionsRef.current.length === 0) return;

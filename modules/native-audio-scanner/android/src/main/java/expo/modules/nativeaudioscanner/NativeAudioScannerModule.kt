@@ -764,7 +764,19 @@ class NativeAudioScannerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("NativeAudioScanner")
 
-    Events("onAudioFileOpened")
+    Events("onAudioFileOpened", "onMusicZipImportProgress")
+
+    AsyncFunction("getOpenedFileInfo") { value: String ->
+      val context = appContext.reactContext ?: throw IllegalStateException("No React context")
+      MusicZipImporter(context).openedFileInfo(value)
+    }
+
+    AsyncFunction("importMusicZip") { value: String, name: String ->
+      val context = appContext.reactContext ?: throw IllegalStateException("No React context")
+      MusicZipImporter(context).importZip(value, name) { completed, total, folder ->
+        sendEvent("onMusicZipImportProgress", mapOf("completed" to completed, "total" to total, "folder" to folder))
+      }
+    }
 
     OnNewIntent { intent ->
       if (Intent.ACTION_VIEW == intent.action && intent.data != null) {

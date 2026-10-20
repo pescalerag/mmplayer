@@ -204,13 +204,13 @@ index 7ec820c..1f2ebdf 100644
 -        get() = requireNotNull(appContext.activityProvider?.currentActivity)
  }
 diff --git a/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts b/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts
-index 33743a5..324d42b 100644
+index 33743a5..e6f19e4 100644
 --- a/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts
 +++ b/node_modules/@howincodes/expo-dynamic-app-icon/build/types.d.ts
 @@ -1,4 +1,4 @@
  export interface DynamicAppIconRegistry {
 -    IconName: string;
-+    IconName: "dark" | "supporter" | "retro" | "darkblue" | "develpink" | "labgreen" | "orange" | "pink" | "red" | "white"
++    IconName: "dark" | "aqua" | "develpink" | "labgreen" | "pink" | "red" | "white" | "yellow" | "supporter" | "retro" | "darkblue" | "orange" | "legend" | "crt"
  }
  //# sourceMappingURL=types.d.ts.map
 \ No newline at end of file

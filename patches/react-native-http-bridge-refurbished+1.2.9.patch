@@ -1,3 +1,12 @@
+diff --git a/node_modules/react-native-http-bridge-refurbished/android/build.gradle b/node_modules/react-native-http-bridge-refurbished/android/build.gradle
+--- a/node_modules/react-native-http-bridge-refurbished/android/build.gradle
++++ b/node_modules/react-native-http-bridge-refurbished/android/build.gradle
+@@ -19,4 +19,4 @@ apply plugin: 'com.android.library'
+ android {
+-    compileSdkVersion 33
++    compileSdkVersion(rootProject.ext.has('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36)
+     buildToolsVersion "33.0.2"
+     namespace "at.alwinschuster.HttpServer"
 diff --git a/node_modules/react-native-http-bridge-refurbished/android/.project b/node_modules/react-native-http-bridge-refurbished/android/.project
 new file mode 100644
 index 0000000..8cd16b8

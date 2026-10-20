@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 import { getAppColors, Layout, Typography, Spacing, Radii, FontWeights, Shadows, NavigationThemeDark } from '../theme/theme';
 import { Fonts } from '../theme/fonts';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { getLegendaryColors, LEGENDARY_PALETTE, DEFAULT_GRADIENTS, LEGENDARY_GRADIENTS } from '../theme/legendaryTheme';
+import { DEVEL_GRADIENTS, DEVEL_HEADER_GLOW, getDevelColors } from '../theme/develTheme';
+import { resolveAppTheme } from '../theme/appTheme';
+import { getRetroColors, RETRO_GRADIENTS, RETRO_HEADER_GLOW, RETRO_TITLE_GLOW } from '../theme/retroTheme';
 
-// Legendary theme accent colors: Triforce Gold as primary, Sacred Bronze as secondary
-export const LEGENDARY_ACCENT = '#F5B800';
-export const LEGENDARY_ACCENT_LIGHT = '#FDE047';
-export const LEGENDARY_ACCENT_SECONDARY = '#78350F';
-export const LEGENDARY_BG_IMAGE = require('../assets/images/legend-theme-bg.webp');
+export const LEGENDARY_ACCENT = LEGENDARY_PALETTE.gold;
 
 interface UseAppThemeOptions {
   ignoreTheme?: boolean;
@@ -18,47 +18,48 @@ export function useAppTheme(options?: UseAppThemeOptions) {
   const customAccentColor = useSettingsStore(state => state.customAccentColor);
   const activeAppTheme = useSettingsStore(state => state.activeAppTheme);
   const isVip = userTier === 'VIP';
-  const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
-  // Deshabilitado temporalmente: el tema de la aplicación vendrá en una futura versión
-  // const isLegendaryTheme = !options?.ignoreTheme && activeAppTheme === 'legendary' && isSupporterOrVIP;
-  const isLegendaryTheme = false;
+  const appTheme = resolveAppTheme(activeAppTheme, userTier, options?.ignoreTheme);
+  const isLegendaryTheme = appTheme === 'legendary';
+  const isDevelTheme = appTheme === 'develETSII';
+  const isRetroTheme = appTheme === 'retro';
 
-  // Legendary theme overrides custom accent; custom accent only applies when no theme is active
-  const effectiveAccent = isLegendaryTheme
-    ? LEGENDARY_ACCENT
-    : (isVip && customAccentColor ? customAccentColor : null);
+  const effectiveAccent = appTheme === 'none' && isVip && customAccentColor ? customAccentColor : null;
 
 
   const colors = useMemo(() => {
-    const baseColors = getAppColors(effectiveAccent);
-    if (isLegendaryTheme) {
-      return {
-        ...baseColors,
-        background: 'transparent',
-        accent: LEGENDARY_ACCENT,
-        accentSecondary: LEGENDARY_ACCENT_SECONDARY,
-        accentDark: LEGENDARY_ACCENT_SECONDARY,
-        accentLight: LEGENDARY_ACCENT_LIGHT,
-      };
-    }
-    return baseColors;
-  }, [effectiveAccent, isLegendaryTheme]);
+    if (appTheme === 'legendary') return getLegendaryColors();
+    if (appTheme === 'develETSII') return getDevelColors();
+    if (appTheme === 'retro') return getRetroColors();
+    return getAppColors(effectiveAccent);
+  }, [effectiveAccent, appTheme]);
+
+  let gradients = DEFAULT_GRADIENTS as typeof DEFAULT_GRADIENTS | typeof LEGENDARY_GRADIENTS | typeof DEVEL_GRADIENTS | typeof RETRO_GRADIENTS;
+  if (isLegendaryTheme) gradients = LEGENDARY_GRADIENTS;
+  if (isDevelTheme) gradients = DEVEL_GRADIENTS;
+  if (isRetroTheme) gradients = RETRO_GRADIENTS;
+
+  let headerGlow: readonly [string, string, ...string[]] = [colors.accentAlpha20, 'transparent'];
+  if (isDevelTheme) headerGlow = DEVEL_HEADER_GLOW;
+  if (isRetroTheme) headerGlow = RETRO_HEADER_GLOW;
 
   const navigationTheme = useMemo(() => ({
     ...NavigationThemeDark,
     colors: {
       ...NavigationThemeDark.colors,
       primary: colors.tint,
-      background: isLegendaryTheme ? 'transparent' : colors.background,
-      card: isLegendaryTheme ? 'transparent' : colors.cardBackground,
+      background: colors.background,
+      card: colors.cardBackground,
       text: colors.text,
-      border: colors.overlayAlpha10,
+      border: colors.border,
       notification: colors.accent,
     },
-  }), [colors, isLegendaryTheme]);
+  }), [colors]);
 
   return {
     colors,
+    gradients,
+    headerGlow,
+    headerTitleStyle: isRetroTheme ? RETRO_TITLE_GLOW : undefined,
     fonts: Fonts,
     layout: Layout,
     typography: Typography,
@@ -69,5 +70,8 @@ export function useAppTheme(options?: UseAppThemeOptions) {
     navigationTheme,
     isDark: true,
     isLegendaryTheme,
+    isDevelTheme,
+    isRetroTheme,
+    appTheme,
   };
 }

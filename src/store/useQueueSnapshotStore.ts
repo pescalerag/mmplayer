@@ -21,6 +21,8 @@ export function publishNativeQueue(queue: Track[], index: number | null | undefi
 
 export function setQueueSnapshot(queue: Track[], activeIndex: number) {
     readRevision++;
+    const previous = useQueueSnapshotStore.getState();
+    if (previous.ready && previous.queue === queue && previous.activeIndex === activeIndex) return;
     useQueueSnapshotStore.setState({ queue, activeIndex, ready: true });
 }
 

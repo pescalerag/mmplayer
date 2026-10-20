@@ -1,3 +1,4 @@
+import { openDestination } from '../navigation/destinations';
 import { Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { database } from '../database';
@@ -399,7 +400,7 @@ class NotificationServiceImpl {
       const data = await this.fetchRemoteUpdateData();
       if (!data?.latestVersion) return;
 
-      const currentVersion = Constants.expoConfig?.version || '2.3.2';
+      const currentVersion = Constants.expoConfig?.version || '3.0.0';
       if (isNewerVersion(data.latestVersion, currentVersion)) {
         await this.addAppUpdateNotification(data.latestVersion);
       }
@@ -453,7 +454,7 @@ class NotificationServiceImpl {
         }
       }
 
-      navigationRef.navigate('Notifications' as any);
+      openDestination({ name: 'Notifications' });
     } catch (err) {
       console.warn('[NotificationService] Error handling notification press event:', err);
     }

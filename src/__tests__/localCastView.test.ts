@@ -1,6 +1,38 @@
 import { runInNewContext } from 'node:vm';
-import { createLocalCastLyricsView, createLocalCastQueueView } from '../services/LocalCastView';
-import { localCastLyricsSource, localCastQueueSource } from '../services/generated/LocalCastViewSource';
+import { createLocalCastLyricsView, createLocalCastQueueView, createLocalCastThemeView } from '../services/LocalCastView';
+import { localCastLyricsSource, localCastQueueSource, localCastThemeSource } from '../services/generated/LocalCastViewSource';
+
+describe.each([
+  ['source', createLocalCastThemeView],
+  ['browser', runInNewContext(`(${localCastThemeSource})`) as typeof createLocalCastThemeView],
+] as const)('LocalCast theme updates (%s)', (_name, createView) => {
+  it('replaces only theme CSS and acknowledges changes without repeating DOM writes', () => {
+    const write = jest.fn();
+    const style = { get textContent() { return ''; }, set textContent(css: string | null) { write(css); } };
+    const view = createView(style, 'default');
+    view.sync({ theme: 'gold', themeCss: ':root { --panel-bg: gold; }' });
+    expect(write).toHaveBeenCalledWith(':root { --panel-bg: gold; }');
+    expect(view.getTheme()).toBe('gold');
+    view.sync({ theme: 'gold' });
+    view.sync({ theme: 'gold', themeCss: 'duplicate' });
+    expect(write).toHaveBeenCalledTimes(1);
+    view.sync({ theme: 'default', themeCss: ':root { --panel-bg: black; }' });
+    expect(view.getTheme()).toBe('default');
+    expect(write).toHaveBeenLastCalledWith(':root { --panel-bg: black; }');
+  });
+
+  it('keeps requesting a changed theme until its CSS arrives', () => {
+    const style = { textContent: 'original' };
+    const view = createView(style, 'default');
+    view.sync({ theme: 'gold' });
+    view.sync({});
+    expect(view.getTheme()).toBe('default');
+    expect(style.textContent).toBe('original');
+    view.sync({ theme: 'gold', themeCss: 'replacement' });
+    expect(view.getTheme()).toBe('gold');
+    expect(style.textContent).toBe('replacement');
+  });
+});
 
 class Element {
   children: Element[] = [];

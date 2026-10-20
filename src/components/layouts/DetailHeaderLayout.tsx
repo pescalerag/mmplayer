@@ -1,3 +1,5 @@
+import { RatingSummary } from '../../utils/trackRatings';
+import { RatingSummaryCaption } from '../library/RatingSummaryCaption';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -21,6 +23,7 @@ interface DetailHeaderLayoutProps {
     placeholderIcon: keyof typeof Ionicons.glyphMap;
     subtitle?: React.ReactNode;
     metaInfo?: string;
+    rating?: RatingSummary;
     onBack: () => void;
     onHome?: () => void;
     onDelete?: () => void;
@@ -40,6 +43,7 @@ const DetailHeaderLayout = ({
     placeholderIcon,
     subtitle,
     metaInfo,
+    rating,
     onBack,
     onHome,
     onDelete,
@@ -174,6 +178,7 @@ const DetailHeaderLayout = ({
                 {metaInfo && (
                     <Text style={[styles.metaInfo, renderExtra ? { marginRight: 120 } : null]}>{metaInfo}</Text>
                 )}
+                {rating && <View style={renderExtra ? { marginRight: 120 } : undefined}><RatingSummaryCaption rating={rating} align="left" /></View>}
             </View>
 
             {/* Render Extra (FAB, Photo button, etc.) */}

@@ -1,3 +1,5 @@
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu, openFolderMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -46,7 +48,7 @@ const TRACKS_PREVIEW = 10;
 const FolderTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function FolderTrackRow({
     track,
     album,
@@ -181,7 +183,7 @@ const FolderHeader = memo(function FolderHeader({
     };
 
     const handleAlbumPress = useCallback((album: Album) => {
-        navigation.navigate('AlbumDetail', { albumId: album.id });
+        navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
@@ -418,10 +420,13 @@ function FolderDetailContentBase({ folderPath, folderName: passedFolderName, raw
 }
 
 const EnhancedFolderDetailContent = withObservables(['folderPath'], ({ folderPath }: { folderPath: string }) => ({
-    rawTracks: database.collections.get<Track>('tracks')
-        .query(Q.where('file_url', Q.like(`${folderPath}%`)))
-        .observe(),
-}))(FolderDetailContentBase);
+    data: observeScreenData(() => database.collections.get<Track>('tracks')
+        .query(Q.where('file_url', Q.like(`${folderPath}%`))).observeWithColumns(['title', 'duration', 'rating', 'file_url'])),
+}))(function LoadedFolderDetail({ data, folderPath, folderName }: { data?: Track[]; folderPath: string; folderName: string }) {
+    return <InvisibleScreenContent ready={!!data}>
+        <FolderDetailContentBase rawTracks={data ?? []} folderPath={folderPath} folderName={folderName} isLoadingContent={!data} />
+    </InvisibleScreenContent>;
+});
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 export default function FolderDetailScreen() {
@@ -432,7 +437,6 @@ export default function FolderDetailScreen() {
         <EnhancedFolderDetailContent
             folderPath={folderPath}
             folderName={folderName}
-            isLoadingContent={false}
         />
     );
 }

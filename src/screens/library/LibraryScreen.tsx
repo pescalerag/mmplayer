@@ -1,3 +1,12 @@
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
+import type { Subscription } from 'rxjs';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { libraryAlbums, libraryTracks } from '../../services/LibraryDataSources';
+import { useArtistRanking } from '../../hooks/useArtistRanking';
+import { sortRatedArtists } from '../../utils/artistRanking';
+import { RatingSummary } from '../../utils/trackRatings';
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import { openAlbumMenu, openArtistMenu, openFolderMenu, openLibraryTabsOrder, openPlaylistMenu, openPlaylistSelectorCreate, openSortModal } from '@/store/useUIStore';
 
 import LibraryCard from '@/components/cards/LibraryCard';
@@ -8,11 +17,14 @@ import { useAlbumRanking } from '@/hooks/useAlbumRanking';
 import { RankedAlbum, sortAlbumRatings } from '@/utils/albumRanking';
 import { AlbumRatingCaption } from '@/components/library/AlbumRatingCaption';
 import { RankingLoadState } from '@/components/library/RankingLoadState';
+import { LibraryFilterSectionContext, useLibraryFilters } from '@/hooks/useLibraryFilters';
+import { FilterSection, filteredTrackContext, hasSectionFilters, matchesTrackFilters, matchesArtistFilters, matchesPlaylistFilters, matchesFolderFilters } from '@/utils/libraryFilters';
+import { AlbumFilters, AlbumTrackStats, summarizeAlbumTracks, needsAlbumTrackStats, hasAlbumFilters, matchesAlbumFilters, sortLibraryAlbums } from '@/utils/albumFilters';
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { RouteProp, useIsFocused, useNavigation, useRoute, useScrollToTop } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useIsFocused, useNavigation, useRoute, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
@@ -23,7 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import TrackPlayer, { State } from 'react-native-track-player';
 import { combineLatest, of } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
 import Artist from '../../database/models/Artist';
@@ -32,7 +44,7 @@ import Playlist from '../../database/models/Playlist';
 import Track from '../../database/models/Track';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { LibraryNavigationProp, LibraryStackParamList } from '../../navigation/types';
-import { ScannerService } from '../../services/ScannerService';
+import { LibraryRefreshService } from '../../services/LibraryRefreshService';
 import { SmartList, SmartListService } from '../../services/SmartListService';
 
 
@@ -66,6 +78,14 @@ const LibraryEmptyState = ({ icon, title, description }: { icon: string; title: 
 );
 
 // ----- TRACK ITEMS -----
+const LibraryFilterPending = ({ status, topOffset }: { status: ReturnType<typeof useLibraryFilters>; topOffset: number }) => {
+    const { colors } = useAppTheme();
+    const { t } = useTranslation();
+    return <View style={{ paddingTop: topOffset, paddingHorizontal: 20 }}>
+        {status.error && <TouchableOpacity onPress={status.retry}><Text style={{ color: colors.text }}>{t('library_filters.load_error')}</Text></TouchableOpacity>}
+    </View>;
+};
+
 const TrackCard = ({ track, album, artists }: { track: Track, album: Album | null, artists: any }) => {
     const { t } = useTranslation();
     const artistNames = (artists as Artist[]).length > 0
@@ -93,32 +113,33 @@ const TrackCard = ({ track, album, artists }: { track: Track, album: Album | nul
 const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe(),
+    artists: track.queryCollaborators.observeWithColumns(['name']),
 }))(TrackCard);
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
+    const filtering = useLibraryFilters('tracks');
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
     const playbackContext = usePlayerStore(state => state.playbackContext);
 
-    const contextId = 'library-all-tracks';
+    const contextId = filteredTrackContext(filtering.filters);
     const isCurrentContext = playbackContext === contextId;
     const isCurrentContextPlaying = isCurrentContext && isPlaying;
 
     const sortedTracks = React.useMemo(() => {
         if (sortOption === 'duration_asc' || sortOption === 'duration_desc') {
-            return tracks;
+            return tracks.filter(track => matchesTrackFilters(track, filtering.filters, filtering.index));
         }
         const isDesc = sortOption === 'name_desc';
-        return [...tracks].sort((a, b) => {
+        return tracks.filter(track => matchesTrackFilters(track, filtering.filters, filtering.index)).sort((a, b) => {
             const titleA = a.title || '';
             const titleB = b.title || '';
             const cmp = nameCollator.compare(titleA, titleB);
             return isDesc ? -cmp : cmp;
         });
-    }, [tracks, sortOption]);
+    }, [tracks, sortOption, filtering.filters, filtering.index]);
 
     const handlePlayPress = async () => {
         if (sortedTracks.length === 0) return;
@@ -168,6 +189,7 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
         );
     }, [cascade]);
 
+    if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
             ref={scrollRef}
@@ -179,8 +201,8 @@ const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: {
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="musical-notes-outline"
-                    title={t('library.empty_songs')}
-                    description={t('library.empty_songs_desc')}
+                    title={t(filtering.active ? 'library_filters.empty' : 'library.empty_songs')}
+                    description={t(filtering.active ? 'album_filters.empty_hint' : 'library.empty_songs_desc')}
                 />
             }
         />
@@ -195,12 +217,14 @@ const EnhancedTrackList = withObservables(['sortOption'], ({ sortOption }: { sor
     else if (sortOption === 'duration_desc') { orderCol = 'duration'; orderDir = Q.desc; }
 
     return {
-        tracks: database.collections
+        data: observeScreenData(() => database.collections
             .get<Track>('tracks')
             .query(Q.sortBy(orderCol, orderDir))
-            .observe(),
+            .observeWithColumns(['title', 'duration', 'rating', 'genre', 'file_url', 'is_favorite', 'lyrics_lrc'])),
     };
-})(TrackList);
+})(function LoadedTracks({ data, ...props }: Omit<React.ComponentProps<typeof TrackList>, 'tracks'> & { data?: Track[] }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <TrackList {...props} tracks={data} />}</InvisibleScreenContent>;
+});
 
 // ----- ALBUM ITEMS -----
 const AlbumCard = ({ album, artist, onPress, rating }: Readonly<{ album: Album; artist: Artist | null; onPress?: () => void; rating?: RankedAlbum }>) => {
@@ -209,7 +233,7 @@ const AlbumCard = ({ album, artist, onPress, rating }: Readonly<{ album: Album; 
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
-        else navigation.navigate('AlbumDetail', { albumId: album.id });
+        else navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
     }, [navigation, album.id, onPress]);
 
     return (
@@ -231,7 +255,7 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
     artist: album.artist.observe().pipe(catchError(() => of(null))),
 }))(AlbumCard);
 
-const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
+const AlbumList = ({ albums, albumTrackStats, albumFilters, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], albumTrackStats: Map<string, AlbumTrackStats>, albumFilters: AlbumFilters, bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
     const { t } = useTranslation();
     const cascade = useCascadeEntry();
 
@@ -243,29 +267,18 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
     }, [ranking.data, sortOption]);
     const ratingById = React.useMemo(() => new Map(ranked.map(item => [item.album.id, item])), [ranked]);
     const sortedAlbums = React.useMemo(() => {
-        if (ratingOrder) return ranked.map(item => item.album);
-        if (sortOption === 'year_asc' || sortOption === 'year_desc') {
-            return albums;
-        }
-        const isDesc = sortOption === 'name_desc';
-        return [...albums].sort((a, b) => {
-            if (a.isPinned !== b.isPinned) {
-                return a.isPinned ? -1 : 1;
-            }
-            const titleA = a.title || '';
-            const titleB = b.title || '';
-            const cmp = nameCollator.compare(titleA, titleB);
-            return isDesc ? -cmp : cmp;
-        });
-    }, [albums, sortOption, ratingOrder, ranked]);
+        const ordered = ratingOrder ? ranked.map(item => item.album) : sortLibraryAlbums(albums, sortOption ?? 'name_asc');
+        return ordered.filter(album => matchesAlbumFilters(album, albumTrackStats, albumFilters));
+    }, [albums, sortOption, ratingOrder, ranked, albumTrackStats, albumFilters]);
 
     if (ratingOrder && (ranking.loading || ranking.error)) {
-        return <RankingLoadState showLoader={ranking.showLoader} error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
+        return <RankingLoadState error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
     }
     return (
         <FlashList
             ref={scrollRef}
             data={sortedAlbums}
+            extraData={ratingOrder ? ranking.data : undefined}
             keyExtractor={a => a.id}
             renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
@@ -289,37 +302,35 @@ const AlbumList = ({ albums, bottomOffset, topOffset, scrollRef, sortOption }: {
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="albums-outline"
-                    title={t('library.empty_albums')}
-                    description={t('library.empty_albums_desc')}
+                    title={t(hasAlbumFilters(albumFilters) ? 'album_filters.empty' : 'library.empty_albums')}
+                    description={t(hasAlbumFilters(albumFilters) ? 'album_filters.empty_hint' : 'library.empty_albums_desc')}
                 />
             }
         />
     );
 };
 
-const EnhancedAlbumList = withObservables(['sortOption'], ({ sortOption }: { sortOption: SortOption }) => {
-    let orderCol = 'title';
-    let orderDir = Q.asc;
-    if (sortOption === 'name_desc') orderDir = Q.desc;
-    else if (sortOption === 'year_asc') { orderCol = 'year'; orderDir = Q.asc; }
-    else if (sortOption === 'year_desc') { orderCol = 'year'; orderDir = Q.desc; }
-
+const EnhancedAlbumList = withObservables(['albumFilters'], ({ albumFilters }: { albumFilters: AlbumFilters }) => {
     return {
-        albums: database.collections.get<Album>('albums').query(
-            Q.sortBy('is_pinned', Q.desc),
-            Q.sortBy(orderCol, orderDir)
-        ).observe(),
+        data: observeScreenData(() => combineLatest({
+        albums: libraryAlbums,
+        albumTrackStats: needsAlbumTrackStats(albumFilters)
+            ? libraryTracks.pipe(map(summarizeAlbumTracks))
+            : of(new Map<string, AlbumTrackStats>()),
+        })),
     };
-})(AlbumList);
+})(function LoadedAlbums({ data, ...props }: Omit<React.ComponentProps<typeof AlbumList>, 'albums' | 'albumTrackStats'> & { data?: { albums: Album[]; albumTrackStats: Map<string, AlbumTrackStats> } }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <AlbumList {...props} {...data} />}</InvisibleScreenContent>;
+});
 
 
 // ----- ARTIST ITEMS -----
-const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void }) => {
+const ArtistCard = ({ artist, onPress, rating }: Readonly<{ artist: Artist; onPress?: () => void; rating?: RatingSummary }>) => {
     const navigation = useNavigation<LibraryNavigationProp>();
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
-        else navigation.navigate('ArtistDetail', { artistId: artist.id });
+        else navigation.navigate('ArtistDetail', { artistId: artist.id }, { pop: true });
     }, [navigation, artist.id, onPress]);
 
     return (
@@ -328,6 +339,7 @@ const ArtistCard = ({ artist, onPress }: { artist: Artist, onPress?: () => void 
             imageUrl={artist.imageUrl}
             placeholderIcon="person"
             isPinned={artist.isPinned}
+            footer={<AlbumRatingCaption rating={rating} />}
             onPress={handlePress}
             onLongPress={() => {
                 openArtistMenu(artist);
@@ -341,6 +353,10 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 }))(ArtistCard);
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
+    const filtering = useLibraryFilters('artists');
+    const section = React.useContext(LibraryFilterSectionContext);
+    const ratingOrder = sortOption === 'rating_desc' || sortOption === 'rating_asc';
+    const ranking = useArtistRanking(ratingOrder && (section === null || section === 'artists'));
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const artistFilter = useLibraryStore(state => state.artistFilter);
@@ -349,7 +365,9 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
 
     const sortedArtists = React.useMemo(() => {
         const isDesc = sortOption === 'name_desc';
-        return [...artists].sort((a, b) => {
+        const filtered = artists.filter(artist => matchesArtistFilters(artist, filtering.filters, filtering.index));
+        if (sortOption === 'rating_desc' || sortOption === 'rating_asc') return sortRatedArtists(filtered, ranking.data, sortOption);
+        return filtered.sort((a, b) => {
             if (a.isPinned !== b.isPinned) {
                 return a.isPinned ? -1 : 1;
             }
@@ -358,14 +376,16 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
             const cmp = nameCollator.compare(nameA, nameB);
             return isDesc ? -cmp : cmp;
         });
-    }, [artists, sortOption]);
+    }, [artists, sortOption, filtering.filters, filtering.index, ranking.data]);
 
+    if (ratingOrder && (ranking.loading || ranking.error)) return <RankingLoadState error={ranking.error} onRetry={ranking.retry} topOffset={topOffset} />;
+    if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
             key={`artist-list-${artistFilter}`}
             ref={scrollRef}
             data={sortedArtists}
-            extraData={artistFilter}
+            extraData={ratingOrder ? ranking.data : artistFilter}
             keyExtractor={a => a.id}
             renderItem={({ item, index, target }) => {
                 let alignItems: GridAlignment = 'flex-end';
@@ -382,6 +402,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
                     >
                         <EnhancedArtistCard
                             artist={item}
+                            rating={ratingOrder ? ranking.data.get(item.id) ?? { average: null, ratedCount: 0, totalCount: 0 } : undefined}
                         />
                     </Animated.View>
                 );
@@ -427,8 +448,8 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="people-outline"
-                    title={t('library.empty_artists')}
-                    description={t('library.empty_artists_desc')}
+                    title={t(filtering.active ? 'library_filters.empty' : 'library.empty_artists')}
+                    description={t(filtering.active ? 'album_filters.empty_hint' : 'library.empty_artists_desc')}
                 />
             }
         />
@@ -453,11 +474,13 @@ const EnhancedArtistList = withObservables(['sortOption', 'artistFilter'], ({ so
     );
 
     return {
-        artists: database.collections.get<Artist>('artists').query(
+        data: observeScreenData(() => database.collections.get<Artist>('artists').query(
             ...conditions
-        ).observe(),
+        ).observeWithColumns(['name', 'image_url', 'is_pinned'])),
     };
-})(ArtistList);
+})(function LoadedArtists({ data, ...props }: Omit<React.ComponentProps<typeof ArtistList>, 'artists'> & { data?: Artist[] }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <ArtistList {...props} artists={data} />}</InvisibleScreenContent>;
+});
 
 
 // ----- PLAYLIST ITEMS -----
@@ -518,7 +541,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
-        else navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
+        else navigation.navigate('PlaylistDetail', { playlistId: playlist.id }, { pop: true });
     }, [navigation, playlist.id, onPress]);
 
     return (
@@ -609,32 +632,41 @@ const SmartListCardBase = memo(function SmartListCardBase({
 // Resolve each complete group before exposing its heading and cards to the grid.
 // History is observed once, and switchMap discards an outdated asynchronous load.
 function useSmartPlaylistTracks(lists: SmartList[], enabled: boolean) {
+    const focused = useIsFocused();
+    const section = React.useContext(LibraryFilterSectionContext);
+    const visible = focused && (section === null || section === 'playlists');
     const [tracksByList, setTracksByList] = useState<Record<string, Track[]>>({});
     useEffect(() => {
-        if (!enabled) return;
-        const listening = lists.filter(list => list.group === 'listening');
-        const ratings = lists.filter(list => list.group === 'rating');
-        const publish = (group: SmartList[], tracks: Track[][]) => {
-            const resolved = Object.fromEntries(group.map((list, index) => [list.id, tracks[index]]));
-            setTracksByList(previous => ({ ...previous, ...resolved }));
-        };
-        const ratingsSubscription = combineLatest(ratings.map(list =>
-            getRatingQuery(list.id).observe().pipe(catchError(() => of([] as Track[])))
-        )).subscribe(tracks => publish(ratings, tracks));
-        const historySubscription = database.collections.get<PlaybackHistory>('playback_history')
-            .query().observe().pipe(
-                catchError(() => of([])),
-                switchMap(() => Promise.all(listening.map(list => list.getTracks().catch(() => [] as Track[]))))
-            ).subscribe(tracks => publish(listening, tracks));
+        if (!enabled || !visible) return;
+        let ratingsSubscription: Subscription | undefined;
+        let historySubscription: Subscription | undefined;
+        const cancel = scheduleScreenRefresh(() => {
+            const listening = lists.filter(list => list.group === 'listening');
+            const ratings = lists.filter(list => list.group === 'rating');
+            const publish = (group: SmartList[], tracks: Track[][]) => {
+                const resolved = Object.fromEntries(group.map((list, index) => [list.id, tracks[index]]));
+                setTracksByList(previous => ({ ...previous, ...resolved }));
+            };
+            ratingsSubscription = combineLatest(ratings.map(list =>
+                getRatingQuery(list.id).observe().pipe(catchError(() => of([] as Track[])))
+            )).subscribe(tracks => publish(ratings, tracks));
+            historySubscription = database.collections.get<PlaybackHistory>('playback_history')
+                .query().observeWithColumns(['duration_played', 'played_at', 'item_id', 'item_type']).pipe(
+                    catchError(() => of([])),
+                    switchMap(() => Promise.all(listening.map(list => list.getTracks().catch(() => [] as Track[]))))
+                ).subscribe(tracks => publish(listening, tracks));
+        });
         return () => {
-            ratingsSubscription.unsubscribe();
-            historySubscription.unsubscribe();
+            cancel();
+            ratingsSubscription?.unsubscribe();
+            historySubscription?.unsubscribe();
         };
-    }, [lists, enabled]);
+    }, [lists, enabled, visible]);
     return tracksByList;
 }
 
 const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { playlists: Playlist[], genreTracks?: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
+    const filtering = useLibraryFilters('playlists');
     const { t, i18n } = useTranslation();
     const { colors } = useAppTheme();
     const navigation = useNavigation<LibraryNavigationProp>();
@@ -689,10 +721,10 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
 
     const sortedPlaylists = React.useMemo(() => {
         if (sortOption !== 'name_asc' && sortOption !== 'name_desc') {
-            return playlists;
+            return playlists.filter(playlist => matchesPlaylistFilters(playlist, filtering.filters, filtering.index));
         }
         const isDesc = sortOption === 'name_desc';
-        return [...playlists].sort((a, b) => {
+        return playlists.filter(playlist => matchesPlaylistFilters(playlist, filtering.filters, filtering.index)).sort((a, b) => {
             if (a.isPinned !== b.isPinned) {
                 return a.isPinned ? -1 : 1;
             }
@@ -701,7 +733,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
             const cmp = nameCollator.compare(nameA, nameB);
             return isDesc ? -cmp : cmp;
         });
-    }, [playlists, sortOption]);
+    }, [playlists, sortOption, filtering.filters, filtering.index]);
 
     const data = React.useMemo(() => {
         if (playlistFilter === 'smart') {
@@ -718,6 +750,8 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                 if (lists.length === 0) return;
                 const tracksByList = lists[0].group === 'genre' ? genreTracksByList : smartTracks;
                 if (lists.some(list => tracksByList[list.id] === undefined)) return;
+                lists = lists.filter(list => matchesPlaylistFilters({ id: list.id }, filtering.filters, filtering.index, tracksByList[list.id]));
+                if (!lists.length) return;
                 smartItems.push({
                     id: headerId,
                     isHeader: true,
@@ -746,17 +780,17 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
         }
         return [
             { id: 'create_new', isCreateNew: true, name: t('library.create_playlist') },
-            { id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') },
+            ...(matchesPlaylistFilters({ id: 'favorites' }, filtering.filters, filtering.index, [...filtering.index.tracks.values()].filter(track => track.isFavorite)) ? [{ id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') }] : []),
             ...sortedPlaylists
         ];
-    }, [playlistFilter, sortedPlaylists, genreLists, smartLists, smartTracks, genreTracksByList, t]);
+    }, [playlistFilter, sortedPlaylists, genreLists, smartLists, smartTracks, genreTracksByList, t, filtering.filters, filtering.index]);
 
     const renderSmartCard = (list: SmartList, colIndex: number, tracks: Track[]) => (
         <SmartListCardBase
             smartList={list}
             tracks={tracks}
             colIndex={colIndex}
-            onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id })}
+            onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id }, { pop: true })}
         />
     );
 
@@ -809,6 +843,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
         return 'flex-end';
     };
 
+    if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
             key={`playlist-list-${playlistFilter}`}
@@ -907,6 +942,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                     </TouchableOpacity>
                 </View>
             }
+            ListFooterComponent={filtering.active && (playlistFilter !== 'smart' || smartLists.every(list => smartTracks[list.id] !== undefined)) && data.every(item => item.isCreateNew || item.isHeader) ? <LibraryEmptyState icon="filter-outline" title={t('library_filters.empty')} description={t('album_filters.empty_hint')} /> : null}
             ListEmptyComponent={playlistFilter === 'smart' ? null : (
                 <LibraryEmptyState
                     icon="list-outline"
@@ -932,16 +968,20 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
     }
 
     return {
+        data: observeScreenData(() => combineLatest({
         playlists: database.collections.get<Playlist>('playlists').query(
             Q.sortBy('is_pinned', Q.desc),
             Q.sortBy(orderCol, orderDir)
-        ).observe(),
+        ).observeWithColumns(['name', 'created_at', 'cover_custom_url', 'is_pinned']),
         genreTracks: database.collections.get<Track>('tracks').query(
             Q.where('genre', Q.notEq(null)),
             Q.where('genre', Q.notEq(''))
-        ).observeWithColumns(['genre']).pipe(catchError(() => of([]))),
+        ).observeWithColumns(['genre', 'duration']).pipe(catchError(() => of([]))),
+        })),
     };
-})(PlaylistsList);
+})(function LoadedPlaylists({ data, ...props }: Omit<React.ComponentProps<typeof PlaylistsList>, 'playlists' | 'genreTracks'> & { data?: { playlists: Playlist[]; genreTracks: Track[] } }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <PlaylistsList {...props} {...data} />}</InvisibleScreenContent>;
+});
 
 
 type Folder = { path: string; name: string; trackCount: number };
@@ -963,13 +1003,14 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 });
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const filtering = useLibraryFilters('folders');
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
     const cascade = useCascadeEntry();
 
     // Get unique leaf folders that directly contain tracks
     const folders = React.useMemo(() => {
-        const map = new Map<string, { path: string; name: string; trackCount: number }>();
+        const map = new Map<string, { path: string; name: string; trackCount: number; tracks: Track[] }>();
         for (const track of tracks) {
             const lastSlash = track.fileUrl.lastIndexOf('/');
             if (lastSlash === -1) continue;
@@ -978,22 +1019,25 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             const existing = map.get(dirPath);
             if (existing) {
                 existing.trackCount++;
+                existing.tracks.push(track);
             } else {
                 const name = dirPath.substring(dirPath.lastIndexOf('/') + 1);
                 map.set(dirPath, {
                     path: dirPath,
                     name: safeDecodeURIComponent(name),
-                    trackCount: 1
+                    trackCount: 1,
+                    tracks: [track],
                 });
             }
         }
-        return Array.from(map.values()).sort((a, b) => nameCollator.compare(a.name, b.name));
-    }, [tracks]);
+        return Array.from(map.values()).filter(folder => matchesFolderFilters(folder.tracks, filtering.filters, filtering.index)).sort((a, b) => nameCollator.compare(a.name, b.name));
+    }, [tracks, filtering.filters, filtering.index]);
 
     const handleOpenFolder = React.useCallback((folder: Folder) => {
-        navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name });
+        navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name }, { pop: true });
     }, [navigation]);
 
+    if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
             key="folders-grid"
@@ -1026,8 +1070,8 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
             ListEmptyComponent={
                 <LibraryEmptyState
                     icon="folder-open-outline"
-                    title={t('library.empty_folders')}
-                    description={t('library.empty_folders_desc')}
+                    title={t(filtering.active ? 'library_filters.empty' : 'library.empty_folders')}
+                    description={t(filtering.active ? 'album_filters.empty_hint' : 'library.empty_folders_desc')}
                 />
             }
         />
@@ -1035,8 +1079,10 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
 };
 
 const EnhancedFolderList = withObservables([], () => ({
-    tracks: database.collections.get<Track>('tracks').query().observe(),
-}))(FolderList);
+    data: observeScreenData(() => database.collections.get<Track>('tracks').query().observeWithColumns(['file_url', 'last_modified'])),
+}))(function LoadedFolders({ data, ...props }: Omit<React.ComponentProps<typeof FolderList>, 'tracks'> & { data?: Track[] }) {
+    return <InvisibleScreenContent ready={!!data}>{data && <FolderList {...props} tracks={data} />}</InvisibleScreenContent>;
+});
 
 
 export default function LibraryScreen() {
@@ -1045,7 +1091,6 @@ export default function LibraryScreen() {
     const libraryTabsOrder = useSettingsStore(state => state.libraryTabsOrder);
     const hasSeenLibraryTutorial = useSettingsStore(state => state.hasSeenLibraryTutorial);
     const setHasSeenLibraryTutorial = useSettingsStore(state => state.setHasSeenLibraryTutorial);
-    const isFocused = useIsFocused();
 
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
     const rootRef = useRef<View>(null);
@@ -1057,11 +1102,9 @@ export default function LibraryScreen() {
     const artistSelectorRef = useRef<View>(null);
 
     // Abrir automáticamente el tutorial la primera vez que el usuario entre a la Biblioteca
-    useEffect(() => {
-        if (isFocused && !hasSeenLibraryTutorial) {
-            setIsTutorialVisible(true);
-        }
-    }, [isFocused, hasSeenLibraryTutorial]);
+    useFocusEffect(React.useCallback(() => {
+        if (!hasSeenLibraryTutorial) setIsTutorialVisible(true);
+    }, [hasSeenLibraryTutorial]));
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -1100,6 +1143,9 @@ export default function LibraryScreen() {
     const [headerHeight, setHeaderHeight] = useState(130);
 
     const albumSort = useLibraryStore(state => state.albumSort);
+    const albumFilters = useLibraryStore(state => state.albumFilters);
+    const sectionFilters = useLibraryStore(state => state.sectionFilters);
+    const hasActiveFilters = activeTab === 'albums' ? hasAlbumFilters(albumFilters) : hasSectionFilters(sectionFilters[activeTab as FilterSection]);
     const artistSort = useLibraryStore(state => state.artistSort);
     const playlistSort = useLibraryStore(state => state.playlistSort);
     const trackSort = useLibraryStore(state => state.trackSort);
@@ -1142,16 +1188,16 @@ export default function LibraryScreen() {
 
     const renderScene = ({ route }: { route: { key: string } }) => {
         switch (route.key) {
-            case 'albums': return <EnhancedAlbumList sortOption={albumSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
+            case 'albums': return <EnhancedAlbumList sortOption={albumSort} albumFilters={albumFilters} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'artists': return <EnhancedArtistList artistFilter={artistFilter} sortOption={artistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} selectorRef={artistSelectorRef} />;
             case 'folders': return <EnhancedFolderList bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'tracks': return <EnhancedTrackList sortOption={trackSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} />;
             case 'playlists': return <EnhancedPlaylistsList playlistFilter={playlistFilter} sortOption={playlistSort} bottomOffset={bottomOffset} topOffset={headerHeight + 20} scrollRef={flatListRef} selectorRef={playlistSelectorRef} />;
-            default: return null;
+            default: return <InvisibleScreenContent />;
         }
     };
 
-    const { colors } = useAppTheme();
+    const { colors, gradients, headerTitleStyle, headerGlow } = useAppTheme();
 
     return (
         <View
@@ -1162,6 +1208,7 @@ export default function LibraryScreen() {
 
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
+                <LibraryFilterSectionContext.Provider value={activeTab as FilterSection | 'albums'}>
                 <TabView
                     navigationState={{ index, routes }}
                     renderScene={renderScene}
@@ -1171,16 +1218,13 @@ export default function LibraryScreen() {
                     swipeEnabled={false}
                     lazy={true}
                 />
+                </LibraryFilterSectionContext.Provider>
             </View>
 
             {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
+            <ThemeHeaderAccent />
             <LinearGradient
-                colors={[
-                    '#000000',               // 0%: Funde perfecto con la parte superior negra del fondo
-                    'rgba(0, 0, 0, 0.95)',   // 45%: Muy oscuro detrás del título
-                    'rgba(0, 0, 0, 0.8)',    // 80%: Sombra sólida detrás de los selectores
-                    'transparent'            // 100%: Se desvanece suavemente sobre la primera fila de álbumes
-                ]}
+                colors={gradients.header}
                 locations={[0, 0.45, 0.8, 1]}
                 style={{
                     position: 'absolute',
@@ -1195,7 +1239,7 @@ export default function LibraryScreen() {
 
             {/* 2.5 CAPA DE ILUMINACIÓN DE ACENTO (SOBRE EL HUMO) */}
             <LinearGradient
-                colors={[colors.accentAlpha20, "transparent"]}
+                colors={headerGlow}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
@@ -1206,7 +1250,7 @@ export default function LibraryScreen() {
                 style={{ paddingTop: insets.top + 10 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>{t('library.title')}</Text>
+                    <Text style={[styles.title, headerTitleStyle]}>{t('library.title')}</Text>
                     <View
                         ref={headerToolsRef}
                         collapsable={false}
@@ -1226,7 +1270,7 @@ export default function LibraryScreen() {
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => ScannerService.syncLibrary()}
+                            onPress={() => { void LibraryRefreshService.refresh().catch(error => console.error('Manual library scan failed:', error)); }}
                             style={styles.filterButton}
                             activeOpacity={0.7}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1237,7 +1281,7 @@ export default function LibraryScreen() {
                                 color={colors.text}
                             />
                         </TouchableOpacity>
-                        {activeTab !== 'folders' && (
+                        {(
                             <TouchableOpacity
                                 onPress={() => openSortModal({ activeTab, activeSort: getActiveSortOption() })}
                                 style={styles.filterButton}
@@ -1247,7 +1291,7 @@ export default function LibraryScreen() {
                                 <Ionicons
                                     name="filter"
                                     size={20}
-                                    color={colors.text}
+                                    color={hasActiveFilters ? colors.accent : colors.text}
                                 />
                             </TouchableOpacity>
                         )}

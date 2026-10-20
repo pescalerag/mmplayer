@@ -1,10 +1,15 @@
+import Playlist from '../../database/models/Playlist';
+import { SmartListSummaryService } from '../../services/SmartListSummaryService';
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
+import i18n from '../../constants/i18n';
+import { getMediaDisplayTitle } from '../../utils/libraryMetadata';
 import { TopRatedAlbumsSection } from '@/components/home/TopRatedAlbumsSection';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { openAlbumMenu, openArtistMenu, openHomeSections, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
@@ -28,6 +33,7 @@ import Track from '../../database/models/Track';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { HistoryService } from '../../services/HistoryService';
 import { SmartListService } from '../../services/SmartListService';
+import { LibraryRefreshService } from '../../services/LibraryRefreshService';
 
 
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -45,11 +51,13 @@ import { shuffleArray } from '../../utils/shuffle';
 import Animated from 'react-native-reanimated';
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { RetainedResource } from '@/utils/retainedResource';
-import { scheduleScreenRefresh } from '@/utils/scheduleScreenRefresh';
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { STAT_TABLES } from '../../services/ScreenDataChanges';
 
 const { width } = Dimensions.get('window');
 
 const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const [imageError, setImageError] = React.useState(false);
@@ -88,7 +96,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
             )}
             <View style={styles.gridInfo}>
                 <Text style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
-                    {item.title}
+                    {getMediaDisplayTitle(item.type, item.title)}
                 </Text>
                 {isCurrentTrack && (
                     <PlayingIndicator isPaused={!isActuallyPlaying} color={colors.accentLight} />
@@ -180,21 +188,12 @@ const computeHomeSectionsOrder = (homeSectionsOrderRaw?: HomeSection[] | null): 
 };
 
 const fetchSmartListData = async (t: (key: string) => string) => {
-    const lists = SmartListService.getSmartLists();
-    const loadedSmart = await Promise.all(
-        lists.map(async (list) => {
-            const tracks = await list.getTracks();
-            const subtitle = `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`;
-            return {
-                id: `smart-list-${list.id}`,
-                type: 'playlist' as const,
-                title: list.name,
-                subtitle,
-                trackCount: tracks.length,
-            };
-        })
-    );
-    return loadedSmart.filter(item => item.trackCount > 0);
+    const lists = await SmartListSummaryService.get();
+    return lists.filter(list => list.trackCount > 0).map(list => ({
+        id: `smart-list-${list.id}`, type: 'playlist' as const, title: list.name,
+        subtitle: `${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`,
+        trackCount: list.trackCount,
+    }));
 };
 
 const mapAlbumToMediaItem = async (album: Album) => {
@@ -203,7 +202,7 @@ const mapAlbumToMediaItem = async (album: Album) => {
         id: album.id,
         type: 'album' as const,
         title: album.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album.coverUrl || '',
     };
 };
@@ -214,7 +213,7 @@ const mapTrackToMediaItem = async (track: Track) => {
         id: track.id,
         type: 'track' as const,
         title: track.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album?.coverUrl || '',
     };
 };
@@ -311,11 +310,16 @@ interface HomeData {
     smartLists: Awaited<ReturnType<typeof fetchSmartListData>>;
 }
 
-const homeDataResource = new RetainedResource<HomeData>(2);
+const homeResources = {
+    recentlyAdded: new RetainedResource<HomeData['recentlyAdded']>(2),
+    mostPlayed: new RetainedResource<HomeData['mostPlayed']>(2),
+    explore: new RetainedResource<HomeData['explore']>(2),
+    smartLists: new RetainedResource<HomeData['smartLists']>(2),
+};
 const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
 
 export default function HomeScreen() {
-    const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const { colors, gradients, headerTitleStyle, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
@@ -359,57 +363,80 @@ export default function HomeScreen() {
     const unreadNotificationsCount = useNotificationStore((state) => state.unreadCount);
 
     const dataKey = i18n.language;
-    const cachedData = homeDataResource.read(dataKey);
-    const [homeData, setHomeData] = React.useState(cachedData ?? EMPTY_HOME_DATA);
+    const [homeData, setHomeData] = React.useState<HomeData>(() => ({
+        recentlyAdded: homeResources.recentlyAdded.read(dataKey) ?? [],
+        mostPlayed: homeResources.mostPlayed.read(dataKey) ?? [],
+        explore: homeResources.explore.read(dataKey) ?? [],
+        smartLists: homeResources.smartLists.read(dataKey) ?? [],
+    }));
     const { recentlyAdded, mostPlayed, explore, smartLists } = homeData;
-    const fetchRevision = React.useRef(0);
     const isMounted = React.useRef(true);
-    useEffect(() => {
-        isMounted.current = true;
-        return () => {
-            isMounted.current = false;
-        };
-    }, []);
-
-    const fetchHomeData = React.useCallback(async () => {
-        const revision = ++fetchRevision.current;
-        const previous = homeDataResource.read(dataKey) ?? EMPTY_HOME_DATA;
-        const retainOnError = async <T,>(load: () => Promise<T>, fallback: T): Promise<T> => {
-            try { return await load(); }
-            catch (error) {
-                console.error('[HomeScreen] Error loading section:', error);
-                return fallback;
+    useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
+    const currentDataKey = React.useRef(dataKey);
+    currentDataKey.current = dataKey;
+    const loadSection = React.useCallback(async <K extends keyof HomeData,>(section: K, fetch: () => Promise<HomeData[K]>) => {
+        const data = await (homeResources[section] as RetainedResource<HomeData[K]>).load(dataKey, fetch);
+        if (isMounted.current && currentDataKey.current === dataKey) setHomeData(previous => ({ ...previous, [section]: data }));
+    }, [dataKey]);
+    const loadAdded = React.useCallback(() => loadSection('recentlyAdded', async () => Promise.all((await fetchRecentlyAddedAlbums()).map(mapAlbumToMediaItem))), [loadSection]);
+    const loadPopular = React.useCallback(() => loadSection('mostPlayed', async () => Promise.all((await HistoryService.getMostPlayedTracks(10)).map(mapTrackToMediaItem))), [loadSection]);
+    const exploreIds = React.useRef<string[] | null>(null);
+    const loadExplore = React.useCallback(() => loadSection('explore', async () => {
+        let albums: Album[];
+        if (exploreIds.current === null) albums = await fetchExploreAlbums();
+        else {
+            albums = await database.get<Album>('albums').query(Q.where('id', Q.oneOf(exploreIds.current))).fetch();
+            if (albums.length < Math.min(6, exploreIds.current.length)) {
+                const replacements = await fetchExploreAlbums();
+                const seen = new Set(albums.map(album => album.id));
+                albums.push(...replacements.filter(album => !seen.has(album.id)).slice(0, 6 - albums.length));
             }
-        };
-        const data = await homeDataResource.load(dataKey, async () => {
-            const [added, popular, random, smart] = await Promise.all([
-                retainOnError(async () => Promise.all((await fetchRecentlyAddedAlbums()).map(mapAlbumToMediaItem)), previous.recentlyAdded),
-                retainOnError(async () => Promise.all((await HistoryService.getMostPlayedTracks(10)).map(mapTrackToMediaItem)), previous.mostPlayed),
-                retainOnError(async () => Promise.all((await fetchExploreAlbums()).map(mapAlbumToMediaItem)), previous.explore),
-                retainOnError(() => fetchSmartListData(t), previous.smartLists),
-            ]);
-            return { recentlyAdded: added, mostPlayed: popular, explore: random, smartLists: smart };
+        }
+        exploreIds.current = albums.map(album => album.id);
+        return Promise.all(albums.map(mapAlbumToMediaItem));
+    }), [loadSection]);
+    const loadSmart = React.useCallback(() => loadSection('smartLists', () => fetchSmartListData(t)), [loadSection, t]);
+    const loadStats = React.useCallback(() => useStatsStore.getState().fetchStats(), []);
+    const loadRecents = React.useCallback(async () => {
+        await HistoryService.initializeDefaultsIfNeeded();
+        await usePlayerStore.getState().refreshRecentsFromDatabase();
+        const ids = usePlayerStore.getState().recentPlaylists.map(item => item.id).filter(id => id !== 'favorites' && !id.startsWith('smart-list-'));
+        if (!ids.length) return;
+        const playlists = await database.get<Playlist>('playlists').query(Q.where('id', Q.oneOf(ids))).fetch();
+        const byId = new Map(playlists.map(playlist => [playlist.id, playlist]));
+        const requested = new Set(ids);
+        let changed = false;
+        usePlayerStore.setState(state => {
+            const updated = state.recentPlaylists.flatMap(item => {
+                if (!requested.has(item.id)) return [item];
+                const playlist = byId.get(item.id);
+                if (!playlist) { changed = true; return []; }
+                const imageUrl = playlist.coverCustomUrl || playlist.coverUrl || null;
+                if (item.name === playlist.name && item.description === playlist.description && item.imageUrl === imageUrl) return [item];
+                changed = true;
+                return [{ ...item, name: playlist.name, description: playlist.description, imageUrl }];
+            });
+            return changed ? { recentPlaylists: updated } : state;
         });
-        if (isMounted.current && revision === fetchRevision.current) setHomeData(data);
-    }, [t, dataKey]);
+        if (changed) await usePlayerStore.getState().saveRecentsState();
+    }, []);
+    const loadUnread = React.useCallback(async () => { await NotificationService.getUnreadCount(); }, []);
+    useObservedRefresh(loadAdded, ['tracks', 'albums', 'artists'], homeSectionsVisibility.recently_added !== false);
+    useObservedRefresh(loadPopular, ['playback_history', 'tracks', 'albums', 'artists'], homeSectionsVisibility.most_played !== false);
+    useObservedRefresh(loadExplore, ['albums', 'artists'], homeSectionsVisibility.explore !== false);
+    useObservedRefresh(loadSmart, ['tracks', 'playback_history'], homeSectionsVisibility.smart_playlists !== false);
+    useObservedRefresh(loadStats, STAT_TABLES, homeSectionsVisibility.stats !== false);
+    useObservedRefresh(loadRecents, ['tracks', 'albums', 'artists', 'playlists']);
+    useObservedRefresh(loadUnread, ['notifications']);
+    const fetchHomeData = React.useCallback(() => Promise.all([loadAdded(), loadPopular(), loadExplore(), loadSmart()]), [loadAdded, loadPopular, loadExplore, loadSmart]);
 
     const [isRefreshing, setIsRefreshing] = React.useState(false);
-
-    const loadAllHomeData = React.useCallback(async () => {
-        try {
-            await Promise.all([
-                fetchHomeData(),
-                useStatsStore.getState().fetchStats(),
-                usePlayerStore.getState().refreshRecentsFromDatabase(),
-            ]);
-        } catch (e) {
-            console.error('[HomeScreen] Error loading home data:', e);
-        }
-    }, [fetchHomeData]);
 
     const handleRefresh = React.useCallback(async () => {
         setIsRefreshing(true);
         try {
+            exploreIds.current = null;
+            await LibraryRefreshService.refresh();
             await Promise.all([
                 fetchHomeData(),
                 useStatsStore.getState().fetchStats(),
@@ -422,24 +449,11 @@ export default function HomeScreen() {
         }
     }, [fetchHomeData]);
 
-    useFocusEffect(
-        React.useCallback(() => {
-            return scheduleScreenRefresh(() => {
-                const { recentMedia, recentPlaylists } = usePlayerStore.getState();
-                if (!recentMedia.length || !recentPlaylists.length) {
-                    void HistoryService.initializeDefaultsIfNeeded();
-                }
-                void loadAllHomeData();
-                void NotificationService.getUnreadCount();
-            });
-        }, [loadAllHomeData])
-    );
-
     const handleMediaPress = React.useCallback(async (item: any) => {
         if (item.type === 'album') {
-            navigation.navigate('AlbumDetail', { albumId: item.id });
+            navigation.navigate('AlbumDetail', { albumId: item.id }, { pop: true });
         } else if (item.type === 'artist') {
-            navigation.navigate('ArtistDetail', { artistId: item.id });
+            navigation.navigate('ArtistDetail', { artistId: item.id }, { pop: true });
         } else if (item.type === 'track') {
             try {
                 const track = await database.get<Track>('tracks').find(item.id);
@@ -461,8 +475,8 @@ export default function HomeScreen() {
             } else if (item.type === 'track') {
                 const track = await database.get<Track>('tracks').find(item.id);
                 openTrackMenu(track, {
-                    album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }),
-                    artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId })
+                    album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }, { pop: true }),
+                    artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }, { pop: true })
                 });
             }
         } catch (error) {
@@ -475,9 +489,9 @@ export default function HomeScreen() {
             navigation.navigate('FavoritesDetail');
         } else if (id.startsWith('smart-list-')) {
             const smartListId = id.replace('smart-list-', '');
-            navigation.navigate('SmartListDetail', { smartListId });
+            navigation.navigate('SmartListDetail', { smartListId }, { pop: true });
         } else {
-            navigation.navigate('PlaylistDetail', { playlistId: id });
+            navigation.navigate('PlaylistDetail', { playlistId: id }, { pop: true });
         }
     }, [navigation]);
 
@@ -676,14 +690,10 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
+            <ThemeHeaderAccent />
             {/* CAPA DEL HUMO */}
             <LinearGradient
-                colors={[
-                    '#000000',
-                    'rgba(0, 0, 0, 0.95)',
-                    'rgba(0, 0, 0, 0.8)',
-                    'transparent'
-                ]}
+                colors={gradients.header}
                 locations={[0, 0.45, 0.8, 1]}
                 style={{
                     position: 'absolute',
@@ -698,7 +708,7 @@ export default function HomeScreen() {
 
             {/* CAPA DE ILUMINACIÓN MORADA */}
             <LinearGradient
-                colors={[colors.accentAlpha20, "transparent"]}
+                colors={headerGlow}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
@@ -878,7 +888,7 @@ export default function HomeScreen() {
                     <View>
                         {showHomeGreeting && (
                             <View style={styles.greetingContainer}>
-                                <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
+                                <Text style={[styles.welcomeText, headerTitleStyle]}>{t(getGreetingKey())}</Text>
                             </View>
                         )}
                     </View>

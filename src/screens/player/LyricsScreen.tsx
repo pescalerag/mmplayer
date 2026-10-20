@@ -1,3 +1,4 @@
+import { ScreenLoadingFrame, ScreenLoadingShell, useScreenReady } from '../../components/layouts/ScreenLoadingShell';
 import { openQueueSheet, openSpeedPitch, openSleepTimer, openLyricsMenu } from '@/store/useUIStore';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +44,7 @@ import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { extractColorFromImage } from '../../../modules/native-equalizer';
+import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
 const { height: screenHeight } = Dimensions.get('window');
 const SKIP_PREVIOUS_THRESHOLD = 3;
@@ -162,33 +163,8 @@ const getActionIconColor = (isDisabled: boolean, isActive: boolean, colors: any)
     return colors.textSecondary;
 };
 
-const useCoverColorGradients = (coverUrl: string | undefined | null, defaultBg: string) => {
-    const [extractedColor, setExtractedColor] = useState<string | null>(null);
-
-    useEffect(() => {
-        let isMounted = true;
-        if (!coverUrl) {
-            setExtractedColor(null);
-            return;
-        }
-
-        extractColorFromImage(coverUrl)
-            .then(color => {
-                if (isMounted) {
-                    setExtractedColor(color);
-                }
-            })
-            .catch(err => {
-                console.error("Error extracting cover color in LyricsScreen:", err);
-                if (isMounted) {
-                    setExtractedColor(null);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [coverUrl]);
+const useCoverColorGradients = (album: Album | null, defaultBg: string) => {
+    const extractedColor = useAlbumCoverColor(album?.coverUrl, album);
 
     const gradients = React.useMemo(() => {
         if (extractedColor) {
@@ -347,13 +323,14 @@ interface LyricsScreenUIProps {
 }
 
 const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) => {
+    useScreenReady();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
 
     const { extractedColor, finalBgColor, topGradientColor, bottomGradientColor } = useCoverColorGradients(
-        album?.coverUrl,
+        album,
         colors.background
     );
     const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, shadows), [colors, fonts, layout, spacing, radii, fontWeights, shadows]);
@@ -383,7 +360,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     const progress = useProgress();
     const progressTrackId = usePlaybackSnapshotStore(snapshot => snapshot.trackId);
-    const isCurrentProgress = progressTrackId === track.id.toString();
+    const isCurrentProgress = progressTrackId === track.id.toString() &&
+        (!progress.trackId || progress.trackId.split('-')[0] === track.id.toString());
     const position = isCurrentProgress ? progress.position : 0;
     const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const hasNext = usePlayerStore(state => state.hasNext);
@@ -509,7 +487,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     const handleAlbumPress = () => {
         if (album?.id) {
-            navigation.navigate('AlbumDetail', { albumId: album.id });
+            navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
         }
     };
 
@@ -797,7 +775,7 @@ const ObservableLyricsScreenUI = withObservables(['trackModel'], ({ trackModel }
     track: trackModel.observe(),
     album: trackModel.album.observe().pipe(catchError(() => of(null))),
     artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
-    artists: trackModel.queryCollaborators.observe(),
+    artists: trackModel.queryCollaborators.observeWithColumns(['name']),
 }))(LyricsScreenUI);
 
 function KeepAwakeController() {
@@ -810,18 +788,20 @@ export default function LyricsScreen() {
     const isFocused = useIsFocused();
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
 
-    if (!activeTrackModel) return null;
+    if (!activeTrackModel) return <ScreenLoadingShell />;
 
     if ((activeTrackModel as any).isExternal) {
         return (
             <>
                 {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
-                <LyricsScreenUI
-                    track={activeTrackModel}
-                    album={(activeTrackModel as any).albumObj || null}
-                    artist={(activeTrackModel as any).artistObj || null}
-                    artists={(activeTrackModel as any).artistsList || []}
-                />
+                <ScreenLoadingFrame title={activeTrackModel.title}>
+                    <LyricsScreenUI
+                        track={activeTrackModel}
+                        album={(activeTrackModel as any).albumObj || null}
+                        artist={(activeTrackModel as any).artistObj || null}
+                        artists={(activeTrackModel as any).artistsList || []}
+                    />
+                </ScreenLoadingFrame>
             </>
         );
     }
@@ -829,7 +809,9 @@ export default function LyricsScreen() {
     return (
         <>
             {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
-            <ObservableLyricsScreenUI trackModel={activeTrackModel} />
+            <ScreenLoadingFrame title={activeTrackModel.title}>
+                <ObservableLyricsScreenUI trackModel={activeTrackModel} />
+            </ScreenLoadingFrame>
         </>
     );
 }

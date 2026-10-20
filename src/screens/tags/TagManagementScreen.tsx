@@ -1,14 +1,13 @@
-import { SkeletonTagList } from '@/components/common/Skeleton';
+import { observeScreenData } from '../../utils/observeScreenData';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 import TagSpotlightTutorial from '@/components/modals/TagSpotlightTutorial';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { useDelayedLoader } from '@/hooks/useDelayedLoader';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { openTagForm, openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,14 +18,15 @@ import { database } from '../../database';
 import Tag from '../../database/models/Tag';
 
 interface TagManagementContentProps {
-    tags: Tag[];
+    tags: Tag[] | null;
 }
 
-function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
+function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementContentProps>) {
+    const tags = loadedTags ?? [];
+    const isReady = loadedTags !== null;
     const openForCreate = () => openTagForm();
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
-    const isFocused = useIsFocused();
     const { colors } = useAppTheme();
 
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
@@ -42,22 +42,10 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
     const createButtonLayout = useRef<any>(null);
     const firstTagLayout = useRef<any>(null);
     const [headerHeight, setHeaderHeight] = useState(100);
-    const [isReady, setIsReady] = useState(false);
-    const showLoader = useDelayedLoader(!isReady, { delay: 250, minDisplayTime: 500 });
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, []);
-
     // Auto-lanzar el tutorial la primera vez que se visita la pantalla
-    useEffect(() => {
-        if (isFocused && !hasSeenTagsTutorial) {
-            setIsTutorialVisible(true);
-        }
-    }, [isFocused, hasSeenTagsTutorial]);
+    useFocusEffect(React.useCallback(() => {
+        if (isReady && !hasSeenTagsTutorial) setIsTutorialVisible(true);
+    }, [isReady, hasSeenTagsTutorial]));
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -102,7 +90,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                     <TouchableOpacity
                         style={[styles.tagCard, { marginBottom: 0 }]}
                         activeOpacity={0.7}
-                        onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color })}
+                        onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color }, { pop: true })}
                         onLongPress={() => {
                             openTagMenu(item);
                         }}
@@ -153,13 +141,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                         setHeaderHeight(hHeight);
                     }
 
-                    let content = null;
-                    if (!isReady) {
-                        if (showLoader) {
-                            content = <SkeletonTagList topOffset={hHeight + 30} />;
-                        }
-                    } else {
-                        content = (
+                    const content = (
                             <FlashList
                                 data={effectiveTags}
                                 keyExtractor={t => t.id}
@@ -193,11 +175,10 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
                                     </View>
                                 }
                                 ListEmptyComponent={
-                                    <Text style={styles.empty}>{t('tags.empty_tags')}</Text>
+                                    isReady ? <Text style={styles.empty}>{t('tags.empty_tags')}</Text> : <View />
                                 }
                             />
                         );
-                    }
 
                     return (
                         <View style={StyleSheet.absoluteFill}>
@@ -226,7 +207,7 @@ function TagManagementContent({ tags }: Readonly<TagManagementContentProps>) {
 }
 
 const EnhancedTagManagement = withObservables([], () => ({
-    tags: database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observe(),
+    tags: observeScreenData(() => database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observeWithColumns(['name', 'color']), null),
 }))(TagManagementContent);
 
 export default function TagManagementScreen() {

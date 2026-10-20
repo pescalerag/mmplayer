@@ -22,6 +22,7 @@ interface BaseMenuSheetProps {
   headerLeft?: React.ReactNode;
   circularImage?: boolean;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 export function BaseMenuSheet({
@@ -34,6 +35,7 @@ export function BaseMenuSheet({
   headerLeft,
   circularImage,
   children,
+  footer,
 }: BaseMenuSheetProps) {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
@@ -86,6 +88,7 @@ export function BaseMenuSheet({
       >
         {children}
       </ScrollView>
+      {footer}
     </View>
   );
 }
@@ -138,6 +141,7 @@ const getStyles = (colors: any, fonts: any, layout: any) =>
     container: {
       width: '100%',
       maxHeight: '100%',
+      flexShrink: 1,
     },
     header: {
       flexDirection: 'row',

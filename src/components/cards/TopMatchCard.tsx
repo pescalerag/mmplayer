@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { openAlbumMenu, openArtistMenu, openPlaylistMenu, openTrackMenu, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
@@ -103,11 +104,12 @@ const TopMatchCardLayout = ({ title, subtitle, imageUrl, type, onPress, onLongPr
 const TopMatchArtistCard = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
     artist: artist.observe(),
 }))(({ artist, onPress }: { artist: Artist; onPress: () => void }) => {
+    const { t } = useTranslation();
     const openMenu = openArtistMenu;
     return (
         <TopMatchCardLayout
             title={artist.name}
-            subtitle="Artista"
+            subtitle={t('library.artist_singular')}
             imageUrl={artist.imageUrl}
             type="artist"
             onPress={onPress}
@@ -123,11 +125,12 @@ const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album 
     album: album.observe(),
     artist: album.artist.observe().pipe(catchError(() => of(null))),
 }))(({ album, artist, onPress }: { album: Album; artist: Artist | null; onPress: () => void }) => {
+    const { t } = useTranslation();
     const openMenu = openAlbumMenu;
     return (
         <TopMatchCardLayout
             title={album.title}
-            subtitle={`Álbum • ${artist?.name || 'Desconocido'}`}
+            subtitle={t('search.album_by', { artist: artist?.name || t('metadata.unknown_artist') })}
             imageUrl={album.coverUrl}
             type="album"
             onPress={onPress}
@@ -142,11 +145,12 @@ const TopMatchAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 const TopMatchPlaylistCard = withObservables(['playlist'], ({ playlist }: { playlist: Playlist }) => ({
     playlist: playlist.observe(),
 }))(({ playlist, onPress }: { playlist: Playlist; onPress: () => void }) => {
+    const { t } = useTranslation();
     const openMenu = openPlaylistMenu;
     return (
         <TopMatchCardLayout
             title={playlist.name}
-            subtitle="Playlist"
+            subtitle={t('library.playlist_singular')}
             imageUrl={playlist.coverCustomUrl || playlist.coverUrl}
             type="album"
             onPress={onPress}
@@ -163,9 +167,10 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
     album: track.album.observe().pipe(catchError(() => of(null))),
     collaborators: track.queryCollaborators.observe() as any,
 }))(({ track, album, collaborators, onPress }: { track: Track; album: Album | null; collaborators: Artist[]; onPress: () => void }) => {
+    const { t } = useTranslation();
     const artistNames = collaborators.length > 0
         ? collaborators.map(a => a.name).join(', ')
-        : 'Desconocido';
+        : t('metadata.unknown_artist');
 
     const openMenu = openTrackMenu;
 
@@ -296,7 +301,7 @@ const TopMatchTrackCard = withObservables(['track'], ({ track }: { track: Track 
                 <Animated.View style={[animatedStyle, StyleSheet.absoluteFillObject]}>
                     <TopMatchCardLayout
                         title={track.title}
-                        subtitle={`Canción • ${artistNames}`}
+                        subtitle={t('search.song_by', { artist: artistNames })}
                         imageUrl={album?.coverUrl || null}
                         type="track"
                         isSelectionMode={isSelectionMode}

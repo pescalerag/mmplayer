@@ -12,6 +12,7 @@ const BASE_MEDIA_DIR = `${FileSystem.documentDirectory}media_assets/`;
 const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
+const ALBUM_DIR = `${BASE_MEDIA_DIR}album_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
 
 export interface StorageBreakdown {
@@ -26,6 +27,7 @@ export interface StorageBreakdown {
   artistImagesBytes: number;
   playlistCoversBytes: number;
   cdCoversBytes: number;
+  albumCoversBytes: number;
   canvasVideosBytes: number;
   lyricsBytes: number;
   cacheBytes: number;
@@ -132,6 +134,7 @@ export const StorageService = {
     const artistImagesBytes = await getDirectorySize(ARTIST_DIR);
     const playlistCoversBytes = await getDirectorySize(PLAYLIST_DIR);
     const cdCoversBytes = await getDirectorySize(CD_DIR);
+    const albumCoversBytes = await getDirectorySize(ALBUM_DIR);
     const canvasVideosBytes = await getDirectorySize(CANVAS_DIR);
     const cacheBytes = FileSystem.cacheDirectory ? await getDirectorySize(FileSystem.cacheDirectory) : 0;
 
@@ -139,6 +142,7 @@ export const StorageService = {
       artistImagesBytes +
       playlistCoversBytes +
       cdCoversBytes +
+      albumCoversBytes +
       canvasVideosBytes +
       lyricsBytes +
       cacheBytes;
@@ -161,6 +165,7 @@ export const StorageService = {
       artistImagesBytes,
       playlistCoversBytes,
       cdCoversBytes,
+      albumCoversBytes,
       canvasVideosBytes,
       lyricsBytes,
       cacheBytes,
