@@ -1,4 +1,20 @@
 {
+  "runtimeDebug": {
+    "errors": "Erros da aplicação",
+    "tests": "Testes no dispositivo",
+    "errorsDescription": "Consultar e partilhar erros de JavaScript e Android.",
+    "testsDescription": "Verificar os módulos nativos do APK instalado e a compatibilidade com R8.",
+    "errorScope": "Histórico local dos últimos 200 erros de JavaScript, promessas rejeitadas, última falha Java e erros recentes do processo Android. Falhas do sistema ou anteriores ao início do registo podem não aparecer. Os relatórios podem conter nomes de ficheiros e outros dados de diagnóstico.",
+    "testScope": "Estes testes correm no APK instalado: armazenamento, base de dados, leitor, cores e chamadas nativas por reflexão. Não alteram a biblioteca nem a reprodução. As suites completas de Jest e Gradle precisam de um PC; passar estes testes não exclui todos os problemas de R8.",
+    "refresh": "Atualizar",
+    "share": "Partilhar relatório",
+    "clear": "Limpar histórico",
+    "empty": "Sem erros registados.",
+    "nativeErrors": "Android: última falha e erros recentes",
+    "run": "Executar testes",
+    "running": "A executar…",
+    "results": "Aprovados: {{passed}} · Falhados: {{failed}}"
+  },
   "timestamps": {
     "configure": "Configurar saltos",
     "title": "Saltos de reprodução",
@@ -306,6 +322,7 @@
         "tip": "💡 Você pode voltar a 1,0x a qualquer momento pelo painel."
       },
       "lyrics": {
+    "sync_different_track": "Volta a reproduzir a música que estás a editar para continuar a marcar os tempos.",
         "title": "Letras sincronizadas (karaokê)",
         "desc": "Abra as letras em tela cheia com acompanhamento em tempo real, modo karaokê e navegação por linhas.",
         "tip": "💡 Se uma música não tiver letras sincronizadas, você pode procurá-las ou editá-las manualmente."
@@ -549,6 +566,8 @@
     "tag_colors_desc": "Mostra as etiquetas com suas cores no reprodutor e nos detalhes dos álbuns. Se desativado, elas aparecem em cinza discreto.",
     "show_lyrics": "Mostrar letras no reprodutor",
     "show_lyrics_desc": "Mostra a linha atual da letra, quando disponível, acima das etiquetas no reprodutor e no modo imersivo.",
+    "library_refresh_policy": "Atualizar biblioteca",
+    "library_refresh_policy_desc": "A biblioteca é analisada ao iniciar a aplicação de raiz ou ao atualizar manualmente no Início ou na Biblioteca. Voltar do segundo plano não inicia outra análise.",
     "silent_sync": "Sincronização silenciosa ao voltar",
     "silent_sync_desc": "Oculta o aviso 'Sincronizando biblioteca...' ao voltar ao aplicativo, mantendo a busca em segundo plano.",
     "audio_section": "Áudio e reprodução",

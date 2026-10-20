@@ -36,7 +36,7 @@ import { formatAlbumDuration } from '../../utils/time';
 const FavoriteTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function FavoriteTrackRow({
     track,
     album,
@@ -223,7 +223,7 @@ function FavoritesDetailContent({ tracks }: Readonly<FavoritesDetailProps>) {
 
 // ─── ENHANCED COMPONENT WITH WATERMELONDB OBSERVABLE ───
 const ObservableFavoritesDetail = withObservables([], () => ({
-    data: observeScreenData(() => database.collections.get<Track>('tracks').query(Q.where('is_favorite', true)).observe()),
+    data: observeScreenData(() => database.collections.get<Track>('tracks').query(Q.where('is_favorite', true)).observeWithColumns(['title', 'duration', 'rating', 'file_url'])),
 }))(function LoadedFavorites({ data }: { data?: Track[] }) {
     return <InvisibleScreenContent ready={!!data}><FavoritesDetailContent tracks={data ?? []} /></InvisibleScreenContent>;
 });

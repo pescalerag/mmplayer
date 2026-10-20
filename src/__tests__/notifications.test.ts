@@ -732,7 +732,7 @@ describe('Notification System Test Suite', () => {
         data: { type: 'summary_weekly' },
       });
 
-      expect(navigateSpy).toHaveBeenCalledWith('Notifications');
+      expect(navigationRef.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'NAVIGATE', payload: expect.objectContaining({ name: 'Main', params: expect.objectContaining({ screen: 'Inicio', params: expect.objectContaining({ screen: 'Notifications' }) }) }) }));
       navigateSpy.mockRestore();
     });
 
@@ -792,7 +792,7 @@ describe('Notification System Test Suite', () => {
         },
       });
 
-      expect(navigateSpy).toHaveBeenCalledWith('Notifications');
+      expect(navigationRef.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'NAVIGATE', payload: expect.objectContaining({ name: 'Main', params: expect.objectContaining({ screen: 'Inicio', params: expect.objectContaining({ screen: 'Notifications' }) }) }) }));
       navigateSpy.mockRestore();
     });
   });

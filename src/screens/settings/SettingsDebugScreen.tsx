@@ -30,6 +30,13 @@ export default function SettingsDebugScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.sectionCard}>
+                        {['DebugErrors', 'DebugTests'].map((route, index) => <TouchableOpacity key={route} style={styles.buttonRow} onPress={() => navigation.navigate(route)}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t(index === 0 ? 'runtimeDebug.errors' : 'runtimeDebug.tests')}</Text>
+                                <Text style={styles.settingDescription}>{t(index === 0 ? 'runtimeDebug.errorsDescription' : 'runtimeDebug.testsDescription')}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>)}
                         <TouchableOpacity
                             style={styles.buttonRow}
                             onPress={() => navigation.navigate('DebugHistory')}

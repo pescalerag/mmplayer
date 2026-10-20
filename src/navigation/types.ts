@@ -78,15 +78,15 @@ export type PlayerStackParamList = {
     ArtistDetail: { artistId: string; fromPlayer?: boolean };
     AlbumDetail: { albumId: string; fromPlayer?: boolean };
     Lyrics: undefined;
-    LyricsEditor: undefined;
-    LyricsSync: undefined;
+    LyricsEditor: { trackId: string };
+    LyricsSync: { trackId: string };
     ShareSong: ShareSongParams;
     ShareLyrics: ShareLyricsParams;
 };
 
 export type RootStackParamList = {
     TimestampsEditor: { trackId: string };
-    Main: undefined;
+    Main: NavigatorScreenParams<MainTabParamList> | undefined;
     Player: undefined | NavigatorScreenParams<PlayerStackParamList>;
     DebugHistory: undefined;
     ShareStats: {
@@ -99,6 +99,14 @@ export type RootStackParamList = {
     };
     ShareSong: ShareSongParams;
     ShareLyrics: ShareLyricsParams;
+};
+
+export type MainTabParamList = {
+    Inicio: NavigatorScreenParams<HomeStackParamList> | undefined;
+    Biblioteca: NavigatorScreenParams<LibraryStackParamList> | undefined;
+    Buscar: NavigatorScreenParams<SearchStackParamList> | undefined;
+    Etiquetas: NavigatorScreenParams<TagsStackParamList> | undefined;
+    Actividad: NavigatorScreenParams<ActivityStackParamList> | undefined;
 };
 
 export type HomeNavigationProp = NativeStackNavigationProp<HomeStackParamList>;

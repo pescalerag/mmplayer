@@ -1,3 +1,4 @@
+jest.mock('../hooks/useObservedRefresh', () => ({ useObservedRefresh: jest.fn() }));
 import React from 'react';
 import SortModalSheet from '../components/sheets/SortModalSheet';
 import { AlbumFilterControls } from '../components/library/AlbumFilterControls';

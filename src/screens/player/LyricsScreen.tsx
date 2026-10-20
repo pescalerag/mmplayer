@@ -487,7 +487,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
 
     const handleAlbumPress = () => {
         if (album?.id) {
-            navigation.navigate('AlbumDetail', { albumId: album.id });
+            navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
         }
     };
 
@@ -775,7 +775,7 @@ const ObservableLyricsScreenUI = withObservables(['trackModel'], ({ trackModel }
     track: trackModel.observe(),
     album: trackModel.album.observe().pipe(catchError(() => of(null))),
     artist: trackModel.artist.observe().pipe(catchError(() => of(null))),
-    artists: trackModel.queryCollaborators.observe(),
+    artists: trackModel.queryCollaborators.observeWithColumns(['name']),
 }))(LyricsScreenUI);
 
 function KeepAwakeController() {

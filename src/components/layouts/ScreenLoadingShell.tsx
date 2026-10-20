@@ -18,9 +18,9 @@ export function ScreenLoadingFrame({ title, children }: Readonly<{ title: string
     const [ready, setReady] = useState(false);
     const markReady = useCallback(() => { setReady(true); }, []);
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <View collapsable={false} style={{ flex: 1, backgroundColor: colors.background }}>
             {!ready && <ScreenLoadingShell title={title} />}
-            <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <View collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none">
                 <ScreenReadyContext.Provider value={markReady}>{children}</ScreenReadyContext.Provider>
             </View>
         </View>

@@ -7,7 +7,7 @@ import { openTagForm, openTagMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,6 @@ function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementConten
     const openForCreate = () => openTagForm();
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
-    const isFocused = useIsFocused();
     const { colors } = useAppTheme();
 
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
@@ -44,11 +43,9 @@ function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementConten
     const firstTagLayout = useRef<any>(null);
     const [headerHeight, setHeaderHeight] = useState(100);
     // Auto-lanzar el tutorial la primera vez que se visita la pantalla
-    useEffect(() => {
-        if (isReady && isFocused && !hasSeenTagsTutorial) {
-            setIsTutorialVisible(true);
-        }
-    }, [isReady, isFocused, hasSeenTagsTutorial]);
+    useFocusEffect(React.useCallback(() => {
+        if (isReady && !hasSeenTagsTutorial) setIsTutorialVisible(true);
+    }, [isReady, hasSeenTagsTutorial]));
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -93,7 +90,7 @@ function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementConten
                     <TouchableOpacity
                         style={[styles.tagCard, { marginBottom: 0 }]}
                         activeOpacity={0.7}
-                        onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color })}
+                        onPress={() => navigation.navigate('TagDetail', { tagId: item.id, tagName: item.name, tagColor: item.color }, { pop: true })}
                         onLongPress={() => {
                             openTagMenu(item);
                         }}
@@ -210,7 +207,7 @@ function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementConten
 }
 
 const EnhancedTagManagement = withObservables([], () => ({
-    tags: observeScreenData(() => database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observe(), null),
+    tags: observeScreenData(() => database.collections.get<Tag>('tags').query(Q.sortBy('name', Q.asc)).observeWithColumns(['name', 'color']), null),
 }))(TagManagementContent);
 
 export default function TagManagementScreen() {

@@ -1,3 +1,4 @@
+import { openDestination } from '../navigation/destinations';
 import { Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { database } from '../database';
@@ -453,7 +454,7 @@ class NotificationServiceImpl {
         }
       }
 
-      navigationRef.navigate('Notifications' as any);
+      openDestination({ name: 'Notifications' });
     } catch (err) {
       console.warn('[NotificationService] Error handling notification press event:', err);
     }

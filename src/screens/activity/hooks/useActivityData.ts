@@ -1,6 +1,8 @@
-import { useState, useCallback, useRef } from 'react';
-import { RetainedResource } from '@/utils/retainedResource';
-import { useFocusEffect } from '@react-navigation/native';
+import { SmartListSummaryService } from '../../../services/SmartListSummaryService';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { useObservedRefresh } from '../../../hooks/useObservedRefresh';
+import { ObservedResource } from '../../../utils/observedResource';
+import { observeTableChanges, STAT_TABLES } from '../../../services/ScreenDataChanges';
 import { HistoryService } from '../../../services/HistoryService';
 import { SmartListService } from '../../../services/SmartListService';
 import { useDelayedLoader } from '@/hooks/useDelayedLoader';
@@ -12,8 +14,7 @@ import {
   EMPTY_DETAILED_STATS,
 } from '../utils/activityStatUtils';
 
-const statsResource = new RetainedResource<DetailedStats>();
-const smartListsResource = new RetainedResource<SmartListItem[]>(2);
+const statsResource = new ObservedResource<DetailedStats>(() => observeTableChanges(STAT_TABLES));
 
 export function useActivityData(
   period: Period,
@@ -33,21 +34,16 @@ export function useActivityData(
   const [isRefreshing, setIsRefreshing] = useState(false);
   const lists = SmartListService.getSmartLists();
   const listsKey = lists.map(list => `${list.id}:${list.name}`).join('|');
-  const [smartLists, setSmartLists] = useState<SmartListItem[]>(() => smartListsResource.read(listsKey) ?? []);
+  const [smartLists, setSmartLists] = useState<SmartListItem[]>([]);
   const latestFetchId = useRef(0);
   const latestListsId = useRef(0);
+
+  useEffect(() => () => { latestFetchId.current++; latestListsId.current++; }, []);
 
   const loadStatsSmartLists = useCallback(async () => {
     const fetchId = ++latestListsId.current;
     try {
-      const loaded = await smartListsResource.load(listsKey, () => Promise.all(
-        SmartListService.getSmartLists().map(async list => ({
-          id: list.id,
-          name: list.name,
-          placeholderIcon: list.placeholderIcon,
-          trackCount: (await list.getTracks()).length,
-        }))
-      ));
+      const loaded = await SmartListSummaryService.get();
       if (fetchId === latestListsId.current) setSmartLists(loaded);
     } catch (e) {
       console.error('[ActivityMainScreen] Error loading smart lists:', e);
@@ -74,6 +70,7 @@ export function useActivityData(
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    statsResource.invalidate();
     try {
       await Promise.all([fetchStats(), loadStatsSmartLists()]);
     } finally {
@@ -81,16 +78,8 @@ export function useActivityData(
     }
   }, [fetchStats, loadStatsSmartLists]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void fetchStats();
-      void loadStatsSmartLists();
-      return () => {
-        latestFetchId.current++;
-        latestListsId.current++;
-      };
-    }, [fetchStats, loadStatsSmartLists])
-  );
+  const refreshStats = useCallback(() => Promise.all([fetchStats(), loadStatsSmartLists()]), [fetchStats, loadStatsSmartLists]);
+  useObservedRefresh(refreshStats, STAT_TABLES);
 
   return {
     detailedStats,

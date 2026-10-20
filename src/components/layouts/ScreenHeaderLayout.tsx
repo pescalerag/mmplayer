@@ -62,7 +62,7 @@ export function ScreenHeaderLayout({
     insets.bottom;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
+    <View collapsable={false} style={[styles.container, { backgroundColor: colors.background }, containerStyle]}>
       {/* CAPA DEL HUMO */}
       <LinearGradient
         colors={gradients.header}

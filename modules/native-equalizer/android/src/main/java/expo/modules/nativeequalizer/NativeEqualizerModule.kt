@@ -174,6 +174,10 @@ class NativeEqualizerModule : Module() {
 
     override fun definition() = ModuleDefinition {
         Name("NativeEqualizer")
+        OnCreate { appContext.reactContext?.let { RuntimeDiagnostics.install(it.applicationContext) } }
+        AsyncFunction("readRuntimeErrors") { RuntimeDiagnostics.errors(appContext.reactContext ?: error("React context unavailable")) }
+        AsyncFunction("clearRuntimeErrors") { RuntimeDiagnostics.clear(appContext.reactContext ?: error("React context unavailable")) }
+        AsyncFunction("runRuntimeDiagnostics") { RuntimeDiagnostics.run(appContext.reactContext ?: error("React context unavailable")) }
         Events("androidAutoRequest")
         AsyncFunction("configureTimestamps") { json: String ->
             Class.forName("com.doublesymmetry.trackplayer.service.MusicService")

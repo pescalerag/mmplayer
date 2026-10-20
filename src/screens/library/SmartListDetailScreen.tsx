@@ -1,3 +1,4 @@
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
 import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
 import { observeScreenData } from '../../utils/observeScreenData';
 import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
@@ -41,7 +42,7 @@ const { width } = Dimensions.get('window');
 const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function SmartTrackRow({
     track,
     album,
@@ -310,19 +311,14 @@ const ObservableGenreDetail = withObservables(['smartListId'], ({ smartListId }:
 // ─── HISTORY STATE-BASED COMPONENT ───
 function HistorySmartListDetail({ smartListId }: { smartListId: string }) {
     const [result, setResult] = useState<{ id: string; tracks: Track[] } | null>(null);
-    useFocusEffect(useCallback(() => {
-        let mounted = true;
-        const cancel = scheduleScreenRefresh(() => {
-            const list = SmartListService.getSmartLists().find(item => item.id === smartListId);
-            void (list?.getTracks() ?? Promise.resolve([])).then(tracks => {
-                if (mounted) setResult({ id: smartListId, tracks });
-            }).catch(error => {
-                console.error('Error loading history smart list:', error);
-                if (mounted) setResult({ id: smartListId, tracks: [] });
-            });
-        });
-        return () => { mounted = false; cancel(); };
-    }, [smartListId]));
+    const mounted = React.useRef(true);
+    React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const load = useCallback(async () => {
+        const list = SmartListService.getSmartLists().find(item => item.id === smartListId);
+        const tracks = await (list?.getTracks() ?? Promise.resolve([]));
+        if (mounted.current) setResult({ id: smartListId, tracks });
+    }, [smartListId]);
+    useObservedRefresh(load, ['playback_history', 'tracks']);
     const ready = result?.id === smartListId;
     return <InvisibleScreenContent ready={ready}><SmartListDetailContent smartListId={smartListId} tracks={ready ? result.tracks : []} loading={!ready} /></InvisibleScreenContent>;
 }

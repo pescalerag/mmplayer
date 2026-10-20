@@ -21,6 +21,10 @@ describe('shared album ranking queries', () => {
     const song = { rating: 4, album: { id: 'a' } };
     tracks.next([song]);
     expect(first.mock.lastCall[0][0].average).toBe(4);
+    const emissions = first.mock.calls.length;
+    (song as any).lyricsLRC = 'New lyrics'; tracks.next([song]);
+    (song as any).isFavorite = true; tracks.next([song]);
+    expect(first).toHaveBeenCalledTimes(emissions);
     song.rating = 5; tracks.next([song]);
     expect(second.mock.lastCall[0][0].average).toBe(5);
     song.album.id = 'b'; tracks.next([song]);

@@ -215,9 +215,16 @@ export function createLocalCastMetadataView(container: HTMLElement,
     const assigned = selected.availableTags.filter(tag => selected!.tagIds.includes(tag.id)).map(tag => {
       const badge = document.createElement('button'); badge.type = 'button'; badge.className = 'track-tag'; badge.textContent = tag.name;
       badge.addEventListener('click', () => { details.open = true; });
-      if (/^#[\da-f]{6}$/i.test(tag.color)) {
-        badge.style.backgroundColor = tag.color;
-        const [r, g, b] = [1, 3, 5].map(offset => Number.parseInt(tag.color.slice(offset, offset + 2), 16));
+      // Match the app's opaque tag colours, including shorthand and alpha hex.
+      // Always provide a readable fallback instead of the browser's black button text.
+      badge.style.backgroundColor = '#334155';
+      badge.style.color = '#FFFFFF';
+      let hex = String(tag.color ?? '').trim().replace(/^#/, '');
+      if (/^[\da-f]{3,4}$/i.test(hex)) hex = hex.slice(0, 3).split('').map(char => char + char).join('');
+      if (/^[\da-f]{6}([\da-f]{2})?$/i.test(hex)) {
+        hex = hex.slice(0, 6);
+        badge.style.backgroundColor = '#' + hex;
+        const [r, g, b] = [0, 2, 4].map(offset => Number.parseInt(hex.slice(offset, offset + 2), 16));
         const yiq = (r * 299 + g * 587 + b * 114) / 1000;
         badge.style.color = yiq > 150
           ? '#' + [r, g, b].map(channel => Math.floor(channel * 0.3).toString(16).padStart(2, '0')).join('')
@@ -238,6 +245,32 @@ export function createLocalCastMetadataView(container: HTMLElement,
       selected = state.trackMetadata; version = state.metadataVersion; render();
     },
   };
+}
+
+/** Fit only the artwork to the space left by the real controls and metadata.
+ * Observers react to tags/fonts/viewport changes, rather than doing work on every poll.
+ */
+export function createLocalCastLayoutView(column: HTMLElement, artwork: HTMLElement) {
+  let frame = 0;
+  function fit() {
+    frame = 0;
+    const gap = Number.parseFloat(getComputedStyle(column).rowGap) || 0;
+    const siblings = Array.from(column.children).filter(child => child !== artwork) as HTMLElement[];
+    const remaining = column.clientHeight - siblings.reduce((height, child) => height + child.getBoundingClientRect().height, 0) - gap * siblings.length;
+    const size = Math.floor(Math.max(80, Math.min(320, column.clientWidth, remaining)));
+    const value = size + 'px';
+    if (artwork.style.width !== value) {
+      artwork.style.width = value;
+      artwork.style.height = value;
+    }
+  }
+  function schedule() { if (!frame) frame = requestAnimationFrame(fit); }
+  const observer = new ResizeObserver(schedule);
+  observer.observe(column);
+  for (const child of Array.from(column.children)) if (child !== artwork) observer.observe(child);
+  window.addEventListener('resize', schedule);
+  schedule();
+  return { dispose() { observer.disconnect(); window.removeEventListener('resize', schedule); cancelAnimationFrame(frame); } };
 }
 
 // Uses the persisted app setting rather than browser storage, so another client

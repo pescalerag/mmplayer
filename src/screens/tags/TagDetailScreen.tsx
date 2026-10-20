@@ -74,7 +74,7 @@ const AlbumCardWithNav = memo(function AlbumCardWithNav({
 const TagTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function TagTrackRow({
     track,
     album,
@@ -161,7 +161,7 @@ function TagDetailContent({
     }, [navigation]);
 
     const handleAlbumPress = useCallback((album: Album) => {
-        navigation.navigate('AlbumDetail', { albumId: album.id });
+        navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
@@ -447,10 +447,10 @@ export default withObservables(['route'], ({ route }: { route: any }) => {
             tag: database.collections.get<Tag>('tags').findAndObserve(tagId).pipe(catchError(() => of(null))),
             albums: database.collections.get<Album>('albums').query(
                 Q.experimentalJoinTables(['album_tags']), Q.on('album_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
-            ).observe(),
+            ).observeWithColumns(['title', 'cover_url']),
             tracks: database.collections.get<Track>('tracks').query(
                 Q.experimentalJoinTables(['track_tags']), Q.on('track_tags', 'tag_id', tagId), Q.sortBy('title', Q.asc)
-            ).observeWithColumns(['rating', 'duration', 'file_url']),
+            ).observeWithColumns(['title', 'rating', 'duration', 'file_url']),
         })),
     };
 })(function LoadedTagDetail({ data, route }: { data?: TagDetailProps; route: any }) {

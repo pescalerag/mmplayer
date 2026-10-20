@@ -1,11 +1,23 @@
+jest.mock('../utils/scheduleScreenRefresh', () => ({ scheduleScreenRefresh: (run: () => void) => { run(); return () => {}; } }));
 import React from 'react';
 import { Subject } from 'rxjs';
-import { useIsFocused } from '@react-navigation/native';
 import { useArtistRanking } from '../hooks/useArtistRanking';
 import { ArtistRankingService } from '../services/ArtistRankingService';
 
 jest.mock('../services/ArtistRankingService', () => ({ ArtistRankingService: { observe: jest.fn() } }));
-jest.mock('@react-navigation/native', () => ({ useIsFocused: jest.fn(() => true) }));
+let mockFocused = true;
+const mockFocusListeners = { focus: new Set<() => void>(), blur: new Set<() => void>() };
+const mockNavigation = {
+    isFocused: () => mockFocused,
+    addListener: (event: 'focus' | 'blur', listener: () => void) => {
+        mockFocusListeners[event].add(listener); return () => { mockFocusListeners[event].delete(listener); };
+    },
+};
+const changeFocus = (focused: boolean) => {
+    mockFocused = focused;
+    mockFocusListeners[focused ? 'focus' : 'blur'].forEach(listener => listener());
+};
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => mockNavigation }));
 
 function changed(a?: React.DependencyList, b?: React.DependencyList) {
   return !a || !b || a.length !== b.length || a.some((value, index) => !Object.is(value, b[index]));
@@ -63,7 +75,7 @@ describe('artist ranking subscription lifecycle', () => {
   let source: Subject<Map<string, any>>;
   beforeEach(() => {
     jest.useFakeTimers(); jest.clearAllMocks();
-    (useIsFocused as jest.Mock).mockReturnValue(true);
+    changeFocus(true);
     source = new Subject<Map<string, any>>();
     (ArtistRankingService.observe as jest.Mock).mockImplementation(() => source);
     harness = createHarness();
@@ -73,16 +85,16 @@ describe('artist ranking subscription lifecycle', () => {
   it('subscribes only when enabled and focused, and releases the observer on blur', () => {
     harness.render(false);
     expect(ArtistRankingService.observe).not.toHaveBeenCalled();
-    (useIsFocused as jest.Mock).mockReturnValue(false);
+    changeFocus(false);
     harness.render(true);
     expect(ArtistRankingService.observe).not.toHaveBeenCalled();
-    (useIsFocused as jest.Mock).mockReturnValue(true);
+    changeFocus(true);
     harness.render(true);
     expect(source.observed).toBe(true);
-    (useIsFocused as jest.Mock).mockReturnValue(false);
+    changeFocus(false);
     harness.render(true);
     expect(source.observed).toBe(false);
-    (useIsFocused as jest.Mock).mockReturnValue(true);
+    changeFocus(true);
     harness.render(true);
     expect(ArtistRankingService.observe).toHaveBeenCalledTimes(2);
     harness.render(false);

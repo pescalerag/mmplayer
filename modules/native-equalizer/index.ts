@@ -4,6 +4,16 @@ import { ViewProps } from 'react-native';
 
 const NativeEqualizerModule = requireNativeModule('NativeEqualizer');
 
+export interface RuntimeTestResult {
+    name: string;
+    status: 'pass' | 'fail' | 'skip';
+    detail: string;
+    durationMs: number;
+}
+export const runNativeRuntimeDiagnostics = (): Promise<RuntimeTestResult[]> => NativeEqualizerModule.runRuntimeDiagnostics();
+export const readNativeRuntimeErrors = (): Promise<string> => NativeEqualizerModule.readRuntimeErrors();
+export const clearNativeRuntimeErrors = (): Promise<void> => NativeEqualizerModule.clearRuntimeErrors();
+
 export interface NativeVisualizerProps extends ViewProps {
     color?: string;
     type?: 'bars' | 'wave' | 'spectrum' | 'circle';

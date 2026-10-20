@@ -1,3 +1,4 @@
+import { openDestination } from '../../navigation/destinations';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { database } from '../../database';
@@ -5,7 +6,7 @@ import { useSheetProps } from '@/hooks/useSheetProps';
 import { useToastStore } from '../../store/useToastStore';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { Q } from '@nozbe/watermelondb';
-import { navigationRef, getActiveTabName } from '../../navigation/navigationRef';
+import { navigationRef } from '../../navigation/navigationRef';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import { openPlaylistSelector } from '@/store/useUIStore';
 import { BaseMenuSheet, MenuOption } from '@/components/sheets/BaseMenuSheet';
@@ -14,7 +15,7 @@ import PlaylistTrack from '../../database/models/PlaylistTrack';
 
 export default function PlaylistMenuSheet() {
   const { t } = useTranslation();
-  const { props: { playlist: selectedPlaylist, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ playlist: any; callbacks?: any }>('playlist-menu');
+  const { props: { playlist: selectedPlaylist, callbacks: navCallbacks }, close: closeMenu, closeThen } = useSheetProps<{ playlist: any; callbacks?: any }>('playlist-menu');
 
   const getPlaylistTracks = async (): Promise<Track[]> => {
     if (!selectedPlaylist) return [];
@@ -38,42 +39,10 @@ export default function PlaylistMenuSheet() {
 
   const handleViewPlaylist = () => {
     if (!selectedPlaylist) return;
-    closeMenu();
     const playlistId = selectedPlaylist.id;
-    if (navCallbacks.detail) {
-      navCallbacks.detail(playlistId);
-      return;
-    }
-
-    if (!navigationRef.isReady()) return;
-
-    const rootState = navigationRef.getRootState();
-    const activeRoute = rootState.routes[rootState.index];
-    const isPlayerActive = activeRoute?.name === 'Player';
-
-    let tabName = getActiveTabName();
-    if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-      tabName = 'Biblioteca';
-    }
-
-    const currentTab = getActiveTabName();
-    const isTargetTabActive = isPlayerActive || tabName === currentTab;
-
-    if (playlistId === 'favorites' && isTargetTabActive) {
-      navigationRef.navigate('FavoritesDetail');
-    } else if (playlistId === 'favorites') {
-      navigationRef.navigate('Main', {
-        screen: tabName,
-        params: { screen: 'FavoritesDetail' }
-      });
-    } else if (isTargetTabActive) {
-      navigationRef.navigate('PlaylistDetail', { playlistId });
-    } else {
-      navigationRef.navigate('Main', {
-        screen: tabName,
-        params: { screen: 'PlaylistDetail', params: { playlistId } }
-      });
-    }
+    closeThen(() => openDestination(playlistId === 'favorites'
+      ? { name: 'FavoritesDetail' }
+      : { name: 'PlaylistDetail', params: { playlistId } }));
   };
 
   const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute() : null;

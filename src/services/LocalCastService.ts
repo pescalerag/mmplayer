@@ -659,6 +659,17 @@ const localCastRoutes: Record<string, (req: any, res: any, urlObj: URL) => void 
     "GET /chromecast": handleCast,
     "GET /api/state": handleApiState,
     "POST /api/settings": handleApiSettings,
+    "POST /api/client-error": (_req, res, urlObj) => {
+        if (urlObj.searchParams.get('sessionId') !== String(serverSessionId)) {
+            res.json({ success: false }, 409);
+            return;
+        }
+        // Client messages are untrusted and bounded; the app logger already limits
+        // history and coalesces repeated entries.
+        const message = (urlObj.searchParams.get('message') ?? '').slice(0, 2000);
+        if (message) console.error('[LocalCast browser]', message);
+        res.json({ success: true }, 200);
+    },
     "POST /api/metadata": async (_req, res, urlObj) => {
         const { useCastStore } = require('../store/useCastStore');
         const currentId = LocalCastPlaybackService.getState()?.activeTrackId?.split('-')[0];

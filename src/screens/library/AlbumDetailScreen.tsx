@@ -1,3 +1,4 @@
+import { openArtist } from '../../navigation/destinations';
 import { summarizeTrackRatings } from '../../utils/trackRatings';
 import { combineLatest, Observable, of } from 'rxjs';
 import { observeScreenData } from '../../utils/observeScreenData';
@@ -52,7 +53,7 @@ const AlbumTrackRow = withObservables(
   ["track"],
   ({ track }: { track: Track }) => ({
     track: track.observe(),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
   }),
 )(function AlbumTrackRow({
   track,
@@ -147,18 +148,7 @@ function AlbumDetailContent({
 
   const navigateToArtist = () => {
     if (!artist) return;
-    const state = navigation.getState();
-    const previousRoute = state.routes[state.routes.length - 2];
-    const params = previousRoute?.params as { artistId?: string } | undefined;
-
-    if (
-      previousRoute?.name === "ArtistDetail" &&
-      params?.artistId === artist.id
-    ) {
-      navigation.goBack();
-    } else {
-      navigation.navigate("ArtistDetail", { artistId: artist.id });
-    }
+    openArtist(artist.id);
   };
 
   const handleTrackPress = React.useCallback(
@@ -416,7 +406,7 @@ const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { albu
     Q.where("album_id", album.id),
     Q.sortBy("disc_number", Q.asc),
     Q.sortBy("track_number", Q.asc),
-  ).observeWithColumns(['rating', 'duration', 'file_url', 'disc_number', 'track_number']),
+  ).observeWithColumns(['title', 'rating', 'duration', 'file_url', 'disc_number', 'track_number']),
   tags: album.queryTags.observe() as Observable<Tag[]>,
   })),
 }))(function LoadedAlbumDetail({ data, album }: { data?: Props; album: Album }) {

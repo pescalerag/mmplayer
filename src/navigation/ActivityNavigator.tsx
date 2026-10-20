@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { useNativeStackOptions } from './useNativeStackOptions';
 
 import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
 import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
@@ -11,13 +12,9 @@ import { ActivityStackParamList } from './types';
 const Stack = createNativeStackNavigator<ActivityStackParamList>();
 
 export default function ActivityNavigator() {
+    const screenOptions = useNativeStackOptions();
     return (
-        <Stack.Navigator screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            contentStyle: { backgroundColor: 'transparent' },
-            freezeOnBlur: false
-        }}>
+        <Stack.Navigator screenOptions={screenOptions}>
             <Stack.Screen name="Activity" component={ActivityMainScreen} />
             <Stack.Screen
                 name="ArtistDetail"

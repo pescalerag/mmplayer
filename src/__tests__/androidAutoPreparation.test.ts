@@ -16,7 +16,7 @@ beforeEach(() => {
 it('clears the previous play intent before preparing a new queue without autoplay', async () => {
     await usePlayerStore.getState().loadQueue([track], 0, 'album:test', undefined, false);
     expect(TrackPlayer.pause).toHaveBeenCalledWith(true);
-    expect((TrackPlayer.pause as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((TrackPlayer.reset as jest.Mock).mock.invocationCallOrder[0]);
+    expect((TrackPlayer.pause as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((TrackPlayer.setQueue as jest.Mock).mock.invocationCallOrder[0]);
     expect(TrackPlayer.play).not.toHaveBeenCalled();
     expect(usePlayerStore.getState()).toMatchObject({ isPreparingExternal: true, activeTrack: track });
 });

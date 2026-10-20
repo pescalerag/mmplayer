@@ -2059,15 +2059,15 @@ const usePlayerNavigation = ({
 }: UsePlayerNavigationParams) => {
     const handleMorePress = useCallback(() => {
         openTrackMenu(track, {
-            album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }),
-            artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }),
+            album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }, { pop: true }),
+            artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }, { pop: true }),
         });
     }, [track, navigation]);
 
     const handleAlbumPress = useCallback(() => {
         if ((track as any)?.isExternal) return;
         if (album?.id) {
-            navigation.navigate('AlbumDetail', { albumId: album.id });
+            navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
         }
     }, [track, album, navigation]);
 
@@ -2078,7 +2078,7 @@ const usePlayerNavigation = ({
         } else {
             const targetArtistId = artists && artists.length > 0 ? artists[0].id : artist?.id;
             if (!targetArtistId) return;
-            navigation.navigate('ArtistDetail', { artistId: targetArtistId });
+            navigation.navigate('ArtistDetail', { artistId: targetArtistId }, { pop: true });
         }
     }, [track, artists, artist, navigation]);
 

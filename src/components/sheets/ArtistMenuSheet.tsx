@@ -1,9 +1,10 @@
+import { navigationRef } from '../../navigation/navigationRef';
+import { openArtist } from '../../navigation/destinations';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../../database';
 import Track from '../../database/models/Track';
-import { getActiveTabName, navigationRef } from '../../navigation/navigationRef';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -12,7 +13,7 @@ import { BaseMenuSheet, MenuOption } from '@/components/sheets/BaseMenuSheet';
 
 export default function ArtistMenuSheet() {
   const { t } = useTranslation();
-  const { props: { artist: selectedArtist, callbacks: navCallbacks }, close: closeMenu } = useSheetProps<{ artist: any; callbacks: any }>('artist-menu');
+  const { props: { artist: selectedArtist, callbacks: navCallbacks }, close: closeMenu, closeThen } = useSheetProps<{ artist: any; callbacks: any }>('artist-menu');
   const addMultipleToQueueNext = usePlayerStore(state => state.addMultipleToQueueNext);
   const addMultipleToQueueEnd = usePlayerStore(state => state.addMultipleToQueueEnd);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -113,30 +114,8 @@ export default function ArtistMenuSheet() {
           icon="person-outline"
           text={t('actions.go_to_artist')}
           onPress={() => {
-            closeMenu();
-            const artistId = selectedArtist.id;
-            if (navCallbacks.detail) {
-              navCallbacks.detail(artistId);
-            } else if (navigationRef.isReady()) {
-              const rootState = navigationRef.getRootState();
-              const activeRoute = rootState.routes[rootState.index];
-              const isPlayerActive = activeRoute?.name === 'Player';
-
-              let tabName = getActiveTabName();
-              if (tabName !== 'Inicio' && tabName !== 'Biblioteca' && tabName !== 'Buscar') {
-                tabName = 'Biblioteca';
-              }
-
-              const currentTab = getActiveTabName();
-              if (isPlayerActive || tabName === currentTab) {
-                navigationRef.navigate('ArtistDetail', { artistId });
-              } else {
-                navigationRef.navigate('Main', {
-                  screen: tabName,
-                  params: { screen: 'ArtistDetail', params: { artistId } }
-                });
-              }
-            }
+            const destinationArtistId = selectedArtist.id;
+            closeThen(() => openArtist(destinationArtistId));
           }}
         />
       )}

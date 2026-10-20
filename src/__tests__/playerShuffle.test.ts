@@ -131,8 +131,8 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
       await usePlayerStore.getState().loadQueue(tracks, 0, 'album-detail-ctx');
 
       // Verificaciones en TrackPlayer
-      expect(TrackPlayer.reset).toHaveBeenCalled();
-      expect(TrackPlayer.add).toHaveBeenCalled();
+      expect(TrackPlayer.setQueue).toHaveBeenCalled();
+      expect(TrackPlayer.reset).not.toHaveBeenCalled();
       expect(TrackPlayer.play).toHaveBeenCalled();
 
       // Verificaciones en usePlayerStore
@@ -141,7 +141,7 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
       expect(state.playbackContext).toBe('album-detail-ctx');
       expect(state.isShuffleEnabled).toBe(false);
       expect(state.shuffleOriginalQueue).toEqual([]);
-      expect(state.isQueueLoading).toBe(false);
+      expect(state.isQueueLoading).toBe(true);
     });
 
     it('debe iniciar la reproducción de un único track (playSingleTrack)', async () => {
@@ -149,8 +149,8 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
 
       await usePlayerStore.getState().playSingleTrack(singleTrack, 'direct-play');
 
-      expect(TrackPlayer.reset).toHaveBeenCalled();
-      expect(TrackPlayer.add).toHaveBeenCalled();
+      expect(TrackPlayer.setQueue).toHaveBeenCalled();
+      expect(TrackPlayer.reset).not.toHaveBeenCalled();
       expect(TrackPlayer.play).toHaveBeenCalled();
 
       const state = usePlayerStore.getState();
@@ -452,7 +452,7 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
       await usePlayerStore.getState().loadQueue(libraryTracks, 0, libraryContextId);
 
       // Verificamos que se ejecutó la carga con la lista completa sin filtrar
-      expect(TrackPlayer.reset).toHaveBeenCalled();
+      expect(TrackPlayer.setQueue).toHaveBeenCalled();
       expect(TrackPlayer.play).toHaveBeenCalled();
 
       const state = usePlayerStore.getState();
@@ -462,7 +462,11 @@ describe('Player & Shuffle Comprehensive Test Suite', () => {
       expect(state.isShuffleEnabled).toBe(false);
 
       // Verificamos que TrackPlayer recibió las pistas incluyendo las excluidas de aleatorio
-      const addedToPlayer = (TrackPlayer.add as jest.Mock).mock.calls[0][0];
+      for (let i = 0; i < 40 && !(TrackPlayer.add as jest.Mock).mock.calls.length; i++) await Promise.resolve();
+      const addedToPlayer = [
+        ...(TrackPlayer.setQueue as jest.Mock).mock.calls[0][0],
+        ...(TrackPlayer.add as jest.Mock).mock.calls.flatMap(([tracks]) => tracks),
+      ];
       const addedTrackIds = addedToPlayer.map((tp: any) => tp.id);
 
       // Todas las pistas deben estar en la cola del reproductor

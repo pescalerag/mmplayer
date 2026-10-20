@@ -1,3 +1,5 @@
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
+import type { Subscription } from 'rxjs';
 import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { observeScreenData } from '../../utils/observeScreenData';
 import { libraryAlbums, libraryTracks } from '../../services/LibraryDataSources';
@@ -22,7 +24,7 @@ import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { RouteProp, useIsFocused, useNavigation, useRoute, useScrollToTop } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useIsFocused, useNavigation, useRoute, useScrollToTop } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
@@ -42,7 +44,7 @@ import Playlist from '../../database/models/Playlist';
 import Track from '../../database/models/Track';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { LibraryNavigationProp, LibraryStackParamList } from '../../navigation/types';
-import { ScannerService } from '../../services/ScannerService';
+import { LibraryRefreshService } from '../../services/LibraryRefreshService';
 import { SmartList, SmartListService } from '../../services/SmartListService';
 
 
@@ -111,7 +113,7 @@ const TrackCard = ({ track, album, artists }: { track: Track, album: Album | nul
 const EnhancedTrackCard = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe(),
+    artists: track.queryCollaborators.observeWithColumns(['name']),
 }))(TrackCard);
 
 const TrackList = ({ tracks, bottomOffset, topOffset, scrollRef, sortOption }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
@@ -231,7 +233,7 @@ const AlbumCard = ({ album, artist, onPress, rating }: Readonly<{ album: Album; 
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
-        else navigation.navigate('AlbumDetail', { albumId: album.id });
+        else navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
     }, [navigation, album.id, onPress]);
 
     return (
@@ -328,7 +330,7 @@ const ArtistCard = ({ artist, onPress, rating }: Readonly<{ artist: Artist; onPr
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
-        else navigation.navigate('ArtistDetail', { artistId: artist.id });
+        else navigation.navigate('ArtistDetail', { artistId: artist.id }, { pop: true });
     }, [navigation, artist.id, onPress]);
 
     return (
@@ -539,7 +541,7 @@ const EnhancedPlaylistCard = withObservables(['playlist'], ({ playlist }: { play
 
     const handlePress = React.useCallback(() => {
         if (onPress) onPress();
-        else navigation.navigate('PlaylistDetail', { playlistId: playlist.id });
+        else navigation.navigate('PlaylistDetail', { playlistId: playlist.id }, { pop: true });
     }, [navigation, playlist.id, onPress]);
 
     return (
@@ -630,28 +632,36 @@ const SmartListCardBase = memo(function SmartListCardBase({
 // Resolve each complete group before exposing its heading and cards to the grid.
 // History is observed once, and switchMap discards an outdated asynchronous load.
 function useSmartPlaylistTracks(lists: SmartList[], enabled: boolean) {
+    const focused = useIsFocused();
+    const section = React.useContext(LibraryFilterSectionContext);
+    const visible = focused && (section === null || section === 'playlists');
     const [tracksByList, setTracksByList] = useState<Record<string, Track[]>>({});
     useEffect(() => {
-        if (!enabled) return;
-        const listening = lists.filter(list => list.group === 'listening');
-        const ratings = lists.filter(list => list.group === 'rating');
-        const publish = (group: SmartList[], tracks: Track[][]) => {
-            const resolved = Object.fromEntries(group.map((list, index) => [list.id, tracks[index]]));
-            setTracksByList(previous => ({ ...previous, ...resolved }));
-        };
-        const ratingsSubscription = combineLatest(ratings.map(list =>
-            getRatingQuery(list.id).observe().pipe(catchError(() => of([] as Track[])))
-        )).subscribe(tracks => publish(ratings, tracks));
-        const historySubscription = database.collections.get<PlaybackHistory>('playback_history')
-            .query().observe().pipe(
-                catchError(() => of([])),
-                switchMap(() => Promise.all(listening.map(list => list.getTracks().catch(() => [] as Track[]))))
-            ).subscribe(tracks => publish(listening, tracks));
+        if (!enabled || !visible) return;
+        let ratingsSubscription: Subscription | undefined;
+        let historySubscription: Subscription | undefined;
+        const cancel = scheduleScreenRefresh(() => {
+            const listening = lists.filter(list => list.group === 'listening');
+            const ratings = lists.filter(list => list.group === 'rating');
+            const publish = (group: SmartList[], tracks: Track[][]) => {
+                const resolved = Object.fromEntries(group.map((list, index) => [list.id, tracks[index]]));
+                setTracksByList(previous => ({ ...previous, ...resolved }));
+            };
+            ratingsSubscription = combineLatest(ratings.map(list =>
+                getRatingQuery(list.id).observe().pipe(catchError(() => of([] as Track[])))
+            )).subscribe(tracks => publish(ratings, tracks));
+            historySubscription = database.collections.get<PlaybackHistory>('playback_history')
+                .query().observeWithColumns(['duration_played', 'played_at', 'item_id', 'item_type']).pipe(
+                    catchError(() => of([])),
+                    switchMap(() => Promise.all(listening.map(list => list.getTracks().catch(() => [] as Track[]))))
+                ).subscribe(tracks => publish(listening, tracks));
+        });
         return () => {
-            ratingsSubscription.unsubscribe();
-            historySubscription.unsubscribe();
+            cancel();
+            ratingsSubscription?.unsubscribe();
+            historySubscription?.unsubscribe();
         };
-    }, [lists, enabled]);
+    }, [lists, enabled, visible]);
     return tracksByList;
 }
 
@@ -780,7 +790,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
             smartList={list}
             tracks={tracks}
             colIndex={colIndex}
-            onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id })}
+            onPress={() => navigation.navigate('SmartListDetail', { smartListId: list.id }, { pop: true })}
         />
     );
 
@@ -1024,7 +1034,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
     }, [tracks, filtering.filters, filtering.index]);
 
     const handleOpenFolder = React.useCallback((folder: Folder) => {
-        navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name });
+        navigation.navigate('FolderDetail', { folderPath: folder.path, folderName: folder.name }, { pop: true });
     }, [navigation]);
 
     if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
@@ -1081,7 +1091,6 @@ export default function LibraryScreen() {
     const libraryTabsOrder = useSettingsStore(state => state.libraryTabsOrder);
     const hasSeenLibraryTutorial = useSettingsStore(state => state.hasSeenLibraryTutorial);
     const setHasSeenLibraryTutorial = useSettingsStore(state => state.setHasSeenLibraryTutorial);
-    const isFocused = useIsFocused();
 
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
     const rootRef = useRef<View>(null);
@@ -1093,11 +1102,9 @@ export default function LibraryScreen() {
     const artistSelectorRef = useRef<View>(null);
 
     // Abrir automáticamente el tutorial la primera vez que el usuario entre a la Biblioteca
-    useEffect(() => {
-        if (isFocused && !hasSeenLibraryTutorial) {
-            setIsTutorialVisible(true);
-        }
-    }, [isFocused, hasSeenLibraryTutorial]);
+    useFocusEffect(React.useCallback(() => {
+        if (!hasSeenLibraryTutorial) setIsTutorialVisible(true);
+    }, [hasSeenLibraryTutorial]));
 
     const handleCloseTutorial = () => {
         setIsTutorialVisible(false);
@@ -1263,7 +1270,7 @@ export default function LibraryScreen() {
                             />
                         </TouchableOpacity>
                         <TouchableOpacity
-                            onPress={() => ScannerService.syncLibrary()}
+                            onPress={() => { void LibraryRefreshService.refresh().catch(error => console.error('Manual library scan failed:', error)); }}
                             style={styles.filterButton}
                             activeOpacity={0.7}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

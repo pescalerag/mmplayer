@@ -299,8 +299,8 @@ describe('Player Store Features & Shuffle Helpers', () => {
 
       await usePlayerStore.getState().restorePlaybackState();
 
-      expect(TrackPlayer.reset).toHaveBeenCalled();
-      expect(TrackPlayer.add).toHaveBeenCalled();
+      expect(TrackPlayer.setQueue).toHaveBeenCalled();
+      expect(TrackPlayer.reset).not.toHaveBeenCalled();
       expect(TrackPlayer.skip).toHaveBeenCalledWith(0);
       expect(TrackPlayer.pause).toHaveBeenCalled();
     });
@@ -488,7 +488,7 @@ describe('Player Store Features & Shuffle Helpers', () => {
     it('startShuffled loads initial chunk and background chunks', async () => {
       const tracks = Array.from({ length: 55 }, (_, i) => createTestTrack(`shuffletr${i}`));
       await usePlayerStore.getState().startShuffled(tracks, 'library');
-      expect(TrackPlayer.reset).toHaveBeenCalled();
+      expect(TrackPlayer.setQueue).toHaveBeenCalled();
       expect(TrackPlayer.play).toHaveBeenCalled();
       expect(usePlayerStore.getState().isShuffleEnabled).toBe(true);
     });

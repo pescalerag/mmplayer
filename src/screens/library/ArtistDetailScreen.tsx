@@ -1,3 +1,4 @@
+import { openAlbum } from '../../navigation/destinations';
 import { summarizeTrackRatings } from '../../utils/trackRatings';
 import { combineLatest, of } from 'rxjs';
 import { observeScreenData } from '../../utils/observeScreenData';
@@ -68,7 +69,7 @@ const TRACKS_PREVIEW = 10;
 const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function ArtistTrackRow({ track, album, artists, index, contextId, onPress }: { track: Track; album: Album | null; artists: Artist[]; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
     const { t } = useTranslation();
     const artistNames = artists.length > 0
@@ -181,15 +182,7 @@ const ArtistHeader = memo(function ArtistHeader({
     };
 
     const handleAlbumPress = useCallback((album: Album) => {
-        const routes = navigation.getState()?.routes;
-        const previousRoute = routes && routes.length > 1 ? routes[routes.length - 2] : null;
-        const params = previousRoute?.params as { albumId?: string } | undefined;
-
-        if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
-            navigation.goBack();
-        } else {
-            navigation.navigate('AlbumDetail', { albumId: album.id });
-        }
+        openAlbum(album.id);
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
@@ -487,10 +480,10 @@ const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { a
     artist: artist.observe(),
     albums: database.collections.get<Album>('albums')
         .query(Q.where('artist_id', artist.id))
-        .observe(),
+        .observeWithColumns(['title', 'cover_url', 'year']),
     tracks: database.collections.get<Track>('tracks')
         .query(Q.experimentalJoinTables(['track_collaborators']), Q.or(Q.where('artist_id', artist.id), Q.on('track_collaborators', 'artist_id', artist.id)))
-        .observeWithColumns(['rating', 'duration', 'file_url', 'artist_id']),
+        .observeWithColumns(['title', 'rating', 'duration', 'file_url', 'artist_id']),
     })),
 }))(function LoadedArtistDetail({ data, artist }: { data?: Omit<Props, 'isLoadingContent'>; artist: Artist }) {
     return <InvisibleScreenContent ready={!!data}>

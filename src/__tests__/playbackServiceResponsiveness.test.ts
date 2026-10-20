@@ -13,7 +13,8 @@ import { useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 
 jest.mock('react-native-track-player', () => ({
   __esModule: true,
-  Event: { PlaybackActiveTrackChanged: 'track-changed', PlaybackState: 'state', PlaybackQueueEnded: 'queue-ended', PlaybackProgressUpdated: 'progress' },
+  Event: { PlaybackActiveTrackChanged: 'track-changed', PlaybackState: 'state', PlaybackQueueEnded: 'queue-ended', PlaybackProgressUpdated: 'progress',
+    RemoteNext: 'remote-next', RemotePrevious: 'remote-previous', RemoteJumpForward: 'remote-forward', RemoteJumpBackward: 'remote-backward' },
   State: { Playing: 'playing', Paused: 'paused' },
   default: {
     addEventListener: jest.fn(() => ({ remove: jest.fn() })),
@@ -24,7 +25,7 @@ jest.mock('react-native-track-player', () => ({
     setVolume: jest.fn(),
     getProgress: jest.fn().mockResolvedValue({ position: 100, duration: 180 }),
     getQueue: jest.fn().mockResolvedValue([]),
-    skip: jest.fn(), seekTo: jest.fn(), pause: jest.fn(),
+    skip: jest.fn(), seekTo: jest.fn(), pause: jest.fn(), skipToPrevious: jest.fn(),
   },
 }));
 jest.mock('../services/NotificationFavoritesService', () => ({ startNotificationFavoritesSync: jest.fn() }));
@@ -35,6 +36,7 @@ jest.mock('../store/usePlayerStore', () => {
     setActiveTrackById: jest.fn().mockResolvedValue(undefined),
     updateQueueStatus: jest.fn().mockResolvedValue(undefined),
     playRandomQueueOnEnd: jest.fn().mockResolvedValue(undefined),
+    skipToNext: jest.fn().mockResolvedValue(undefined),
   };
   return { consumeUserQueueTransition: jest.fn(), usePlayerStore: { getState: () => state, setState: jest.fn() } };
 });
@@ -66,7 +68,8 @@ it.each([
   jest.clearAllTimers(); jest.useRealTimers();
 });
 
-it('preserves the lyrics synchronization guard without persisting or advancing the wrong song', async () => {
+it('allows playback to change during lyrics sync without reverting or seeking the edited song', async () => {
+  jest.useFakeTimers();
   jest.clearAllMocks();
   const log = jest.spyOn(console, 'log').mockImplementation(() => {});
   const state = usePlayerStore.getState();
@@ -76,10 +79,31 @@ it('preserves the lyrics synchronization guard without persisting or advancing t
   await PlaybackService();
   const listener = (TrackPlayer.addEventListener as jest.Mock).mock.calls.find(([type]) => type === Event.PlaybackActiveTrackChanged)![1];
   await listener({ track: { id: 'wrong' }, index: 1 });
-  expect(TrackPlayer.skip).toHaveBeenCalledWith(0);
-  expect(TrackPlayer.seekTo).toHaveBeenCalledWith(0);
-  expect(TrackPlayer.pause).toHaveBeenCalled();
+  expect(TrackPlayer.skip).not.toHaveBeenCalled();
+  expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+  expect(TrackPlayer.pause).not.toHaveBeenCalled();
+  expect(state.setActiveTrackById).toHaveBeenCalledWith('wrong', undefined);
+  PlaybackTimeTracker.onStateNotPlaying();
+  jest.clearAllTimers(); jest.useRealTimers();
   state.isSyncingLyrics = false; log.mockRestore();
+});
+
+it.each([Event.RemoteNext, Event.RemotePrevious, Event.RemoteJumpForward, Event.RemoteJumpBackward])('allows explicit transport commands during lyrics sync: %s', async event => {
+  jest.clearAllMocks();
+  useMultipleQueuesStore.setState({ isSwitching: false });
+  const state = usePlayerStore.getState();
+  state.isSyncingLyrics = true;
+  (TrackPlayer.getProgress as jest.Mock).mockResolvedValueOnce({ position: 0, duration: 180 });
+  try {
+    await PlaybackService();
+    const handler = (TrackPlayer.addEventListener as jest.Mock).mock.calls.find(([type]) => type === event)![1];
+    await handler();
+    if (event === Event.RemoteNext || event === Event.RemoteJumpForward) expect(state.skipToNext).toHaveBeenCalledTimes(1);
+    else expect(TrackPlayer.skipToPrevious).toHaveBeenCalledTimes(1);
+  } finally {
+    state.isSyncingLyrics = false;
+    (TrackPlayer.getProgress as jest.Mock).mockReset().mockResolvedValue({ position: 100, duration: 180 });
+  }
 });
 
 it('adds reported browser listening to the existing listen and saves it once on track change', async () => {
@@ -241,14 +265,14 @@ describe('playback event boundary cases', () => {
     expect(saved).not.toHaveBeenCalled();
   });
 
-  it('does not seek an unrelated track when the lyrics synchronization target has left the queue', async () => {
+  it('updates playback normally when the lyrics synchronization target has left the queue', async () => {
     usePlayerStore.getState().isSyncingLyrics = true;
     (usePlayerStore.getState() as any).activeTrack = { id: 'missing' };
     await PlaybackService();
     await listener(Event.PlaybackActiveTrackChanged)({ track: { id: 'boundary' }, index: 0 });
     expect(TrackPlayer.skip).not.toHaveBeenCalled();
     expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
-    expect(usePlayerStore.getState().setActiveTrackById).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().setActiveTrackById).toHaveBeenCalledWith('boundary', undefined);
   });
 
   it('finishes an empty queue without creating a listen record', async () => {

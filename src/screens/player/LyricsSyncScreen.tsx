@@ -8,7 +8,7 @@ import {
     Alert
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,12 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { LyricsService } from '../../services/LyricsService';
 import { formatTrackTime } from '../../utils/time';
+
+import { useLyricsDocument } from '../../hooks/useLyricsDocument';
+import { useUnsavedDocument } from '../../hooks/useUnsavedDocument';
+import { PlayerStackParamList } from '../../navigation/types';
+import Track from '../../database/models/Track';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 
 interface SyncLine {
     text: string;
@@ -113,12 +119,22 @@ const SyncInstructions = React.memo(({ colors, fonts, t }: { colors: any; fonts:
 SyncInstructions.displayName = 'SyncInstructions';
 
 export default function LyricsSyncScreen() {
+    const { trackId } = useRoute<RouteProp<PlayerStackParamList, 'LyricsSync'>>().params;
+    const { document, missing } = useLyricsDocument(trackId);
+    const navigation = useNavigation();
+    const { t } = useTranslation();
+    if (!document) return <InvisibleScreenContent ready={missing}>{missing && <TouchableOpacity style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }} onPress={() => navigation.goBack()}><Text style={{ color: '#FFFFFF', textAlign: 'center' }}>{t('timestamps.load_error')}</Text></TouchableOpacity>}</InvisibleScreenContent>;
+    return <LyricsSyncDocument key={trackId} track={document.track} initialLyrics={document.text} />;
+}
+
+function LyricsSyncDocument({ track, initialLyrics }: { track: Track; initialLyrics: string }) {
     const { colors, fonts, fontWeights } = useAppTheme({ ignoreTheme: true });
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { t } = useTranslation();
 
-    const activeTrack = usePlayerStore(state => state.activeTrack);
+    const activeId = usePlayerStore(state => state.activeTrack?.id);
+    const canControl = activeId === track.id;
     const playbackState = usePlaybackState();
     const { position, duration } = useProgress(50);
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
@@ -135,24 +151,24 @@ export default function LyricsSyncScreen() {
     // Use a small threshold (0.15s) instead of 0.4s to avoid prematurely
     // cutting audio on songs that have vocals until the very last second.
     useEffect(() => {
-        if (duration > 0 && position >= duration - 0.15 && isPlaying) {
+        if (canControl && duration > 0 && position >= duration - 0.15 && isPlaying) {
             TrackPlayer.pause();
         }
-    }, [position, duration, isPlaying]);
+    }, [position, duration, isPlaying, canControl]);
 
-    // Toggle syncing lyrics flag for player isolation
+    // Suspend automatic skips only while controlling the document's song.
     useEffect(() => {
-        usePlayerStore.getState().setIsSyncingLyrics(true);
+        usePlayerStore.getState().setIsSyncingLyrics(canControl);
         return () => {
             usePlayerStore.getState().setIsSyncingLyrics(false);
         };
-    }, []);
+    }, [canControl]);
 
     // References
     const flatListRef = useRef<FlatList>(null);
 
     // Initial Lyrics parsing
-    const originalLrcText = activeTrack?.lyricsLRC || '';
+    const originalLrcText = initialLyrics;
 
     // Split headers from actual lyric lines
     const { headers, initialSyncLines } = useMemo(() => {
@@ -190,8 +206,11 @@ export default function LyricsSyncScreen() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    useUnsavedDocument(hasUnsavedChanges);
+
     // Synchronize play/pause
     const togglePlayback = async () => {
+        if (usePlayerStore.getState().activeTrack?.id !== track.id) return;
         if (isPlaying) {
             await TrackPlayer.pause();
         } else {
@@ -204,7 +223,7 @@ export default function LyricsSyncScreen() {
     // read synchronously (no async round-trip), giving consistent latency
     // across all taps. We then subtract the reaction-time offset.
     const handleNextPhrase = () => {
-        if (currentIndex >= syncLines.length) return;
+        if (usePlayerStore.getState().activeTrack?.id !== track.id || currentIndex >= syncLines.length) return;
 
         // Synchronous read — no bridge latency, no variability
         const compensated = Math.max(0, positionRef.current - REACTION_OFFSET_MS);
@@ -274,7 +293,7 @@ export default function LyricsSyncScreen() {
     };
 
     const handleSave = async () => {
-        if (!activeTrack) return;
+        if (track._raw._status === 'deleted') return;
         try {
             const finalLines: string[] = [...headers];
             syncLines.forEach(line => {
@@ -285,7 +304,7 @@ export default function LyricsSyncScreen() {
                 }
             });
 
-            await LyricsService.saveLyrics(activeTrack, finalLines.join('\n'));
+            await LyricsService.saveLyrics(track, finalLines.join('\n'));
             setHasUnsavedChanges(false);
             Alert.alert(t('actions.success') || 'Éxito', t('lyrics.sync_save_success') || 'Tiempos sincronizados correctamente.', [
                 { text: 'OK', onPress: () => navigation.goBack() }
@@ -296,20 +315,7 @@ export default function LyricsSyncScreen() {
         }
     };
 
-    const handleBack = () => {
-        if (hasUnsavedChanges) {
-            Alert.alert(
-                t('actions.warning') || 'Atención',
-                t('lyrics.unsaved_warning') || 'Tienes cambios sin guardar. ¿Deseas salir de todas formas?',
-                [
-                    { text: t('actions.cancel') || 'Cancelar', style: 'cancel' },
-                    { text: t('actions.discard') || 'Descartar', style: 'destructive', onPress: () => navigation.goBack() }
-                ]
-            );
-        } else {
-            navigation.goBack();
-        }
-    };
+    const handleBack = () => navigation.goBack();
 
     // Auto-scroll safety key extractor/index tracker
     const renderItem = useCallback(({ item, index }: { item: SyncLine; index: number }) => {
@@ -373,17 +379,19 @@ export default function LyricsSyncScreen() {
                 borderTopColor: colors.overlayAlpha10,
                 paddingBottom: insets.bottom + 16
             }]}>
+                {!canControl && <Text style={{ color: colors.text, textAlign: 'center' }}>{t('lyrics.sync_different_track')}</Text>}
                 {/* Slider bar */}
                 <View style={styles.progressRow}>
                     <Text style={[styles.progressTime, { color: colors.textSecondary }]}>
-                        {formatTrackTime(position)}
+                        {formatTrackTime(canControl ? position : 0)}
                     </Text>
                     <Slider
-                        value={position}
+                        disabled={!canControl}
+                        value={canControl ? position : 0}
                         minimumValue={0}
                         maximumValue={duration || 100}
                         onSlidingComplete={async (val) => {
-                            await TrackPlayer.seekTo(val);
+                            if (usePlayerStore.getState().activeTrack?.id === track.id) await TrackPlayer.seekTo(val);
                         }}
                         style={styles.progressBar}
                         minimumTrackTintColor={colors.accent}
@@ -391,7 +399,7 @@ export default function LyricsSyncScreen() {
                         thumbTintColor="#FFFFFF"
                     />
                     <Text style={[styles.progressTime, { color: colors.textSecondary }]}>
-                        {formatTrackTime(duration)}
+                        {formatTrackTime(canControl ? duration : track.duration)}
                     </Text>
                 </View>
 
@@ -405,10 +413,10 @@ export default function LyricsSyncScreen() {
                     {/* Giant Next Phrase Button */}
                     <TouchableOpacity
                         onPress={handleNextPhrase}
-                        disabled={currentIndex >= syncLines.length}
+                        disabled={!canControl || currentIndex >= syncLines.length}
                         style={[styles.giantTapBtn, {
                             backgroundColor: colors.accent,
-                            opacity: currentIndex >= syncLines.length ? 0.4 : 1
+                            opacity: !canControl || currentIndex >= syncLines.length ? 0.4 : 1
                         }]}
                     >
                         <Ionicons name="play-forward" size={24} color="#FFFFFF" />
@@ -432,7 +440,7 @@ export default function LyricsSyncScreen() {
 
                 {/* Play/Pause controls overlay */}
                 <View style={styles.playPauseRow}>
-                    <TouchableOpacity onPress={togglePlayback} style={[styles.playPauseBtn, { backgroundColor: colors.accent }]}>
+                    <TouchableOpacity disabled={!canControl} onPress={togglePlayback} style={[styles.playPauseBtn, { backgroundColor: colors.accent }]}>
                         <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#FFFFFF" />
                     </TouchableOpacity>
                 </View>

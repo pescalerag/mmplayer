@@ -23,7 +23,13 @@ const exclusions = new Observable<readonly string[]>(subscriber => {
   });
 }).pipe(distinctUntilChanged());
 
-export const ratingTracks = combineLatest([libraryTracks, exclusions]).pipe(
+const ratingInputs = libraryTracks.pipe(
+  map(tracks => ({ tracks, signature: JSON.stringify(tracks.map(track => [track.id, track.rating, track.album.id, track.artist?.id, track.fileUrl])) })),
+  distinctUntilChanged((previous, next) => previous.signature === next.signature),
+  map(value => value.tracks),
+);
+
+export const ratingTracks = combineLatest([ratingInputs, exclusions]).pipe(
   map(([tracks, paths]) => {
     const excluded = new Set(paths);
     return tracks.filter(track => !excluded.has(track.fileUrl));

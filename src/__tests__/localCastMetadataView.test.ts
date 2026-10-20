@@ -49,6 +49,21 @@ describe.each([['source', createLocalCastMetadataView], ['browser', browser]] as
     beforeEach(() => { Object.assign(globalThis, { document: documentMock }); });
     afterEach(() => { Reflect.deleteProperty(globalThis, 'document'); });
 
+    it.each([
+        ['#000000', '#000000', '#FFFFFF'],
+        ['#000', '#000000', '#FFFFFF'],
+        ['#fff', '#ffffff', '#4c4c4c'],
+        ['#12345600', '#123456', '#FFFFFF'],
+        ['invalid', '#334155', '#FFFFFF'],
+    ])('keeps tag text readable for %s', (color, background, foreground) => {
+        const root = new Node();
+        const view = create(root as unknown as HTMLElement, { tags: 'Tags', rating: 'Rating', noRating: 'Unrated', error: 'Failed' }, jest.fn());
+        view.sync({ ...snapshot, trackMetadata: { ...snapshot.trackMetadata, availableTags: [{ id: 'tag1', name: 'Tag', color }] } });
+        const tag = root.children[1].children[0];
+        expect(tag.style.backgroundColor).toBe(background);
+        expect(tag.style.color).toBe(foreground);
+    });
+
     it('renders safe labels, half ratings and selected tags without rewriting unchanged controls', () => {
         const root = new Node();
         const view = create(root as unknown as HTMLElement, { tags: 'Tags', rating: 'Rating', noRating: 'Unrated', error: 'Failed' }, jest.fn());

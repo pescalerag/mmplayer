@@ -1,4 +1,20 @@
 {
+  "runtimeDebug": {
+    "errors": "Application errors",
+    "tests": "On-device tests",
+    "errorsDescription": "View and share JavaScript and Android errors.",
+    "testsDescription": "Check the installed APK's native modules and R8 compatibility.",
+    "errorScope": "Local history of the last 200 JavaScript errors, unhandled rejections, last Java crash and recent Android process errors. System crashes or failures before logging starts may not appear. Shared reports may contain filenames and other diagnostic data.",
+    "testScope": "These tests run inside the installed APK: storage, database, player, colours and native reflection calls. They do not change your library or playback. Full Jest and Gradle suites require a PC; passing these checks does not rule out every R8 issue.",
+    "refresh": "Refresh",
+    "share": "Share report",
+    "clear": "Clear history",
+    "empty": "No recorded errors.",
+    "nativeErrors": "Android: last crash and recent errors",
+    "run": "Run tests",
+    "running": "Running…",
+    "results": "Passed: {{passed}} · Failed: {{failed}}"
+  },
   "timestamps": {
     "configure": "Configure skips",
     "title": "Playback skips",
@@ -306,6 +322,7 @@
         "tip": "💡 You can reset back to 1.0x at any time from the pop-up sheet."
       },
       "lyrics": {
+    "sync_different_track": "Play the song you are editing again to continue marking timestamps.",
         "title": "Synced Lyrics (Karaoke)",
         "desc": "Open full-screen synchronized lyrics with real-time tracking, dynamic karaoke mode, and line-by-line touch seeking to sing along to your favorites.",
         "tip": "💡 If a track lacks synced lyrics, you can search or edit them manually."
@@ -549,6 +566,8 @@
     "tag_colors_desc": "Show tags with their assigned colors on the player and album detail screens. If disabled, they will appear in low-opacity gray.",
     "show_lyrics": "Show lyrics in player",
     "show_lyrics_desc": "Displays the current lyric sentence (if available) above the tags in the player screen and in immersive mode.",
+    "library_refresh_policy": "Library updates",
+    "library_refresh_policy_desc": "The library is scanned on a fresh app launch or when you refresh manually from Home or Library. Returning from the background does not start another scan.",
     "silent_sync": "Silent sync on resume",
     "silent_sync_desc": "Hides the 'Syncing Library...' toast when you return to the app, but keeps scanning in the background.",
     "audio_section": "Audio & Playback",

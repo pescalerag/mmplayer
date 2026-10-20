@@ -1,12 +1,13 @@
+import { createTabListener } from './tabNavigation';
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { AppState, AppStateStatus, Animated, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlobalSyncIndicator from '@/components/common/GlobalSyncIndicator';
-import { ScannerService } from "../services/ScannerService";
+import { subscribeApplicationLifecycle } from "../services/AppLifecycleService";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 
@@ -183,35 +184,10 @@ const TabBarBackground = () => {
   return <LinearGradient colors={gradients.navigation} locations={[0, 0.2, 0.45, 0.75, 1]} style={StyleSheet.absoluteFill} />;
 };
 
-const createTabListener = (navigation: any, route: any) => ({
-  tabPress: (e: any) => {
-    const state = navigation.getState();
-    if (state) {
-      const currentRoute = state.routes[state.index];
-      const isFocused = currentRoute?.name === route.name;
-
-      if (isFocused) {
-        const nestedState = currentRoute.state;
-        const isAtRoot = !nestedState || nestedState.index === 0;
-
-        if (isAtRoot) {
-          e.preventDefault();
-          return;
-        }
-      }
-    }
-
-    e.preventDefault();
-    navigation.reset({
-      index: 0,
-      routes: [{ name: route.name, params: undefined }],
-    });
-  },
-});
-
 function MainTabs() {
   const insets = useSafeAreaInsets();
-  const { appTabsOrder, initialAppRoute } = useSettingsStore();
+  const appTabsOrder = useSettingsStore(state => state.appTabsOrder);
+  const initialAppRoute = useSettingsStore(state => state.initialAppRoute);
   const { colors } = useAppTheme();
   const activeTrack = usePlayerStore(state => state.activeTrack);
 
@@ -238,6 +214,7 @@ function MainTabs() {
       },
       tabBarBackground: TabBarBackground,
       headerShown: false,
+      popToTopOnBlur: true,
     }),
     [insets, colors],
   );
@@ -319,39 +296,23 @@ function MainTabs() {
 }
 
 export default function MainNavigator() {
-  const appState = React.useRef(AppState.currentState);
+  const { colors } = useAppTheme();
 
-  useEffect(() => {
-    ScannerService.syncLibrary();
-
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        const isSilent = useSettingsStore.getState().hideSyncToastOnResume;
-        ScannerService.syncLibrary(undefined, isSilent);
-        usePlayerStore.getState().syncWithTrackPlayer().catch(() => {});
-      } else if (nextAppState.match(/inactive|background/)) {
-        usePlayerStore.getState().savePlaybackState().catch(() => {});
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+  useEffect(subscribeApplicationLifecycle, []);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View collapsable={false} style={{ flex: 1, backgroundColor: colors.background }}>
       <GlobalSyncIndicator />
-      <RootStack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: false }}>
+      <RootStack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
         <RootStack.Screen name="Main" component={MainTabs} />
-        <RootStack.Screen name="TimestampsEditor" component={TimestampsEditorScreen} options={{ animation: 'slide_from_right' }} />
+        <RootStack.Screen name="TimestampsEditor" component={TimestampsEditorScreen} getId={({ params }) => params.trackId} options={{ animation: 'slide_from_right' }} />
         <RootStack.Screen
           name="Player"
           component={PlayerNavigator}
           options={{
             presentation: "transparentModal",
             animation: "slide_from_bottom",
+            contentStyle: { backgroundColor: 'transparent' },
           }}
         />
         <RootStack.Screen
