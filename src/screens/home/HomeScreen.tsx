@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
 import Playlist from '../../database/models/Playlist';
 import { SmartListSummaryService } from '../../services/SmartListSummaryService';
 import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
@@ -14,16 +15,8 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Dimensions,
-    FlatList,
-    Platform,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
 import { database } from '../../database';
@@ -53,13 +46,15 @@ import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { RetainedResource } from '@/utils/retainedResource';
 import { useObservedRefresh } from '../../hooks/useObservedRefresh';
 import { STAT_TABLES } from '../../services/ScreenDataChanges';
+import { useLibraryGridLayout, useScreenWidth } from '../../hooks/useScreenWidth';
 
 const { width } = Dimensions.get('window');
 
 const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    const screenWidth = useScreenWidth();
     useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, screenWidth), [colors, fonts, layout, spacing, radii, fontWeights, screenWidth]);
     const [imageError, setImageError] = React.useState(false);
 
     React.useEffect(() => {
@@ -76,6 +71,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
 
     return (
         <TouchableOpacity
+            testID="home-recent-media-card"
             style={[styles.gridCard, isActive && styles.gridCardActive]}
             onPress={handlePress}
             onLongPress={handleLongPress}
@@ -318,9 +314,12 @@ const homeResources = {
 };
 const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
 
-export default function HomeScreen() {
+export default function HomeScreen({ showTierBadge = true }: { showTierBadge?: boolean } = {}) {
+    const screenWidth = useScreenWidth();
+    const { cardWidth } = useLibraryGridLayout();
+    const mediaCardSize = Platform.OS === 'web' ? cardWidth : 120;
     const { colors, gradients, headerTitleStyle, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, screenWidth), [colors, fonts, layout, spacing, radii, fontWeights, screenWidth]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { t, i18n } = useTranslation();
@@ -531,7 +530,7 @@ export default function HomeScreen() {
                             {t('home.recently_played') || "Escuchado recientemente"}
                         </Text>
                         {recentMedia.length > 0 ? (
-                            <View style={styles.gridContainer}>
+                            <View testID="home-recent-media-grid" style={styles.gridContainer}>
                                 {recentMedia.map((item) => (
                                     <RecentMediaCard
                                         key={`${item.id}-${item.type}`}
@@ -553,12 +552,13 @@ export default function HomeScreen() {
 
             case 'smart_playlists':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.smart_playlists_title') || "Listas inteligentes"}
                         data={smartLists}
                         emptyText={t('home.empty_smart_playlists')}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="playlist"
                                 title={item.title}
@@ -573,12 +573,13 @@ export default function HomeScreen() {
 
             case 'recent_playlists':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.my_playlists') || "Mis listas de reproducción"}
                         data={recentPlaylists}
                         emptyText={t('home.empty_playlists')}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="playlist"
                                 title={item.id === 'favorites' ? t('home.your_favourites') : item.name}
@@ -594,12 +595,13 @@ export default function HomeScreen() {
 
             case 'recently_added':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.recently_added_albums') || "Álbumes añadidos recientemente"}
                         data={recentlyAdded}
                         emptyText={t('home.empty_added') || "No hay álbumes añadidos"}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="album"
                                 title={item.title}
@@ -615,12 +617,13 @@ export default function HomeScreen() {
 
             case 'most_played':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.most_played_songs') || "Tus más escuchadas"}
                         data={mostPlayed}
                         emptyText={t('home.empty_most_played') || "Escucha música para ver tus canciones más escuchadas"}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="track"
                                 title={item.title}
@@ -635,16 +638,17 @@ export default function HomeScreen() {
                 );
 
             case 'top_rated_albums':
-                return <TopRatedAlbumsSection />;
+                return <TopRatedAlbumsSection cardSize={mediaCardSize} itemGap={Platform.OS === 'web' ? 24 : 12} />;
 
             case 'explore':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.explore_albums') || "Explorar álbumes aleatorios"}
                         data={explore}
                         emptyText={t('home.empty_explore') || "No hay álbumes para explorar"}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="album"
                                 title={item.title}
@@ -682,6 +686,7 @@ export default function HomeScreen() {
         explore,
         handleCardPress,
         handleCardLongPress,
+        mediaCardSize,
     ]);
 
     const visibleSections = React.useMemo(() => {
@@ -724,6 +729,7 @@ export default function HomeScreen() {
                 }}
             >
                 <View style={styles.headerRow}>
+                    <HeaderHistoryControls />
                     {isProfileRight ? (
                         <>
                             <View style={styles.headerActionsCluster}>
@@ -750,11 +756,11 @@ export default function HomeScreen() {
                             </View>
 
                             <View style={styles.profileCluster}>
-                                <UserTierBadge
+                                {showTierBadge && <UserTierBadge
                                     userTier={userTier}
                                     onPress={() => navigation.navigate('Support')}
                                     styles={styles}
-                                />
+                                />}
 
                                 <TouchableOpacity
                                     style={styles.profileBadge}
@@ -830,11 +836,11 @@ export default function HomeScreen() {
                                     </Text>
                                 </TouchableOpacity>
 
-                                <UserTierBadge
+                                {showTierBadge && <UserTierBadge
                                     userTier={userTier}
                                     onPress={() => navigation.navigate('Support')}
                                     styles={styles}
-                                />
+                                />}
                             </View>
 
                             <View style={styles.headerActionsCluster}>
@@ -911,10 +917,10 @@ const DEFAULT_SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
 const DEFAULT_RADII = { sm: 4, md: 8, lg: 12, full: 9999 };
 const DEFAULT_FONT_WEIGHTS = { regular: '400', semiBold: '600', bold: '700' };
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_SPACING, radii: any = DEFAULT_RADII, fontWeights: any = DEFAULT_FONT_WEIGHTS) => {
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_SPACING, radii: any = DEFAULT_RADII, fontWeights: any = DEFAULT_FONT_WEIGHTS, screenWidth = width) => {
     const horizPadding = spacing.lg || 20;
     const gapSize = spacing.sm || 8;
-    const computedItemWidth = (width - (horizPadding * 2) - gapSize) / 2;
+    const computedItemWidth = (screenWidth - (horizPadding * 2) - gapSize) / 2;
 
     return StyleSheet.create({
         container: {

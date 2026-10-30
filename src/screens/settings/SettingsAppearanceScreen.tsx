@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { openLibraryTabsOrder, openAppTabsOrder, openHomeSections, openEditAlias } from '@/store/useUIStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -122,6 +122,7 @@ export default function SettingsAppearanceScreen() {
                             <Ionicons name="refresh" size={22} color={colors.accent} />
                         </View>
 
+                        {Platform.OS !== 'web' && <>
                         <View style={styles.separator} />
 
                         <View style={styles.settingRow}>
@@ -139,6 +140,8 @@ export default function SettingsAppearanceScreen() {
                                 ios_backgroundColor="#282828"
                             />
                         </View>
+
+                        </>}
 
                         <View style={styles.separator} />
 
@@ -164,7 +167,7 @@ export default function SettingsAppearanceScreen() {
                             <View style={{ flex: 1, paddingRight: 15 }}>
                                 <Text style={styles.settingLabel}>{t('settings.app_tabs_order') || 'Navegación principal'}</Text>
                                 <Text style={styles.settingDescription}>
-                                    {t('settings.app_tabs_desc') || 'Personaliza la barra inferior'}
+                                    {t(Platform.OS === 'web' ? 'settings.app_tabs_desc_desktop' : 'settings.app_tabs_desc')}
                                 </Text>
                             </View>
                             <Ionicons name="apps" size={20} color={colors.accent} />

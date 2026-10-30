@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from './HeaderHistoryControls';
 import React, { useState } from 'react';
 import {
   View,
@@ -85,11 +86,11 @@ export function ScreenHeaderLayout({
         style={[styles.headerContainer, { paddingTop: insets.top + 10 }, headerContainerStyle]}
       >
         <View style={styles.headerRow}>
-          {showBackButton ? (
+          <HeaderHistoryControls>{showBackButton ? (
             <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={28} color={colors.accent} />
             </TouchableOpacity>
-          ) : null}
+          ) : null}</HeaderHistoryControls>
           <Text
             style={[styles.headerTitle, headerTitleStyle, { color: colors.text }, !showBackButton && { marginLeft: 0 }, titleStyle]}
             numberOfLines={1}

@@ -1,3 +1,6 @@
+import { useToastStore } from '../../store/useToastStore';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
+import appIcon from '../../assets/images/splash-icon.png';
 import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
@@ -5,7 +8,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -19,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 
 // --- Helper functions for dynamic cover gradient generation ---
 const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
@@ -182,7 +184,7 @@ const SongShareCard = React.forwardRef<any, SongCardProps>(
           {/* Top Brand Header: Real App Icon (Same as stats share) */}
           <View style={cardStyles.brandHeader}>
             <Image
-              source={require('../../assets/images/splash-icon.png')}
+              source={appIcon}
               style={cardStyles.appIcon}
               contentFit="contain"
             />
@@ -244,6 +246,7 @@ const SongShareCard = React.forwardRef<any, SongCardProps>(
 SongShareCard.displayName = 'SongShareCard';
 
 export default function SongShareScreen() {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useScreenDimensions();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -301,8 +304,10 @@ export default function SongShareScreen() {
         });
       }
     } catch (err) {
-      console.error('[SongShareScreen] Error capturing or sharing image:', err);
       setIsCapturing(false);
+      if ((err as any)?.code === 'USER_CANCELLED') return;
+      console.error('[SongShareScreen] Error capturing or sharing image:', err);
+      useToastStore.getState().showToast(t('player.share_image_error'), 'close-circle', '#EF4444');
     }
   };
 

@@ -1,26 +1,29 @@
-import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
-import type { Subscription } from 'rxjs';
-import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
-import { observeScreenData } from '../../utils/observeScreenData';
-import { libraryAlbums, libraryTracks } from '../../services/LibraryDataSources';
-import { useArtistRanking } from '../../hooks/useArtistRanking';
-import { sortRatedArtists } from '../../utils/artistRanking';
-import { RatingSummary } from '../../utils/trackRatings';
-import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import { openAlbumMenu, openArtistMenu, openFolderMenu, openLibraryTabsOrder, openPlaylistMenu, openPlaylistSelectorCreate, openSortModal } from '@/store/useUIStore';
+import type { Subscription } from 'rxjs';
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
+import { useArtistRanking } from '../../hooks/useArtistRanking';
+import { useLibraryGridLayout, useScreenWidth } from '../../hooks/useScreenWidth';
+import { libraryAlbums, libraryTracks } from '../../services/LibraryDataSources';
+import { sortRatedArtists } from '../../utils/artistRanking';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
+import { RatingSummary } from '../../utils/trackRatings';
 
 import LibraryCard from '@/components/cards/LibraryCard';
+import { AlbumRatingCaption } from '@/components/library/AlbumRatingCaption';
+import { RankingLoadState } from '@/components/library/RankingLoadState';
 import ContextualSpotlightTutorial from '@/components/modals/ContextualSpotlightTutorial';
+import { TutorialHelpButton } from '@/components/common/TutorialHelpButton';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import TrackRow from '@/components/player/TrackRow';
 import { useAlbumRanking } from '@/hooks/useAlbumRanking';
-import { RankedAlbum, sortAlbumRatings } from '@/utils/albumRanking';
-import { AlbumRatingCaption } from '@/components/library/AlbumRatingCaption';
-import { RankingLoadState } from '@/components/library/RankingLoadState';
-import { LibraryFilterSectionContext, useLibraryFilters } from '@/hooks/useLibraryFilters';
-import { FilterSection, filteredTrackContext, hasSectionFilters, matchesTrackFilters, matchesArtistFilters, matchesPlaylistFilters, matchesFolderFilters } from '@/utils/libraryFilters';
-import { AlbumFilters, AlbumTrackStats, summarizeAlbumTracks, needsAlbumTrackStats, hasAlbumFilters, matchesAlbumFilters, sortLibraryAlbums } from '@/utils/albumFilters';
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
+import { LibraryFilterSectionContext, useLibraryFilters } from '@/hooks/useLibraryFilters';
+import { AlbumFilters, AlbumTrackStats, hasAlbumFilters, matchesAlbumFilters, needsAlbumTrackStats, sortLibraryAlbums, summarizeAlbumTracks } from '@/utils/albumFilters';
+import { RankedAlbum, sortAlbumRatings } from '@/utils/albumRanking';
+import { FilterSection, filteredTrackContext, hasSectionFilters, matchesArtistFilters, matchesFolderFilters, matchesPlaylistFilters, matchesTrackFilters } from '@/utils/libraryFilters';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
@@ -29,7 +32,8 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
@@ -67,6 +71,13 @@ const nameCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric
 const { width } = Dimensions.get('window');
 type GridAlignment = 'flex-start' | 'center' | 'flex-end';
 const cardWidth = (width - 70) / 3;
+const getGridAlignment = (colIndex: number, numColumns: number): GridAlignment => {
+    if (Platform.OS === 'web' || numColumns !== 3) return 'center';
+    const rem = colIndex % 3;
+    if (rem === 0) return 'flex-start';
+    if (rem === 1) return 'center';
+    return 'flex-end';
+};
 
 // ----- SUB-COMPONENTES DE ESTADO VACÍO -----
 const LibraryEmptyState = ({ icon, title, description }: { icon: string; title: string; description: string }) => (
@@ -256,6 +267,7 @@ const EnhancedAlbumCard = withObservables(['album'], ({ album }: { album: Album 
 }))(AlbumCard);
 
 const AlbumList = ({ albums, albumTrackStats, albumFilters, bottomOffset, topOffset, scrollRef, sortOption }: { albums: Album[], albumTrackStats: Map<string, AlbumTrackStats>, albumFilters: AlbumFilters, bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption }) => {
+    const { cardWidth, numColumns } = useLibraryGridLayout();
     const { t } = useTranslation();
     const cascade = useCascadeEntry();
 
@@ -276,28 +288,23 @@ const AlbumList = ({ albums, albumTrackStats, albumFilters, bottomOffset, topOff
     }
     return (
         <FlashList
+            key={`album-list-${numColumns}`}
             ref={scrollRef}
             data={sortedAlbums}
-            extraData={ratingOrder ? ranking.data : undefined}
+            extraData={ratingOrder ? ranking.data : numColumns}
             keyExtractor={a => a.id}
             renderItem={({ item, index, target }) => {
-                let alignItems: GridAlignment = 'flex-end';
-                const rem = index % 3;
-                if (rem === 0) {
-                    alignItems = 'flex-start';
-                } else if (rem === 1) {
-                    alignItems = 'center';
-                }
+                const alignItems = getGridAlignment(index, numColumns);
                 return (
                     <Animated.View
-                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
+                        entering={target === 'Cell' ? cascade.row(index, numColumns) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
                         <EnhancedAlbumCard album={item} rating={ratingById.get(item.id)} />
                     </Animated.View>
                 );
             }}
-            numColumns={3}
+            numColumns={numColumns}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
                 <LibraryEmptyState
@@ -313,10 +320,10 @@ const AlbumList = ({ albums, albumTrackStats, albumFilters, bottomOffset, topOff
 const EnhancedAlbumList = withObservables(['albumFilters'], ({ albumFilters }: { albumFilters: AlbumFilters }) => {
     return {
         data: observeScreenData(() => combineLatest({
-        albums: libraryAlbums,
-        albumTrackStats: needsAlbumTrackStats(albumFilters)
-            ? libraryTracks.pipe(map(summarizeAlbumTracks))
-            : of(new Map<string, AlbumTrackStats>()),
+            albums: libraryAlbums,
+            albumTrackStats: needsAlbumTrackStats(albumFilters)
+                ? libraryTracks.pipe(map(summarizeAlbumTracks))
+                : of(new Map<string, AlbumTrackStats>()),
         })),
     };
 })(function LoadedAlbums({ data, ...props }: Omit<React.ComponentProps<typeof AlbumList>, 'albums' | 'albumTrackStats'> & { data?: { albums: Album[]; albumTrackStats: Map<string, AlbumTrackStats> } }) {
@@ -353,6 +360,7 @@ const EnhancedArtistCard = withObservables(['artist'], ({ artist }: { artist: Ar
 }))(ArtistCard);
 
 const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { artists: Artist[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
+    const { cardWidth, numColumns } = useLibraryGridLayout();
     const filtering = useLibraryFilters('artists');
     const section = React.useContext(LibraryFilterSectionContext);
     const ratingOrder = sortOption === 'rating_desc' || sortOption === 'rating_asc';
@@ -382,22 +390,16 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
     if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
-            key={`artist-list-${artistFilter}`}
+            key={`artist-list-${artistFilter}-${numColumns}`}
             ref={scrollRef}
             data={sortedArtists}
-            extraData={ratingOrder ? ranking.data : artistFilter}
+            extraData={ratingOrder ? ranking.data : `${artistFilter}-${numColumns}`}
             keyExtractor={a => a.id}
             renderItem={({ item, index, target }) => {
-                let alignItems: GridAlignment = 'flex-end';
-                const rem = index % 3;
-                if (rem === 0) {
-                    alignItems = 'flex-start';
-                } else if (rem === 1) {
-                    alignItems = 'center';
-                }
+                const alignItems = getGridAlignment(index, numColumns);
                 return (
                     <Animated.View
-                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
+                        entering={target === 'Cell' ? cascade.row(index, numColumns) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
                         <EnhancedArtistCard
@@ -407,7 +409,7 @@ const ArtistList = ({ artists, bottomOffset, topOffset, scrollRef, sortOption, s
                     </Animated.View>
                 );
             }}
-            numColumns={3}
+            numColumns={numColumns}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={
                 <View ref={selectorRef} collapsable={false} style={styles.artistSelectorContainer}>
@@ -506,9 +508,10 @@ const PlaylistCard = memo(function PlaylistCard({
     onLongPress
 }: PlaylistCardProps) {
     const { colors } = useAppTheme();
+    const { cardWidth } = useLibraryGridLayout();
     return (
-        <TouchableOpacity style={styles.playlistCard} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
-            <View style={styles.playlistImageContainer}>
+        <TouchableOpacity style={[styles.playlistCard, { width: cardWidth }]} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7}>
+            <View style={[styles.playlistImageContainer, { width: cardWidth, height: cardWidth }]}>
                 <PlaylistCover
                     playlistId={playlistId}
                     isFavorites={isFavorites}
@@ -605,15 +608,10 @@ const SmartListCardBase = memo(function SmartListCardBase({
     onPress,
 }: SmartListCardBaseProps) {
     const { t } = useTranslation();
+    const { cardWidth, numColumns } = useLibraryGridLayout();
     const count = tracks ? tracks.length : 0;
 
-    let alignItems: GridAlignment = 'flex-end';
-    const rem = colIndex % 3;
-    if (rem === 0) {
-        alignItems = 'flex-start';
-    } else if (rem === 1) {
-        alignItems = 'center';
-    }
+    const alignItems = getGridAlignment(colIndex, numColumns);
 
     const subtitle = `${count} ${count === 1 ? t('library.song_singular') : t('library.song_plural')}`;
 
@@ -666,6 +664,7 @@ function useSmartPlaylistTracks(lists: SmartList[], enabled: boolean) {
 }
 
 const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scrollRef, sortOption, selectorRef }: { playlists: Playlist[], genreTracks?: Track[], bottomOffset: number, topOffset: number, scrollRef: any, sortOption?: SortOption, selectorRef?: any }) => {
+    const { cardWidth, numColumns } = useLibraryGridLayout();
     const filtering = useLibraryFilters('playlists');
     const { t, i18n } = useTranslation();
     const { colors } = useAppTheme();
@@ -759,17 +758,17 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                     rowIndex: currentRow++,
                 });
                 lists.forEach((list, idx) => {
-                    const groupRow = Math.floor(idx / 3);
+                    const groupRow = Math.floor(idx / numColumns);
                     smartItems.push({
                         id: `smart_${list.id}`,
                         smartList: list,
                         tracks: tracksByList[list.id],
-                        colIndex: idx % 3,
+                        colIndex: idx % numColumns,
                         isSmart: true,
                         rowIndex: currentRow + groupRow,
                     });
                 });
-                currentRow += Math.ceil(lists.length / 3);
+                currentRow += Math.ceil(lists.length / numColumns);
             };
 
             appendSmartGroup('header_listening', t('library.smart_listening_title'), listeningLists);
@@ -783,7 +782,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
             ...(matchesPlaylistFilters({ id: 'favorites' }, filtering.filters, filtering.index, [...filtering.index.tracks.values()].filter(track => track.isFavorite)) ? [{ id: 'favorites', name: t('home.your_favourites'), isFavorites: true, coverCustomUrl: null, description: t('home.most_liked_songs') }] : []),
             ...sortedPlaylists
         ];
-    }, [playlistFilter, sortedPlaylists, genreLists, smartLists, smartTracks, genreTracksByList, t, filtering.filters, filtering.index]);
+    }, [playlistFilter, sortedPlaylists, genreLists, smartLists, smartTracks, genreTracksByList, t, filtering.filters, filtering.index, numColumns]);
 
     const renderSmartCard = (list: SmartList, colIndex: number, tracks: Track[]) => (
         <SmartListCardBase
@@ -798,11 +797,11 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
         if ('isCreateNew' in item) {
             return (
                 <TouchableOpacity
-                    style={styles.playlistCard}
+                    style={[styles.playlistCard, { width: cardWidth }]}
                     onPress={handleCreatePlaylist}
                     activeOpacity={0.7}
                 >
-                    <View style={[styles.playlistImageContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={[styles.playlistImageContainer, { width: cardWidth, height: cardWidth, justifyContent: 'center', alignItems: 'center' }]}>
                         <Ionicons name="add" size={48} color="#7d7d7dff" />
                     </View>
                     <Text style={styles.playlistTitle} numberOfLines={1}>{item.name}</Text>
@@ -837,19 +836,16 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
     };
 
     const getAlignment = (index: number): GridAlignment => {
-        const rem = index % 3;
-        if (rem === 0) return 'flex-start';
-        if (rem === 1) return 'center';
-        return 'flex-end';
+        return getGridAlignment(index, numColumns);
     };
 
     if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
-            key={`playlist-list-${playlistFilter}`}
+            key={`playlist-list-${playlistFilter}-${numColumns}`}
             ref={scrollRef}
             data={data}
-            extraData={playlistFilter}
+            extraData={`${playlistFilter}-${numColumns}`}
             keyExtractor={(item: any, index: number) => {
                 if (!item) return `item_${index}`;
                 if (item.id) return String(item.id);
@@ -866,7 +862,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
             overrideItemLayout={(layout: any, item: any) => {
                 if (!layout) return;
                 if (item?.isHeader) {
-                    layout.span = 3;
+                    layout.span = numColumns;
                 } else {
                     layout.span = 1;
                 }
@@ -875,7 +871,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                 if (!item) return null;
 
                 if ('isHeader' in item && item.isHeader) {
-                    const rowIndex = item.rowIndex ?? Math.floor(index / 3);
+                    const rowIndex = item.rowIndex ?? Math.floor(index / numColumns);
                     return (
                         <Animated.View
                             entering={target === 'Cell' ? cascade.row(rowIndex, 1) : undefined}
@@ -887,7 +883,7 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
                 }
 
                 if ('isSmart' in item && item.isSmart) {
-                    const rowIndex = item.rowIndex ?? Math.floor(index / 3);
+                    const rowIndex = item.rowIndex ?? Math.floor(index / numColumns);
                     return (
                         <Animated.View entering={target === 'Cell' ? cascade.row(rowIndex, 1) : undefined}>
                             {renderSmartCard(item.smartList, item.colIndex, item.tracks)}
@@ -897,14 +893,14 @@ const PlaylistsList = ({ playlists, genreTracks, bottomOffset, topOffset, scroll
 
                 return (
                     <Animated.View
-                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
+                        entering={target === 'Cell' ? cascade.row(index, numColumns) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems: getAlignment(index) }}
                     >
                         {renderPlaylistContent(item)}
                     </Animated.View>
                 );
             }}
-            numColumns={3}
+            numColumns={numColumns}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListHeaderComponent={
                 <View ref={selectorRef} collapsable={false} style={styles.artistSelectorContainer}>
@@ -969,14 +965,14 @@ const EnhancedPlaylistsList = withObservables(['sortOption', 'playlistFilter'], 
 
     return {
         data: observeScreenData(() => combineLatest({
-        playlists: database.collections.get<Playlist>('playlists').query(
-            Q.sortBy('is_pinned', Q.desc),
-            Q.sortBy(orderCol, orderDir)
-        ).observeWithColumns(['name', 'created_at', 'cover_custom_url', 'is_pinned']),
-        genreTracks: database.collections.get<Track>('tracks').query(
-            Q.where('genre', Q.notEq(null)),
-            Q.where('genre', Q.notEq(''))
-        ).observeWithColumns(['genre', 'duration']).pipe(catchError(() => of([]))),
+            playlists: database.collections.get<Playlist>('playlists').query(
+                Q.sortBy('is_pinned', Q.desc),
+                Q.sortBy(orderCol, orderDir)
+            ).observeWithColumns(['name', 'created_at', 'cover_custom_url', 'is_pinned']),
+            genreTracks: database.collections.get<Track>('tracks').query(
+                Q.where('genre', Q.notEq(null)),
+                Q.where('genre', Q.notEq(''))
+            ).observeWithColumns(['genre', 'duration']).pipe(catchError(() => of([]))),
         })),
     };
 })(function LoadedPlaylists({ data, ...props }: Omit<React.ComponentProps<typeof PlaylistsList>, 'playlists' | 'genreTracks'> & { data?: { playlists: Playlist[]; genreTracks: Track[] } }) {
@@ -1003,6 +999,7 @@ const FolderCard = React.memo(function FolderCard({ folder, onOpen, onMenu }: { 
 });
 
 const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Track[], bottomOffset: number, topOffset: number, scrollRef: any }) => {
+    const { cardWidth, numColumns } = useLibraryGridLayout();
     const filtering = useLibraryFilters('folders');
     const { t } = useTranslation();
     const navigation = useNavigation<any>();
@@ -1040,21 +1037,16 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
     if (!filtering.ready || filtering.error) return <LibraryFilterPending status={filtering} topOffset={topOffset} />;
     return (
         <FlashList
-            key="folders-grid"
+            key={`folders-grid-${numColumns}`}
             ref={scrollRef}
             data={folders}
+            extraData={numColumns}
             keyExtractor={f => f.path}
             renderItem={({ item, index, target }) => {
-                let alignItems: GridAlignment = 'flex-end';
-                const rem = index % 3;
-                if (rem === 0) {
-                    alignItems = 'flex-start';
-                } else if (rem === 1) {
-                    alignItems = 'center';
-                }
+                const alignItems = getGridAlignment(index, numColumns);
                 return (
                     <Animated.View
-                        entering={target === 'Cell' ? cascade.row(index, 3) : undefined}
+                        entering={target === 'Cell' ? cascade.row(index, numColumns) : undefined}
                         style={{ minHeight: cardWidth + 45, width: '100%', alignItems }}
                     >
                         <FolderCard
@@ -1065,7 +1057,7 @@ const FolderList = ({ tracks, bottomOffset, topOffset, scrollRef }: { tracks: Tr
                     </Animated.View>
                 );
             }}
-            numColumns={3}
+            numColumns={numColumns}
             contentContainerStyle={[styles.listContainer, { paddingBottom: bottomOffset, paddingTop: topOffset }]}
             ListEmptyComponent={
                 <LibraryEmptyState
@@ -1086,6 +1078,7 @@ const EnhancedFolderList = withObservables([], () => ({
 
 
 export default function LibraryScreen() {
+    const screenWidth = useScreenWidth();
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     const libraryTabsOrder = useSettingsStore(state => state.libraryTabsOrder);
@@ -1103,7 +1096,7 @@ export default function LibraryScreen() {
 
     // Abrir automáticamente el tutorial la primera vez que el usuario entre a la Biblioteca
     useFocusEffect(React.useCallback(() => {
-        if (!hasSeenLibraryTutorial) setIsTutorialVisible(true);
+        if (!hasSeenLibraryTutorial && Platform.OS !== 'web') setIsTutorialVisible(true);
     }, [hasSeenLibraryTutorial]));
 
     const handleCloseTutorial = () => {
@@ -1209,15 +1202,15 @@ export default function LibraryScreen() {
             {/* 1. CAPA DE LISTAS (AL FONDO) */}
             <View style={StyleSheet.absoluteFill}>
                 <LibraryFilterSectionContext.Provider value={activeTab as FilterSection | 'albums'}>
-                <TabView
-                    navigationState={{ index, routes }}
-                    renderScene={renderScene}
-                    onIndexChange={setIndex}
-                    initialLayout={{ width: Dimensions.get('window').width }}
-                    renderTabBar={() => null}
-                    swipeEnabled={false}
-                    lazy={true}
-                />
+                    <TabView
+                        navigationState={{ index, routes }}
+                        renderScene={renderScene}
+                        onIndexChange={setIndex}
+                        initialLayout={{ width: screenWidth }}
+                        renderTabBar={() => null}
+                        swipeEnabled={false}
+                        lazy={true}
+                    />
                 </LibraryFilterSectionContext.Provider>
             </View>
 
@@ -1250,25 +1243,18 @@ export default function LibraryScreen() {
                 style={{ paddingTop: insets.top + 10 }}
             >
                 <View style={styles.header}>
+                    <HeaderHistoryControls />
                     <Text style={[styles.title, headerTitleStyle]}>{t('library.title')}</Text>
                     <View
                         ref={headerToolsRef}
                         collapsable={false}
                         style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
                     >
-                        <TouchableOpacity
+                        <TutorialHelpButton
                             onPress={() => setIsTutorialVisible(true)}
                             style={styles.filterButton}
-                            activeOpacity={0.7}
                             accessibilityLabel={t('library_tutorial.help_btn')}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <Ionicons
-                                name="help-circle-outline"
-                                size={20}
-                                color={colors.text}
-                            />
-                        </TouchableOpacity>
+                        />
                         <TouchableOpacity
                             onPress={() => { void LibraryRefreshService.refresh().catch(error => console.error('Manual library scan failed:', error)); }}
                             style={styles.filterButton}
@@ -1333,6 +1319,9 @@ export default function LibraryScreen() {
                             }}
                         >
                             <TouchableOpacity
+                                testID={`library-tab-${route.key}`}
+                                accessibilityRole="tab"
+                                accessibilityState={{ selected: index === i }}
                                 style={[
                                     styles.tabButton,
                                     index === i && { backgroundColor: colors.accent },

@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
 import { summarizeTrackRatings } from '../../utils/trackRatings';
 import { RatingSummaryCaption } from '../../components/library/RatingSummaryCaption';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -14,14 +15,8 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
-import {
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
@@ -29,6 +24,7 @@ import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { useTranslation } from 'react-i18next';
 import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import { TagStatisticsSection } from '@/components/activity/charts/TagStatisticsSection';
 import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
@@ -40,6 +36,7 @@ import { SearchNavigationProp } from '../../navigation/types';
 
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { Colors, Layout } from '../../theme/theme';
+import { useScreenWidth } from '../../hooks/useScreenWidth';
 
 const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 320;
@@ -147,6 +144,7 @@ function TagDetailContent({
     readonly albums: Album[];
     readonly tracks: Track[];
 }) {
+    const screenWidth = useScreenWidth();
     const { colors } = useAppTheme();
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<SearchNavigationProp>();
@@ -216,7 +214,7 @@ function TagDetailContent({
         return (
             <View style={{ marginBottom: 16 }}>
                 {/* Custom Gradient Header */}
-                <View style={styles.headerContainer}>
+                <View style={[styles.headerContainer, { width: screenWidth }]}>
                     <LinearGradient
                         colors={[tagColor, 'rgba(0,0,0,0.5)', colors.background]}
                         locations={[0, 0.8, 1]}
@@ -224,9 +222,9 @@ function TagDetailContent({
                     />
 
                     {/* Botón Atrás */}
-                    <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                    <HeaderHistoryControls style={{ position: 'absolute', top: 50, left: 16, zIndex: 10 }}><TouchableOpacity style={styles.backButton} onPress={handleBack}>
                         <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-                    </TouchableOpacity>
+                    </TouchableOpacity></HeaderHistoryControls>
 
 
 
@@ -272,11 +270,9 @@ function TagDetailContent({
                 {albums.length > 0 && (
                     <View style={{ marginBottom: 24, marginTop: 16 }}>
                         <SectionHeader title={t('tags.albums_with_tag')} />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.albumsScroll}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {albums.map((album) => (
                                 <AlbumCardWithNav
@@ -286,7 +282,7 @@ function TagDetailContent({
                                     onLongPress={handleAlbumLongPress}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     </View>
                 )}
 
@@ -299,7 +295,7 @@ function TagDetailContent({
                 )}
             </View>
         );
-    }, [tag, albums, tracks.length, rating, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent, colors.background]);
+    }, [tag, albums, tracks.length, rating, tagColor, handleBack, handleAlbumPress, handleAlbumLongPress, t, handleFabPress, handleShuffleFabPress, isCurrentTagPlaying, colors.accent, colors.onAccent, colors.background, screenWidth]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>

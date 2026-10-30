@@ -46,6 +46,7 @@ async function capture(): Promise<QueueSession> {
 }
 async function install(session: QueueSession | null, shuffleOnQueueEnd: boolean): Promise<QueueSession | null> {
     let installed: QueueSession | null = null;
+    let activeTrack: Awaited<ReturnType<typeof TrackPlayer.getActiveTrack>> | null = null;
     if (!session?.queue.length) {
         await TrackPlayer.reset();
         await TrackPlayer.setRepeatMode(0);
@@ -58,9 +59,10 @@ async function install(session: QueueSession | null, shuffleOnQueueEnd: boolean)
         await usePlayerStore.getState().restorePlaybackState(installed, shuffleOnQueueEnd);
         const track = await TrackPlayer.getActiveTrack();
         if (track?.id !== session.queue[session.index]?.id) throw new Error('Queue restoration failed');
+        activeTrack = track;
     }
     useABRepeatStore.getState().clearAB();
-    await refreshPlaybackSnapshot();
+    await refreshPlaybackSnapshot(activeTrack);
     return installed;
 }
 

@@ -2,6 +2,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  testPathIgnorePatterns: ['<rootDir>/apps/desktop/'],
   setupFiles: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -20,6 +21,8 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
+    'packages/core/src/*.ts',
+    'packages/data/src/*.ts',
     'src/utils/trackTimestamps.ts',
     'src/utils/visualizerColors.ts',
     'src/utils/customColors.ts',

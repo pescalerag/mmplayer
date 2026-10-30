@@ -5,25 +5,26 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BlurredBackground from '../layouts/BlurredBackground';
-import { ScrollView } from 'react-native-gesture-handler';
+import { FlatList, ScrollView } from 'react-native-gesture-handler';
+import { useShallow } from 'zustand/react/shallow';
 import { PlayerDiscArtwork } from '../player/PlayerDiscArtwork';
 import { CassetteArtwork } from '../player/CassetteArtwork';
 import { useSheetProps } from '../../hooks/useSheetProps';
 import { PlayerMenuAppearance } from '../../store/useUIStore';
 import { useTranslation } from 'react-i18next';
-import {
-    PermissionsAndroid,
-    Platform,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import * as RN from 'react-native';
+const { Platform, StyleSheet, Switch, Text, TouchableOpacity, View } = RN;
+const PermissionsAndroid = (RN as any).PermissionsAndroid;
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { BaseMenuSheet } from './BaseMenuSheet';
 import { openColorPickerModal } from '../../store/useColorPickerModalStore';
 import { VisualizerColorMode, VISUALIZER_RAINBOW } from '../../utils/visualizerColors';
+
+const COVER_STYLES = ['cover', 'cd', 'vinyl', 'cassette'] as const;
+const BACKGROUND_STYLES = ['cover', 'gradient'] as const;
+// Keep these small collections mounted after their batched initial load.
+// A one-viewport window recreates the cassette when scrolling back to it.
+const PREVIEW_WINDOW_SIZE = 9;
 
 const requestAudioPermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
@@ -81,15 +82,33 @@ export default function PlayerMenuSheet() {
         setPlayerBackgroundStyle,
         showCanvas,
         setShowCanvas,
-    } = useSettingsStore();
+    } = useSettingsStore(useShallow(state => ({
+        showPlayerVisualizer: state.showPlayerVisualizer, setShowPlayerVisualizer: state.setShowPlayerVisualizer,
+        playerVisualizerType: state.playerVisualizerType, setPlayerVisualizerType: state.setPlayerVisualizerType,
+        playerVisualizerColorMode: state.playerVisualizerColorMode, playerVisualizerCustomColor: state.playerVisualizerCustomColor,
+        setPlayerVisualizerColorMode: state.setPlayerVisualizerColorMode,
+        playerCoverStyle: state.playerCoverStyle, setPlayerCoverStyle: state.setPlayerCoverStyle,
+        showCassetteAlbumName: state.showCassetteAlbumName, setShowCassetteAlbumName: state.setShowCassetteAlbumName,
+        playerBackgroundStyle: state.playerBackgroundStyle, setPlayerBackgroundStyle: state.setPlayerBackgroundStyle,
+        showCanvas: state.showCanvas, setShowCanvas: state.setShowCanvas,
+    })));
 
     const { t } = useTranslation();
     const { props } = useSheetProps<Partial<PlayerMenuAppearance>>('player-menu');
     const appearance = props ?? {};
+    const discAlbum = React.useMemo(() => ({ cdArtUrl: appearance.cdArtUrl ?? null }), [appearance.cdArtUrl]);
     const gradientColors = appearance.gradientColors ?? ['#121212', colors.background, colors.background] as const;
     const coverPreview = appearance.coverUrl
         ? <Image source={{ uri: appearance.coverUrl }} recyclingKey={appearance.coverUrl} style={styles.coverPreview} contentFit="contain" transition={0} />
         : <Ionicons name="musical-notes" size={42} color={colors.textSecondary} />;
+
+    const renderCoverPreview = (style: typeof COVER_STYLES[number]) => {
+        if (style === 'cover') return coverPreview;
+        if (style === 'cassette') return <CassetteArtwork size={104} coverUrl={appearance.coverUrl} coverColor={appearance.coverColor}
+            albumTitle={showCassetteAlbumName ? appearance.albumTitle : null} progress={0.35} />;
+        return <PlayerDiscArtwork playerCoverStyle={style} coverUrl={appearance.coverUrl} album={discAlbum}
+            artworkSize={96} holeSize={12} spinStyle={undefined} coverColor={appearance.coverColor ?? null} />;
+    };
 
     const renderColorSwatch = (mode: VisualizerColorMode) => {
         if (mode === 'rainbow') {
@@ -123,16 +142,16 @@ export default function PlayerMenuSheet() {
         >
         
             <Text style={styles.sectionLabel}>{t('visualizer.cover_style')}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
-                {(['cover', 'cd', 'vinyl'] as const).map(style => (
-                    <PreviewOption key={style} label={t('visualizer.cover_style_' + style)} selected={playerCoverStyle === style} onPress={() => setPlayerCoverStyle(style)}>
-                        {style === 'cover' ? coverPreview : <PlayerDiscArtwork playerCoverStyle={style} coverUrl={appearance.coverUrl} album={{ cdArtUrl: appearance.cdArtUrl ?? null }} artworkSize={96} holeSize={12} spinStyle={undefined} coverColor={appearance.coverColor ?? null} />}
+            <FlatList horizontal data={COVER_STYLES} keyExtractor={style => style}
+                showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow} style={{ flexGrow: 0 }}
+                initialNumToRender={2} maxToRenderPerBatch={1} windowSize={PREVIEW_WINDOW_SIZE}
+                removeClippedSubviews={false}
+                getItemLayout={(_, index) => ({ length: 132, offset: 132 * index, index })}
+                renderItem={({ item: style }) => (
+                    <PreviewOption label={t('visualizer.cover_style_' + style)} selected={playerCoverStyle === style} onPress={() => setPlayerCoverStyle(style)}>
+                        {renderCoverPreview(style)}
                     </PreviewOption>
-                ))}
-                <PreviewOption label={t('visualizer.cover_style_cassette')} selected={playerCoverStyle === 'cassette'} onPress={() => setPlayerCoverStyle('cassette')}>
-                    <CassetteArtwork size={104} coverUrl={appearance.coverUrl} coverColor={appearance.coverColor} albumTitle={showCassetteAlbumName ? appearance.albumTitle : null} progress={0.35} />
-                </PreviewOption>
-            </ScrollView>
+                )} />
             <View style={styles.settingRow}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.settingLabel}>{t('visualizer.cassette_album_name')}</Text>
@@ -144,18 +163,18 @@ export default function PlayerMenuSheet() {
             </View>
             <View style={styles.separator} />
             <Text style={styles.sectionLabel}>{t('visualizer.background_style')}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
-                <PreviewOption label={t('visualizer.background_style_cover')} selected={playerBackgroundStyle === 'cover'} onPress={() => setPlayerBackgroundStyle('cover')} portrait>
-                    <BlurredBackground
-                        imageUrl={appearance.coverUrl}
-                        blurIntensity={10}
-                        gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]}
-                    />
-                </PreviewOption>
-                <PreviewOption label={t('visualizer.background_style_gradient')} selected={playerBackgroundStyle === 'gradient'} onPress={() => setPlayerBackgroundStyle('gradient')} portrait>
-                    <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
-                </PreviewOption>
-            </ScrollView>
+            <FlatList horizontal data={BACKGROUND_STYLES} keyExtractor={style => style}
+                showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow} style={{ flexGrow: 0 }}
+                initialNumToRender={1} maxToRenderPerBatch={1} windowSize={PREVIEW_WINDOW_SIZE}
+                removeClippedSubviews={false}
+                getItemLayout={(_, index) => ({ length: 144, offset: 144 * index, index })}
+                renderItem={({ item: style }) => (
+                    <PreviewOption label={t('visualizer.background_style_' + style)} selected={playerBackgroundStyle === style} onPress={() => setPlayerBackgroundStyle(style)} portrait>
+                        {style === 'cover' ? <BlurredBackground imageUrl={appearance.coverUrl} blurIntensity={10}
+                            gradientColors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', colors.background]} />
+                            : <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />}
+                    </PreviewOption>
+                )} />
             <View style={styles.separator} />
 
                     {/* Canvas toggle */}

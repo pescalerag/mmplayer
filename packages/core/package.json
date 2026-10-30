@@ -1,0 +1,11 @@
+{
+  "name": "@mmplayer/core",
+  "version": "3.0.0",
+  "private": true,
+  "exports": {
+    "./lyrics": "./src/lyrics.ts",
+    "./timestamps": "./src/timestamps.ts",
+    "./ratings": "./src/ratings.ts",
+    "./shuffle": "./src/shuffle.ts"
+  }
+}

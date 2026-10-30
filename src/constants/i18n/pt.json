@@ -1,4 +1,16 @@
 {
+  "discord": {
+      "other_settings": "Outros",
+      "other_description": "Integrações e opções adicionais",
+      "title": "Discord Rich Presence",
+      "description": "Mostra o artista, a música e a capa no Discord enquanto ouves música.",
+      "status_disabled": "Desativado",
+      "status_needs_application_id": "A integração ainda precisa de ser configurada.",
+      "status_native_unavailable": "A ligação ao Discord ainda não está disponível nesta versão para o teu dispositivo.",
+      "status_waiting_for_discord": "Ativado. Abre o Discord e reproduz uma música para partilhar a tua atividade.",
+      "status_connected": "Ligado ao Discord.",
+      "status_error": "Não foi possível atualizar o Discord. A reprodução tentará novamente."
+  },
   "runtimeDebug": {
     "errors": "Erros da aplicação",
     "tests": "Testes no dispositivo",
@@ -481,6 +493,10 @@
     "batch_tags": "Etiquetas em lote"
   },
   "settings": {
+    "storage_desc_desktop": "Gere o espaço do computador e do MMPlayer",
+    "app_tabs_desc_desktop": "Personaliza a ordem da navegação lateral",
+    "debug_desc_desktop": "Consulta o histórico e repara os artistas da biblioteca",
+
     "music_zip_import": "Importar ZIP de música",
     "music_zip_import_desc": "Guarda os áudios do ZIP em Music/nome-do-zip.",
     "backup_export_zip": "Exportar cópia completa (ZIP)",
@@ -506,6 +522,7 @@
     "storage_title": "Armazenamento",
     "storage_desc": "Gerencie o espaço do dispositivo e do MMPlayer",
     "calculating_storage": "Calculando espaço de armazenamento...",
+    "computer_storage": "Unidade do MMPlayer",
     "device_storage": "Armazenamento do dispositivo",
     "audio_files": "Arquivos de áudio",
     "other_files": "Outros arquivos",
@@ -753,6 +770,8 @@
     "create_and_add": "Criar e adicionar"
   },
   "actions": {
+    "warning": "Atenção",
+    "confirm": "Confirmar",
     "play": "Reproduzir",
     "shuffle": "Aleatório",
     "previous": "Anterior",
@@ -826,6 +845,7 @@
     "share": "Compartilhar",
     "share_song_title": "Compartilhar música",
     "share_song_preview": "Prévia da música",
+    "share_image_error": "Não foi possível gerar ou guardar a imagem. Tenta novamente.",
     "share_as_image": "Compartilhar imagem",
     "share_as_audio": "Compartilhar arquivo de áudio",
     "more_info": "Mais informações",
@@ -1658,6 +1678,11 @@
   "backup": {
     "import_mode_title": "Como pretende importar os dados?",
     "import_mode_description": "Combinar mantém a biblioteca e adiciona os dados da cópia. Substituir elimina os dados atuais da base de dados e restaura a cópia. Os ficheiros de música não são eliminados.",
+    "desktop_locate_title": "Localizar música no PC",
+    "desktop_locate_description": "Não foi possível localizar {{count}} músicas da cópia. As cópias incluem os teus dados e personalizações; os ficheiros de música devem estar no PC. Seleciona as pastas ou continua mantendo as músicas não localizadas.",
+    "desktop_select_folders": "Selecionar pastas",
+    "desktop_continue": "Continuar",
+    "desktop_cancelled": "Importação cancelada",
     "merge": "Combinar dados",
     "replace": "Substituir dados",
     "conflicts_title": "Dados existentes",

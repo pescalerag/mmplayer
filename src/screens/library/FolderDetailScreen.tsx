@@ -10,15 +10,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    ActivityIndicator,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +19,7 @@ import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
@@ -238,11 +232,9 @@ const FolderHeader = memo(function FolderHeader({
                             <ActivityIndicator color={colors.accent} />
                         </View>
                     ) : (
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.albumsScroll}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {(showAllAlbums ? albums : albums.slice(0, ALBUMS_PREVIEW)).map((album: Album) => (
                                 <AlbumCardWithNav
@@ -252,7 +244,7 @@ const FolderHeader = memo(function FolderHeader({
                                     onLongPress={handleAlbumLongPress}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     )}
                 </View>
             )}

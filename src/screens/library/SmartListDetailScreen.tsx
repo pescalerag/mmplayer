@@ -176,11 +176,11 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                 subtitle={listDef?.description || 'Lista inteligente'}
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
-                renderCover={() => (
+                renderCover={({ width, height }) => (
                     <PlaylistCover
                         playlistId={`smart-list-${smartListId}`}
                         width={width}
-                        height={380}
+                        height={height}
                         borderRadius={0}
                     />
                 )}

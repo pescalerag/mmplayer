@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -11,13 +11,14 @@ import { MultipleQueuesService } from '../../services/MultipleQueuesService';
 import { useToastStore } from '../../store/useToastStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useQueueRenameModalStore } from '../../store/useQueueRenameModalStore';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
 
 const SELECTOR_VERTICAL_SPACING = 16;
 
 export function QueueSelector() {
     const { t } = useTranslation();
     const { colors, fonts } = useAppTheme();
-    const { height } = useWindowDimensions();
+    const { height } = useScreenDimensions();
     const insets = useSafeAreaInsets();
     const names = useMultipleQueuesStore(useShallow(state => state.slots.map(slot => slot.name)));
     const activeId = useMultipleQueuesStore(state => state.activeId);
@@ -50,13 +51,13 @@ export function QueueSelector() {
     <View onLayout={event => setDropdownTop(event.nativeEvent.layout.y + event.nativeEvent.layout.height - SELECTOR_VERTICAL_SPACING + 4)}
         style={{ paddingVertical: SELECTOR_VERTICAL_SPACING, marginHorizontal: 24, zIndex: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity disabled={disabled} accessibilityRole="button" accessibilityLabel={t('queue.select_queue')}
+            <TouchableOpacity testID="queue-selector" disabled={disabled} accessibilityRole="button" accessibilityLabel={t('queue.select_queue')}
                 accessibilityState={{ disabled, expanded }} onPress={() => setExpanded(!expanded)}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.cardBackground, borderRadius: 10, padding: 12, opacity: disabled ? 0.5 : 1 }}>
                 <Text numberOfLines={1} style={{ flex: 1, color: colors.text, fontFamily: fonts.regular }}>{label(activeId)}</Text>
                 <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.accent} />
             </TouchableOpacity>
-            <TouchableOpacity disabled={isSwitching} accessibilityLabel={t('queue.rename_title')} onPress={() => { setExpanded(false); useQueueRenameModalStore.getState().open(activeId); }} style={{ padding: 12 }}>
+            <TouchableOpacity testID="queue-rename" disabled={isSwitching} accessibilityLabel={t('queue.rename_title')} onPress={() => { setExpanded(false); useQueueRenameModalStore.getState().open(activeId); }} style={{ padding: 12 }}>
                 <Ionicons name="pencil-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
         </View>
@@ -66,7 +67,7 @@ export function QueueSelector() {
         <Pressable onPress={() => setExpanded(false)} style={StyleSheet.absoluteFill} accessibilityLabel={t('actions.cancel')} />
         <View style={{ position: 'absolute', top: dropdownTop, left: 24, right: 76, maxHeight: menuMaxHeight, elevation: 12, backgroundColor: colors.cardBackground, borderRadius: 10, overflow: 'hidden' }}>
             <ScrollView bounces={false} style={{ flexGrow: 0 }}>
-            {names.map((_, id) => <TouchableOpacity key={id} onPress={() => void select(id)} accessibilityRole="radio" accessibilityState={{ checked: id === activeId }}
+            {names.map((_, id) => <TouchableOpacity testID={`queue-slot-${id}`} key={id} onPress={() => void select(id)} accessibilityRole="radio" accessibilityState={{ checked: id === activeId }}
                 style={{ padding: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text numberOfLines={1} style={{ color: colors.text, flex: 1, fontFamily: fonts.regular }}>{label(id)}</Text>
                 {id === activeId && <Ionicons name="checkmark" size={18} color={colors.accent} />}

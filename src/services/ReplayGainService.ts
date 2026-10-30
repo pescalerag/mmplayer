@@ -13,7 +13,7 @@ function applySettings() {
 }
 
 export async function initializeReplayGain() {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' && Platform.OS !== 'web') return;
     if (!unsubscribe) {
         unsubscribe = useSettingsStore.subscribe((state, previous) => {
             if (state.isNormalizationEnabled !== previous.isNormalizationEnabled ||

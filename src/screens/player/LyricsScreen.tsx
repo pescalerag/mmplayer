@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
 import { ScreenLoadingFrame, ScreenLoadingShell, useScreenReady } from '../../components/layouts/ScreenLoadingShell';
 import { openQueueSheet, openSpeedPitch, openSleepTimer, openLyricsMenu } from '@/store/useUIStore';
 
@@ -10,6 +11,7 @@ import {
     Alert,
     Dimensions,
     FlatList,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -44,6 +46,7 @@ import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
 import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -230,7 +233,7 @@ const LyricsContent = ({
         {
             position: 'absolute' as const,
             top: insets.top + 60,
-            bottom: bottomControlsHeight > 0 ? bottomControlsHeight : (insets.bottom + 240),
+            bottom: Platform.OS === 'web' ? 24 : bottomControlsHeight > 0 ? bottomControlsHeight : (insets.bottom + 240),
             left: 0,
             right: 0,
         },
@@ -270,6 +273,7 @@ const LyricsContent = ({
     if (isSynced) {
         return (
             <FlatList
+                testID="lyrics-synced-list"
                 ref={flatListRef}
                 data={parsedLyrics}
                 keyExtractor={(_, i) => i.toString()}
@@ -305,8 +309,9 @@ const LyricsContent = ({
 
     return (
         <ScrollView
+            testID="lyrics-plain-list"
             ref={scrollViewRef}
-            contentContainerStyle={[styles.plainContainer, { paddingTop: insets.top + 200, paddingBottom: insets.bottom + 320 }]}
+            contentContainerStyle={[styles.plainContainer, { paddingTop: insets.top + (Platform.OS === 'web' ? 100 : 200), paddingBottom: insets.bottom + (Platform.OS === 'web' ? 48 : 320) }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
         >
@@ -326,6 +331,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     useScreenReady();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const { height: windowHeight } = useScreenDimensions();
+    const lyricsOnly = Platform.OS === 'web';
     const { t } = useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
 
@@ -338,18 +345,19 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
     // Calculate layout metrics for perfect lyrics centering in the gap
     const { paddingTop, paddingBottom } = React.useMemo(() => {
         const yStart = insets.top + 200;
-        const yEnd = screenHeight - (insets.bottom + 320);
+        const contentHeight = lyricsOnly ? windowHeight : screenHeight;
+        const yEnd = contentHeight - (insets.bottom + (lyricsOnly ? 48 : 320));
         const yCenterVal = (yStart + yEnd) / 2;
         const itemHeightVal = LYRIC_ITEM_HEIGHT;
 
         const padTop = yCenterVal - itemHeightVal / 2;
-        const padBottom = screenHeight - yCenterVal - itemHeightVal / 2;
+        const padBottom = contentHeight - yCenterVal - itemHeightVal / 2;
 
         return {
             paddingTop: padTop,
             paddingBottom: padBottom,
         };
-    }, [insets.top, insets.bottom]);
+    }, [insets.top, insets.bottom, lyricsOnly, windowHeight]);
 
     const openQueue = openQueueSheet;
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
@@ -590,16 +598,16 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                         : ['transparent', colors.background, colors.background]
                 }
                 locations={[0, 0.3, 1]}
-                style={[styles.gradientMaskBottom, { height: insets.bottom + 320 }]}
+                style={[styles.gradientMaskBottom, { height: insets.bottom + (lyricsOnly ? 48 : 320) }]}
                 pointerEvents="none"
             />
 
 
             {/* Absolute Header */}
             <View style={[styles.header, { top: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.dismissButton}>
+                <HeaderHistoryControls preserveDismiss><TouchableOpacity accessibilityRole="button" accessibilityLabel={t('common.close')} testID="lyrics-dismiss" onPress={() => navigation.goBack()} style={styles.dismissButton}>
                     <Ionicons name="chevron-down" size={32} color={colors.text} />
-                </TouchableOpacity>
+                </TouchableOpacity></HeaderHistoryControls>
 
                 <TouchableOpacity style={styles.headerTextContainer} onPress={handleAlbumPress}>
                     <MarqueeText
@@ -616,7 +624,8 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                 </TouchableOpacity>
             </View>
             {/* Absolute Bottom Controls */}
-            <View
+            {!lyricsOnly && <View
+                testID="lyrics-playback-controls"
                 onLayout={(e) => {
                     const h = e.nativeEvent.layout.height;
                     if (h > 0 && h !== bottomControlsHeight) {
@@ -765,7 +774,7 @@ const LyricsScreenUI = ({ track, album, artist, artists }: LyricsScreenUIProps) 
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
+            </View>}
 
         </View>
     );
@@ -961,12 +970,12 @@ const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_
     stateText: { color: colors.textSecondary, fontSize: 16, fontFamily: fonts.regular, textAlign: 'center', marginBottom: 28 },
     importButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.accent, paddingVertical: 13, paddingHorizontal: 24, borderRadius: 30 },
     importButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', fontFamily: fonts.regular },
-    listContent: { paddingHorizontal: 28 },
+    listContent: { paddingLeft: Platform.OS === 'web' ? 48 : 28, paddingRight: 28 },
     lineContainer: { minHeight: LYRIC_ITEM_HEIGHT - 16, justifyContent: 'center', marginVertical: 8 },
     lineText: { fontFamily: fonts.regular, textAlign: 'left' },
     lineActive: { color: colors.text, fontSize: 26, fontWeight: '800', lineHeight: 36 },
     lineInactive: { color: colors.textSecondary, fontSize: 20, fontWeight: '700', lineHeight: 28 },
-    plainContainer: { paddingHorizontal: 28 },
+    plainContainer: { paddingLeft: Platform.OS === 'web' ? 48 : 28, paddingRight: 28 },
     plainText: { color: colors.text, fontSize: 18, lineHeight: 30, fontFamily: fonts.regular, textAlign: 'center' },
 
 });

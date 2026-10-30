@@ -8,7 +8,7 @@ let refresh: (() => Promise<void>) | undefined;
 let blocks = 0;
 
 export async function initializeCrossfade() {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' && Platform.OS !== 'web') return;
     if (refresh) return refresh();
     // Resolve stores lazily, avoiding their existing service cycles.
     const { useSettingsStore } = await import('../store/useSettingsStore');

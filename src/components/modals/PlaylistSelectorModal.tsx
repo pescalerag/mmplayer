@@ -25,7 +25,7 @@ export default function PlaylistSelectorModal() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { isVisible, props: { tracksToAssociate = [], playlistToEdit, isCreatingDirectly }, close: closeSelector } = useSheetProps<{ tracksToAssociate: any[]; playlistToEdit: any; isCreatingDirectly: boolean }>('playlist-selector');
+  const { isVisible, props: { tracksToAssociate = [], playlistToEdit, isCreatingDirectly, onCreated }, close: closeSelector, openNested } = useSheetProps<{ tracksToAssociate: any[]; playlistToEdit: any; isCreatingDirectly: boolean; onCreated?: () => void }>('playlist-selector');
 
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [alreadyPresentPlaylists, setAlreadyPresentPlaylists] = useState<Record<string, boolean>>({});
@@ -153,6 +153,8 @@ export default function PlaylistSelectorModal() {
           setPlaylistName('');
           setPlaylistDesc('');
           Keyboard.dismiss();
+          onCreated?.();
+          if (isCreatingDirectly) closeSelector();
           return;
         } else {
           useToastStore.getState().showToast(t('toasts.playlist_created'), 'list-circle');
@@ -253,8 +255,14 @@ export default function PlaylistSelectorModal() {
           </View>
 
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.createButton}
-            onPress={() => setIsCreating(true)}
+            onPress={() => {
+              if (!openNested('playlist-selector', {
+                tracksToAssociate, playlistToEdit: null, isCreatingDirectly: true,
+                onCreated: () => { void loadPlaylists(); },
+              })) setIsCreating(true);
+            }}
           >
             <Ionicons name="add" size={20} color={colors.onAccent} />
             <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>

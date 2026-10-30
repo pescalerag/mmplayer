@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -144,9 +145,9 @@ export default function TimestampsEditorScreen() {
     const label = { color: colors.text, fontFamily: fonts.regular };
     return <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: insets.top + 10, borderBottomColor: colors.overlayAlpha10 }]}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton} accessibilityLabel={t('actions.back')}>
+            <HeaderHistoryControls><TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton} accessibilityLabel={t('actions.back')}>
                 <Ionicons name="chevron-back" size={24} color={colors.accent} />
-            </TouchableOpacity>
+            </TouchableOpacity></HeaderHistoryControls>
             <Text style={[label, styles.title, { fontWeight: fontWeights.bold }]}>{t('timestamps.title')}</Text>
             <TouchableOpacity onPress={() => void save()} disabled={!track || saving} style={styles.headerButton}>
                 <Text style={{ color: colors.accent, fontFamily: fonts.regular }}>{t('actions.save')}</Text>

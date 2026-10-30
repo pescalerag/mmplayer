@@ -13,7 +13,7 @@ import { getTopRatedAlbums } from '../../utils/albumRanking';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { openAlbumMenu } from '../../store/useUIStore';
 
-export function TopRatedAlbumsSection() {
+export function TopRatedAlbumsSection({ cardSize = 120, itemGap = 12 }: { cardSize?: number; itemGap?: number }) {
   const { data, error, loading, showLoader, retry } = useAlbumRanking();
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -30,6 +30,8 @@ export function TopRatedAlbumsSection() {
   return (
     <View>
       <HorizontalCarousel
+        itemGap={itemGap}
+        cardSize={cardSize}
         title={t('home.top_rated_albums')}
         onSeeAll={top.length > 0 ? viewAll : undefined}
         seeAllLabel={t('album_ranking.view_all')}
@@ -37,8 +39,8 @@ export function TopRatedAlbumsSection() {
         emptyText={t('album_ranking.empty')}
         keyExtractor={item => item.album.id}
         renderItem={({ item, index }) => (
-          <Animated.View entering={cascade.item(index)} style={{ width: 120 }}>
-            <MediaCard id={item.album.id} type="album" title={item.album.title} imageUrl={item.album.coverUrl}
+          <Animated.View entering={cascade.item(index)} style={{ width: cardSize }}>
+            <MediaCard size={cardSize} id={item.album.id} type="album" title={item.album.title} imageUrl={item.album.coverUrl}
               onPress={id => navigation.navigate('AlbumDetail', { albumId: id }, { pop: true })}
               onLongPress={() => openAlbumMenu(item.album)} />
             <AlbumRatingCaption rating={item} />

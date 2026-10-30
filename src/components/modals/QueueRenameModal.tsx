@@ -20,9 +20,9 @@ export default function QueueRenameModal() {
             NavigationBar.setBackgroundColorAsync('#00000000').catch(() => {});
             NavigationBar.setButtonStyleAsync('light').catch(() => {});
         }
-        const back = BackHandler.addEventListener('hardwareBackPress', () => { close(); return true; });
+        const back = Platform.OS === 'web' ? undefined : BackHandler.addEventListener('hardwareBackPress', () => { close(); return true; });
         return () => {
-            back.remove();
+            back?.remove();
             if (Platform.OS === 'android') NavigationBar.setBackgroundColorAsync('#121212').catch(() => {});
         };
     }, [queueId, close]);
@@ -38,7 +38,7 @@ export default function QueueRenameModal() {
                 accessibilityLabel={t('queue.rename_title')} style={{ color: colors.text, fontFamily: fonts.regular, borderBottomWidth: 1, borderBottomColor: colors.accent, paddingVertical: 8 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 24 }}>
                 <TouchableOpacity onPress={close}><Text style={{ color: colors.textSecondary, fontFamily: fonts.regular }}>{t('actions.cancel')}</Text></TouchableOpacity>
-                <TouchableOpacity onPress={save}><Text style={{ color: colors.accent, fontFamily: fonts.regular }}>{t('queue.rename_save')}</Text></TouchableOpacity>
+                <TouchableOpacity testID="queue-rename-save" accessibilityRole="button" onPress={save}><Text style={{ color: colors.accent, fontFamily: fonts.regular }}>{t('queue.rename_save')}</Text></TouchableOpacity>
             </View>
         </View>
     </KeyboardAvoidingView>;

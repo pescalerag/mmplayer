@@ -114,4 +114,15 @@ describe('LyricsService.exportLyrics', () => {
 
     await expect(LyricsService.exportLyrics(track)).rejects.toThrow('Sharing is not available on this device');
   });
+  it('returns false when native saving is cancelled', async () => {
+    (Sharing.isAvailableAsync as jest.Mock).mockResolvedValueOnce(true);
+    (Sharing.shareAsync as jest.Mock).mockRejectedValueOnce(Object.assign(Error('Cancelled'), { code: 'USER_CANCELLED' }));
+    expect(await LyricsService.exportLyrics({ title: 'Song', artist: 'Artist', lyricsLRC: '[00:01]Text' } as unknown as Track)).toBe(false);
+  });
+  it('uses a valid Windows filename for a reserved title', async () => {
+    (Sharing.isAvailableAsync as jest.Mock).mockResolvedValueOnce(true);
+    expect(await LyricsService.exportLyrics({ title: 'CON. ', artist: '', lyricsLRC: '[00:01]Text' } as unknown as Track)).toBe(true);
+    expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(expect.stringContaining('_CON.lrc'), '[00:01]Text', { encoding: 'utf8' });
+  });
+
 });

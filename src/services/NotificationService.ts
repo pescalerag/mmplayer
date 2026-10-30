@@ -95,6 +95,7 @@ class NotificationServiceImpl {
 
       let createdNotification: AppNotification | null = null;
       await database.write(async () => {
+        if (params.id && await this.exists(params.id)) return;
         createdNotification = await this.collection.create((notif) => {
           if (params.id) {
             notif._raw.id = params.id;
@@ -462,11 +463,11 @@ class NotificationServiceImpl {
 
   // --- INIT LIFECYCLE ---
 
-  public async init(): Promise<void> {
+  public async init(options: { checkAppUpdates?: boolean } = {}): Promise<void> {
     try {
       await this.getUnreadCount();
       await this.checkAndGenerateSummaries();
-      await this.checkForAppUpdates();
+      if (options.checkAppUpdates !== false) await this.checkForAppUpdates();
     } catch (e) {
       console.warn('[NotificationService] Init error:', e);
     }

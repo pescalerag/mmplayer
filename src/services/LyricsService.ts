@@ -1,45 +1,18 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { database } from '../database';
 import Track from '../database/models/Track';
 import { usePlayerStore } from '../store/usePlayerStore';
 
-export const parseLRC = (lrcText: string): { time: number; text: string }[] => {
-    if (!lrcText) return [];
-    
-    const lines = lrcText.split(/\r?\n/);
-    const parsedLines: { time: number; text: string }[] = [];
-    
-    // Matches timestamps like [01:23.45] or [01:23]
-    const timeRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
-    
-    for (const line of lines) {
-        const matches = [...line.matchAll(timeRegex)];
-        if (matches.length === 0) continue;
-        
-        // Extract lyrics text by removing all timestamp tags
-        const text = line.replace(timeRegex, '').trim();
-        
-        for (const match of matches) {
-            const minutes = parseInt(match[1], 10);
-            const seconds = parseInt(match[2], 10);
-            const msString = match[3] || '00';
-            
-            // Normalize centiseconds or milliseconds to 3-digit millisecond value
-            const milliseconds = parseInt(msString.padEnd(3, '0').slice(0, 3), 10);
-            const time = minutes * 60 + seconds + milliseconds / 1000;
-            
-            parsedLines.push({ time, text });
-        }
-    }
-    
-    return parsedLines.sort((a, b) => a.time - b.time);
-};
+import { parseLRC } from '../../packages/core/src/lyrics';
+export { parseLRC };
 
-const activeFetchingTrackIds = new Set<string>();
+import { foregroundLyricsRequests as activeFetchingTrackIds } from './lyricsRequests';
 
 export const LyricsService = {
+    isFetchingTrack: (id: string): boolean => activeFetchingTrackIds.has(id),
     isFetching: (): boolean => {
         return activeFetchingTrackIds.size > 0;
     },
@@ -94,7 +67,7 @@ export const LyricsService = {
 
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'MMPlayer V2.1.0 (https://github.com/pescalerag/mmplayer)'
+                    'User-Agent': 'MMPlayer V3.0.0 (https://github.com/pescalerag/mmplayer)'
                 },
                 signal: controller.signal
             });
@@ -156,11 +129,14 @@ export const LyricsService = {
             }
 
             const fileUri = result.assets[0].uri;
-            const fileContent = await FileSystem.readAsStringAsync(fileUri, {
-                encoding: 'utf8' as any
-            });
+            let fileContent: string;
+            try {
+                fileContent = (await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as any })).replace(/^\uFEFF/, '');
+            } finally {
+                if (Platform.OS === 'web' && fileUri.startsWith('blob:')) await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
+            }
 
-            if (fileContent) {
+            if (fileContent.trim()) {
                 await database.write(async () => {
                     await track.update(t => {
                         t.lyricsLRC = fileContent;
@@ -201,10 +177,11 @@ export const LyricsService = {
                 resolvedArtistName = '';
             }
 
-            const sanitize = (name: string) => name.replace(/[/\\?%*:|"<>]/g, '_').trim();
+            const sanitize = (name: string) => name.replace(/[/\\?%*:|"<>\x00-\x1f]/g, '_').trim().replace(/[. ]+$/, '');
             const artistStr = sanitize(resolvedArtistName);
             const titleStr = sanitize(track.title) || 'track';
-            const fileName = artistStr ? `${artistStr} - ${titleStr}.lrc` : `${titleStr}.lrc`;
+            const baseName = (artistStr ? `${artistStr} - ${titleStr}` : titleStr).slice(0, 180);
+            const fileName = `${/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(baseName) ? '_' : ''}${baseName}.lrc`;
             const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
 
             await FileSystem.writeAsStringAsync(fileUri, track.lyricsLRC, {
@@ -224,6 +201,7 @@ export const LyricsService = {
 
             return true;
         } catch (error) {
+            if ((error as any)?.code === 'USER_CANCELLED') return false;
             console.error('[LyricsService] Error exporting lyrics:', error);
             throw error;
         }

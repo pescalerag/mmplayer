@@ -11,12 +11,13 @@ const mockSettings = {
   showPlayerVisualizer: false, showCanvas: true, playerCoverStyle: 'cover', playerBackgroundStyle: 'cover', playerVisualizerType: 'bars', playerVisualizerColorMode: 'cover',
   setPlayerCoverStyle: jest.fn(), setPlayerBackgroundStyle: jest.fn(), setShowCanvas: jest.fn(), setShowPlayerVisualizer: jest.fn(), setPlayerVisualizerType: jest.fn(), setPlayerVisualizerColorMode: jest.fn(),
 };
-jest.mock('../store/useSettingsStore', () => ({ useSettingsStore: () => mockSettings }));
+jest.mock('../store/useSettingsStore', () => ({ useSettingsStore: (select: any) => select(mockSettings) }));
+jest.mock('zustand/react/shallow', () => ({ useShallow: (select: any) => select }));
 jest.mock('../hooks/useSheetProps', () => ({ useSheetProps: () => ({ props: mockAppearance }) }));
 jest.mock('../hooks/useAppTheme', () => ({ useAppTheme: () => ({ colors: { text: '#fff', textSecondary: '#aaa', background: '#000', cardBackground: '#222', accent: '#00ff00', onAccent: '#000', accentAlpha8: '#010', accentAlpha30: '#020' }, fonts: { regular: 'regular' }, layout: {}, spacing: {}, radii: {} }) }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock('react-native', () => ({ View: 'View', Text: 'Text', Switch: 'Switch', TouchableOpacity: 'Button', Platform: { OS: 'android' }, PermissionsAndroid: { request: jest.fn(), PERMISSIONS: { RECORD_AUDIO: 'audio' }, RESULTS: { GRANTED: 'granted' } }, StyleSheet: { create: (styles: any) => styles, absoluteFillObject: {} } }));
-jest.mock('react-native-gesture-handler', () => ({ ScrollView: 'ScrollView', TouchableOpacity: 'Button' }));
+jest.mock('react-native-gesture-handler', () => ({ FlatList: 'FlatList', ScrollView: 'ScrollView', TouchableOpacity: 'Button' }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, default: { View: 'AnimatedView' } }));
 jest.mock('@react-native-masked-view/masked-view', () => 'MaskedView');
 jest.mock('expo-image', () => ({ Image: 'Image' }));
@@ -30,6 +31,8 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 
 function nodes(tree: any): any[] {
   if (!tree || typeof tree !== 'object') return [];
+  // Materialize virtual rows to exercise options that appear after scrolling.
+  if (tree.type === 'FlatList') return [tree, ...tree.props.data.flatMap((item: any, index: number) => nodes(tree.props.renderItem({ item, index })))];
   if (typeof tree.type === 'function' && tree.type.name === 'PreviewOption') return nodes(tree.type(tree.props));
   return [tree, ...React.Children.toArray(tree.props?.children).flatMap(nodes)];
 }
@@ -42,7 +45,7 @@ afterEach(() => jest.restoreAllMocks());
 
 it('shows horizontal artwork previews with the current cover and configured CD', () => {
   const tree = render();
-  expect(tree.filter(node => node.type === 'ScrollView' && node.props.horizontal)).toHaveLength(4);
+  expect(tree.filter(node => ['ScrollView', 'FlatList'].includes(node.type) && node.props.horizontal)).toHaveLength(4);
   expect(tree.find(node => node.type === 'Image' && node.props.blurRadius === undefined).props.source).toEqual({ uri: mockAppearance.coverUrl });
   expect(tree.find(node => node.type === PlayerDiscArtwork && node.props.playerCoverStyle === 'cd').props.album.cdArtUrl).toBe(mockAppearance.cdArtUrl);
   tree.find(node => node.props.accessibilityLabel === 'visualizer.cover_style_vinyl').props.onPress();

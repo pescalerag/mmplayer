@@ -1644,8 +1644,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       // 4. Actualizar hasPrevious / hasNext
-      await get().updateQueueStatus(safeIndex, suppliedSession ? { queue, repeatMode: repeatMode ?? RepeatMode.Off,
+      // Controls update synchronously from the installed queue; adjacent artwork
+      // models must not hold the queue selector locked while the DB resolves them.
+      const statusUpdate = get().updateQueueStatus(safeIndex, suppliedSession ? { queue, repeatMode: repeatMode ?? RepeatMode.Off,
         shuffleOnQueueEnd: suppliedShuffleOnQueueEnd } : undefined);
+      if (suppliedSession) void statusUpdate.catch(error => console.error('Error refreshing restored queue:', error));
+      else await statusUpdate;
       timing('ready');
     } catch (error) {
       console.error("Error restaurando estado de reproducción:", error);

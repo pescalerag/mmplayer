@@ -169,7 +169,7 @@ export default function SettingsAudioScreen() {
 
                         <View style={styles.separator} />
 
-                        {Platform.OS === 'android' && <>
+                        {(Platform.OS === 'android' || Platform.OS === 'web') && <>
                             <View style={{ marginVertical: 8 }}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <Text style={styles.settingLabel}>{t('settings.crossfade')}</Text>

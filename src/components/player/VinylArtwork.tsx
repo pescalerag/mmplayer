@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import MaskedView from '@react-native-masked-view/masked-view';
+import { DiscMask } from './DiscMask';
 import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
@@ -16,10 +16,8 @@ export function VinylArtwork({ size, coverUrl, coverColor, spinStyle, onReady }:
 }>) {
     const labelSize = size * 0.32;
     const holeSize = size * 0.025;
-    return <View style={{ width: size, height: size, alignSelf: 'center' }}>
-        <MaskedView style={StyleSheet.absoluteFillObject} maskElement={
-            <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: (size - holeSize) / 2, borderColor: '#000', backgroundColor: 'transparent' }} />
-        }>
+    return <View testID="player-vinyl-artwork" style={{ width: size, height: size, alignSelf: 'center' }}>
+        <DiscMask size={size} holeSize={holeSize}>
             <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}>
                 <Svg width="100%" height="100%" viewBox="0 0 400 400">
                     <Defs>
@@ -47,6 +45,6 @@ export function VinylArtwork({ size, coverUrl, coverColor, spinStyle, onReady }:
                     <Circle cx="200" cy="200" r="10" fill="#232522" stroke="#e6e1d3" strokeWidth="1" />
                 </Svg>
             </Animated.View>
-        </MaskedView>
+        </DiscMask>
     </View>;
 }

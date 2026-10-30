@@ -2,6 +2,7 @@ import React from 'react';
 import { PlayerDiscArtwork } from '../components/player/PlayerDiscArtwork';
 import { VinylArtwork } from '../components/player/VinylArtwork';
 import { CdArtwork } from '../components/player/CdArtwork';
+import { DiscMask } from '../components/player/DiscMask';
 
 jest.mock('react-native', () => ({ View: 'View', StyleSheet: { absoluteFillObject: {} } }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, default: { View: 'AnimatedView' } }));
@@ -13,6 +14,7 @@ const nodes = (tree: any): any[] => {
   if (!tree || typeof tree !== 'object') return [];
   if (tree.type === VinylArtwork) return nodes(VinylArtwork(tree.props));
   if (tree.type === CdArtwork) return nodes(CdArtwork(tree.props));
+  if (tree.type === DiscMask) return nodes(DiscMask(tree.props));
   return [tree, ...React.Children.toArray(tree.props?.children).flatMap(nodes)];
 };
 const render = (props: any) => nodes((PlayerDiscArtwork as any).type({ artworkSize: 300, spinStyle: { transform: [{ rotate: '20deg' }] }, coverColor: null, album: null, ...props }));

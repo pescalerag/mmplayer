@@ -18,6 +18,7 @@ jest.mock('react-native-reanimated', () => ({
 
 beforeEach(() => {
     mockShared.length = 0; mockCleanups.length = 0; mockSetActive.mockClear();
+    jest.spyOn(React, 'useCallback').mockImplementation(callback => callback);
     jest.spyOn(React, 'useEffect').mockImplementation(callback => { const cleanup = callback(); if (cleanup) mockCleanups.push(cleanup); });
 });
 afterEach(() => jest.restoreAllMocks());

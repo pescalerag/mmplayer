@@ -527,6 +527,9 @@ export default function MetadataEditorSheet() {
         )}
       </View>
 
+      {Platform.OS === 'web' && (
+        <Text style={[styles.subtitle, { marginBottom: 12 }]}>{t('desktop:metadataFileWarning')}</Text>
+      )}
       {isLoadingPhysical ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent} />

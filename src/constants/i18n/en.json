@@ -1,4 +1,16 @@
 {
+  "discord": {
+      "other_settings": "Other",
+      "other_description": "Integrations and additional options",
+      "title": "Discord Rich Presence",
+      "description": "Show the artist, song and artwork on Discord while listening to music.",
+      "status_disabled": "Disabled",
+      "status_needs_application_id": "The integration still needs to be configured.",
+      "status_native_unavailable": "Discord connectivity is not yet available in this version for your device.",
+      "status_waiting_for_discord": "Enabled. Open Discord and play a song to share your activity.",
+      "status_connected": "Connected to Discord.",
+      "status_error": "Could not update Discord. Playback will trigger another attempt."
+  },
   "runtimeDebug": {
     "errors": "Application errors",
     "tests": "On-device tests",
@@ -481,6 +493,10 @@
     "batch_tags": "Batch tags"
   },
   "settings": {
+    "storage_desc_desktop": "Manage storage on your computer and in MMPlayer",
+    "app_tabs_desc_desktop": "Customize the order of sidebar navigation",
+    "debug_desc_desktop": "View listening history and repair library artist credits",
+
     "music_zip_import": "Import music ZIP",
     "music_zip_import_desc": "Save audio files from a ZIP to Music/zip-name.",
     "backup_export_zip": "Export complete backup (ZIP)",
@@ -506,6 +522,7 @@
     "storage_title": "Storage",
     "storage_desc": "Manage device and MMPlayer storage space",
     "calculating_storage": "Calculating storage space...",
+    "computer_storage": "MMPlayer drive",
     "device_storage": "Device Storage",
     "audio_files": "Audio Files",
     "other_files": "Other Files",
@@ -753,6 +770,8 @@
     "create_and_add": "Create and Add"
   },
   "actions": {
+    "warning": "Warning",
+    "confirm": "Confirm",
     "play": "Play",
     "shuffle": "Shuffle",
     "previous": "Previous",
@@ -826,6 +845,7 @@
     "share": "Share",
     "share_song_title": "Share Song",
     "share_song_preview": "Song Preview",
+    "share_image_error": "The image could not be generated or saved. Please try again.",
     "share_as_image": "Share Image",
     "share_as_audio": "Share Audio File",
     "more_info": "More info",
@@ -1658,6 +1678,11 @@
   "backup": {
     "import_mode_title": "How would you like to import?",
     "import_mode_description": "Merge keeps your library and adds the backup data. Replace removes all current database data and restores the backup. Music files are not deleted.",
+    "desktop_locate_title": "Locate music on this PC",
+    "desktop_locate_description": "{{count}} songs from the backup could not be found. Backups include your data and customizations; music files must be on this PC. Select their folders or continue keeping the missing songs.",
+    "desktop_select_folders": "Select folders",
+    "desktop_continue": "Continue",
+    "desktop_cancelled": "Import cancelled",
     "merge": "Merge data",
     "replace": "Replace data",
     "conflicts_title": "Existing data",

@@ -4,6 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Platform,
   ActivityIndicator,
   Alert,
   ScrollView,
@@ -116,7 +117,7 @@ export default function SettingsStorageScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="hardware-chip-outline" size={22} color={colors.accent} />
-            <Text style={styles.cardTitle}>{t('settings.device_storage', 'Almacenamiento del móvil')}</Text>
+            <Text style={styles.cardTitle}>{Platform.OS === 'web' ? t('settings.computer_storage') : t('settings.device_storage', 'Almacenamiento del móvil')}</Text>
           </View>
 
           <View style={styles.storageTextRow}>

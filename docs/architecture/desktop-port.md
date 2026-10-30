@@ -2,7 +2,7 @@
 
 Fecha: 20 de octubre de 2026.
 
-Estado: decisiones de producto y arquitectura registradas. El usuario ha indicado expresamente que NO se inicie todavía la implementación. Esta especificación y sus referencias visuales no autorizan a modificar código, reorganizar el repositorio ni instalar dependencias.
+Estado: implementación iniciada tras la autorización expresa del usuario en la rama `v3.0-pc-port`. La instrucción anterior de esperar quedó revocada por esa autorización. Se mantienen los acuerdos de producto y las exclusiones descritas aquí.
 
 ## Plataforma y mantenimiento
 
@@ -43,7 +43,8 @@ Estado: decisiones de producto y arquitectura registradas. El usuario ha indicad
 - Barra lateral: secciones principales y accesos fijados a playlists, etiquetas o carpetas.
 - LyricsScreen se abre en el panel central.
 - La cola y las sheets/opciones de PlayerScreen se superponen al reproductor derecho, en lugar de sustituir el contenido central.
-- Presentación de biblioteca con selector entre vista como en móvil (predeterminada) y tabla.
+- Biblioteca reutiliza exclusivamente la presentación móvil; se retira la vista de tabla por decisión posterior del usuario.
+- Atrás y Adelante integrados en los headers compartidos, sin barra superior adicional. Zoom absoluto de Chromium (50–130 %), independiente del tamaño de ventana y compuesto por el motor con el DPI del sistema. El 100 % y Ctrl 0 restablecen el tamaño normal; Ctrl + / Ctrl − cambian la preferencia persistida, sin controles de zoom en el lateral. La ventana carece de marco nativo y usa una barra negra arrastrable con minimizar, maximizar/restaurar y cerrar, sin título ni icono. El lateral muestra la M transparente. El shell ocupa el viewport lógico completo: redimensionar produce reflow, sin lienzo fijo ni ajuste automático del zoom. La biblioteca usa el ancho medido del panel y columnas equivalentes a auto-fill/minmax(180px, 1fr), sin escalado manual adicional de métricas. Los laterales limitan sus anchos para preservar el centro; navegación compacta y contracción temporal del panel derecho cuando no cabe, conservando las preferencias para recuperarlas al ampliar. Menús y modales comparten el mismo zoom y espacio de coordenadas.
 - Un clic en una canción reproduce. La selección utiliza casillas o un modo explícito.
 - Opciones como menús contextuales flotantes por niveles, calculando su posición según el espacio disponible. Cuando sea necesario, modal flotante por encima de la UI.
 - Los mockups muestran identidad visual de MMPlayer, menús oscuros, colores de acento, degradados y fondo del reproductor adaptado a la portada. Su implementación respeta la exclusión temporal de funciones Supporter/VIP; los mockups no desbloquean funciones restringidas.
@@ -71,7 +72,7 @@ Se conservan copias dentro del repositorio para no depender de rutas temporales 
 
 Las cuatro dudas planteadas se han resuelto: funciones Supporter/VIP ocultas, Chromecast excluido, controles y persistencia de la barra inferior confirmados, y adaptación de paneles aprobada. No hay dudas bloqueantes de producto en este punto.
 
-Siguen requiriendo diseño técnico y validación la elección de motores y adaptadores, los límites de anchura y el formato concreto de distribución Linux. Esto no modifica los acuerdos anteriores ni autoriza a empezar la implementación: se mantiene la instrucción de esperar.
+Siguen requiriendo diseño técnico y validación la elección definitiva del motor de audio avanzado, los límites de anchura y el formato concreto de distribución Linux. La primera etapa se documenta en [el README de escritorio](../../apps/desktop/README.md); no equivale a paridad completa con Android.
 
 ## Documentación de referencia del análisis previo
 

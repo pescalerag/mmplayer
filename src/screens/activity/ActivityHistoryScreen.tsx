@@ -6,16 +6,8 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    ActivityIndicator,
-    Alert,
-    BackHandler,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { State } from 'react-native-track-player';
 import { HistorySelectActionBar } from '@/components/activity/HistorySelectActionBar';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';

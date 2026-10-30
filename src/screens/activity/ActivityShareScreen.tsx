@@ -1,3 +1,6 @@
+import { useToastStore } from '../../store/useToastStore';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
+import appIcon from '../../assets/images/splash-icon.png';
 import { STATS_THEMES } from '../../theme/shareThemes';
 import i18n from '../../constants/i18n';
 import React, { useRef, useState } from 'react';
@@ -7,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
   ScrollView,
 } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
@@ -22,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSettingsStore, StatsCardTheme } from '../../store/useSettingsStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 
 function formatDuration(seconds: number, t: any): string {
   if (!seconds || seconds <= 0) return `0 ${t('activity.min_suffix', { defaultValue: 'min' })}`;
@@ -180,7 +182,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
           {/* Header Branding */}
           <View style={cardStyles.brandHeader}>
             <Image
-              source={require('../../assets/images/splash-icon.png')}
+              source={appIcon}
               style={cardStyles.appIcon}
               contentFit="contain"
             />
@@ -342,6 +344,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
 ShareCard.displayName = 'ShareCard';
 
 export default function ActivityShareScreen() {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useScreenDimensions();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -398,8 +401,10 @@ export default function ActivityShareScreen() {
         });
       }
     } catch (err) {
-      console.error('[ActivityShareScreen] Error capturing or sharing:', err);
       setIsCapturing(false);
+      if ((err as any)?.code === 'USER_CANCELLED') return;
+      console.error('[ActivityShareScreen] Error capturing or sharing:', err);
+      useToastStore.getState().showToast(t('player.share_image_error'), 'close-circle', '#EF4444');
     }
   };
 

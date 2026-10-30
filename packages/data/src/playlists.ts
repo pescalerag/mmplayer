@@ -1,0 +1,247 @@
+import i18n from "../../../src/constants/i18n";
+import { Q } from "@nozbe/watermelondb";
+import type { Database } from "@nozbe/watermelondb";
+import Playlist from "../../../src/database/models/Playlist";
+import PlaylistTrack from "../../../src/database/models/PlaylistTrack";
+import Track from "../../../src/database/models/Track";
+
+export function createPlaylistService(
+  database: Database,
+  assets: {
+    readInitialCover: (trackId: string) => Promise<string | null>;
+    removeCover: (playlistId: string) => Promise<void>;
+  },
+) {
+  const PlaylistService = {
+    /**
+     * Get all playlists.
+     */
+    async getAllPlaylists(): Promise<Playlist[]> {
+      return database.collections
+        .get<Playlist>("playlists")
+        .query(Q.sortBy("created_at", Q.desc))
+        .fetch();
+    },
+
+    /**
+     * Get all track IDs currently in a playlist.
+     */
+    async getTrackIdsInPlaylist(playlistId: string): Promise<string[]> {
+      const playlistTracks = await database.collections
+        .get<PlaylistTrack>("playlist_tracks")
+        .query(Q.where("playlist_id", playlistId))
+        .fetch();
+      return playlistTracks.map((pt) => pt.track.id);
+    },
+
+    /**
+     * Create a new playlist.
+     */
+    async createPlaylist(
+      name: string,
+      description?: string,
+    ): Promise<Playlist> {
+      const trimmedName = name.trim();
+      if (!trimmedName) throw new Error(i18n.t("playlists.name_required"));
+
+      return database.write(async () => {
+        return database.collections
+          .get<Playlist>("playlists")
+          .create((playlist) => {
+            playlist.name = trimmedName;
+            playlist.description = description || null;
+            playlist.createdAt = Date.now();
+            (playlist as any).isPinned = false;
+          });
+      });
+    },
+
+    /**
+     * Add a single track to a playlist.
+     */
+    async addTrackToPlaylist(
+      playlistId: string,
+      trackId: string,
+    ): Promise<void> {
+      await PlaylistService.addMultipleTracksToPlaylist(playlistId, [trackId]);
+    },
+
+    /**
+     * Add multiple tracks to a playlist in a single transaction (batch).
+     */
+    async addMultipleTracksToPlaylist(
+      playlistId: string,
+      trackIds: string[],
+    ): Promise<void> {
+      if (trackIds.length === 0) return;
+
+      await database.write(async () => {
+        const playlistTracksCollection =
+          database.collections.get<PlaylistTrack>("playlist_tracks");
+        const existingTracks = await playlistTracksCollection
+          .query(Q.where("playlist_id", playlistId))
+          .fetch();
+
+        let maxOrder = existingTracks.reduce(
+          (max, pt) => (pt.order > max ? pt.order : max),
+          0,
+        );
+
+        const operations: (PlaylistTrack | Playlist)[] = trackIds.map(
+          (trackId) => {
+            maxOrder += 1;
+            return playlistTracksCollection.prepareCreate((pt) => {
+              pt.playlist.id = playlistId;
+              pt.track.id = trackId;
+              pt.order = maxOrder;
+            });
+          },
+        );
+
+        const playlist = await database
+          .get<Playlist>("playlists")
+          .find(playlistId);
+        if (!playlist.coverInitialized) {
+          const firstExisting = [...existingTracks].sort(
+            (a, b) => a.order - b.order,
+          )[0];
+          const cover = await assets.readInitialCover(
+            firstExisting?.track.id || trackIds[0],
+          );
+          operations.push(
+            playlist.prepareUpdate((p) => {
+              p.coverUrl = cover;
+              p.coverInitialized = true;
+            }),
+          );
+        }
+
+        await database.batch(...operations);
+      });
+    },
+
+    async resolvePlaylistTracks(
+      playlistTracks: PlaylistTrack[],
+    ): Promise<{ track: Track; playlistTrackId: string }[]> {
+      if (!playlistTracks.length) return [];
+      const ids = [
+        ...new Set(playlistTracks.map((item) => item.track.id as string)),
+      ];
+      const tracks = await database
+        .get<Track>("tracks")
+        .query(Q.where("id", Q.oneOf(ids)))
+        .fetch();
+      const byId = new Map(tracks.map((track) => [track.id, track]));
+      return playlistTracks.flatMap((item) => {
+        const track = byId.get(item.track.id);
+        return track ? [{ track, playlistTrackId: item.id }] : [];
+      });
+    },
+
+    /**
+     * Remove a track from a playlist.
+     */
+    async removeTrackFromPlaylist(
+      playlistId: string,
+      trackId: string,
+    ): Promise<void> {
+      await PlaylistService.removeMultipleTracksFromPlaylist(playlistId, [
+        trackId,
+      ]);
+    },
+
+    async removeMultipleTracksFromPlaylist(
+      playlistId: string,
+      trackIds: string[],
+    ): Promise<void> {
+      if (trackIds.length === 0) return;
+      await database.write(async () => {
+        const playlistTracks = await database.collections
+          .get<PlaylistTrack>("playlist_tracks")
+          .query(
+            Q.where("playlist_id", playlistId),
+            Q.where("track_id", Q.oneOf([...new Set(trackIds)])),
+          )
+          .fetch();
+
+        const operations = playlistTracks.map((pt) =>
+          pt.prepareDestroyPermanently(),
+        );
+        if (operations.length > 0) {
+          await database.batch(...operations);
+        }
+      });
+    },
+
+    /**
+     * Update an existing playlist's name and description.
+     */
+    async updatePlaylist(
+      playlistId: string,
+      name: string,
+      description?: string,
+    ): Promise<void> {
+      const trimmedName = name.trim();
+      if (!trimmedName) throw new Error(i18n.t("playlists.name_required"));
+
+      await database.write(async () => {
+        const playlist = await database.collections
+          .get<Playlist>("playlists")
+          .find(playlistId);
+        await playlist.update((p) => {
+          p.name = trimmedName;
+          p.description = description || null;
+        });
+      });
+    },
+
+    /**
+     * Delete an entire playlist.
+     */
+    async deletePlaylist(playlistId: string): Promise<void> {
+      await assets.removeCover(playlistId);
+      await database.write(async () => {
+        const playlist = await database.collections
+          .get<Playlist>("playlists")
+          .find(playlistId);
+        const playlistTracks = await database.collections
+          .get<PlaylistTrack>("playlist_tracks")
+          .query(Q.where("playlist_id", playlistId))
+          .fetch();
+
+        const operations = [
+          ...playlistTracks.map((pt) => pt.prepareDestroyPermanently()),
+          playlist.prepareDestroyPermanently(),
+        ];
+
+        await database.batch(...operations);
+      });
+    },
+
+    /**
+     * Reorder tracks in a playlist in batch.
+     */
+    async reorderPlaylistTracks(
+      reorderedPlaylistTracks: PlaylistTrack[],
+    ): Promise<void> {
+      await database.write(async () => {
+        const operations: any[] = [];
+        reorderedPlaylistTracks.forEach((pt, index) => {
+          const newOrder = index + 1;
+          if (pt.order !== newOrder) {
+            operations.push(
+              pt.prepareUpdate((record) => {
+                record.order = newOrder;
+              }),
+            );
+          }
+        });
+        if (operations.length > 0) {
+          await database.batch(...operations);
+        }
+      });
+    },
+  };
+
+  return PlaylistService;
+}

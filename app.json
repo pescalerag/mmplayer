@@ -38,7 +38,7 @@
         "monochromeImage": "./src/assets/images/splash-icon.png"
       },
       "package": "com.pescalerag.mmplayer",
-      "versionCode": 34,
+      "versionCode": 35,
       "newArchEnabled": true,
       "navigationBar": {
         "barStyle": "light-content",
@@ -102,6 +102,7 @@
         "react-native-google-cast",
         {
           "receiverAppId": "5622F67E",
+          "androidPlayServicesCastFrameworkVersion": "22.3.1",
           "expandedController": false
         }
       ],

@@ -89,12 +89,12 @@ export const PlayerArtwork = ({
 
     return (
         <View
+            testID="player-artwork"
             style={[
                 {
                     width: size,
                     height: size,
-                    maxHeight: '100%',
-                    maxWidth: '100%',
+                    aspectRatio: 1,
                     borderRadius,
                     overflow: 'hidden',
                     backgroundColor: cardBackgroundColor,

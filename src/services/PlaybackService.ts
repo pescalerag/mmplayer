@@ -9,6 +9,7 @@ import { useABRepeatStore } from "../store/useABRepeatStore";
 import { consumeUserQueueTransition, usePlayerStore } from "../store/usePlayerStore";
 import i18n from "../constants/i18n";
 import { startNotificationFavoritesSync } from './NotificationFavoritesService';
+import { startDiscordPresence } from './DiscordPresenceService';
 import { PlaybackListenService } from './PlaybackListenService';
 import { isSuspendedQueueListen, persistQueueTime, useMultipleQueuesStore } from '../store/useMultipleQueuesStore';
 import { handleAutoRequest, startAndroidAutoService } from './AndroidAutoService';
@@ -186,6 +187,7 @@ async function persistLoopListen(position: number, duration: number) {
 }
 
 export const PlaybackService = async function () {
+  startDiscordPresence();
   startAndroidAutoService();
   void ensurePlaybackReady().catch(error => console.error('[Playback] Initialization failed:', error));
   startNotificationFavoritesSync();

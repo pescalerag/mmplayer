@@ -107,3 +107,26 @@ it('applies the restored global speed and pitch before the next play instead of 
     expect(TrackPlayer.skip).toHaveBeenCalledWith(0, 20);
     expect(TrackPlayer.play).not.toHaveBeenCalled();
 });
+
+it('unlocks a restored queue before adjacent artwork loads, then reconciles the models', async () => {
+    let finishNeighbours!: (model: any) => void;
+    const neighbours = new Promise(resolve => { finishNeighbours = resolve; });
+    const active = track('active');
+    (database.get as jest.Mock).mockReturnValue({ find: jest.fn((id: string) => id === 'active' ? Promise.resolve(active) : neighbours) });
+    let ready = false;
+    const request = usePlayerStore.getState().restorePlaybackState({
+        queue: ['before', 'active', 'after'].map(id => ({ id: `${id}-instance`, url: `file:///${id}.mp3` })),
+        index: 1, position: 45, accumulatedTime: 10, repeatMode: 0,
+        userQueueSize: 0, playbackContext: 'album', isShuffleEnabled: false, shuffleOriginalQueue: [],
+        playbackSpeed: 1, playbackPitch: 1, isVinylModeEnabled: false,
+    }).then(() => { ready = true; });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(ready).toBe(true);
+    expect(usePlayerStore.getState()).toMatchObject({ activeTrack: active, hasPrevious: true, hasNext: true });
+    expect(TrackPlayer.skip).toHaveBeenCalledWith(1, 45);
+    expect(TrackPlayer.play).not.toHaveBeenCalled();
+    const adjacent = track('adjacent');
+    finishNeighbours(adjacent);
+    await request; await settle();
+    expect(usePlayerStore.getState()).toMatchObject({ prevTrack: adjacent, nextTrack: adjacent });
+});

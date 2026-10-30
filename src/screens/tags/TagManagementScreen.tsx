@@ -1,6 +1,7 @@
 import { observeScreenData } from '../../utils/observeScreenData';
 import { ScreenHeaderLayout } from '@/components/layouts/ScreenHeaderLayout';
 import TagSpotlightTutorial from '@/components/modals/TagSpotlightTutorial';
+import { TutorialHelpButton } from '@/components/common/TutorialHelpButton';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { openTagForm, openTagMenu } from '@/store/useUIStore';
@@ -11,7 +12,8 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import Animated from 'react-native-reanimated';
 import { getItemFadeIn } from '@/utils/cascadeAnimations';
 import { database } from '../../database';
@@ -44,7 +46,7 @@ function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementConten
     const [headerHeight, setHeaderHeight] = useState(100);
     // Auto-lanzar el tutorial la primera vez que se visita la pantalla
     useFocusEffect(React.useCallback(() => {
-        if (isReady && !hasSeenTagsTutorial) setIsTutorialVisible(true);
+        if (isReady && !hasSeenTagsTutorial && Platform.OS !== 'web') setIsTutorialVisible(true);
     }, [isReady, hasSeenTagsTutorial]));
 
     const handleCloseTutorial = () => {
@@ -125,14 +127,11 @@ function TagManagementContent({ tags: loadedTags }: Readonly<TagManagementConten
                             helpButtonLayout.current = e.nativeEvent.layout;
                         }}
                     >
-                        <TouchableOpacity
+                        <TutorialHelpButton
                             onPress={() => setIsTutorialVisible(true)}
-                            style={styles.helpButton}
                             accessibilityLabel={t('tags_tutorial.help_btn')}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
-                        </TouchableOpacity>
+                            style={styles.helpButton}
+                        />
                     </View>
                 }
             >

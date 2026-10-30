@@ -1,13 +1,15 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { getArtistDisplayName, getMediaDisplayTitle } from '../../utils/libraryMetadata';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import PlaylistCover from '@/components/player/PlaylistCover';
 
 interface MediaCardProps {
+  size?: number;
   id: string;
   type: 'track' | 'album' | 'playlist' | 'artist';
   title: string;
@@ -19,6 +21,7 @@ interface MediaCardProps {
 }
 
 export const MediaCard: React.FC<MediaCardProps> = ({
+  size = 120,
   id,
   type,
   title,
@@ -44,7 +47,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, { width: size }]}
       onPress={handlePress}
       onLongPress={handleLongPress}
       delayLongPress={300}
@@ -53,7 +56,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       <View style={[
         styles.imageContainer,
         {
-          borderRadius: isRound ? 60 : (radii.md || 8),
+          width: size,
+          height: size,
+          borderRadius: isRound ? size / 2 : (radii.md || 8),
           backgroundColor: colors.cardBackground,
         }
       ]}>
@@ -61,9 +66,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           <PlaylistCover
             playlistId={id}
             isFavorites={id === 'favorites'}
-            width={120}
-            height={120}
-            borderRadius={isRound ? 60 : (radii.md || 8)}
+            width={size}
+            height={size}
+            borderRadius={isRound ? size / 2 : (radii.md || 8)}
             customCoverUrl={customCoverUrl}
           />
         ) : hasImage ? (

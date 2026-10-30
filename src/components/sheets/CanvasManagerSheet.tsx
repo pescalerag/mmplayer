@@ -1,13 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +42,7 @@ const CanvasGridItem = React.memo(({
 }: CanvasGridItemProps) => {
   return (
     <TouchableOpacity
+      testID="canvas-grid-item"
       activeOpacity={0.75}
       onPress={() => onPress(item)}
       onLongPress={() => onLongPress(item)}
@@ -60,6 +54,7 @@ const CanvasGridItem = React.memo(({
           borderColor: isAssigned ? '#10B981' : (colors.cardBackground || '#2A2A2A'),
           borderWidth: isAssigned ? 2 : 1,
         },
+        Platform.OS === 'web' && { width: '100%', height: 'auto', aspectRatio: 1 / 1.45, boxSizing: 'border-box' },
       ]}
     >
       {item.thumbnailUri ? (
@@ -117,6 +112,7 @@ export default function CanvasManagerSheet() {
   const [videos, setVideos] = useState<CanvasVideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [contentWidth, setContentWidth] = useState(SCREEN_WIDTH - 48);
 
   // Cargar lista de vídeos subidos
   const loadVideos = useCallback(async () => {
@@ -140,7 +136,7 @@ export default function CanvasManagerSheet() {
   // Dimensiones del grid de 3 columnas
   // Container horizontal padding: 24 on each side = 48
   // Gap between columns = 8 (2 gaps = 16)
-  const availableWidth = SCREEN_WIDTH - 48;
+  const availableWidth = contentWidth;
   const itemWidth = Math.floor((availableWidth - 16) / 3);
   const itemHeight = Math.floor(itemWidth * 1.45);
 
@@ -335,7 +331,26 @@ export default function CanvasManagerSheet() {
       </View>
     ) : (
       <View style={[styles.listContainer, { height: listHeight }]}>
-        <FlashList
+        {Platform.OS === 'web' ? (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View testID="canvas-video-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, paddingBottom: 24 } as any}>
+              {videos.map(item => (
+                <CanvasGridItem
+                  key={item.uri}
+                  item={item}
+                  isAssigned={assignedUris.has(item.uri)}
+                  itemWidth={itemWidth}
+                  itemHeight={itemHeight}
+                  onPress={handleSelectVideo}
+                  onLongPress={handleLongPressVideo}
+                  colors={colors}
+                  fonts={fonts}
+                  styles={styles}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        ) : <FlashList
           data={videos}
           keyExtractor={keyExtractor}
           numColumns={3}
@@ -343,12 +358,12 @@ export default function CanvasManagerSheet() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           renderItem={renderItem}
-        />
+        />}
       </View>
     );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={event => setContentWidth(event.nativeEvent.layout.width)}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('canvas.manager_title') || 'Vídeos subidos'}</Text>

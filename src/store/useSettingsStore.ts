@@ -16,6 +16,8 @@ export type StatsCardTheme = 'default' | 'glass' | 'holographic' | 'gold' | 'eme
 export type LocalCastTheme = 'cover' | 'custom' | 'default' | 'cyberpunk' | 'gold' | 'aurora' | 'emerald' | 'sunset' | 'midnight' | 'crimson';
 
 interface SettingsState {
+    discordRichPresenceEnabled: boolean;
+    setDiscordRichPresenceEnabled: (enabled: boolean) => void;
     userTier: UserTier;
     setUserTier: (tier: UserTier) => void;
     appIcon: string;
@@ -348,7 +350,7 @@ export const useSettingsStore = create<SettingsState>()(
             setIsKeepAwakeEnabled: (value) => set({ isKeepAwakeEnabled: value }),
             isEqualizerEnabled: false,
             setIsEqualizerEnabled: (value) => set({ isEqualizerEnabled: value }),
-            equalizerBands: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            equalizerBands: [0, 0, 0, 0, 0, 0],
             setEqualizerBand: (index, levelMb) => set((state) => {
                 const bands = [...state.equalizerBands];
                 bands[index] = levelMb;
@@ -375,6 +377,8 @@ export const useSettingsStore = create<SettingsState>()(
             setShowCanvas: (value) => set({ showCanvas: value }),
             showPlayerLyrics: true,
             setShowPlayerLyrics: (value) => set({ showPlayerLyrics: value }),
+            discordRichPresenceEnabled: false,
+            setDiscordRichPresenceEnabled: (enabled) => set({ discordRichPresenceEnabled: enabled }),
             userTier: 'USER',
             setUserTier: (tier) => set({ userTier: tier }),
             appIcon: 'DEFAULT',

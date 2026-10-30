@@ -3,14 +3,19 @@ import {
   StyleSheet,
   Text,
   View,
+  Platform,
+  TouchableOpacity as NativeTouchableOpacity,
   StyleProp,
   ViewStyle,
   TextStyle
 } from 'react-native';
-import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
+import { ScrollView, TouchableOpacity as GestureTouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useAppTheme } from '@/hooks/useAppTheme';
+
+// Browser menus need native click/keyboard activation; keep mobile gestures intact.
+const TouchableOpacity = Platform.OS === 'web' ? NativeTouchableOpacity : GestureTouchableOpacity;
 
 interface BaseMenuSheetProps {
   title?: string;
@@ -117,6 +122,7 @@ export function MenuOption({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       style={[styles.optionRow, containerStyle]}
       onPress={onPress}
       activeOpacity={0.7}

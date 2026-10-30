@@ -1,0 +1,58 @@
+name: Publish Windows beta
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing beta tag (desktop-v3.0.0-beta.1)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    uses: ./.github/workflows/desktop-windows.yml
+    with:
+      unsignedBeta: true
+      ref: ${{ inputs.tag }}
+    secrets:
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+  publish:
+    needs: verify
+    runs-on: windows-latest
+    environment: desktop-beta
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: mmplayer-windows-beta
+          path: release
+      - name: Validate explicitly unsigned beta artifact and tag before publication
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version
+          if ($env:RELEASE_TAG -ne "desktop-v$version") { throw 'Tag and package version differ' }
+          $installer = @(Get-ChildItem release -Filter *.exe)
+          if ($installer.Count -ne 1 -or $installer[0].Name -notmatch '-UNSIGNED\.exe$') { throw 'Expected one unsigned public beta installer' }
+          if ((Get-AuthenticodeSignature -LiteralPath $installer[0].FullName).Status -notin @('Valid','NotSigned')) { throw 'Invalid installer integrity' }
+          $report = Get-Content release/package-test-report.json -Raw | ConvertFrom-Json
+          if ($report.publicationMode -ne 'unsigned-beta' -or $report.version -ne $version) { throw 'Package acceptance missing' }
+          foreach ($line in Get-Content release/SHA256SUMS.txt) {
+            if ($line -notmatch '^([a-f0-9]{64})  ([^\\/]+)$') { throw 'Invalid checksum manifest' }
+            if ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path release $Matches[2])).Hash.ToLowerInvariant() -ne $Matches[1]) { throw 'Artifact checksum mismatch' }
+          }
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: pwsh
+        run: |
+          gh release create $env:RELEASE_TAG --prerelease --verify-tag --title "MMPlayer $env:RELEASE_TAG · Windows Beta" --notes-file docs/releases/desktop-3.0.0-beta.1.md release/*.exe release/*.blockmap release/SHA256SUMS.txt release/package-test-report.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

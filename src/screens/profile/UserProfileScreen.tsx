@@ -26,6 +26,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import SectionHeader from '@/components/common/SectionHeader';
 import { MediaCard } from '@/components/cards/MediaCard';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -47,6 +48,7 @@ interface UserProfileProps {
     readonly artistsCount: number | null;
     readonly playlistsCount: number | null;
     readonly playlists: Playlist[];
+    readonly showTierBadge?: boolean;
 }
 
 function ProfileSection({ index, ready = true, style, children }: Readonly<{
@@ -74,6 +76,7 @@ function UserProfileScreenBase({
     artistsCount,
     playlistsCount,
     playlists,
+    showTierBadge = true,
 }: UserProfileProps) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
@@ -227,31 +230,33 @@ function UserProfileScreenBase({
                     imageUrl={userAvatarUri}
                     placeholderIcon="person"
                     subtitle={
-                        <View style={styles.subtitleRow}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.userTierBadge,
-                                    userTier === 'VIP' && styles.userTierBadgeVip,
-                                    userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
-                                ]}
-                                onPress={() => navigation.navigate('Support')}
-                                activeOpacity={0.7}
-                            >
-                                {userTier === 'VIP' && (
-                                    <MaterialCommunityIcons name="crown" size={13} color="#FBBF24" />
-                                )}
-                                {userTier === 'SUPPORTER' && (
-                                    <Ionicons name="heart" size={12} color="#2DD4BF" />
-                                )}
-                                <Text style={[
-                                    styles.userTierBadgeText,
-                                    userTier === 'VIP' && styles.userTierBadgeTextVip,
-                                    userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
-                                ]}>
-                                    {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        showTierBadge ? (
+                            <View style={styles.subtitleRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.userTierBadge,
+                                        userTier === 'VIP' && styles.userTierBadgeVip,
+                                        userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
+                                    ]}
+                                    onPress={() => navigation.navigate('Support')}
+                                    activeOpacity={0.7}
+                                >
+                                    {userTier === 'VIP' && (
+                                        <MaterialCommunityIcons name="crown" size={13} color="#FBBF24" />
+                                    )}
+                                    {userTier === 'SUPPORTER' && (
+                                        <Ionicons name="heart" size={12} color="#2DD4BF" />
+                                    )}
+                                    <Text style={[
+                                        styles.userTierBadgeText,
+                                        userTier === 'VIP' && styles.userTierBadgeTextVip,
+                                        userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
+                                    ]}>
+                                        {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : undefined
                     }
                     onBack={() => navigation.goBack()}
                     onPickPhoto={handlePickPhoto}
@@ -299,11 +304,9 @@ function UserProfileScreenBase({
                         <SectionHeader
                             title={t('profile.top_artists_title') || 'Tus artistas favoritos'}
                         />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.horizontalScrollContent}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {topArtists.map((artist) => (
                                 <MediaCard
@@ -316,7 +319,7 @@ function UserProfileScreenBase({
                                     onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id }, { pop: true })}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     </ProfileSection>
                 )}
 
@@ -326,11 +329,9 @@ function UserProfileScreenBase({
                         <SectionHeader
                             title={t('profile.top_albums_title') || 'Tus álbumes favoritos'}
                         />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.horizontalScrollContent}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {topAlbums.map((album) => (
                                 <MediaCard
@@ -343,7 +344,7 @@ function UserProfileScreenBase({
                                     onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true })}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     </ProfileSection>
                 )}
 
@@ -353,11 +354,9 @@ function UserProfileScreenBase({
                         <SectionHeader
                             title={t('profile.smart_playlists_title') || 'Listas inteligentes'}
                         />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.horizontalScrollContent}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {smartLists.map((item) => (
                                 <MediaCard
@@ -369,7 +368,7 @@ function UserProfileScreenBase({
                                     onPress={() => handleSmartListPress(item.smartId)}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     </ProfileSection>
                 )}
 
@@ -378,11 +377,9 @@ function UserProfileScreenBase({
                     <SectionHeader
                         title={t('profile.my_playlists_title') || 'Tus playlists'}
                     />
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
+                    <HorizontalScrollContainer
                         contentContainerStyle={styles.horizontalScrollContent}
-                        keyboardShouldPersistTaps="handled"
+                        arrowTop={60}
                     >
                         {/* Favoritos como playlist destacada */}
                         <MediaCard
@@ -404,7 +401,7 @@ function UserProfileScreenBase({
                                 onPress={() => handlePlaylistPress(playlist.id)}
                             />
                         ))}
-                    </ScrollView>
+                    </HorizontalScrollContainer>
                 </ProfileSection>
 
                 {/* --- 6. RESUMEN RÁPIDO DE ACTIVIDAD / DESTACADOS --- */}
@@ -703,6 +700,6 @@ const ObservableUserProfileScreen = withObservables([], () => ({
     playlists: observeScreenData(() => database.get<Playlist>('playlists').query().observeWithColumns(['name', 'description', 'cover_url', 'cover_custom_url']), []),
 }))(UserProfileScreenBase);
 
-export default function UserProfileScreen() {
-    return <ObservableUserProfileScreen />;
+export default function UserProfileScreen({ showTierBadge = true }: Readonly<{ showTierBadge?: boolean }> = {}) {
+    return <ObservableUserProfileScreen showTierBadge={showTierBadge} />;
 }

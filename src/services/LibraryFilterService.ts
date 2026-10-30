@@ -10,6 +10,9 @@ import { buildLibraryFilterIndex, emptyLibraryFilterIndex, FilterSection, Filter
 const memberships = defer(() => database.get<PlaylistTrack>('playlist_tracks').query().observeWithColumns(['playlist_id', 'track_id'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 const history = defer(() => database.get<PlaybackHistory>('playback_history').query().observeWithColumns(['item_id', 'item_type', 'played_at'])).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 const sizes = new Map<string, Promise<number | null>>();
+// A rescan may discover a missing/resized file without changing its DB row.
+// Do not retain the previous physical sizes after the desktop library refreshes.
+(globalThis as any).window?.mmplayer?.on?.('library', () => sizes.clear());
 
 function readSize(track: FilterTrack): Promise<number | null> {
   const key = `${track.fileUrl}:${track.lastModified}`;
@@ -17,7 +20,7 @@ function readSize(track: FilterTrack): Promise<number | null> {
   if (cached) return cached;
   const request = (async () => {
     const info = await FileSystem.getInfoAsync(track.fileUrl).catch(() => null);
-    if (info?.exists && 'size' in info && Number.isFinite(info.size) && info.size >= 0) return info.size;
+    if (info?.exists && !info.isDirectory && 'size' in info && Number.isFinite(info.size) && info.size >= 0) return info.size;
     if (track.fileUrl.startsWith('content://')) {
       const resolved = await resolveAudioUriInfo(track.fileUrl);
       if (resolved?.size !== undefined && Number.isFinite(resolved.size) && resolved.size >= 0) return resolved.size;

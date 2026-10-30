@@ -1,4 +1,5 @@
 import { Image } from 'react-native';
+import placeholderCover from '../assets/images/nullcover.png';
 import * as FileSystem from 'expo-file-system/legacy';
 import { database } from '../database';
 import Album from '../database/models/Album';
@@ -12,8 +13,11 @@ const normalize = (value: string) => value.toLowerCase().normalize('NFD').replac
 const baseTitle = (value: string) => normalize(value.replace(/\s*[([][^)\]]*(?:deluxe|remaster|anniversary|expanded|edition)[^)\]]*[)\]]\s*$/i, ''));
 
 export function isMissingAlbumCover(uri?: string | null): boolean {
-    const placeholder = Image.resolveAssetSource(require('../assets/images/nullcover.png')).uri;
-    return !uri?.trim() || uri === placeholder;
+    if (!uri?.trim()) return true;
+    const placeholder = typeof Image.resolveAssetSource === 'function'
+        ? Image.resolveAssetSource(typeof placeholderCover === 'string' ? { uri: placeholderCover } : placeholderCover)?.uri
+        : typeof placeholderCover === 'string' ? placeholderCover : (placeholderCover as { uri?: string })?.uri;
+    return uri === placeholder;
 }
 
 export function selectAlbumCover(results: CoverResult[], title: string, artist: string): string | null {

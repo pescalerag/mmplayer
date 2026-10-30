@@ -21,16 +21,17 @@ export const getPlayerArtworkLayoutKey = (config: PlayerArtworkLayoutConfig) => 
 ].join(':');
 
 export function calculatePlayerArtworkSize(config: PlayerArtworkLayoutConfig, availableHeight?: number) {
-    // The normal artwork width is screen width minus 32 points on each side.
-    // A guessed height for the controls must not permanently shrink the cover;
-    // the lyrics slot yields space instead.
+    // Reserve two lyric lines before sizing the square cover. Use the same
+    // reservation on every track so fetching lyrics never moves the artwork.
     const preferred = Math.max(0, config.width - 64);
     return availableHeight === undefined ? preferred
-        : Math.min(preferred, Math.max(0, availableHeight - (config.artworkPadding ?? 28)));
+        : Math.min(preferred, Math.max(0, availableHeight - (config.artworkPadding ?? 28) - playerLyricsHeight(config)));
 }
 
+const playerLyricsHeight = (config: PlayerArtworkLayoutConfig) => 46 * Math.max(1, config.fontScale) + 12;
+
 export function calculatePlayerLyricsSlotHeight(config: PlayerArtworkLayoutConfig, size: number, availableHeight: number) {
-    return Math.min(58, Math.max(0, availableHeight - size - (config.artworkPadding ?? 28)));
+    return Math.min(playerLyricsHeight(config), Math.max(0, availableHeight - size - (config.artworkPadding ?? 28)));
 }
 
 // Read synchronously before the first player render, including after an app
@@ -69,8 +70,8 @@ export const usePlayerLayoutStore = create<PlayerLayoutState>()(persist((set) =>
     }),
 }), {
     name: 'player-artwork-layout',
-    version: 3,
-    // Older measurements were of the artwork alone, not its available region.
+    version: 4,
+    // Older sizes did not reserve room for the complete lyrics slot.
     migrate: () => ({ artworkLayouts: {} }),
     storage: createJSONStorage(() => ({
         getItem: key => storage.getString(key) ?? null,

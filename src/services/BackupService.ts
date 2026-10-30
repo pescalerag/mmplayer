@@ -133,7 +133,7 @@ function errorMessage(error: unknown, fallback: string) {
     return message.startsWith('backup.') ? i18n.t(message) : message || i18n.t(fallback);
 }
 
-async function importDatabase(format: BackupFormat = 'json') {
+async function importDatabase(format: BackupFormat = 'json', transformData?: (data: BackupData) => Promise<BackupData>) {
     if (busy) return;
     busy = true;
     const store = useBackupStore.getState();
@@ -161,6 +161,7 @@ async function importDatabase(format: BackupFormat = 'json') {
             data = staged.data; stagedPaths = staged.paths; retainedAssets = staged.retainedPaths;
             archive.manifest.profile.userAvatarUri = staged.avatar;
         }
+        if (transformData) data = await transformData(data);
         store.startImport(i18n.t('backup.stopping_player'));
         const cast = useCastStore.getState();
         if (cast.isLocalCastActive) await cast.stopLocalCast();
@@ -170,7 +171,7 @@ async function importDatabase(format: BackupFormat = 'json') {
         await applyBackupData(data, options);
         committed = true;
         if (options.mode === 'replace') {
-            clearAllQueueSessions();
+            await clearAllQueueSessions();
             usePlayerStore.setState({ recentMedia: [], recentPlaylists: [] });
             await usePlayerStore.getState().saveRecentsState().catch(() => {});
         }

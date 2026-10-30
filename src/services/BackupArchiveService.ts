@@ -46,7 +46,7 @@ export async function createBackupArchive(data: BackupData, root: string,
         createdAt: new Date().toISOString(), assets: [], missing: [], profile };
     const included = new Set<string>();
     const add = async (uri: string, folder = 'album_covers') => {
-        if (included.has(uri) || !/^(file|content|https?):\/\//.test(uri)) return;
+        if (included.has(uri) || !/^(file|content|https?|mmplayer-media):\/\//.test(uri)) return;
         included.add(uri);
         const source = cleanUri(uri);
         const suffix = source.split(/[?#]/)[0].match(/\.([a-z0-9]{1,5})$/i)?.[1]?.toLowerCase() ?? (folder === 'canvas_videos' ? 'mp4' : 'jpg');

@@ -483,12 +483,12 @@ function PlaylistDetailContent({
       <DetailHeaderLayout
         title={playlist.name}
         placeholderIcon="musical-notes"
-        renderCover={() => (
+        renderCover={({ width, height }) => (
           <PlaylistCover
             playlistId={playlist.id}
             customCoverUrl={playlist.coverCustomUrl || playlist.coverUrl}
             width={width}
-            height={380}
+            height={height}
             borderRadius={0}
           />
         )}

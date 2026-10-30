@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
@@ -75,13 +75,15 @@ export const CassetteArtwork = React.memo(({ size, coverUrl, progress = 0, isPla
         tapeProgress.value = withTiming(progress, { duration: 250 });
     }, [progress, tapeProgress]);
 
-    const frame = useFrameCallback(({ timeSincePreviousFrame }) => {
+    const onFrame = useCallback(({ timeSincePreviousFrame }: { timeSincePreviousFrame: number | null }) => {
+        'worklet';
         if (!timeSincePreviousFrame) return;
         const elapsed = Math.min(timeSincePreviousFrame, 64);
         // Constant tape speed: smaller rolls turn faster. No React updates per frame.
         leftRotation.value = (leftRotation.value + elapsed * 3 / cassetteTapeRadius(1 - tapeProgress.value)) % 360;
         rightRotation.value = (rightRotation.value + elapsed * 3 / cassetteTapeRadius(tapeProgress.value)) % 360;
-    }, false);
+    }, [leftRotation, rightRotation, tapeProgress]);
+    const frame = useFrameCallback(onFrame, false);
     useEffect(() => {
         frame.setActive(isPlaying);
         return () => frame.setActive(false);
@@ -90,16 +92,16 @@ export const CassetteArtwork = React.memo(({ size, coverUrl, progress = 0, isPla
     const leftTapeStyle = useAnimatedStyle(() => {
         const radius = cassetteTapeRadius(1 - tapeProgress.value) * scale;
         return { width: radius * 2, height: radius * 2, borderRadius: radius, transform: [{ translateX: -radius }, { translateY: -radius }] };
-    });
+    }, [tapeProgress, scale]);
     const rightTapeStyle = useAnimatedStyle(() => {
         const radius = cassetteTapeRadius(tapeProgress.value) * scale;
         return { width: radius * 2, height: radius * 2, borderRadius: radius, transform: [{ translateX: -radius }, { translateY: -radius }] };
-    });
-    const leftHubStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${leftRotation.value}deg` }] }));
-    const rightHubStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rightRotation.value}deg` }] }));
+    }, [tapeProgress, scale]);
+    const leftHubStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${leftRotation.value}deg` }] }), [leftRotation]);
+    const rightHubStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rightRotation.value}deg` }] }), [rightRotation]);
     const hubSize = 44 * scale;
 
-    return <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    return <View testID="player-cassette-artwork" style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
         <View style={{ width: size, height: size * 0.65 }}>
             <CassetteShell />
             {coverUrl && <Image source={{ uri: coverUrl }} recyclingKey={coverUrl} contentFit="cover" blurRadius={20 * scale} transition={0} onLoad={onReady} onError={onReady}
@@ -111,13 +113,13 @@ export const CassetteArtwork = React.memo(({ size, coverUrl, progress = 0, isPla
                     fontFamily: Platform.OS === 'android' ? 'cursive' : 'Noteworthy' }}>{albumTitle.trim()}</Text>}
             {/* The rolls sit behind the label; only their inner edges show through the central window. */}
             <View style={{ position: 'absolute', left: 158 * scale, top: 108 * scale, width: 84 * scale, height: 56 * scale, borderRadius: 3 * scale, backgroundColor: '#d6d5ca', overflow: 'hidden', borderWidth: scale, borderColor: '#0c0d0b' }}>
-                <Animated.View style={[styles.tape, { left: -40 * scale, top: 28 * scale, backgroundColor: tapeColor, borderWidth: 2 * scale }, leftTapeStyle]} />
-                <Animated.View style={[styles.tape, { left: 124 * scale, top: 28 * scale, backgroundColor: tapeColor, borderWidth: 2 * scale }, rightTapeStyle]} />
+                <Animated.View testID="player-cassette-left-tape" style={[styles.tape, { left: -40 * scale, top: 28 * scale, backgroundColor: tapeColor, borderWidth: 2 * scale }, leftTapeStyle]} />
+                <Animated.View testID="player-cassette-right-tape" style={[styles.tape, { left: 124 * scale, top: 28 * scale, backgroundColor: tapeColor, borderWidth: 2 * scale }, rightTapeStyle]} />
                 <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 8 * scale, backgroundColor: '#00000030' }} />
                 <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 7 * scale, backgroundColor: '#ffffff25' }} />
             </View>
-            <Animated.View style={[{ position: 'absolute', width: hubSize, height: hubSize, left: 96 * scale, top: 114 * scale }, leftHubStyle]}><ReelHub /></Animated.View>
-            <Animated.View style={[{ position: 'absolute', width: hubSize, height: hubSize, left: 260 * scale, top: 114 * scale }, rightHubStyle]}><ReelHub /></Animated.View>
+            <Animated.View testID="player-cassette-left-reel" style={[{ position: 'absolute', width: hubSize, height: hubSize, left: 96 * scale, top: 114 * scale }, leftHubStyle]}><ReelHub /></Animated.View>
+            <Animated.View testID="player-cassette-right-reel" style={[{ position: 'absolute', width: hubSize, height: hubSize, left: 260 * scale, top: 114 * scale }, rightHubStyle]}><ReelHub /></Animated.View>
         </View>
     </View>;
 });

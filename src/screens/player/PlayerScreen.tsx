@@ -1,44 +1,43 @@
-import { resolveVisualizerColor } from '../../utils/visualizerColors';
-import { ArtworkFadeIn } from '../../components/player/ArtworkFadeIn';
-import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
-import { useDismissEmptyPlayer } from '../../hooks/useDismissEmptyPlayer';
-import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayerSpotlightTutorial from '@/components/modals/PlayerSpotlightTutorial';
+import { TutorialHelpButton } from '@/components/common/TutorialHelpButton';
 import { useTagFormStore } from '@/store/useTagFormStore';
 import { openLocalCast, openPlayerMenu, openPlaylistSelector, openQueueSheet, openSleepTimer, openSpeedPitch, openTagManagerForTrack, openTrackMenu, useUIStore } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     AppState,
-    AppStateStatus,
     Dimensions,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    useWindowDimensions,
     View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TrackPlayer, {
+    Event,
     RepeatMode,
     State as TrackPlayerState,
     useProgress,
 } from 'react-native-track-player';
+import { scheduleOnRN } from 'react-native-worklets';
 import { NativeVisualizer } from '../../../modules/native-equalizer';
+import { ArtworkFadeIn } from '../../components/player/ArtworkFadeIn';
+import { PlayerBackground } from '../../components/player/PlayerBackground';
+import { getAlbumEasterEgg, type AlbumEasterEgg } from '../../easterEggs/albumEasterEggs';
 import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
+import { useDismissEmptyPlayer } from '../../hooks/useDismissEmptyPlayer';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
+import { selectShuffleOnQueueEnd, useMultipleQueuesStore } from '../../store/useMultipleQueuesStore';
+import { resolveVisualizerColor } from '../../utils/visualizerColors';
 
 import { database } from '../../database';
 import Album from '../../database/models/Album';
@@ -50,36 +49,38 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSleepTimerStore } from '../../store/useSleepTimerStore';
 
 import { ABSliderMarkers } from '@/components/common/ABSliderMarkers';
-import { TimestampSliderMarkers } from '@/components/common/TimestampSliderMarkers';
 import MarqueeText from '@/components/common/MarqueeText';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
-import { PlayerArtwork } from '@/components/player/PlayerArtwork';
-import { PlayerDiscArtwork as DiscCover } from '@/components/player/PlayerDiscArtwork';
+import { TimestampSliderMarkers } from '@/components/common/TimestampSliderMarkers';
+import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
 import { CassetteArtwork } from '@/components/player/CassetteArtwork';
 import { PlaybackCassetteArtwork } from '@/components/player/PlaybackCassetteArtwork';
-import { ABRepeatIcon } from '@/components/player/ABRepeatIcon';
+import { PlayerArtwork } from '@/components/player/PlayerArtwork';
+import { PlayerDiscArtwork as DiscCover } from '@/components/player/PlayerDiscArtwork';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import withObservables from '@nozbe/with-observables';
 import { useTranslation } from 'react-i18next';
-import { observePlayerTrack } from '../../utils/observePlayerTrack';
-import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import Track from '../../database/models/Track';
-import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
-import { getPlayerLyricsPresentation } from '../../utils/playerLyricsPresentation';
-import { usePlayerVisualRecovery } from '../../hooks/usePlayerVisualRecovery';
 import { usePlayerArtworkLayout } from '../../hooks/usePlayerArtworkLayout';
+import { usePlayerVisualRecovery } from '../../hooks/usePlayerVisualRecovery';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
+import { useSyncedLyrics } from '../../hooks/useSyncedLyrics';
 import { useABRepeatStore } from '../../store/useABRepeatStore';
 import { useArtistsListSheetStore } from '../../store/useArtistsListSheetStore';
+import { usePlaybackSnapshotStore } from '../../store/usePlaybackSnapshotStore';
 import { useToastStore } from '../../store/useToastStore';
 import { getDynamicTagTextColor } from '../../utils/color';
+import { observePlayerTrack } from '../../utils/observePlayerTrack';
+import { getPlayerLyricsPresentation } from '../../utils/playerLyricsPresentation';
 import { formatTrackTime } from '../../utils/time';
 
 const { width } = Dimensions.get('window');
 
-const SKIP_PREVIOUS_THRESHOLD = 3;
+export const SKIP_PREVIOUS_THRESHOLD = 3;
 
 // --- UI DEL REPRODUCTOR (SINCRONIZADA) ---
 interface PlayerScreenUIProps {
+    hideLyrics?: boolean;
     track: Track;
     album: Album | null;
     artist: Artist | null;
@@ -155,94 +156,7 @@ const generateDarkGradients = (extractedHex: string, defaultBg: string) => {
     }
 };
 
-const CanvasVideo = React.memo(({
-    sourceUri,
-    isImmersive,
-    gradientColors
-}: {
-    sourceUri: string;
-    isImmersive: boolean;
-    gradientColors: string[];
-}) => {
-    // El vídeo Canvas se reproduce en bucle y mudo de forma inmediata
-    const player = useVideoPlayer(sourceUri, (playerInstance) => {
-        playerInstance.loop = true;
-        playerInstance.muted = true;
-        playerInstance.play();
-    });
 
-    useEffect(() => {
-        if (player) {
-            player.play();
-        }
-    }, [player, sourceUri]);
-
-    useEffect(() => {
-        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-            if (nextAppState === 'active' && player) {
-                player.play();
-            }
-        });
-
-        return () => {
-            subscription.remove();
-        };
-    }, [player]);
-
-    const blurOpacity = useSharedValue(isImmersive ? 0 : 1);
-    const immersiveGradientOpacity = useSharedValue(isImmersive ? 1 : 0);
-
-    useEffect(() => {
-        blurOpacity.value = withTiming(isImmersive ? 0 : 1, { duration: 350, easing: Easing.bezier(0.25, 0.1, 0.25, 1.0) });
-        immersiveGradientOpacity.value = withTiming(isImmersive ? 1 : 0, { duration: 350, easing: Easing.bezier(0.25, 0.1, 0.25, 1.0) });
-    }, [isImmersive, blurOpacity, immersiveGradientOpacity]);
-
-    const blurAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: blurOpacity.value,
-    }));
-
-    const normalGradientAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: 1 - immersiveGradientOpacity.value,
-    }));
-
-    const immersiveGradientAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: immersiveGradientOpacity.value,
-    }));
-
-    return (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            <VideoView
-                key={sourceUri}
-                player={player}
-                style={StyleSheet.absoluteFillObject}
-                contentFit="cover"
-                nativeControls={false}
-                allowsFullscreen={false}
-                surfaceType="textureView"
-            />
-            <Animated.View style={[StyleSheet.absoluteFillObject, blurAnimatedStyle]}>
-                <BlurView
-                    intensity={20}
-                    tint="dark"
-                    style={StyleSheet.absoluteFillObject}
-                />
-            </Animated.View>
-            <Animated.View style={[StyleSheet.absoluteFillObject, normalGradientAnimatedStyle]}>
-                <LinearGradient
-                    colors={gradientColors as any}
-                    style={StyleSheet.absoluteFillObject}
-                />
-            </Animated.View>
-            <Animated.View style={[StyleSheet.absoluteFillObject, immersiveGradientAnimatedStyle]}>
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.78)'] as any}
-                    style={StyleSheet.absoluteFillObject}
-                />
-            </Animated.View>
-        </View>
-    );
-});
-CanvasVideo.displayName = 'CanvasVideo';
 
 
 
@@ -287,7 +201,7 @@ const resolveAdjacentTrackPair = async (queue: any[], activeIndex: number | null
     const prevArtwork = (prevItem?.artwork as string) || null;
     const nextArtwork = (nextItem?.artwork as string) || null;
     const artworkToPreload = [prevArtwork, nextArtwork].filter((url): url is string => Boolean(url));
-    if (artworkToPreload.length) void Image.prefetch(artworkToPreload).catch(() => {});
+    if (artworkToPreload.length) void Image.prefetch(artworkToPreload).catch(() => { });
     const [prevM, nextM] = await Promise.all([
         prevItem ? getCleanTrackModel(prevItem) : null,
         nextItem ? getCleanTrackModel(nextItem) : null,
@@ -356,7 +270,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         nextCoverUrlRef.current = nextCoverUrl;
-        if (nextCoverUrl) void Image.prefetch(nextCoverUrl).catch(() => {});
+        if (nextCoverUrl) void Image.prefetch(nextCoverUrl).catch(() => { });
     }, [nextCoverUrl]);
 
     useEffect(() => {
@@ -365,7 +279,7 @@ const useAdjacentTracks = (trackId: string, queueVersion: number, windowVersion:
 
     useEffect(() => {
         prevCoverUrlRef.current = prevCoverUrl;
-        if (prevCoverUrl) void Image.prefetch(prevCoverUrl).catch(() => {});
+        if (prevCoverUrl) void Image.prefetch(prevCoverUrl).catch(() => { });
     }, [prevCoverUrl]);
 
     return {
@@ -433,7 +347,7 @@ const usePlayerCover = (
         void loadCover();
 
         return () => { isMounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track.id]);
 
     const rawCoverUrl = album?.coverUrl || nativeCover ||
@@ -570,7 +484,7 @@ const useDiscSpinAnimation = (playerCoverStyle: string, isPlaying: boolean) => {
 
     return useAnimatedStyle(() => ({
         transform: [{ rotateZ: `${spinDeg.value}deg` }],
-    }));
+    }), [spinDeg]);
 };
 
 const useImmersiveMode = (
@@ -798,203 +712,7 @@ const usePlayerGestures = ({
     };
 };
 
-interface PlayerBackgroundSlotProps {
-    style?: any;
-    trackModel?: Track | null;
-    coverUrl: string | null;
-    bgVideo?: string | null;
-    gradientColors: string[];
-    showCanvas: boolean;
-    isImmersive?: boolean;
-    slotKey: string;
-    showImage?: boolean;
-}
 
-const PlayerBackgroundSlot = React.memo(({
-    style,
-    trackModel,
-    coverUrl,
-    bgVideo,
-    gradientColors,
-    showCanvas,
-    isImmersive = false,
-    slotKey,
-    showImage = true,
-}: PlayerBackgroundSlotProps) => {
-    const hasVideo = showCanvas && !!bgVideo;
-
-    return (
-        <View style={style}>
-            {hasVideo ? (
-                <CanvasVideo
-                    key={`bg-canvas-${slotKey}-${trackModel?.id || 'curr'}-${bgVideo}`}
-                    sourceUri={bgVideo!}
-                    isImmersive={isImmersive}
-                    gradientColors={gradientColors}
-                />
-            ) : (
-                <BlurredBackground
-                    key={`blur-${slotKey}`}
-                    imageUrl={showImage ? coverUrl : null}
-                    blurIntensity={10}
-                    gradientColors={gradientColors}
-                    showImage={showImage}
-                />
-            )}
-        </View>
-    );
-});
-PlayerBackgroundSlot.displayName = 'PlayerBackgroundSlot';
-
-interface PlayerBackgroundProps {
-    width: number;
-    bgSwipeAnimatedStyle: any;
-    prevTrackModel: Track | null;
-    prevCoverUrl: string | null;
-    track: Track;
-    currentCoverUrl: string | null;
-    nextTrackModel: Track | null;
-    nextCoverUrl: string | null;
-    showCanvas: boolean;
-    isImmersive: boolean;
-    isFocused: boolean;
-    isTransitioning: boolean;
-    playerBackgroundStyle: string;
-    coverColor: string | null;
-    topGradientColor: string;
-    bottomGradientColor: string;
-    prevCoverColor?: string | null;
-    prevTopGradientColor?: string;
-    prevBottomGradientColor?: string;
-    nextCoverColor?: string | null;
-    nextTopGradientColor?: string;
-    nextBottomGradientColor?: string;
-    backgroundColor: string;
-}
-
-const PlayerBackground = React.memo(({
-    width: bgWidth,
-    bgSwipeAnimatedStyle,
-    prevTrackModel,
-    prevCoverUrl,
-    track,
-    currentCoverUrl,
-    nextTrackModel,
-    nextCoverUrl,
-    showCanvas,
-    isImmersive,
-    isFocused,
-    isTransitioning,
-    playerBackgroundStyle,
-    coverColor,
-    topGradientColor,
-    bottomGradientColor,
-    prevCoverColor,
-    prevTopGradientColor,
-    prevBottomGradientColor,
-    nextCoverColor,
-    nextTopGradientColor,
-    nextBottomGradientColor,
-    backgroundColor,
-}: PlayerBackgroundProps) => {
-    const isGradientMode = playerBackgroundStyle === 'gradient';
-
-    const defaultGrad = useMemo(
-        () => ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', backgroundColor],
-        [backgroundColor]
-    );
-
-    const lastValidCurrGradRef = useRef<string[] | null>(null);
-
-    const currGrad = useMemo(() => {
-        if (isGradientMode) {
-            if (coverColor) {
-                const grad = [topGradientColor, bottomGradientColor, bottomGradientColor];
-                lastValidCurrGradRef.current = grad;
-                return grad;
-            }
-            return lastValidCurrGradRef.current || ['#121212', backgroundColor, backgroundColor];
-        }
-        return defaultGrad;
-    }, [isGradientMode, coverColor, topGradientColor, bottomGradientColor, defaultGrad, backgroundColor]);
-
-    const prevGrad = useMemo(() => {
-        if (isGradientMode) {
-            if (prevCoverColor && prevTopGradientColor && prevBottomGradientColor) {
-                return [prevTopGradientColor, prevBottomGradientColor, prevBottomGradientColor];
-            }
-            if (coverColor) {
-                return [topGradientColor, bottomGradientColor, bottomGradientColor];
-            }
-            return lastValidCurrGradRef.current || ['#121212', backgroundColor, backgroundColor];
-        }
-        return defaultGrad;
-    }, [isGradientMode, prevCoverColor, prevTopGradientColor, prevBottomGradientColor, coverColor, topGradientColor, bottomGradientColor, defaultGrad, backgroundColor]);
-
-    const nextGrad = useMemo(() => {
-        if (isGradientMode) {
-            if (nextCoverColor && nextTopGradientColor && nextBottomGradientColor) {
-                return [nextTopGradientColor, nextBottomGradientColor, nextBottomGradientColor];
-            }
-            if (coverColor) {
-                return [topGradientColor, bottomGradientColor, bottomGradientColor];
-            }
-            return lastValidCurrGradRef.current || ['#121212', backgroundColor, backgroundColor];
-        }
-        return defaultGrad;
-    }, [isGradientMode, nextCoverColor, nextTopGradientColor, nextBottomGradientColor, coverColor, topGradientColor, bottomGradientColor, defaultGrad, backgroundColor]);
-
-    const canvasGrad = useMemo(
-        () => ['rgba(0,0,0,0.10)', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)'],
-        []
-    );
-
-    return (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            <Animated.View style={[bgSwipeAnimatedStyle, { width: bgWidth, height: '100%' }]}>
-                {/* Slot -1: Previous */}
-                <PlayerBackgroundSlot
-                    slotKey="prev"
-                    style={{ position: 'absolute', left: -bgWidth, width: bgWidth, height: '100%', overflow: 'hidden' }}
-                    trackModel={prevTrackModel}
-                    coverUrl={prevCoverUrl}
-                    bgVideo={prevTrackModel?.bgVideo}
-                    showCanvas={showCanvas}
-                    isImmersive={false}
-                    gradientColors={prevTrackModel?.bgVideo && showCanvas ? canvasGrad : prevGrad}
-                    showImage={!isGradientMode}
-                />
-
-                {/* Slot 0: Current */}
-                <PlayerBackgroundSlot
-                    slotKey="curr"
-                    style={{ width: bgWidth, height: '100%', overflow: 'hidden' }}
-                    trackModel={track}
-                    coverUrl={currentCoverUrl}
-                    bgVideo={track.bgVideo}
-                    showCanvas={showCanvas}
-                    isImmersive={isImmersive}
-                    gradientColors={track.bgVideo && showCanvas ? canvasGrad : currGrad}
-                    showImage={!isGradientMode}
-                />
-
-                {/* Slot +1: Next */}
-                <PlayerBackgroundSlot
-                    slotKey="next"
-                    style={{ position: 'absolute', left: bgWidth, width: bgWidth, height: '100%', overflow: 'hidden' }}
-                    trackModel={nextTrackModel}
-                    coverUrl={nextCoverUrl}
-                    bgVideo={nextTrackModel?.bgVideo}
-                    showCanvas={showCanvas}
-                    isImmersive={false}
-                    gradientColors={nextTrackModel?.bgVideo && showCanvas ? canvasGrad : nextGrad}
-                    showImage={!isGradientMode}
-                />
-            </Animated.View>
-        </View>
-    );
-});
-PlayerBackground.displayName = 'PlayerBackground';
 
 
 
@@ -1389,19 +1107,14 @@ const PlayerHeader = ({
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <TouchableOpacity
+                <TutorialHelpButton
                     onPress={onOpenTutorial}
                     disabled={isImmersive}
                     style={[styles.moreButton, isImmersive && { opacity: 0.65 }]}
                     accessibilityLabel={t('player_tutorial.help_btn')}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <Ionicons
-                        name="help-circle-outline"
-                        size={24}
-                        color={isImmersive ? colors.textSecondary : colors.text}
-                    />
-                </TouchableOpacity>
+                    size={24}
+                    color={isImmersive ? colors.textSecondary : colors.text}
+                />
 
                 <View
                     ref={moreButtonRef}
@@ -1562,6 +1275,7 @@ const PlayerInfoSection = ({
                 >
                     <Animated.View style={heartAnimatedStyle}>
                         <TouchableOpacity
+                            testID={track.isFavorite ? 'player-like-active' : 'player-like'}
                             onPress={onLikePress}
                             style={styles.actionButton}
                             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -1588,6 +1302,8 @@ const PlayerInfoSection = ({
 };
 
 interface PlayerProgressSectionProps {
+    compact?: boolean;
+    readonly easterEgg?: AlbumEasterEgg;
     isLocalCastActive: boolean;
     duration: number;
     displayPosition: number;
@@ -1599,10 +1315,12 @@ interface PlayerProgressSectionProps {
     formatTimestamp: (s: number) => string;
     colors: any;
     t: any;
-    styles: any;
+    styles?: any;
 }
 
-const PlayerProgressSection = ({
+export const PlayerProgressSection = ({
+    compact = false,
+    easterEgg,
     isLocalCastActive,
     duration,
     displayPosition,
@@ -1630,24 +1348,45 @@ const PlayerProgressSection = ({
     const sliderValue = isSeeking ? seekValue : displayPosition;
     const maxVal = duration > 0 ? duration : 1;
 
+    const slider = (
+        <View style={compact
+            ? { position: 'relative', flex: 1, minWidth: 0, height: 28 }
+            : { position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
+            <ABSliderMarkers duration={duration} />
+            <TimestampSliderMarkers duration={duration} />
+            <Slider
+                key={easterEgg?.id ?? 'default'}
+                testID="player-progress-slider"
+                thumbImage={easterEgg?.progress.thumbImage}
+                {...(easterEgg && Platform.OS === 'web' ? {
+                    thumbSize: 36, thumbStyle: { borderRadius: 0, overflow: 'visible' },
+                } : {})}
+                style={{ width: '100%', height: compact ? 28 : 40 }}
+                minimumValue={0}
+                maximumValue={maxVal}
+                value={sliderValue}
+                minimumTrackTintColor={easterEgg?.progress.color ?? colors.text}
+                maximumTrackTintColor={colors.overlayAlpha20}
+                thumbTintColor={easterEgg ? (Platform.OS === 'web' ? 'transparent' : undefined) : colors.text}
+                onSlidingStart={onSlidingStart}
+                onValueChange={onValueChange}
+                onSlidingComplete={onSlidingComplete}
+            />
+        </View>
+    );
+    if (compact) {
+        const timeStyle = { color: colors.textSecondary, fontSize: 12, fontWeight: '700' as const, minWidth: 36 };
+        return (
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', gap: 10 }}>
+                <Text style={[timeStyle, { textAlign: 'right' }]}>{formatTimestamp(displayPosition)}</Text>
+                {slider}
+                <Text style={timeStyle}>{formatTimestamp(duration)}</Text>
+            </View>
+        );
+    }
     return (
         <View style={styles.progressSection}>
-            <View style={{ position: 'relative', width: '100%', height: 40, marginVertical: -8 }}>
-                <ABSliderMarkers duration={duration} />
-                <TimestampSliderMarkers duration={duration} />
-                <Slider
-                    style={{ width: '100%', height: 40 }}
-                    minimumValue={0}
-                    maximumValue={maxVal}
-                    value={sliderValue}
-                    minimumTrackTintColor={colors.text}
-                    maximumTrackTintColor={colors.overlayAlpha20}
-                    thumbTintColor={colors.text}
-                    onSlidingStart={onSlidingStart}
-                    onValueChange={onValueChange}
-                    onSlidingComplete={onSlidingComplete}
-                />
-            </View>
+            {slider}
             <View style={styles.timeContainer}>
                 <Text style={styles.timeText}>{formatTimestamp(displayPosition)}</Text>
                 <Text style={styles.timeText}>{formatTimestamp(duration)}</Text>
@@ -1656,23 +1395,24 @@ const PlayerProgressSection = ({
     );
 };
 
-interface PlayerControlsProps {
+export interface PlayerControlsProps {
     isShuffleEnabled: boolean;
     hasPrevious: boolean;
     hasNext: boolean;
     position: number;
     repeatMode: RepeatMode;
     colors: any;
-    controlsRef: React.RefObject<View | null>;
-    controlsLayout: React.RefObject<any>;
+    controlsRef?: React.RefObject<View | null>;
+    controlsLayout?: React.RefObject<any>;
     onToggleShuffle: () => void;
     onSkipPrevious: () => void;
     onSkipNext: () => void;
     onCycleRepeat: () => void;
-    styles: any;
+    styles?: any;
+    compact?: boolean;
 }
 
-const PlayerControls = ({
+export const PlayerControls = ({
     isShuffleEnabled,
     hasPrevious,
     hasNext,
@@ -1686,27 +1426,45 @@ const PlayerControls = ({
     onSkipNext,
     onCycleRepeat,
     styles,
+    compact = false,
 }: PlayerControlsProps) => {
     const isPrevActive = hasPrevious || position > SKIP_PREVIOUS_THRESHOLD;
+    const secondaryIconSize = compact ? 20 : 24;
+    const skipIconSize = compact ? 24 : 38;
+    const playPauseSize = compact ? 40 : 84;
 
     return (
         <View
+            testID="player-transport-controls"
             ref={controlsRef}
             collapsable={false}
-            onLayout={(e) => {
+            onLayout={controlsLayout ? (e) => {
                 controlsLayout.current = e.nativeEvent.layout;
-            }}
-            style={styles.controlsContainer}
+            } : undefined}
+            style={
+                compact
+                    ? {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 12,
+                    }
+                    : styles?.controlsContainer
+            }
         >
             {/* Shuffle */}
             <TouchableOpacity
                 onPress={onToggleShuffle}
-                style={styles.secondaryControlButton}
+                style={
+                    compact
+                        ? { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }
+                        : styles?.secondaryControlButton
+                }
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
                 <Ionicons
                     name={isShuffleEnabled ? 'shuffle' : 'shuffle-outline'}
-                    size={24}
+                    size={secondaryIconSize}
                     color={isShuffleEnabled ? colors.accentLight : colors.disabled}
                 />
             </TouchableOpacity>
@@ -1714,27 +1472,31 @@ const PlayerControls = ({
             {/* Back */}
             <TouchableOpacity
                 onPress={onSkipPrevious}
-                style={styles.controlButton}
+                style={compact ? { padding: 4 } : styles?.controlButton}
                 disabled={!isPrevActive}
             >
                 <Ionicons
                     name="play-back"
-                    size={38}
+                    size={skipIconSize}
                     color={isPrevActive ? colors.text : colors.disabled}
                 />
             </TouchableOpacity>
 
-            <PlayPauseButton size={84} iconType="circle" style={styles.mainControlButton} />
+            <PlayPauseButton
+                size={playPauseSize}
+                iconType="circle"
+                style={compact ? { padding: 2 } : styles?.mainControlButton}
+            />
 
             {/* Forward */}
             <TouchableOpacity
                 onPress={onSkipNext}
-                style={styles.controlButton}
+                style={compact ? { padding: 4 } : styles?.controlButton}
                 disabled={!hasNext}
             >
                 <Ionicons
                     name="play-forward"
-                    size={38}
+                    size={skipIconSize}
                     color={hasNext ? colors.text : colors.disabled}
                 />
             </TouchableOpacity>
@@ -1742,17 +1504,34 @@ const PlayerControls = ({
             {/* Repeat */}
             <TouchableOpacity
                 onPress={onCycleRepeat}
-                style={styles.secondaryControlButton}
+                style={
+                    compact
+                        ? { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }
+                        : styles?.secondaryControlButton
+                }
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
                 <View>
                     <Ionicons
                         name={repeatMode === RepeatMode.Off ? 'repeat-outline' : 'repeat'}
-                        size={24}
+                        size={secondaryIconSize}
                         color={repeatMode === RepeatMode.Off ? colors.disabled : colors.accentLight}
                     />
                     {repeatMode === RepeatMode.Track && (
-                        <Text style={styles.repeatOneBadge}>1</Text>
+                        <Text
+                            style={
+                                styles?.repeatOneBadge || {
+                                    position: 'absolute',
+                                    bottom: -4,
+                                    right: -6,
+                                    color: colors.accentLight,
+                                    fontSize: 9,
+                                    fontWeight: '700',
+                                }
+                            }
+                        >
+                            1
+                        </Text>
                     )}
                 </View>
             </TouchableOpacity>
@@ -1914,6 +1693,7 @@ const PlayerFooter = ({
                 >
                     <TouchableOpacity
                         onPress={onNavigateLyrics}
+                        testID="player-toggle-lyrics"
                         style={styles.footerButton}
                         disabled={isLocalCastActive}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -1926,7 +1706,7 @@ const PlayerFooter = ({
                     </TouchableOpacity>
                 </View>
 
-                <View
+                {Platform.OS !== 'web' && <View
                     ref={castRef}
                     collapsable={false}
                     onLayout={(e) => {
@@ -1944,7 +1724,7 @@ const PlayerFooter = ({
                             color={castColor}
                         />
                     </TouchableOpacity>
-                </View>
+                </View>}
 
                 <View
                     ref={abRepeatRef}
@@ -2000,6 +1780,7 @@ const PlayerFooter = ({
                     }}
                 >
                     <TouchableOpacity
+                        testID="player-open-queue"
                         onPress={onOpenQueue}
                         style={styles.footerButton}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -2018,7 +1799,7 @@ const usePlayerTutorial = (isFocused: boolean, isImmersive: boolean) => {
     const [isTutorialVisible, setIsTutorialVisible] = useState(false);
 
     useEffect(() => {
-        if (isFocused && !hasSeenPlayerTutorial && !isImmersive) {
+        if (isFocused && !hasSeenPlayerTutorial && !isImmersive && Platform.OS !== 'web') {
             setIsTutorialVisible(true);
         }
         if (isImmersive) {
@@ -2127,7 +1908,14 @@ const usePlayerActions = (track: Track, t: any) => {
     const [repeatMode, setRepeatMode] = useState<RepeatMode>(RepeatMode.Off);
 
     useEffect(() => {
-        TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
+        const refreshRepeat = () => {
+            TrackPlayer.getRepeatMode().then(setRepeatMode).catch(() => { });
+        };
+        refreshRepeat();
+        const sub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, refreshRepeat);
+        return () => {
+            sub?.remove?.();
+        };
     }, [activeQueueId]);
 
     const cycleRepeatMode = useCallback(async () => {
@@ -2187,12 +1975,17 @@ const usePlayerActions = (track: Track, t: any) => {
 // --- MAIN COORDINATOR COMPONENT ---
 
 const PlayerScreenUI = ({
-    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused
+    track, album, artist, artists, tags, navigation, formatTimestamp, hasNext, hasPrevious, isFocused, hideLyrics = false
 }: PlayerScreenUIProps) => {
     const { colors, fonts, layout, spacing, radii, fontWeights, shadows } = useAppTheme({ ignoreTheme: true });
     const { t } = useTranslation();
     const insets = useSafeAreaInsets();
-    const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
+    const { width: windowWidth, height: windowHeight, fontScale } = useScreenDimensions();
+    const albumEasterEgg = useMemo(
+        () => getAlbumEasterEgg(album?.title, artist?.name),
+        [album?.title, artist?.name],
+    );
+    const width = windowWidth;
 
     const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
     const playbackSpeed = usePlayerStore(state => state.playbackSpeed);
@@ -2321,7 +2114,7 @@ const PlayerScreenUI = ({
     const position = isCurrentProgress ? progress.position : 0;
     const duration = (isCurrentProgress ? progress.duration : 0) || track.duration || 0;
     const { parsedLyrics, activeIndex, isSynced } = useSyncedLyrics(track, position);
-    const hasLyrics = !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
+    const hasLyrics = !hideLyrics && !isLocalCastActive && showPlayerLyrics && isSynced && parsedLyrics.length > 0;
     const currentPhrase = hasLyrics && activeIndex >= 0 && activeIndex < parsedLyrics.length
         ? parsedLyrics[activeIndex].text
         : '';
@@ -2337,11 +2130,11 @@ const PlayerScreenUI = ({
         width: windowWidth, height: windowHeight, topInset: insets.top, bottomInset: insets.bottom,
         fontScale, artworkPadding,
     }), [windowWidth, windowHeight, insets.top, insets.bottom, fontScale, artworkPadding]);
-    const { artworkSize, lyricsSlotHeight, isLayoutReady, onArtworkHeightMeasured } = usePlayerArtworkLayout(artworkLayoutConfig);
+    const { artworkSize, lyricsSlotHeight, isLayoutReady, onArtworkHeightMeasured, artworkRegionRef } = usePlayerArtworkLayout(artworkLayoutConfig);
 
     const styles = useMemo(
-        () => getStyles({ colors, fonts, layout, spacing, radii, fontWeights, shadows }, artworkSize),
-        [colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize]
+        () => getStyles({ colors, fonts, layout, spacing, radii, fontWeights, shadows }, artworkSize, windowWidth),
+        [colors, fonts, layout, spacing, radii, fontWeights, shadows, artworkSize, windowWidth]
     );
 
     // AB Repeat
@@ -2419,8 +2212,8 @@ const PlayerScreenUI = ({
         trackId: track.id,
         isNextBgIdentical,
         isPrevBgIdentical,
-        onSkipNext: () => usePlayerStore.getState().skipToNext().catch(() => {}),
-        onSkipPrevious: () => TrackPlayer.skipToPrevious().catch(() => {}),
+        onSkipNext: () => usePlayerStore.getState().skipToNext().catch(() => { }),
+        onSkipPrevious: () => TrackPlayer.skipToPrevious().catch(() => { }),
         onDismiss: () => navigation.goBack(),
         onLongPress: handleMorePress,
         onTap: toggleImmersiveMode,
@@ -2428,7 +2221,7 @@ const PlayerScreenUI = ({
 
     const artworkSource = useMemo(() =>
         currentCoverUrl ? { uri: currentCoverUrl } : null
-    , [currentCoverUrl]);
+        , [currentCoverUrl]);
 
     return (
         <GestureDetector gesture={dismissPanGesture}>
@@ -2448,6 +2241,9 @@ const PlayerScreenUI = ({
                     prevTrackModel={prevTrackModel}
                     prevCoverUrl={prevCoverUrl}
                     track={track}
+                    currentBgVideo={currBgVideo}
+                    prevBgVideo={prevBgVideo}
+                    nextBgVideo={nextBgVideo}
                     currentCoverUrl={currentCoverUrl}
                     nextTrackModel={nextTrackModel}
                     nextCoverUrl={nextCoverUrl}
@@ -2489,6 +2285,8 @@ const PlayerScreenUI = ({
                     />
 
                     <View
+                        ref={artworkRegionRef}
+                        collapsable={false}
                         style={{ flex: 1, minHeight: 0, opacity: isLayoutReady ? 1 : 0 }}
                         onLayout={event => onArtworkHeightMeasured(event.nativeEvent.layout.height)}
                     >
@@ -2527,6 +2325,7 @@ const PlayerScreenUI = ({
                         />
 
                         <TouchableOpacity
+                            testID="player-lyrics-slot"
                             style={[styles.lyricsSlot, { height: lyricsSlotHeight }]}
                             activeOpacity={0.8}
                             disabled={!hasLyrics}
@@ -2535,7 +2334,7 @@ const PlayerScreenUI = ({
                             importantForAccessibility={hasLyrics ? 'auto' : 'no-hide-descendants'}
                             onPress={() => navigation.navigate('Lyrics')}
                         >
-                            <View style={[styles.lyricsContainer, lyricsAnimatedStyle]}>
+                            <View style={[styles.lyricsContainer, lyricsAnimatedStyle, { height: Math.max(0, lyricsSlotHeight - 12) }]}>
                                 <Text numberOfLines={2} ellipsizeMode="tail" style={[styles.lyricText, textAnimatedStyle]}>
                                     {activeLyricText}
                                 </Text>
@@ -2566,54 +2365,61 @@ const PlayerScreenUI = ({
                         styles={styles}
                     />
 
+                    {Platform.OS === 'web' && <View testID="desktop-player-info-spacer" style={{ height: 20, flexShrink: 0 }} />}
+
                     <Animated.View
                         style={[bottomControlsAnimatedStyle]}
                         pointerEvents={isImmersive ? 'none' : 'auto'}
                     >
-                        <PlayerProgressSection
-                            isLocalCastActive={isLocalCastActive}
-                            duration={duration}
-                            displayPosition={displayPosition}
-                            isSeeking={isSeeking}
-                            seekValue={seekValue}
-                            onSlidingStart={(value) => {
-                                setIsSeeking(true);
-                                setSeekValue(value);
-                            }}
-                            onValueChange={setSeekValue}
-                            onSlidingComplete={(value) => {
-                                setIsSeeking(false);
-                                TrackPlayer.seekTo(value).catch(() => {});
-                            }}
-                            formatTimestamp={formatTimestamp}
-                            colors={colors}
-                            t={t}
-                            styles={styles}
-                        />
+                        {Platform.OS !== 'web' && (
+                            <>
+                                <PlayerProgressSection
+                                    easterEgg={albumEasterEgg}
+                                    isLocalCastActive={isLocalCastActive}
+                                    duration={duration}
+                                    displayPosition={displayPosition}
+                                    isSeeking={isSeeking}
+                                    seekValue={seekValue}
+                                    onSlidingStart={(value) => {
+                                        setIsSeeking(true);
+                                        setSeekValue(value);
+                                    }}
+                                    onValueChange={setSeekValue}
+                                    onSlidingComplete={(value) => {
+                                        setIsSeeking(false);
+                                        TrackPlayer.seekTo(value).catch(() => { });
+                                    }}
+                                    formatTimestamp={formatTimestamp}
+                                    colors={colors}
+                                    t={t}
+                                    styles={styles}
+                                />
 
-                        <PlayerControls
-                            isShuffleEnabled={isShuffleEnabled}
-                            hasPrevious={hasPrevious}
-                            hasNext={hasNext}
-                            position={position}
-                            repeatMode={repeatMode}
-                            colors={colors}
-                            controlsRef={controlsRef}
-                            controlsLayout={controlsLayout}
-                            onToggleShuffle={toggleShuffle}
-                            onSkipPrevious={() => {
-                                if (position > SKIP_PREVIOUS_THRESHOLD) {
-                                    TrackPlayer.seekTo(0).catch(() => {});
-                                } else {
-                                    TrackPlayer.skipToPrevious().catch(() => {});
-                                }
-                            }}
-                            onSkipNext={() => usePlayerStore.getState().skipToNext().catch(() => {})}
-                            onCycleRepeat={cycleRepeatMode}
-                            styles={styles}
-                        />
+                                <PlayerControls
+                                    isShuffleEnabled={isShuffleEnabled}
+                                    hasPrevious={hasPrevious}
+                                    hasNext={hasNext}
+                                    position={position}
+                                    repeatMode={repeatMode}
+                                    colors={colors}
+                                    controlsRef={controlsRef}
+                                    controlsLayout={controlsLayout}
+                                    onToggleShuffle={toggleShuffle}
+                                    onSkipPrevious={() => {
+                                        if (position > SKIP_PREVIOUS_THRESHOLD) {
+                                            TrackPlayer.seekTo(0).catch(() => { });
+                                        } else {
+                                            TrackPlayer.skipToPrevious().catch(() => { });
+                                        }
+                                    }}
+                                    onSkipNext={() => usePlayerStore.getState().skipToNext().catch(() => { })}
+                                    onCycleRepeat={cycleRepeatMode}
+                                    styles={styles}
+                                />
 
-                        <PlayerFooter
+                            </>
+                        )}
+                        {Platform.OS !== 'web' && <PlayerFooter
                             hasTrackLyrics={Boolean(track.lyricsLRC?.trim())}
                             insetsBottom={insets.bottom}
                             isServerRunning={isServerRunning}
@@ -2648,7 +2454,7 @@ const PlayerScreenUI = ({
                             queueRef={queueRef}
                             queueLayout={queueLayout}
                             styles={styles}
-                        />
+                        />}
                     </Animated.View>
                 </View>
 
@@ -2698,7 +2504,7 @@ function KeepAwakeController() {
     return null;
 }
 
-const PlayerScreen = () => {
+const PlayerScreen = ({ embedded = false, hideLyrics = false }: { embedded?: boolean; hideLyrics?: boolean } = {}) => {
     const activeTrackModel = usePlayerStore(state => state.activeTrack);
     const hasNext = usePlayerStore(state => state.hasNext);
     const hasPrevious = usePlayerStore(state => state.hasPrevious);
@@ -2706,9 +2512,10 @@ const PlayerScreen = () => {
     const isFocused = useIsFocused();
     const isKeepAwakeEnabled = useSettingsStore(state => state.isKeepAwakeEnabled);
 
-    useDismissEmptyPlayer();
+    useDismissEmptyPlayer(!embedded);
 
     useEffect(() => {
+        if (Platform.OS === 'web') return;
         if (isFocused) {
             usePlayerStore.getState().syncWithTrackPlayer().catch(() => { });
         }
@@ -2729,6 +2536,7 @@ const PlayerScreen = () => {
             <>
                 {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
                 <PlayerScreenUI
+                    hideLyrics={hideLyrics}
                     track={activeTrackModel}
                     album={(activeTrackModel as any).albumObj || null}
                     artist={(activeTrackModel as any).artistObj || null}
@@ -2748,6 +2556,7 @@ const PlayerScreen = () => {
         <>
             {isKeepAwakeEnabled && isFocused && <KeepAwakeController />}
             <ObservablePlayerScreenUI
+                hideLyrics={hideLyrics}
                 trackModel={activeTrackModel}
                 navigation={navigation}
                 formatTimestamp={formatTrackTime}
@@ -2774,7 +2583,8 @@ const getStyles = (
         fontWeights = DEFAULT_PLAYER_FONT_WEIGHTS,
         shadows = DEFAULT_PLAYER_SHADOWS,
     }: any,
-    artworkSize: number = width - 64
+    artworkSize: number = width - 64,
+    viewportWidth: number = width
 ) => StyleSheet.create({
     container: {
         flex: 1,
@@ -2809,7 +2619,7 @@ const getStyles = (
     },
     artworkContainer: {
         flex: 1,
-        width: width,
+        width: viewportWidth,
         overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
@@ -2831,7 +2641,7 @@ const getStyles = (
     },
     lyricsSlot: {
         height: 58,
-        flexShrink: 1,
+        flexShrink: 0,
         minHeight: 0,
         overflow: 'hidden',
     },
@@ -2933,7 +2743,7 @@ const getStyles = (
         fontWeight: fontWeights.bold,
     },
     progressSection: {
-        paddingHorizontal: 5,
+        paddingHorizontal: Platform.OS === 'web' ? 20 : 5,
         marginBottom: 5,
     },
     slider: {
@@ -2944,7 +2754,7 @@ const getStyles = (
     timeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 15,
+        paddingHorizontal: Platform.OS === 'web' ? 0 : 15,
         marginTop: 4,
     },
     timeText: {

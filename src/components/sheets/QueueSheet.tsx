@@ -36,7 +36,8 @@ import { useAppTheme } from '../../hooks/useAppTheme';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { openPlaylistSelector, useUIStore } from '../../store/useUIStore';
 import { Layout } from '../../theme/theme';
-import { refreshQueueSnapshot, useQueueSnapshotStore } from '../../store/useQueueSnapshotStore';
+import { refreshQueueSnapshot, subscribeToQueueSnapshot, useQueueSnapshotStore } from '../../store/useQueueSnapshotStore';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
 import { QueueActionsService, QueueRemoval } from '../../services/QueueActionsService';
 import { useCastStore } from '../../store/useCastStore';
 import { LocalCastService } from '../../services/LocalCastService';
@@ -50,13 +51,17 @@ type ActiveTab = 'queue' | 'recent';
 let deletedQueueStack: QueueRemoval[] = [];
 let undoDeletionTimeout: ReturnType<typeof setTimeout> | null = null;
 
-export default function QueueSheet() {
+export default function QueueSheet({ embedded = false, visible, onClose }: { embedded?: boolean; visible?: boolean; onClose?: () => void } = {}) {
+    const panel = useScreenDimensions();
+    const sheetHeight = embedded ? panel.height : height;
+    const tabWidth = embedded ? Math.max(0, (panel.width - 48 - 110) / 2) : TAB_WIDTH;
     const { colors } = useAppTheme();
     const styles = getQueueStyles(colors);
     const { t } = useTranslation();
     const activeSheet = useUIStore(state => state.activeSheet);
-    const closeQueue = useUIStore(state => state.closeSheet);
-    const isVisible = activeSheet === 'queue';
+    const closeSheet = useUIStore(state => state.closeSheet);
+    const closeQueue = onClose ?? closeSheet;
+    const isVisible = visible ?? activeSheet === 'queue';
     const insets = useSafeAreaInsets();
     const activeQueueId = useMultipleQueuesStore(state => state.activeId);
     const userQueueSize = usePlayerStore(state => state.userQueueSize);
@@ -67,6 +72,7 @@ export default function QueueSheet() {
     const isPlayingGlobal = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
     const queue = useQueueSnapshotStore(state => state.queue);
+    useEffect(() => embedded ? subscribeToQueueSnapshot() : undefined, [embedded]);
     const activeIndex = useQueueSnapshotStore(state => state.activeIndex);
     const queueReady = useQueueSnapshotStore(state => state.ready);
     const isQueueEmpty = queue.length === 0;
@@ -152,7 +158,7 @@ export default function QueueSheet() {
     }, [isVisible, fadeAnim, slideTranslateY, dragTranslateY]);
 
     useEffect(() => {
-        if (!isVisible) return;
+        if (!isVisible || embedded) return;
         const onBackPress = () => {
             if (showTrashMenu) {
                 setShowTrashMenu(false);
@@ -167,12 +173,25 @@ export default function QueueSheet() {
         };
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
-    }, [isVisible, showTrashMenu, showAddPlaylistMenu, closeQueue]);
+    }, [isVisible, embedded, showTrashMenu, showAddPlaylistMenu, closeQueue]);
+
+    useEffect(() => {
+        if (!embedded || !isVisible || (!showTrashMenu && !showAddPlaylistMenu)) return;
+        const escape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            setShowTrashMenu(false);
+            setShowAddPlaylistMenu(false);
+        };
+        document.addEventListener('keydown', escape, true);
+        return () => document.removeEventListener('keydown', escape, true);
+    }, [embedded, isVisible, showTrashMenu, showAddPlaylistMenu]);
 
     const switchTab = (tab: ActiveTab) => {
         setActiveTab(tab);
         Animated.spring(tabIndicatorAnim, {
-            toValue: tab === 'queue' ? 0 : TAB_WIDTH,
+            toValue: tab === 'queue' ? 0 : tabWidth,
             tension: 60,
             friction: 10,
             useNativeDriver: true,
@@ -241,7 +260,7 @@ export default function QueueSheet() {
         setShowAddPlaylistMenu(false);
         if (selectedTpTracks.length === 0) return;
         try {
-            const trackIds = Array.from(new Set(selectedTpTracks.map(t => t.id.toString().split('-')[0])));
+            const trackIds = Array.from(new Set(selectedTpTracks.map(t => (t as any).libraryId ?? t.id.toString().split('-')[0])));
             if (trackIds.length === 0) return;
 
             const dbTracks = await database.collections.get<Track>('tracks')
@@ -308,37 +327,44 @@ export default function QueueSheet() {
 
     return (
         <View
+            testID={embedded ? 'desktop-queue-sheet' : undefined}
             style={[StyleSheet.absoluteFill, { zIndex: 9998 }]}
             pointerEvents={isVisible ? 'auto' : 'none'}
         >
-            <TouchableWithoutFeedback onPress={closeQueue}>
+            {!embedded && <TouchableWithoutFeedback onPress={closeQueue}>
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
-            </TouchableWithoutFeedback>
+            </TouchableWithoutFeedback>}
 
             <AnimatedReanimated.View style={[
                 styles.sheetContainer,
                 {
-                    height: Math.min(height * 0.92, height - insets.top - 8),
+                    height: embedded ? sheetHeight : Math.min(height * 0.92, height - insets.top - 8),
+                    ...(embedded ? { top: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 } : {}),
                 },
-                sheetAnimatedStyle
+                !embedded && sheetAnimatedStyle
             ]}>
-                <GestureDetector gesture={handlePanGesture}>
+                {embedded ? <View style={styles.handleContainer}>
+                    <TouchableOpacity accessibilityLabel={t('actions.close')} testID="queue-close" onPress={closeQueue} style={{ alignSelf: 'flex-end', padding: 8 }}>
+                        <Ionicons name="chevron-down" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                </View> : <GestureDetector gesture={handlePanGesture}>
                     <View style={styles.handleContainer}>
                         <View style={styles.dragIndicator} />
                     </View>
-                </GestureDetector>
+                </GestureDetector>}
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 24 }}>
                     <View style={[styles.tabBar, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
                         <Animated.View
                             style={[
                                 styles.tabIndicator,
-                                { transform: [{ translateX: tabIndicatorAnim }], width: TAB_WIDTH }
+                                { transform: [{ translateX: embedded ? (activeTab === 'queue' ? 0 : tabWidth) : tabIndicatorAnim }], width: tabWidth }
                             ]}
                         />
 
                         <TouchableOpacity
-                            style={[styles.tabButton, { width: TAB_WIDTH }]}
+                            testID="queue-tab-upcoming"
+                            style={[styles.tabButton, { width: tabWidth }]}
                             onPress={() => switchTab('queue')}
                             activeOpacity={0.8}
                         >
@@ -359,7 +385,8 @@ export default function QueueSheet() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.tabButton, { width: TAB_WIDTH }]}
+                            testID="queue-tab-recent"
+                            style={[styles.tabButton, { width: tabWidth }]}
                             onPress={() => switchTab('recent')}
                             activeOpacity={0.8}
                         >
@@ -381,6 +408,7 @@ export default function QueueSheet() {
                     </View>
                     {queue.length > 0 && (
                         <TouchableOpacity
+                            testID="queue-save-playlist"
                             style={{ padding: 10, marginLeft: 4 }}
                             onPress={() => setShowAddPlaylistMenu(true)}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -389,6 +417,7 @@ export default function QueueSheet() {
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
+                        testID="queue-manage"
                         style={{ padding: 10, marginLeft: 4 }}
                         onPress={handleTrashPress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -489,7 +518,7 @@ export default function QueueSheet() {
                     <TouchableWithoutFeedback onPress={() => setShowTrashMenu(false)}>
                         <View style={styles.trashMenuOverlay}>
                             <TouchableWithoutFeedback>
-                                <View style={[styles.trashMenuPanel, { backgroundColor: colors.sheetBackground, borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
+                                <View testID="queue-manage-options" style={[styles.trashMenuPanel, { backgroundColor: colors.sheetBackground, borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
                                     <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>{t('queue.manage')}</Text>
                                     {hasManualUpcoming && (
                                         <TouchableOpacity
@@ -556,7 +585,7 @@ export default function QueueSheet() {
             {showAddPlaylistMenu && (() => {
                 const allQueueTracks = queue;
                 const upcomingAndCurrentTracks = queue.slice(Math.max(0, activeIndex));
-                const manualQueueTracks = queue.filter((t, idx) => (t as any).isManual === true || (idx > activeIndex && idx <= activeIndex + userQueueSize));
+                const manualQueueTracks = queue.filter((t, idx) => typeof t.isManual === 'boolean' ? t.isManual : (idx > activeIndex && idx <= activeIndex + userQueueSize));
 
                 const hasManualTracks = manualQueueTracks.length > 0;
                 const hasUpcomingTracks = upcomingAndCurrentTracks.length > 0;
@@ -565,10 +594,11 @@ export default function QueueSheet() {
                     <TouchableWithoutFeedback onPress={() => setShowAddPlaylistMenu(false)}>
                         <View style={styles.trashMenuOverlay}>
                             <TouchableWithoutFeedback>
-                                <View style={[styles.trashMenuPanel, { backgroundColor: colors.sheetBackground, borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
+                                <View testID="queue-save-options" style={[styles.trashMenuPanel, { backgroundColor: colors.sheetBackground, borderTopWidth: 1, borderColor: colors.cardBackground || '#282828', paddingBottom: insets.bottom + 12 }]}>
                                     <Text style={[styles.trashMenuTitle, { color: colors.textSecondary }]}>{t('queue.save_to_playlist_title')}</Text>
 
                                     <TouchableOpacity
+                                        testID="queue-save-all"
                                         style={styles.trashMenuButton}
                                         onPress={() => handleSaveTracksToPlaylist(allQueueTracks)}
                                         activeOpacity={0.7}
@@ -687,7 +717,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
     const styles = getQueueStyles(colors);
     useTranslation();
     const isUserQueued = index < userQueueSize;
-    const isManual = item.isManual === true || isUserQueued;
+    const isManual = typeof item.isManual === 'boolean' ? item.isManual : isUserQueued;
     const artworkUrl = item.artwork;
     const imageSource = React.useMemo(() =>
         artworkUrl ? { uri: artworkUrl } : null
@@ -699,6 +729,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
     return (
         <View style={[styles.trackRow, isActive && [styles.trackRowActive, { backgroundColor: colors.accentAlpha10 }]]}>
             <GHTouchableOpacity
+                testID={`queue-drag-${item.id}`}
                 onLongPress={drag}
                 delayLongPress={60}
                 style={styles.dragHandle}
@@ -710,6 +741,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
 
             <TouchableOpacity
                 style={styles.trackMainContent}
+                testID={`queue-play-${item.id}`}
                 onPress={() => onSkip(item)}
                 activeOpacity={0.7}
                 disabled={isActive}
@@ -741,6 +773,7 @@ const QueueTrackRow = React.memo(({ item, index, userQueueSize, onSkip, onRemove
 
             <TouchableOpacity
                 style={styles.removeButton}
+                testID={`queue-remove-${item.id}`}
                 onPress={() => onRemove(item, isManual)}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 disabled={isActive}
@@ -772,6 +805,7 @@ const RecentTrackRow = React.memo(({ item, onSkip, colors }: RecentTrackRowProps
     return (
         <GHTouchableOpacity
             style={styles.trackRow}
+            testID={`queue-recent-${item.id}`}
             onPress={() => onSkip(item)}
             activeOpacity={0.7}
         >

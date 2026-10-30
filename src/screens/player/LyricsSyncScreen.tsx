@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
     StyleSheet,
@@ -336,9 +337,9 @@ function LyricsSyncDocument({ track, initialLyrics }: { track: Track; initialLyr
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10, borderBottomColor: colors.overlayAlpha10 }]}>
-                <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
+                <HeaderHistoryControls><TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
                     <Ionicons name="chevron-back" size={24} color={colors.accent} />
-                </TouchableOpacity>
+                </TouchableOpacity></HeaderHistoryControls>
                 <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fonts.regular, fontWeight: fontWeights.bold }]}>
                     {t('lyrics.sync_title') || 'Sincronizar letras'}
                 </Text>
@@ -406,12 +407,13 @@ function LyricsSyncDocument({ track, initialLyrics }: { track: Track; initialLyr
                 {/* Big Button Controls */}
                 <View style={styles.actionsContainer}>
                     {/* Reset Button */}
-                    <TouchableOpacity onPress={handleReset} style={[styles.secondaryActionBtn, { backgroundColor: colors.overlayAlpha10 }]}>
+                    <TouchableOpacity testID="lyrics-sync-reset" onPress={handleReset} style={[styles.secondaryActionBtn, { backgroundColor: colors.overlayAlpha10 }]}>
                         <Ionicons name="refresh-outline" size={22} color={colors.text} />
                     </TouchableOpacity>
 
                     {/* Giant Next Phrase Button */}
                     <TouchableOpacity
+                        testID="lyrics-sync-mark"
                         onPress={handleNextPhrase}
                         disabled={!canControl || currentIndex >= syncLines.length}
                         style={[styles.giantTapBtn, {
@@ -427,6 +429,7 @@ function LyricsSyncDocument({ track, initialLyrics }: { track: Track; initialLyr
 
                     {/* Undo Button */}
                     <TouchableOpacity
+                        testID="lyrics-sync-undo"
                         onPress={handleUndo}
                         disabled={currentIndex === 0}
                         style={[styles.secondaryActionBtn, {
@@ -440,7 +443,7 @@ function LyricsSyncDocument({ track, initialLyrics }: { track: Track; initialLyr
 
                 {/* Play/Pause controls overlay */}
                 <View style={styles.playPauseRow}>
-                    <TouchableOpacity disabled={!canControl} onPress={togglePlayback} style={[styles.playPauseBtn, { backgroundColor: colors.accent }]}>
+                    <TouchableOpacity testID="lyrics-sync-play" disabled={!canControl} onPress={togglePlayback} style={[styles.playPauseBtn, { backgroundColor: colors.accent }]}>
                         <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#FFFFFF" />
                     </TouchableOpacity>
                 </View>

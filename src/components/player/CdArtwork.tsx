@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import MaskedView from '@react-native-masked-view/masked-view';
+import { DiscMask } from './DiscMask';
 import Animated from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
@@ -17,12 +17,10 @@ export function CdArtwork({ size, customImageUrl, coverUrl, spinStyle, holeSize,
     const imageUrl = customImageUrl || coverUrl;
     const imageSize = size * 0.98;
     const holeRadius = holeSize / size * 200;
-    return <View style={{ width: size, height: size, alignSelf: 'center' }}>
+    return <View testID="player-cd-artwork" style={{ width: size, height: size, alignSelf: 'center' }}>
         <Animated.View style={[StyleSheet.absoluteFillObject, spinStyle]}
             renderToHardwareTextureAndroid={Boolean(spinStyle)} shouldRasterizeIOS={Boolean(spinStyle)}>
-        <MaskedView style={StyleSheet.absoluteFillObject} androidRenderingMode="hardware" maskElement={
-            <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: (size - holeSize) / 2, borderColor: '#000', backgroundColor: 'transparent' }} />
-        }>
+        <DiscMask size={size} holeSize={holeSize}>
             <View style={StyleSheet.absoluteFillObject}>
                 <Svg width="100%" height="100%" viewBox="0 0 400 400">
                     <Defs>
@@ -58,7 +56,7 @@ export function CdArtwork({ size, customImageUrl, coverUrl, spinStyle, holeSize,
                     <Circle cx="200" cy="200" r={holeRadius + 1} fill="none" stroke="#555f59" strokeWidth="2" />
                 </Svg>
             </View>
-        </MaskedView>
+        </DiscMask>
         </Animated.View>
     </View>;
 }

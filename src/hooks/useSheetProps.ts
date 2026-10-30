@@ -20,6 +20,8 @@ export function useSheetProps<TProps = any>(type: SheetType) {
         isVisible,
         props: (isVisible ? sheetProps : lastPropsRef.current) as TProps,
         close: closeSheet,
+        // Desktop can keep the current content mounted beside a child menu.
+        openNested: (_type: SheetType, _props?: any): boolean => false,
         closeThen: (run: () => void) => {
             if (useUIStore.getState().activeSheet !== type) return;
             const originKey = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.key : undefined;

@@ -1,3 +1,4 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
 import React, { useState } from 'react';
 import {
     StyleSheet,
@@ -71,9 +72,9 @@ function LyricsEditorDocument({ track, initialText }: { track: Track; initialTex
         >
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10, borderBottomColor: colors.overlayAlpha10 }]}>
-                <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
+                <HeaderHistoryControls><TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
                     <Ionicons name="chevron-back" size={24} color={colors.accent} />
-                </TouchableOpacity>
+                </TouchableOpacity></HeaderHistoryControls>
                 <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fonts.regular, fontWeight: fontWeights.bold }]}>
                     {t('lyrics.edit_title') || 'Editar letras'}
                 </Text>

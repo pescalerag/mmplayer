@@ -51,3 +51,12 @@ it('ignores missing events and does not navigate before the navigator is ready',
   (waitForNavigationReady as jest.Mock).mockRejectedValueOnce(Error('Unavailable'));
   await expect(NotificationService.handleNotificationPressEvent({ id: 'news' })).resolves.toBeUndefined();
 });
+
+
+it('can initialize local desktop summaries without checking the mobile update feed', async () => {
+  jest.spyOn(NotificationService, 'getUnreadCount').mockResolvedValue(0);
+  const summaries = jest.spyOn(NotificationService, 'checkAndGenerateSummaries').mockResolvedValue(undefined);
+  const updates = jest.spyOn(NotificationService, 'checkForAppUpdates').mockResolvedValue(undefined);
+  await NotificationService.init({ checkAppUpdates: false });
+  expect(summaries).toHaveBeenCalledTimes(1);expect(updates).not.toHaveBeenCalled();
+});

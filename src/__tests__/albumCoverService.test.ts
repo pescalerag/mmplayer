@@ -118,3 +118,15 @@ it('rejects network errors and non-image content in individual downloads', async
     expect(mockDelete).toHaveBeenCalled();
     expect(await AlbumCoverService.downloadCover('', '')).toBeNull();
 });
+
+
+it('checks covers without the native asset resolver on desktop web', () => {
+    const { Image } = require('react-native');
+    const resolve = Image.resolveAssetSource;
+    Image.resolveAssetSource = undefined;
+    try {
+        expect(isMissingAlbumCover(null)).toBe(true);
+        expect(isMissingAlbumCover('')).toBe(true);
+        expect(isMissingAlbumCover('https://example.test/cover.jpg')).toBe(false);
+    } finally { Image.resolveAssetSource = resolve; }
+});

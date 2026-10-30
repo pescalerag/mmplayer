@@ -12,6 +12,7 @@
       ]
     }
   },
+  "exclude": ["node_modules", "apps/desktop", ".tmp"],
   "include": [
     "**/*.ts",
     "**/*.tsx",

@@ -1,3 +1,5 @@
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
+import appIcon from '../../assets/images/splash-icon.png';
 import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
@@ -5,7 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
   FlatList,
 } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
@@ -21,7 +22,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { useToastStore } from '@/store/useToastStore';
 import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 
 // --- Helper functions for dynamic cover gradient generation ---
 const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
@@ -248,7 +249,7 @@ const LyricsShareCard = React.forwardRef<any, LyricsCardProps>(
           {/* Top Brand Header: Real App Icon at top-left (Same as stats share) */}
           <View style={cardStyles.brandHeader}>
             <Image
-              source={require('../../assets/images/splash-icon.png')}
+              source={appIcon}
               style={cardStyles.appIcon}
               contentFit="contain"
             />
@@ -376,7 +377,8 @@ function checkIsLineDimmed(index: number, selectedIndices: number[]): boolean {
   return !canExtend;
 }
 
-function getCardDimensions(insets: { top: number; bottom: number }) {
+function getCardDimensions(insets: { top: number; bottom: number }, screen: { width: number; height: number }) {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = screen;
   const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 170;
   let cardHeight = Math.min(availableHeight, 540);
   let cardWidth = cardHeight * (9 / 16);
@@ -603,7 +605,7 @@ function LyricsPreviewStep({
         />
       </View>
 
-      <View style={[styles.actionsContainer, { width: Math.min(SCREEN_WIDTH - 40, cardWidth) }]}>
+      <View style={[styles.actionsContainer, { width: cardWidth }]}>
         <TouchableOpacity
           onPress={onCaptureAndShare}
           disabled={isCapturing}
@@ -639,6 +641,7 @@ function LyricsPreviewStep({
 }
 
 export default function LyricsShareScreen() {
+  const dimensions = useScreenDimensions();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -696,8 +699,8 @@ export default function LyricsShareScreen() {
   }, [selectedIndices, formattedLines]);
 
   const { cardWidth, cardHeight } = useMemo(
-    () => getCardDimensions(insets),
-    [insets]
+    () => getCardDimensions(insets, dimensions),
+    [insets, dimensions.width, dimensions.height]
   );
 
   // Handle Share as Image
@@ -722,8 +725,10 @@ export default function LyricsShareScreen() {
         });
       }
     } catch (err) {
-      console.error('[LyricsShareScreen] Error capturing or sharing image:', err);
       setIsCapturing(false);
+      if ((err as any)?.code === 'USER_CANCELLED') return;
+      console.error('[LyricsShareScreen] Error capturing or sharing image:', err);
+      useToastStore.getState().showToast(t('player.share_image_error'), 'close-circle', '#EF4444');
     }
   };
 

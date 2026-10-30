@@ -10,7 +10,7 @@ let mockPosition = 30;
 let mockDuration = 120;
 let mockShowAlbumName = false;
 const mockRemove = jest.fn();
-jest.mock('react-native', () => ({ AppState: { currentState: 'active', addEventListener: () => ({ remove: mockRemove }) } }));
+jest.mock('react-native', () => ({ Platform: { OS: 'android' }, AppState: { currentState: 'active', addEventListener: () => ({ remove: mockRemove }) } }));
 jest.mock('@react-navigation/native', () => ({ useIsFocused: () => mockFocused }));
 jest.mock('react-native-track-player', () => ({ State: { Playing: 'playing' }, usePlaybackState: () => ({ state: mockPlaying }), useProgress: () => ({ position: mockPosition, duration: mockDuration, trackId: mockTrackId }) }));
 jest.mock('../components/player/CassetteArtwork', () => ({ CassetteArtwork: 'CassetteArtwork' }));
