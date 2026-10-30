@@ -3,6 +3,9 @@ const { writeFile, appendFile, readFile, mkdir, copyFile, rename } = require('no
 const { pathToFileURL } = require('node:url');
 const { join } = require('node:path');
 const output = process.env.MMPLAYER_SHEET_AUDIT_OUTPUT;
+// Reproduce the hosted Windows preference without changing OS accessibility.
+if (process.env.MMPLAYER_SHEET_SYSTEM_REDUCED_MOTION === '1')
+  app.commandLine.appendSwitch('force-prefers-reduced-motion');
 // Isolate Rich Presence tests from the user's real Discord client.
 const discordPipe=process.platform==='win32'?`\\\\.\\pipe\\mmplayer-discord-sheet-${process.pid}`:join(output,'discord-test.sock');
 process.env.MMPLAYER_DISCORD_TEST_PIPE=discordPipe;
@@ -93,7 +96,7 @@ app.on('browser-window-created', (_, window) => {
     }
     if (message?.startsWith('SHEET_INPUT ')) {
       const {id,x,y,hold=0,button='left'}=JSON.parse(message.slice(12));
-      window.show(); window.focus();
+      window.show(); window.focus(); window.webContents.focus();
       window.webContents.sendInputEvent({type:'mouseMove',x,y});
       window.webContents.sendInputEvent({type:'mouseDown',x,y,button,clickCount:1});
       setTimeout(()=>{window.webContents.sendInputEvent({type:'mouseUp',x,y,button,clickCount:1});
@@ -128,6 +131,7 @@ app.on('browser-window-created', (_, window) => {
   window.webContents.once('did-finish-load', async () => {
     try {
       const report = await window.webContents.executeJavaScript(`(async () => {
+        console.log('SHEET_MOTION '+JSON.stringify({mode:window.__sheetMotionMode,systemReduced:matchMedia('(prefers-reduced-motion: reduce)').matches}));
         window.__sheetSaveDirectory=${JSON.stringify(output)};
         window.__sheetCaseFilter=${JSON.stringify(process.env.MMPLAYER_SHEET_AUDIT_FILTER || '')};
         window.__sheetExpectedTypes=${process.env.MMPLAYER_SHEET_AUDIT_TYPES || '[]'};
@@ -137,6 +141,8 @@ app.on('browser-window-created', (_, window) => {
         }
         return await window.__runSheetAudit();
       })()`, true);
+      report.environment = { motionMode: process.env.MMPLAYER_SHEET_MOTION_MODE || 'never', systemReducedMotion: await window.webContents.executeJavaScript("matchMedia('(prefers-reduced-motion: reduce)').matches") };
+      console.log('SHEET_MOTION', JSON.stringify(report.environment));
       await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
       await writeFile(join(output, 'interactions.json'), JSON.stringify(report.interactions || [], null, 2));
       const lines = ['# Auditoría de sheets de MMPlayer PC', '', report.scope, '', '| Sheet | Opción | Resultado | Evidencia |', '|---|---|---|---|'];

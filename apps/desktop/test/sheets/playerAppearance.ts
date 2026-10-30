@@ -75,15 +75,22 @@ export async function runPlayerAppearance(h) {
     } finally {await restore();}
   },25000);
   for(const style of ['cd','vinyl','cassette'])await test('player-appearance','APPEARANCE: '+style+' animacion reproduce pausa y progreso',async()=>{
+    window.__sheetSetMotionMode(window.__sheetMotionMode);
+    await until(()=>window.__sheetAppliedMotionMode===window.__sheetMotionMode,'No configura movimiento del caso de animacion');
     const restore=await prepare(style);
     try {
       await until(()=>current(style),'No renderiza '+style);
       const root=current(style),rotation=style==='cassette'?root.querySelector('[data-testid="player-cassette-left-reel"]'):style==='cd'?root.firstElementChild:root.querySelector('[data-testid="player-disc-mask"]').firstElementChild;
-      await player.play(true);await wait(60);const first=getComputedStyle(rotation).transform;await wait(220);const second=getComputedStyle(rotation).transform;assert(first!==second,'No gira al reproducir '+JSON.stringify({first,second,playing:player.getSnapshot().playing,error:player.getSnapshot().error,duration:player.getSnapshot().duration,node:rotation.outerHTML.slice(0,500)}));await player.pause(true);await wait(100);const paused=getComputedStyle(rotation).transform;await wait(150);assert(getComputedStyle(rotation).transform===paused,'Sigue girando en pausa');
+      const reduced=style!=='cassette'&&(window.__sheetMotionMode==='always'||(window.__sheetMotionMode==='system'&&matchMedia('(prefers-reduced-motion: reduce)').matches));
+      await player.play(true);await until(()=>player.getSnapshot().playing,'No inicia reproduccion');await wait(60);
+      const first=getComputedStyle(rotation).transform;
+      if(reduced){await wait(250);assert(getComputedStyle(rotation).transform===first,'No respeta movimiento reducido');}
+      else await until(()=>getComputedStyle(rotation).transform!==first,'No gira al reproducir '+JSON.stringify({first,playing:player.getSnapshot().playing,error:player.getSnapshot().error,motionMode:window.__sheetMotionMode,systemReduced:matchMedia('(prefers-reduced-motion: reduce)').matches,node:rotation.outerHTML.slice(0,500)}));
+      await player.pause(true);await wait(100);const paused=getComputedStyle(rotation).transform;await wait(150);assert(getComputedStyle(rotation).transform===paused,'Sigue girando en pausa');
       await player.play(true);await stress(style);assert(player.getSnapshot().playing,'La ventana detiene la reproduccion');await player.pause(true);
       if(style==='cassette'){const duration=player.getSnapshot().duration;const left=root.querySelector('[data-testid="player-cassette-left-tape"]'),right=root.querySelector('[data-testid="player-cassette-right-tape"]');player.seek(duration*.1);await wait(350);const before=[left.getBoundingClientRect().width,right.getBoundingClientRect().width];player.seek(duration*.8);await wait(350);assert(left.getBoundingClientRect().width<before[0]&&right.getBoundingClientRect().width>before[1],'Las bobinas no siguen el progreso');}
-      return 'Giro en reproduccion y congelacion en pausa'+(style==='cassette'?'; cinta transferida segun progreso':'');
-    } finally{await restore();}
+      return (reduced?'Movimiento reducido respetado mientras se reproduce':'Giro en reproduccion y congelacion en pausa')+(style==='cassette'?'; cinta transferida segun progreso':'');
+    } finally{await restore();window.__sheetSetMotionMode('system');await until(()=>window.__sheetAppliedMotionMode==='system','No restaura movimiento del sistema');}
   },18000);
   await test('player-appearance','APPEARANCE: canvas estable al redimensionar y volver',async()=>{
     const restore=await prepare('canvas');let url;

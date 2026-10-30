@@ -6,6 +6,11 @@ import { build } from './build.mjs';
 import { saveSheetReport } from './sheet-report.mjs';
 
 const root = resolve(import.meta.dirname, '..');
+// Explicitly control Reanimated's test environment. Production still follows
+// the user's accessibility preference; no OS setting is modified here.
+const motionMode = process.env.MMPLAYER_SHEET_MOTION_MODE || 'never';
+const motionModes = { never: 'Never', always: 'Always', system: 'System' };
+if (!Object.hasOwn(motionModes, motionMode)) throw Error('Invalid test motion mode');
 const sheetSource = await readFile(resolve(root, '../../src/store/useUIStore.ts'), 'utf8');
 const sheetUnion = sheetSource.match(/export type SheetType\s*=([\s\S]*?);/)?.[1];
 if (!sheetUnion) throw Error('No se puede leer el registro de sheets');
@@ -20,9 +25,19 @@ await build({ rendererPlugins: [{
     if (id.replaceAll('\\', '/').endsWith('/src/renderer/main.tsx')) {
       const marker='createRoot(document.getElementById("root")!).render(';
       if (!source.includes(marker)) throw Error('Review sheet audit root recovery injection');
-      return source.replace(marker,'const sheetTestRoot = createRoot(document.getElementById("root")!); sheetTestRoot.render(') + `
+      return source.replace(marker,`const sheetTestRoot = createRoot(document.getElementById("root")!);
+        function SheetMotionControl() {
+          const [mode, setMode] = React.useState(ReduceMotion.System);
+          window.__sheetSetMotionMode = setMode;
+          React.useEffect(() => { window.__sheetAppliedMotionMode = mode; }, [mode]);
+          return <ReducedMotionConfig mode={mode} />;
+        }
+        const renderSheetAudit = element => sheetTestRoot.render(<><SheetMotionControl />{element}</>);
+        renderSheetAudit(`) + `
+        import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
         import "../../test/sheets/renderer";
-        window.__sheetAuditRecover = () => sheetTestRoot.render(
+        window.__sheetMotionMode = ${JSON.stringify(motionMode)};
+        window.__sheetAuditRecover = () => renderSheetAudit(
           <ErrorBoundary key={Date.now()}><I18nextProvider i18n={i18n}><App /></I18nextProvider></ErrorBoundary>
         );`;
     }

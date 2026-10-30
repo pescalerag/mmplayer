@@ -93,7 +93,9 @@ válida no garantiza ausencia inmediata de avisos de SmartScreen:
 1. Comprobación de tipos y pruebas del worker/datos.
 2. Electron real y Media Session/identificación del sistema.
 3. Casos de sheets, documentos, cola, menús contextuales, navegación, resoluciones
-   y visualizaciones. Los proveedores externos se validan aparte.
+   y visualizaciones. Los proveedores externos se validan aparte. El harness fija
+   el modo de animación de Reanimated y añade una pasada de CD/vinilo con movimiento
+   reducido del sistema, sin cambiar la accesibilidad de la app de producción.
 4. Generación del instalador y aceptación del ejecutable empaquetado.
 5. Instalación real en una ruta con espacios, reinstalación conservando SQLite y
    preferencias, desinstalación y conservación de datos.
