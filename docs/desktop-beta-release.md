@@ -6,6 +6,10 @@ El titular ha autorizado publicar esta beta **sin firma pública**. El instalado
 público se identifica como `UNSIGNED`; la firma queda para una versión posterior.
 Las notas de descarga explican los posibles avisos de Windows.
 
+**Publicación pendiente:** el código debe subirse a `v3.0-Beyond-The-Player`.
+El titular realizará el merge. No crear tags ni releases hasta que lo indique
+expresamente después del merge.
+
 ```powershell
 npm run desktop:installer:beta
 npm run test:package --workspace=@mmplayer/desktop -- --installer --unsigned-beta
@@ -113,10 +117,10 @@ Antes del primer lanzamiento:
 5. Tras el éxito, enlazar la prerelease desde la web de MMPlayer.
 
 El script local `npm run publish:beta --workspace=@mmplayer/desktop` comprueba el
-informe y los hashes sin publicar. Añadir `-- --publish` publica: conserva el código
-en una rama `codex/windows-beta-*`, sube el tag de escritorio, prepara una release
-en borrador, carga los archivos y finalmente la convierte en prerelease. Nunca
-sobrescribe una versión ya publicada ni mezcla el lanzamiento con Android o main.
+informe y los hashes sin publicar. Solo tras indicación expresa del titular,
+`-- --publish` comprueba que el código está integrado en main y que existe un tag
+preparado explícitamente; después carga los archivos en un borrador y lo publica
+como prerelease. No crea ni sube ramas o tags ni sobrescribe versiones publicadas.
 
 No hay actualización automática dentro de esta beta: se descarga y ejecuta el
 instalador nuevo. El blockmap no implica que exista ya un cliente de actualización.

@@ -56,14 +56,12 @@ async function api(path, options = {}) {
   if (!response.ok) throw Error(`GitHub returned ${response.status} for ${new URL(response.url).pathname}`);
   return response.json();
 }
-// Publish source on its own branch; do not merge into main or alter Android tags.
-const branch = `codex/windows-beta-${version}`;
-git(['push', 'origin', `HEAD:refs/heads/${branch}`]);
-let localTag;
-try { localTag = git(['rev-parse', `refs/tags/${tag}`]); } catch {}
-if (localTag) assert.equal(localTag, commit, 'Existing tag points to a different commit');
-else git(['tag', tag, commit]);
-git(['push', 'origin', `refs/tags/${tag}`]);
+// Only run after the owner explicitly requests a release following their merge.
+// This command must never create/push branches or tags on the owner's behalf.
+const comparison = await api(`/compare/${commit}...main`);
+assert.equal(comparison.merge_base_commit.sha, commit, 'Wait for the owner to merge the source into main');
+const remoteTag = await api(`/git/ref/tags/${tag}`);
+assert.equal(remoteTag.object.sha, commit, 'An explicitly prepared release tag must point to this commit');
 const releases = await api('/releases?per_page=100');
 let release = releases.find(item => item.tag_name === tag);
 assert(!release || release.draft, 'This beta is already public; do not overwrite released assets');
