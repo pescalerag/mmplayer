@@ -1,25 +1,11 @@
 import { Platform } from 'react-native';
-import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 
 import { myMigrations } from './migrations';
 import { mySchema } from './schema';
 
-// Importamos all los modelos que has creado
-import Album from './models/Album';
-import Artist from './models/Artist';
-import Playlist from './models/Playlist';
-import PlaylistTrack from './models/PlaylistTrack'; // Tabla pivote
-import Tag from './models/Tag';
-import Track from './models/Track';
-import TrackTag from './models/TrackTag'; // Tabla pivote
-import TrackCollaborator from './models/TrackCollaborator'; // Nueva tabla pivote
-import SearchHistory from './models/SearchHistory';
-import AlbumTag from './models/AlbumTag';
-import PlaybackHistory from './models/PlaybackHistory';
-import PlaybackHistoryTag from './models/PlaybackHistoryTag';
-import AppNotification from './models/AppNotification';
+import { createLibraryDatabase } from '../../packages/data/src/createDatabase';
 
 // 1. Elegimos el Adaptador correcto dependiendo de la Plataforma
 const adapter = Platform.OS === 'web'
@@ -43,21 +29,4 @@ const adapter = Platform.OS === 'web'
       });
 
 // 2. Creamos y exportamos la instancia global de la Base de Datos
-export const database = new Database({
-    adapter,
-    modelClasses: [
-        Track,
-        Playlist,
-        Tag,
-        Album,
-        Artist,
-        PlaylistTrack,
-        TrackTag,
-        TrackCollaborator,
-        SearchHistory,
-        AlbumTag,
-        PlaybackHistory,
-        PlaybackHistoryTag,
-        AppNotification,
-    ],
-});
+export const database = createLibraryDatabase(adapter);

@@ -1,6 +1,7 @@
 import LibraryCard from '@/components/cards/LibraryCard';
 import TopMatchCard from '@/components/cards/TopMatchCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import SearchSpotlightTutorial from '@/components/modals/SearchSpotlightTutorial';
 import PlaylistCover from '@/components/player/PlaylistCover';
 import TrackRow from '@/components/player/TrackRow';
@@ -13,21 +14,14 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Dimensions,
-  Keyboard,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Keyboard, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
+import { TutorialHelpButton } from '@/components/common/TutorialHelpButton';
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
 import { database } from "../../database";
 import Album from "../../database/models/Album";
 import Artist from "../../database/models/Artist";
@@ -37,6 +31,8 @@ import Tag from "../../database/models/Tag";
 import Track from "../../database/models/Track";
 import TrackTag from "../../database/models/TrackTag";
 import { SearchResults, TopMatch, useMusicSearch } from "../../hooks/useMusicSearch";
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { useLibraryGridLayout, useScreenWidth } from '../../hooks/useScreenWidth';
 import { useSearchHistory } from "../../hooks/useSearchHistory";
 import { SearchStackParamList } from "../../navigation/types";
 import { SmartList } from "../../services/SmartListService";
@@ -50,14 +46,14 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { Colors, Layout } from "../../theme/theme";
 import { getDynamicTagTextColor } from '../../utils/color';
 
-import { useDelayedLoader } from "@/hooks/useDelayedLoader";
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
-import { useSearchBrowseTags } from '../../hooks/useSearchBrowseTags';
-import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
-import type { Subscription } from 'rxjs';
+import { useDelayedLoader } from "@/hooks/useDelayedLoader";
 import { useTranslation } from "react-i18next";
 import Animated from 'react-native-reanimated';
+import type { Subscription } from 'rxjs';
+import { useSearchBrowseTags } from '../../hooks/useSearchBrowseTags';
 import { HistoryService } from "../../services/HistoryService";
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
 
 type SearchNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
@@ -138,7 +134,7 @@ const SearchTrackRow = withObservables(
   ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any, // Cast to any to match Artist[] expectation
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any, // Cast to any to match Artist[] expectation
   }),
 )(SearchTrackRowBase);
 SearchTrackRow.displayName = "SearchTrackRow";
@@ -246,6 +242,9 @@ SearchPlaylistCard.displayName = "SearchPlaylistCard";
 
 const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPress: () => void; isCompact?: boolean }) => {
   const { colors } = useAppTheme();
+  const { cardWidth: libraryCardWidth } = useLibraryGridLayout();
+  const screenWidth = useScreenWidth();
+  const cardWidth = Platform.OS === 'web' ? libraryCardWidth : (screenWidth - 40 - 12) / 2;
   const tagBg = tag.color || colors.accent;
   const textColor = getDynamicTagTextColor(tagBg);
   if (isCompact) {
@@ -266,7 +265,7 @@ const SearchTagCardBase = ({ tag, onPress, isCompact = true }: { tag: Tag; onPre
 
   return (
     <TouchableOpacity
-      style={[styles.tagCardNormal, { backgroundColor: tagBg }]}
+      style={[styles.tagCardNormal, { backgroundColor: tagBg, width: cardWidth }]}
       onPress={onPress}
       onLongPress={() => {
         Keyboard.dismiss();
@@ -285,9 +284,6 @@ const SearchTagCard = withObservables(['tag'], ({ tag }: { tag: Tag }) => ({
 }))(SearchTagCardBase);
 SearchTagCard.displayName = "SearchTagCard";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const NORMAL_CARD_WIDTH = (SCREEN_WIDTH - 40 - 12) / 2;
-const GENRE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 40 - 24) / 3);
 
 const SearchGenreCard = React.memo(function SearchGenreCard({
   smartList,
@@ -426,16 +422,11 @@ const SearchArtistSection = ({
   return (
     <>
       <SectionHeader title={activeFilter === "all" ? t('library.artists') : t('search.other_artists')} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalScroll}
-        keyboardShouldPersistTaps="handled"
-      >
+      <HorizontalScrollContainer contentContainerStyle={styles.horizontalScroll}>
         {filteredArtists.map((artist: any) => (
           <SearchArtistCard key={artist.id} artist={artist} onPress={handleArtistPress} />
         ))}
-      </ScrollView>
+      </HorizontalScrollContainer>
     </>
   );
 };
@@ -459,16 +450,11 @@ const SearchAlbumSection = ({
   return (
     <>
       <SectionHeader title={activeFilter === "all" ? t('library.albums') : t('search.other_albums')} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalScroll}
-        keyboardShouldPersistTaps="handled"
-      >
+      <HorizontalScrollContainer contentContainerStyle={styles.horizontalScroll}>
         {filteredAlbums.map((album: any) => (
           <SearchAlbumCard key={album.id} album={album} onPress={handleAlbumPress} />
         ))}
-      </ScrollView>
+      </HorizontalScrollContainer>
     </>
   );
 };
@@ -492,16 +478,11 @@ const SearchPlaylistSection = ({
   return (
     <>
       <SectionHeader title={activeFilter === "all" ? t('library.playlists') : t('search.other_playlists')} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalScroll}
-        keyboardShouldPersistTaps="handled"
-      >
+      <HorizontalScrollContainer contentContainerStyle={styles.horizontalScroll}>
         {filteredPlaylists.map((playlist: any) => (
           <SearchPlaylistCard key={playlist.id} playlist={playlist} onPress={handlePlaylistPress} />
         ))}
-      </ScrollView>
+      </HorizontalScrollContainer>
     </>
   );
 };
@@ -523,12 +504,7 @@ const SearchTagSection = ({
   return (
     <>
       <SectionHeader title={t('navigation.tags')} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalScroll}
-        keyboardShouldPersistTaps="handled"
-      >
+      <HorizontalScrollContainer contentContainerStyle={styles.horizontalScroll}>
         {results.tags.map((tag: any) => (
           <View key={tag.id} style={{ marginRight: 10, alignSelf: 'center' }}>
             <SearchTagCard
@@ -539,12 +515,12 @@ const SearchTagSection = ({
                   tagId: tag.id,
                   tagName: tag.name,
                   tagColor: tag.color || colors.accent
-                });
+                }, { pop: true });
               }}
             />
           </View>
         ))}
-      </ScrollView>
+      </HorizontalScrollContainer>
     </>
   );
 };
@@ -801,7 +777,10 @@ export default function SearchScreen() {
   }, [t]);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const { isCompactTags, setIsCompactTags, hasSeenSearchTutorial, setHasSeenSearchTutorial } = useSettingsStore();
+  const isCompactTags = useSettingsStore(state => state.isCompactTags);
+  const setIsCompactTags = useSettingsStore(state => state.setIsCompactTags);
+  const hasSeenSearchTutorial = useSettingsStore(state => state.hasSeenSearchTutorial);
+  const setHasSeenSearchTutorial = useSettingsStore(state => state.setHasSeenSearchTutorial);
 
   // Spotlight Tutorial Refs & State
   const rootRef = useRef<View>(null);
@@ -815,7 +794,7 @@ export default function SearchScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!hasSeenSearchTutorial) {
+      if (!hasSeenSearchTutorial && Platform.OS !== 'web') {
         setIsTutorialVisible(true);
       }
     }, [hasSeenSearchTutorial])
@@ -860,6 +839,11 @@ export default function SearchScreen() {
       if (revision === advancedSearchRevision.current) setIsAdvancedLoading(false);
     }
   }, []);
+
+  const refreshAdvancedSearch = useCallback(async () => {
+    if (isAdvancedSearching) await executeAdvancedTagSearch(advancedIncludes, advancedExcludes, advancedMatchAll, advancedNoPlaylists);
+  }, [isAdvancedSearching, executeAdvancedTagSearch, advancedIncludes, advancedExcludes, advancedMatchAll, advancedNoPlaylists]);
+  useObservedRefresh(refreshAdvancedSearch, ['track_tags', 'album_tags', 'playlist_tracks', 'tracks', 'tags', 'playlists'], isAdvancedSearching);
 
   const handleClearAdvancedSearch = useCallback(() => {
     advancedSearchRevision.current++;
@@ -913,7 +897,10 @@ export default function SearchScreen() {
     useSearchHistory();
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [headerHeight, setHeaderHeight] = useState(150);
-  const { colors } = useAppTheme();
+  const { cardWidth: libraryCardWidth, numColumns } = useLibraryGridLayout();
+  const screenWidth = useScreenWidth();
+  const genreCardWidth = Platform.OS === 'web' ? libraryCardWidth : Math.floor((screenWidth - 40 - 24) / 3);
+  const { colors, gradients, headerTitleStyle, headerGlow } = useAppTheme();
 
   const getFilterLabel = (id: FilterOption) => {
     switch (id) {
@@ -980,12 +967,12 @@ export default function SearchScreen() {
 
   const handleAlbumPress = useCallback((albumId: string) => {
     handleResultClick();
-    navigation.navigate("AlbumDetail", { albumId });
+    navigation.navigate("AlbumDetail", { albumId }, { pop: true });
   }, [handleResultClick, navigation]);
 
   const handleArtistPress = useCallback((artistId: string) => {
     handleResultClick();
-    navigation.navigate("ArtistDetail", { artistId });
+    navigation.navigate("ArtistDetail", { artistId }, { pop: true });
   }, [handleResultClick, navigation]);
 
   const handleTrackPress = useCallback(() => {
@@ -994,7 +981,7 @@ export default function SearchScreen() {
 
   const handlePlaylistPress = useCallback((playlistId: string) => {
     handleResultClick();
-    navigation.navigate("PlaylistDetail", { playlistId });
+    navigation.navigate("PlaylistDetail", { playlistId }, { pop: true });
   }, [handleResultClick, navigation]);
 
   const handleTopMatchPress = useCallback(() => {
@@ -1005,15 +992,15 @@ export default function SearchScreen() {
     if (currentTopMatch.type === "artist") {
       navigation.navigate("ArtistDetail", {
         artistId: (currentTopMatch.item as Artist).id,
-      });
+      }, { pop: true });
     } else if (currentTopMatch.type === "album") {
       navigation.navigate("AlbumDetail", {
         albumId: (currentTopMatch.item as Album).id,
-      });
+      }, { pop: true });
     } else if (currentTopMatch.type === "playlist") {
       navigation.navigate("PlaylistDetail", {
         playlistId: (currentTopMatch.item as Playlist).id,
-      });
+      }, { pop: true });
     } else if (currentTopMatch.type === "track") {
       const track = currentTopMatch.item as Track;
       void (async () => {
@@ -1185,7 +1172,7 @@ export default function SearchScreen() {
                         tagId: tag.id,
                         tagName: tag.name,
                         tagColor: tag.color || colors.accent
-                      });
+                      }, { pop: true });
                     }}
                   />
                 </Animated.View>
@@ -1210,14 +1197,14 @@ export default function SearchScreen() {
               {genreLists.map((list, index) => (
                 <Animated.View
                   key={list.id}
-                  entering={genreCascade.row(Math.floor(index / 3) + 1, 1)}
+                  entering={genreCascade.row(Math.floor(index / (Platform.OS === 'web' ? numColumns : 3)) + 1, 1)}
                 >
                   <SearchGenreCard
                     tracks={genreTracks[list.genre || list.name] || []}
                     smartList={list}
-                    cardWidth={GENRE_CARD_WIDTH}
+                    cardWidth={genreCardWidth}
                     onPress={() => {
-                      navigation.navigate('SmartListDetail', { smartListId: list.id });
+                      navigation.navigate('SmartListDetail', { smartListId: list.id }, { pop: true });
                     }}
                   />
                 </Animated.View>
@@ -1286,62 +1273,58 @@ export default function SearchScreen() {
 
   const renderContent = () => {
     return (
-        <FlashList
-          style={{ flex: 1 }}
-          ref={flatListRef}
-          data={listTracks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={renderHeader()}
-          onEndReached={() => {
-            if (activeFilter === "tracks" && !isAdvancedSearching) {
-              void loadMoreTracks();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            <SearchListFooter
-              isLoadingMore={isLoadingMore}
-              accentColor={colors.accent}
-            />
+      <FlashList
+        style={{ flex: 1 }}
+        ref={flatListRef}
+        data={listTracks}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={renderHeader()}
+        onEndReached={() => {
+          if (activeFilter === "tracks" && !isAdvancedSearching) {
+            void loadMoreTracks();
           }
-          contentContainerStyle={{
-            paddingTop: 10,
-            paddingBottom:
-              Layout.MINI_PLAYER_HEIGHT +
-              Layout.TAB_BAR_HEIGHT +
-              Layout.PLAYER_MARGIN +
-              insets.bottom +
-              20,
-          }}
-          ListEmptyComponent={
-            <SearchListEmpty
-              isLoading={isLoading}
-              isAdvancedSearching={isAdvancedSearching}
-              advancedSearchResultsCount={advancedSearchResults.length}
-              isSearching={isSearching}
-              activeFilter={activeFilter}
-              results={results}
-              query={query}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        />
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          <SearchListFooter
+            isLoadingMore={isLoadingMore}
+            accentColor={colors.accent}
+          />
+        }
+        contentContainerStyle={{
+          paddingTop: 10,
+          paddingBottom:
+            Layout.MINI_PLAYER_HEIGHT +
+            Layout.TAB_BAR_HEIGHT +
+            Layout.PLAYER_MARGIN +
+            insets.bottom +
+            20,
+        }}
+        ListEmptyComponent={
+          <SearchListEmpty
+            isLoading={isLoading}
+            isAdvancedSearching={isAdvancedSearching}
+            advancedSearchResultsCount={advancedSearchResults.length}
+            isSearching={isSearching}
+            activeFilter={activeFilter}
+            results={results}
+            query={query}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      />
     );
   };
 
   return (
     <View ref={rootRef} collapsable={false} style={[styles.container, { backgroundColor: colors.background }]}>
+      <ThemeHeaderAccent />
       {/* 2. CAPA DEL HUMO (INTERMEDIO) */}
       <LinearGradient
-        colors={[
-          '#000000',
-          'rgba(0, 0, 0, 0.95)',
-          'rgba(0, 0, 0, 0.8)',
-          'transparent'
-        ]}
+        colors={gradients.header}
         locations={[0, 0.45, 0.8, 1]}
         style={{
           position: 'absolute',
@@ -1356,7 +1339,7 @@ export default function SearchScreen() {
 
       {/* 2.5 CAPA DE ILUMINACIÓN DE ACENTO (SOBRE EL HUMO) */}
       <LinearGradient
-        colors={[colors.accentAlpha20, "transparent"]}
+        colors={headerGlow}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
         pointerEvents="none"
       />
@@ -1370,8 +1353,9 @@ export default function SearchScreen() {
         }]}
       >
         <View style={styles.titleRow}>
-          <Text style={styles.title}>{t('search.title')}</Text>
-          <TouchableOpacity
+          <HeaderHistoryControls />
+          <Text style={[styles.title, headerTitleStyle]}>{t('search.title')}</Text>
+          <TutorialHelpButton
             onPress={() => {
               Keyboard.dismiss();
               flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -1379,10 +1363,7 @@ export default function SearchScreen() {
             }}
             style={styles.helpButton}
             accessibilityLabel={t('search_tutorial.help_btn')}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="help-circle-outline" size={20} color={colors.text} />
-          </TouchableOpacity>
+          />
         </View>
 
         <View style={styles.searchBarContainer}>
@@ -1561,7 +1542,7 @@ const styles = StyleSheet.create({
     paddingRight: 5,
   },
   cardContainer: {
-    marginRight: 10,
+    marginRight: Platform.OS === 'web' ? 24 : 10,
   },
   emptyContainer: {
     alignItems: "center",
@@ -1660,7 +1641,7 @@ const styles = StyleSheet.create({
   genresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: Platform.OS === 'web' ? 24 : 12,
     paddingHorizontal: 20,
     marginTop: 10,
   },
@@ -1771,7 +1752,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   tagCardNormal: {
-    width: NORMAL_CARD_WIDTH,
     height: 80,
     borderRadius: 16,
     padding: 16,

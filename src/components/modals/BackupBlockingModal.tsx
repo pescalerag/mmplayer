@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     View,
     Text,
@@ -17,6 +18,7 @@ import { useBackupStore } from '../../store/useBackupStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
 export default function BackupBlockingModal() {
+    const { t } = useTranslation();
     const { colors, fonts } = useAppTheme();
     const insets = useSafeAreaInsets();
     const { isVisible, mode, progressMessage, close } = useBackupStore();
@@ -77,7 +79,7 @@ export default function BackupBlockingModal() {
                     <View style={StyleSheet.absoluteFill} />
                 </TouchableWithoutFeedback>
                 <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                    <View style={[styles.card, { backgroundColor: '#161616', borderColor: '#282828' }]}>
+                    <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
                         {mode === 'error' && (
                             <Ionicons
                                 name="alert-circle-outline"
@@ -116,7 +118,7 @@ export default function BackupBlockingModal() {
                                 activeOpacity={0.8}
                             >
                                 <Text style={[styles.buttonText, { fontFamily: fonts.bold }, mode !== 'error' && { color: colors.onAccent }]}>
-                                    {mode === 'error' ? 'Cerrar' : 'Aceptar'}
+                                    {t('common.done')}
                                 </Text>
                             </TouchableOpacity>
                         )}

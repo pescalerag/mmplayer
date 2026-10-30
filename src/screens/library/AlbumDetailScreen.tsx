@@ -1,8 +1,13 @@
+import { openArtist } from '../../navigation/destinations';
+import { summarizeTrackRatings } from '../../utils/trackRatings';
+import { combineLatest, Observable, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
+import { isVariousArtists } from '../../utils/libraryMetadata';
 import { openAlbumMenu, openTagManager } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { FlashList } from "@shopify/flash-list";
@@ -24,6 +29,7 @@ import { usePlaybackState } from "../../hooks/usePlaybackState";
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import { getDynamicTagTextColor } from "../../utils/color";
 import { formatAlbumDuration } from "../../utils/time";
+import { albumYear } from '../../utils/albumFilters';
 
 import SectionHeader from '@/components/common/SectionHeader';
 import TrackRow from '@/components/player/TrackRow';
@@ -47,7 +53,7 @@ const AlbumTrackRow = withObservables(
   ["track"],
   ({ track }: { track: Track }) => ({
     track: track.observe(),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
   }),
 )(function AlbumTrackRow({
   track,
@@ -109,6 +115,8 @@ function AlbumDetailContent({
     return rawTracks.filter((t) => !excluded.includes(t.fileUrl));
   }, [rawTracks, excludedSongs]);
 
+  const rating = React.useMemo(() => summarizeTrackRatings(tracks), [tracks]);
+
   // ─── ESTADOS DEL REPRODUCTOR ───
   const playbackState = usePlaybackState();
   const isPlaying =
@@ -140,18 +148,7 @@ function AlbumDetailContent({
 
   const navigateToArtist = () => {
     if (!artist) return;
-    const state = navigation.getState();
-    const previousRoute = state.routes[state.routes.length - 2];
-    const params = previousRoute?.params as { artistId?: string } | undefined;
-
-    if (
-      previousRoute?.name === "ArtistDetail" &&
-      params?.artistId === artist.id
-    ) {
-      navigation.goBack();
-    } else {
-      navigation.navigate("ArtistDetail", { artistId: artist.id });
-    }
+    openArtist(artist.id);
   };
 
   const handleTrackPress = React.useCallback(
@@ -264,7 +261,7 @@ function AlbumDetailContent({
         )}
         subtitle={
           artist ? (
-            artist.name !== "Varios Artistas" ? (
+            !isVariousArtists(artist.name) ? (
               <TouchableOpacity onPress={navigateToArtist}>
                 <Text style={styles.artistNameLink}>{artist.name}</Text>
               </TouchableOpacity>
@@ -276,14 +273,15 @@ function AlbumDetailContent({
           )
         }
         metaInfo={[
-          album.year,
           `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
           !isLoadingTracks && totalDuration > 0
             ? formatAlbumDuration(totalDuration)
             : null,
+          albumYear(album.year),
         ]
           .filter(Boolean)
           .join(" · ")}
+        rating={isLoadingTracks ? undefined : rating}
         onBack={handleBack}
         onMore={handleOpenAlbumMenu}
         renderExtra={() =>
@@ -401,23 +399,30 @@ function AlbumDetailErrorFallback() {
 }
 
 const EnhancedAlbumDetailContent = withObservables(["album"], ({ album }: { album: Album }) => ({
+  data: observeScreenData(() => combineLatest({
   album: album.observe(),
-  artist: album.artist.observe().pipe(catchError(() => of(null))),
+  artist: album.artist.observe().pipe(catchError(() => of(null))) as Observable<Artist | null>,
   tracks: database.collections.get<Track>("tracks").query(
     Q.where("album_id", album.id),
     Q.sortBy("disc_number", Q.asc),
     Q.sortBy("track_number", Q.asc),
-  ).observe(),
-  tags: album.queryTags.observe() as any,
-}))(AlbumDetailContent);
+  ).observeWithColumns(['title', 'rating', 'duration', 'file_url', 'disc_number', 'track_number']),
+  tags: album.queryTags.observe() as Observable<Tag[]>,
+  })),
+}))(function LoadedAlbumDetail({ data, album }: { data?: Props; album: Album }) {
+  return <InvisibleScreenContent ready={!!data}>
+    <AlbumDetailContent album={data?.album ?? album} artist={data?.artist ?? null} tracks={data?.tracks ?? []} tags={data?.tags ?? []} isLoadingTracks={!data} />
+  </InvisibleScreenContent>;
+});
 
 const ObservableAlbumDetailMiddle = withObservables(["albumId"], ({ albumId }: { albumId: string }) => ({
-  album: database.collections.get<Album>("albums").findAndObserve(albumId).pipe(catchError(() => of(null))),
-}))(function ObservableAlbumDetailMiddle({ album }: { album: Album | null }) {
+  album: observeScreenData(() => database.collections.get<Album>("albums").findAndObserve(albumId).pipe(catchError(() => of(null)))),
+}))(function ObservableAlbumDetailMiddle({ album }: { album: Album | null | undefined }) {
+  if (album === undefined) return <InvisibleScreenContent />;
   if (!album) {
     return <AlbumDetailErrorFallback />;
   }
-  return <EnhancedAlbumDetailContent album={album} isLoadingTracks={false} />;
+  return <EnhancedAlbumDetailContent album={album} />;
 });
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────

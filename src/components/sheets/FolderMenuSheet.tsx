@@ -10,7 +10,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useToastStore } from '../../store/useToastStore';
-import { openPlaylistSelector } from '@/store/useUIStore';
+import { openQueueDestination, openPlaylistSelector } from '@/store/useUIStore';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { BaseMenuSheet, MenuOption, MenuSeparator } from '@/components/sheets/BaseMenuSheet';
 
@@ -105,6 +105,8 @@ export default function FolderMenuSheet() {
           }
         }}
       />
+      <MenuOption icon="duplicate-outline" disabled={tracks.length === 0} text={t('queue.add_to_other')} onPress={() => openQueueDestination(tracks)} />
+
 
       {/* OPTION: Add to Playlist */}
       <MenuOption

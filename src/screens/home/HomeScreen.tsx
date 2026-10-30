@@ -1,24 +1,22 @@
+import { HeaderHistoryControls } from '../../components/layouts/HeaderHistoryControls';
+import Playlist from '../../database/models/Playlist';
+import { SmartListSummaryService } from '../../services/SmartListSummaryService';
+import { ThemeHeaderAccent } from '../../components/layouts/ThemeHeaderAccent';
+import i18n from '../../constants/i18n';
+import { getMediaDisplayTitle } from '../../utils/libraryMetadata';
 import { TopRatedAlbumsSection } from '@/components/home/TopRatedAlbumsSection';
 import { PlayingIndicator } from '@/components/common/PlayingIndicator';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { openAlbumMenu, openArtistMenu, openHomeSections, openPlaylistMenu, openTrackMenu } from '@/store/useUIStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    Dimensions,
-    FlatList,
-    Platform,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { State } from 'react-native-track-player';
 import { database } from '../../database';
@@ -28,6 +26,7 @@ import Track from '../../database/models/Track';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { HistoryService } from '../../services/HistoryService';
 import { SmartListService } from '../../services/SmartListService';
+import { LibraryRefreshService } from '../../services/LibraryRefreshService';
 
 
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -45,13 +44,17 @@ import { shuffleArray } from '../../utils/shuffle';
 import Animated from 'react-native-reanimated';
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 import { RetainedResource } from '@/utils/retainedResource';
-import { scheduleScreenRefresh } from '@/utils/scheduleScreenRefresh';
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { STAT_TABLES } from '../../services/ScreenDataChanges';
+import { useLibraryGridLayout, useScreenWidth } from '../../hooks/useScreenWidth';
 
 const { width } = Dimensions.get('window');
 
 const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPress, onLongPress }: any) => {
+    const screenWidth = useScreenWidth();
+    useTranslation();
     const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, screenWidth), [colors, fonts, layout, spacing, radii, fontWeights, screenWidth]);
     const [imageError, setImageError] = React.useState(false);
 
     React.useEffect(() => {
@@ -68,6 +71,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
 
     return (
         <TouchableOpacity
+            testID="home-recent-media-card"
             style={[styles.gridCard, isActive && styles.gridCardActive]}
             onPress={handlePress}
             onLongPress={handleLongPress}
@@ -88,7 +92,7 @@ const RecentMediaCard = React.memo(({ item, isActuallyPlaying, activeTrack, onPr
             )}
             <View style={styles.gridInfo}>
                 <Text style={[styles.gridTitle, isActive && styles.gridTitleActive]} numberOfLines={2}>
-                    {item.title}
+                    {getMediaDisplayTitle(item.type, item.title)}
                 </Text>
                 {isCurrentTrack && (
                     <PlayingIndicator isPaused={!isActuallyPlaying} color={colors.accentLight} />
@@ -180,21 +184,12 @@ const computeHomeSectionsOrder = (homeSectionsOrderRaw?: HomeSection[] | null): 
 };
 
 const fetchSmartListData = async (t: (key: string) => string) => {
-    const lists = SmartListService.getSmartLists();
-    const loadedSmart = await Promise.all(
-        lists.map(async (list) => {
-            const tracks = await list.getTracks();
-            const subtitle = `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`;
-            return {
-                id: `smart-list-${list.id}`,
-                type: 'playlist' as const,
-                title: list.name,
-                subtitle,
-                trackCount: tracks.length,
-            };
-        })
-    );
-    return loadedSmart.filter(item => item.trackCount > 0);
+    const lists = await SmartListSummaryService.get();
+    return lists.filter(list => list.trackCount > 0).map(list => ({
+        id: `smart-list-${list.id}`, type: 'playlist' as const, title: list.name,
+        subtitle: `${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`,
+        trackCount: list.trackCount,
+    }));
 };
 
 const mapAlbumToMediaItem = async (album: Album) => {
@@ -203,7 +198,7 @@ const mapAlbumToMediaItem = async (album: Album) => {
         id: album.id,
         type: 'album' as const,
         title: album.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album.coverUrl || '',
     };
 };
@@ -214,7 +209,7 @@ const mapTrackToMediaItem = async (track: Track) => {
         id: track.id,
         type: 'track' as const,
         title: track.title,
-        subtitle: artist?.name || 'Artista desconocido',
+        subtitle: artist?.name || i18n.t('metadata.unknown_artist'),
         imageUrl: album?.coverUrl || '',
     };
 };
@@ -311,12 +306,20 @@ interface HomeData {
     smartLists: Awaited<ReturnType<typeof fetchSmartListData>>;
 }
 
-const homeDataResource = new RetainedResource<HomeData>(2);
+const homeResources = {
+    recentlyAdded: new RetainedResource<HomeData['recentlyAdded']>(2),
+    mostPlayed: new RetainedResource<HomeData['mostPlayed']>(2),
+    explore: new RetainedResource<HomeData['explore']>(2),
+    smartLists: new RetainedResource<HomeData['smartLists']>(2),
+};
 const EMPTY_HOME_DATA: HomeData = { recentlyAdded: [], mostPlayed: [], explore: [], smartLists: [] };
 
-export default function HomeScreen() {
-    const { colors, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights), [colors, fonts, layout, spacing, radii, fontWeights]);
+export default function HomeScreen({ showTierBadge = true }: { showTierBadge?: boolean } = {}) {
+    const screenWidth = useScreenWidth();
+    const { cardWidth } = useLibraryGridLayout();
+    const mediaCardSize = Platform.OS === 'web' ? cardWidth : 120;
+    const { colors, gradients, headerTitleStyle, headerGlow, fonts, layout, spacing, radii, fontWeights } = useAppTheme();
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, spacing, radii, fontWeights, screenWidth), [colors, fonts, layout, spacing, radii, fontWeights, screenWidth]);
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { t, i18n } = useTranslation();
@@ -359,57 +362,80 @@ export default function HomeScreen() {
     const unreadNotificationsCount = useNotificationStore((state) => state.unreadCount);
 
     const dataKey = i18n.language;
-    const cachedData = homeDataResource.read(dataKey);
-    const [homeData, setHomeData] = React.useState(cachedData ?? EMPTY_HOME_DATA);
+    const [homeData, setHomeData] = React.useState<HomeData>(() => ({
+        recentlyAdded: homeResources.recentlyAdded.read(dataKey) ?? [],
+        mostPlayed: homeResources.mostPlayed.read(dataKey) ?? [],
+        explore: homeResources.explore.read(dataKey) ?? [],
+        smartLists: homeResources.smartLists.read(dataKey) ?? [],
+    }));
     const { recentlyAdded, mostPlayed, explore, smartLists } = homeData;
-    const fetchRevision = React.useRef(0);
     const isMounted = React.useRef(true);
-    useEffect(() => {
-        isMounted.current = true;
-        return () => {
-            isMounted.current = false;
-        };
-    }, []);
-
-    const fetchHomeData = React.useCallback(async () => {
-        const revision = ++fetchRevision.current;
-        const previous = homeDataResource.read(dataKey) ?? EMPTY_HOME_DATA;
-        const retainOnError = async <T,>(load: () => Promise<T>, fallback: T): Promise<T> => {
-            try { return await load(); }
-            catch (error) {
-                console.error('[HomeScreen] Error loading section:', error);
-                return fallback;
+    useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
+    const currentDataKey = React.useRef(dataKey);
+    currentDataKey.current = dataKey;
+    const loadSection = React.useCallback(async <K extends keyof HomeData,>(section: K, fetch: () => Promise<HomeData[K]>) => {
+        const data = await (homeResources[section] as RetainedResource<HomeData[K]>).load(dataKey, fetch);
+        if (isMounted.current && currentDataKey.current === dataKey) setHomeData(previous => ({ ...previous, [section]: data }));
+    }, [dataKey]);
+    const loadAdded = React.useCallback(() => loadSection('recentlyAdded', async () => Promise.all((await fetchRecentlyAddedAlbums()).map(mapAlbumToMediaItem))), [loadSection]);
+    const loadPopular = React.useCallback(() => loadSection('mostPlayed', async () => Promise.all((await HistoryService.getMostPlayedTracks(10)).map(mapTrackToMediaItem))), [loadSection]);
+    const exploreIds = React.useRef<string[] | null>(null);
+    const loadExplore = React.useCallback(() => loadSection('explore', async () => {
+        let albums: Album[];
+        if (exploreIds.current === null) albums = await fetchExploreAlbums();
+        else {
+            albums = await database.get<Album>('albums').query(Q.where('id', Q.oneOf(exploreIds.current))).fetch();
+            if (albums.length < Math.min(6, exploreIds.current.length)) {
+                const replacements = await fetchExploreAlbums();
+                const seen = new Set(albums.map(album => album.id));
+                albums.push(...replacements.filter(album => !seen.has(album.id)).slice(0, 6 - albums.length));
             }
-        };
-        const data = await homeDataResource.load(dataKey, async () => {
-            const [added, popular, random, smart] = await Promise.all([
-                retainOnError(async () => Promise.all((await fetchRecentlyAddedAlbums()).map(mapAlbumToMediaItem)), previous.recentlyAdded),
-                retainOnError(async () => Promise.all((await HistoryService.getMostPlayedTracks(10)).map(mapTrackToMediaItem)), previous.mostPlayed),
-                retainOnError(async () => Promise.all((await fetchExploreAlbums()).map(mapAlbumToMediaItem)), previous.explore),
-                retainOnError(() => fetchSmartListData(t), previous.smartLists),
-            ]);
-            return { recentlyAdded: added, mostPlayed: popular, explore: random, smartLists: smart };
+        }
+        exploreIds.current = albums.map(album => album.id);
+        return Promise.all(albums.map(mapAlbumToMediaItem));
+    }), [loadSection]);
+    const loadSmart = React.useCallback(() => loadSection('smartLists', () => fetchSmartListData(t)), [loadSection, t]);
+    const loadStats = React.useCallback(() => useStatsStore.getState().fetchStats(), []);
+    const loadRecents = React.useCallback(async () => {
+        await HistoryService.initializeDefaultsIfNeeded();
+        await usePlayerStore.getState().refreshRecentsFromDatabase();
+        const ids = usePlayerStore.getState().recentPlaylists.map(item => item.id).filter(id => id !== 'favorites' && !id.startsWith('smart-list-'));
+        if (!ids.length) return;
+        const playlists = await database.get<Playlist>('playlists').query(Q.where('id', Q.oneOf(ids))).fetch();
+        const byId = new Map(playlists.map(playlist => [playlist.id, playlist]));
+        const requested = new Set(ids);
+        let changed = false;
+        usePlayerStore.setState(state => {
+            const updated = state.recentPlaylists.flatMap(item => {
+                if (!requested.has(item.id)) return [item];
+                const playlist = byId.get(item.id);
+                if (!playlist) { changed = true; return []; }
+                const imageUrl = playlist.coverCustomUrl || playlist.coverUrl || null;
+                if (item.name === playlist.name && item.description === playlist.description && item.imageUrl === imageUrl) return [item];
+                changed = true;
+                return [{ ...item, name: playlist.name, description: playlist.description, imageUrl }];
+            });
+            return changed ? { recentPlaylists: updated } : state;
         });
-        if (isMounted.current && revision === fetchRevision.current) setHomeData(data);
-    }, [t, dataKey]);
+        if (changed) await usePlayerStore.getState().saveRecentsState();
+    }, []);
+    const loadUnread = React.useCallback(async () => { await NotificationService.getUnreadCount(); }, []);
+    useObservedRefresh(loadAdded, ['tracks', 'albums', 'artists'], homeSectionsVisibility.recently_added !== false);
+    useObservedRefresh(loadPopular, ['playback_history', 'tracks', 'albums', 'artists'], homeSectionsVisibility.most_played !== false);
+    useObservedRefresh(loadExplore, ['albums', 'artists'], homeSectionsVisibility.explore !== false);
+    useObservedRefresh(loadSmart, ['tracks', 'playback_history'], homeSectionsVisibility.smart_playlists !== false);
+    useObservedRefresh(loadStats, STAT_TABLES, homeSectionsVisibility.stats !== false);
+    useObservedRefresh(loadRecents, ['tracks', 'albums', 'artists', 'playlists']);
+    useObservedRefresh(loadUnread, ['notifications']);
+    const fetchHomeData = React.useCallback(() => Promise.all([loadAdded(), loadPopular(), loadExplore(), loadSmart()]), [loadAdded, loadPopular, loadExplore, loadSmart]);
 
     const [isRefreshing, setIsRefreshing] = React.useState(false);
-
-    const loadAllHomeData = React.useCallback(async () => {
-        try {
-            await Promise.all([
-                fetchHomeData(),
-                useStatsStore.getState().fetchStats(),
-                usePlayerStore.getState().refreshRecentsFromDatabase(),
-            ]);
-        } catch (e) {
-            console.error('[HomeScreen] Error loading home data:', e);
-        }
-    }, [fetchHomeData]);
 
     const handleRefresh = React.useCallback(async () => {
         setIsRefreshing(true);
         try {
+            exploreIds.current = null;
+            await LibraryRefreshService.refresh();
             await Promise.all([
                 fetchHomeData(),
                 useStatsStore.getState().fetchStats(),
@@ -422,24 +448,11 @@ export default function HomeScreen() {
         }
     }, [fetchHomeData]);
 
-    useFocusEffect(
-        React.useCallback(() => {
-            return scheduleScreenRefresh(() => {
-                const { recentMedia, recentPlaylists } = usePlayerStore.getState();
-                if (!recentMedia.length || !recentPlaylists.length) {
-                    void HistoryService.initializeDefaultsIfNeeded();
-                }
-                void loadAllHomeData();
-                void NotificationService.getUnreadCount();
-            });
-        }, [loadAllHomeData])
-    );
-
     const handleMediaPress = React.useCallback(async (item: any) => {
         if (item.type === 'album') {
-            navigation.navigate('AlbumDetail', { albumId: item.id });
+            navigation.navigate('AlbumDetail', { albumId: item.id }, { pop: true });
         } else if (item.type === 'artist') {
-            navigation.navigate('ArtistDetail', { artistId: item.id });
+            navigation.navigate('ArtistDetail', { artistId: item.id }, { pop: true });
         } else if (item.type === 'track') {
             try {
                 const track = await database.get<Track>('tracks').find(item.id);
@@ -461,8 +474,8 @@ export default function HomeScreen() {
             } else if (item.type === 'track') {
                 const track = await database.get<Track>('tracks').find(item.id);
                 openTrackMenu(track, {
-                    album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }),
-                    artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId })
+                    album: (albumId: string) => navigation.navigate('AlbumDetail', { albumId }, { pop: true }),
+                    artist: (artistId: string) => navigation.navigate('ArtistDetail', { artistId }, { pop: true })
                 });
             }
         } catch (error) {
@@ -475,9 +488,9 @@ export default function HomeScreen() {
             navigation.navigate('FavoritesDetail');
         } else if (id.startsWith('smart-list-')) {
             const smartListId = id.replace('smart-list-', '');
-            navigation.navigate('SmartListDetail', { smartListId });
+            navigation.navigate('SmartListDetail', { smartListId }, { pop: true });
         } else {
-            navigation.navigate('PlaylistDetail', { playlistId: id });
+            navigation.navigate('PlaylistDetail', { playlistId: id }, { pop: true });
         }
     }, [navigation]);
 
@@ -517,7 +530,7 @@ export default function HomeScreen() {
                             {t('home.recently_played') || "Escuchado recientemente"}
                         </Text>
                         {recentMedia.length > 0 ? (
-                            <View style={styles.gridContainer}>
+                            <View testID="home-recent-media-grid" style={styles.gridContainer}>
                                 {recentMedia.map((item) => (
                                     <RecentMediaCard
                                         key={`${item.id}-${item.type}`}
@@ -539,12 +552,13 @@ export default function HomeScreen() {
 
             case 'smart_playlists':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.smart_playlists_title') || "Listas inteligentes"}
                         data={smartLists}
                         emptyText={t('home.empty_smart_playlists')}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="playlist"
                                 title={item.title}
@@ -559,12 +573,13 @@ export default function HomeScreen() {
 
             case 'recent_playlists':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.my_playlists') || "Mis listas de reproducción"}
                         data={recentPlaylists}
                         emptyText={t('home.empty_playlists')}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="playlist"
                                 title={item.id === 'favorites' ? t('home.your_favourites') : item.name}
@@ -580,12 +595,13 @@ export default function HomeScreen() {
 
             case 'recently_added':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.recently_added_albums') || "Álbumes añadidos recientemente"}
                         data={recentlyAdded}
                         emptyText={t('home.empty_added') || "No hay álbumes añadidos"}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="album"
                                 title={item.title}
@@ -601,12 +617,13 @@ export default function HomeScreen() {
 
             case 'most_played':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.most_played_songs') || "Tus más escuchadas"}
                         data={mostPlayed}
                         emptyText={t('home.empty_most_played') || "Escucha música para ver tus canciones más escuchadas"}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="track"
                                 title={item.title}
@@ -621,16 +638,17 @@ export default function HomeScreen() {
                 );
 
             case 'top_rated_albums':
-                return <TopRatedAlbumsSection />;
+                return <TopRatedAlbumsSection cardSize={mediaCardSize} itemGap={Platform.OS === 'web' ? 24 : 12} />;
 
             case 'explore':
                 return (
-                    <HorizontalCarousel
+                    <HorizontalCarousel itemGap={Platform.OS === 'web' ? 24 : 12}
+                        cardSize={mediaCardSize}
                         title={t('home.explore_albums') || "Explorar álbumes aleatorios"}
                         data={explore}
                         emptyText={t('home.empty_explore') || "No hay álbumes para explorar"}
                         renderItem={({ item }) => (
-                            <MediaCard
+                            <MediaCard size={mediaCardSize}
                                 id={item.id}
                                 type="album"
                                 title={item.title}
@@ -668,6 +686,7 @@ export default function HomeScreen() {
         explore,
         handleCardPress,
         handleCardLongPress,
+        mediaCardSize,
     ]);
 
     const visibleSections = React.useMemo(() => {
@@ -676,14 +695,10 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
+            <ThemeHeaderAccent />
             {/* CAPA DEL HUMO */}
             <LinearGradient
-                colors={[
-                    '#000000',
-                    'rgba(0, 0, 0, 0.95)',
-                    'rgba(0, 0, 0, 0.8)',
-                    'transparent'
-                ]}
+                colors={gradients.header}
                 locations={[0, 0.45, 0.8, 1]}
                 style={{
                     position: 'absolute',
@@ -698,7 +713,7 @@ export default function HomeScreen() {
 
             {/* CAPA DE ILUMINACIÓN MORADA */}
             <LinearGradient
-                colors={[colors.accentAlpha20, "transparent"]}
+                colors={headerGlow}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 2 }}
                 pointerEvents="none"
             />
@@ -714,6 +729,7 @@ export default function HomeScreen() {
                 }}
             >
                 <View style={styles.headerRow}>
+                    <HeaderHistoryControls />
                     {isProfileRight ? (
                         <>
                             <View style={styles.headerActionsCluster}>
@@ -740,11 +756,11 @@ export default function HomeScreen() {
                             </View>
 
                             <View style={styles.profileCluster}>
-                                <UserTierBadge
+                                {showTierBadge && <UserTierBadge
                                     userTier={userTier}
                                     onPress={() => navigation.navigate('Support')}
                                     styles={styles}
-                                />
+                                />}
 
                                 <TouchableOpacity
                                     style={styles.profileBadge}
@@ -820,11 +836,11 @@ export default function HomeScreen() {
                                     </Text>
                                 </TouchableOpacity>
 
-                                <UserTierBadge
+                                {showTierBadge && <UserTierBadge
                                     userTier={userTier}
                                     onPress={() => navigation.navigate('Support')}
                                     styles={styles}
-                                />
+                                />}
                             </View>
 
                             <View style={styles.headerActionsCluster}>
@@ -878,7 +894,7 @@ export default function HomeScreen() {
                     <View>
                         {showHomeGreeting && (
                             <View style={styles.greetingContainer}>
-                                <Text style={styles.welcomeText}>{t(getGreetingKey())}</Text>
+                                <Text style={[styles.welcomeText, headerTitleStyle]}>{t(getGreetingKey())}</Text>
                             </View>
                         )}
                     </View>
@@ -901,10 +917,10 @@ const DEFAULT_SPACING = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
 const DEFAULT_RADII = { sm: 4, md: 8, lg: 12, full: 9999 };
 const DEFAULT_FONT_WEIGHTS = { regular: '400', semiBold: '600', bold: '700' };
 
-const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_SPACING, radii: any = DEFAULT_RADII, fontWeights: any = DEFAULT_FONT_WEIGHTS) => {
+const getStyles = (colors: any, fonts: any, layout: any, spacing: any = DEFAULT_SPACING, radii: any = DEFAULT_RADII, fontWeights: any = DEFAULT_FONT_WEIGHTS, screenWidth = width) => {
     const horizPadding = spacing.lg || 20;
     const gapSize = spacing.sm || 8;
-    const computedItemWidth = (width - (horizPadding * 2) - gapSize) / 2;
+    const computedItemWidth = (screenWidth - (horizPadding * 2) - gapSize) / 2;
 
     return StyleSheet.create({
         container: {

@@ -1,9 +1,11 @@
 import { openMetadataEditor, openPlaylistSelector, openBatchMenu } from '@/store/useUIStore';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiSelectStore } from '../../store/useMultiSelectStore';
+import { PlaylistService } from '../../services/PlaylistService';
+import { useToastStore } from '../../store/useToastStore';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +15,9 @@ export default function MultiSelectActionBar() {
     const insets = useSafeAreaInsets();
     const { t } = useTranslation();
     
-    const { isSelectionMode, selectedTracks, exitSelectionMode } = useMultiSelectStore();
+    const { isSelectionMode, selectedTracks, selectionPlaylistId, exitSelectionMode } = useMultiSelectStore();
+    const removingRef = useRef(false);
+    const [removing, setRemoving] = useState(false);
     
     const translateY = useRef(new Animated.Value(-150)).current;
 
@@ -48,6 +52,22 @@ export default function MultiSelectActionBar() {
         openMetadataEditor(selectedTracks);
     };
 
+    const handleRemoveFromPlaylist = async () => {
+        if (!selectionPlaylistId || removingRef.current) return;
+        removingRef.current = true;
+        setRemoving(true);
+        try {
+            await PlaylistService.removeMultipleTracksFromPlaylist(selectionPlaylistId, selectedTracks.map(track => track.id));
+            if (useMultiSelectStore.getState().selectedTracks === selectedTracks) exitSelectionMode();
+        } catch (error) {
+            console.error('Error removing selected tracks from playlist:', error);
+            useToastStore.getState().showToast(t('actions.remove_from_playlist_error'), 'alert-circle', '#EF4444');
+        } finally {
+            removingRef.current = false;
+            setRemoving(false);
+        }
+    };
+
     return (
         <Animated.View 
             style={[
@@ -69,6 +89,17 @@ export default function MultiSelectActionBar() {
             </View>
 
             <View style={styles.actionsRow}>
+                {selectionPlaylistId && (
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, opacity: removing ? 0.5 : 1 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('actions.remove_from_playlist')}
+                        disabled={removing}
+                        onPress={handleRemoveFromPlaylist}
+                    >
+                        <Ionicons name="remove" size={26} color="#EF4444" />
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.overlayAlpha05, borderColor: '#333', borderWidth: 1 }]} onPress={handleOpenBatchMenu}>
                     <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -93,6 +124,8 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 12,
         flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
         alignItems: 'center',
         justifyContent: 'space-between',
         shadowColor: '#000',
@@ -116,6 +149,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     actionsRow: {
+        marginLeft: 'auto',
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,

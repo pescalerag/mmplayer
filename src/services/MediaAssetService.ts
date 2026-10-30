@@ -12,9 +12,16 @@ const BASE_MEDIA_DIR = `${FileSystem.documentDirectory}media_assets/`;
 const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
+const ALBUM_DIR = `${BASE_MEDIA_DIR}album_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
 const CANVAS_THUMBNAILS_DIR = `${BASE_MEDIA_DIR}canvas_thumbnails/`;
 const USER_AVATAR_DIR = `${BASE_MEDIA_DIR}user_avatar/`;
+
+const isUnsupportedWeb = (): boolean =>
+    Platform.OS === 'web' && !(globalThis as any).window?.mmplayer;
+
+const isManagedFileUri = (uri?: string | null): boolean =>
+    Boolean(uri && (uri.startsWith('file://') || uri.startsWith('mmplayer-media://')));
 
 const getFileExtension = (uri: string, defaultExt: string = 'jpg'): string => {
     if (!uri) return defaultExt;
@@ -63,8 +70,13 @@ export interface CanvasVideoItem {
 }
 
 export const cleanupTempSource = async (sourceUri: string) => {
-    if (!sourceUri?.startsWith('file://')) return;
-    if (sourceUri.includes('/cache/') || sourceUri.includes('/Caches/') || sourceUri.includes('DocumentPicker')) {
+    if (!sourceUri) return;
+    if (sourceUri.startsWith('blob:')) {
+        await FileSystem.deleteAsync(sourceUri, { idempotent: true }).catch(() => {});
+        return;
+    }
+    if (!isManagedFileUri(sourceUri)) return;
+    if ((FileSystem.cacheDirectory && sourceUri.startsWith(FileSystem.cacheDirectory)) || sourceUri.includes('/cache/') || sourceUri.includes('/Caches/') || sourceUri.includes('DocumentPicker')) {
         try {
             await FileSystem.deleteAsync(sourceUri, { idempotent: true });
         } catch (e) {
@@ -76,12 +88,12 @@ export const cleanupTempSource = async (sourceUri: string) => {
 let imageSaveSequence = 0;
 
 const saveImageAsset = async (dir: string, prefix: string, sourceUri: string, fileName?: string): Promise<string> => {
-    if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+    if (isUnsupportedWeb() || !sourceUri) return sourceUri;
     const ext = getFileExtension(fileName || sourceUri, 'jpg');
     const destFile = `${prefix}${ext}`;
     const destPath = `${dir}${destFile}`;
     const version = `${Date.now()}-${++imageSaveSequence}`;
-    const cleanSource = sourceUri.startsWith('file://') ? sourceUri.split('?')[0] : sourceUri;
+    const cleanSource = isManagedFileUri(sourceUri) ? sourceUri.split('?')[0] : sourceUri;
     if (cleanSource === destPath) return `${destPath}?t=${version}`;
 
     // Initialize only this asset's directory. Keep the existing photo intact
@@ -221,11 +233,12 @@ export const MediaAssetService = {
     cleanupTempSource,
 
     init: async () => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         await ensureDirectoryExists(BASE_MEDIA_DIR);
         await ensureDirectoryExists(ARTIST_DIR);
         await ensureDirectoryExists(PLAYLIST_DIR);
         await ensureDirectoryExists(CD_DIR);
+        await ensureDirectoryExists(ALBUM_DIR);
         await ensureDirectoryExists(CANVAS_DIR);
         await ensureDirectoryExists(CANVAS_THUMBNAILS_DIR);
         await ensureDirectoryExists(USER_AVATAR_DIR);
@@ -235,7 +248,7 @@ export const MediaAssetService = {
         saveImageAsset(USER_AVATAR_DIR, 'user_avatar.', sourceUri, fileName),
 
     removeUserAvatar: async (): Promise<void> => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         await purgeEntityFiles(USER_AVATAR_DIR, `user_avatar.`);
     },
 
@@ -243,7 +256,7 @@ export const MediaAssetService = {
         saveImageAsset(ARTIST_DIR, `artist_${artistId}.`, sourceUri, fileName),
 
     removeArtistImage: async (artistId: string): Promise<void> => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         await purgeEntityFiles(ARTIST_DIR, `artist_${artistId}.`);
     },
 
@@ -251,15 +264,17 @@ export const MediaAssetService = {
         saveImageAsset(PLAYLIST_DIR, `playlist_${playlistId}.`, sourceUri, fileName),
 
     removePlaylistCover: async (playlistId: string): Promise<void> => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         await purgeEntityFiles(PLAYLIST_DIR, `playlist_${playlistId}.`);
     },
 
     saveAlbumCDCover: (albumId: string, sourceUri: string, fileName?: string): Promise<string> =>
         saveImageAsset(CD_DIR, `album_cd_${albumId}.`, sourceUri, fileName),
+    saveAlbumCover: (albumId: string, sourceUri: string): Promise<string> =>
+        saveImageAsset(ALBUM_DIR, `album_${albumId}.`, sourceUri),
 
     removeAlbumCDCover: async (albumId: string): Promise<void> => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         await purgeEntityFiles(CD_DIR, `album_cd_${albumId}.`);
     },
 
@@ -267,7 +282,7 @@ export const MediaAssetService = {
      * Obtiene todos los vídeos Canvas subidos a la aplicación de forma rápida.
      */
     getAllUploadedCanvasVideos: async (): Promise<CanvasVideoItem[]> => {
-        if (Platform.OS === 'web') return [];
+        if (isUnsupportedWeb()) return [];
         await MediaAssetService.init();
 
         try {
@@ -290,7 +305,7 @@ export const MediaAssetService = {
      * Comprueba si un vídeo ya ha sido subido comparando su hash MD5 o tamaño.
      */
     checkCanvasDuplicate: async (sourceUri: string): Promise<{ isDuplicate: boolean; existingVideo?: CanvasVideoItem; md5?: string }> => {
-        if (Platform.OS === 'web' || !sourceUri) return { isDuplicate: false };
+        if (isUnsupportedWeb() || !sourceUri) return { isDuplicate: false };
         await MediaAssetService.init();
 
         try {
@@ -323,7 +338,7 @@ export const MediaAssetService = {
      * Guarda un nuevo vídeo Canvas en el almacenamiento persistente con prevención de duplicados por hash.
      */
     saveNewCanvasVideo: async (sourceUri: string, knownMd5?: string): Promise<string> => {
-        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+        if (isUnsupportedWeb() || !sourceUri) return sourceUri;
         await MediaAssetService.init();
 
         if (await isExistingCanvasUri(sourceUri)) return sourceUri;
@@ -381,7 +396,7 @@ export const MediaAssetService = {
      * Elimina un archivo de vídeo del almacenamiento y desasocia las canciones que lo usen.
      */
     deleteCanvasVideo: async (videoUri: string): Promise<void> => {
-        if (Platform.OS === 'web' || !videoUri) return;
+        if (isUnsupportedWeb() || !videoUri) return;
         try {
             const tracksColl = database.collections.get<Track>('tracks');
             const allTracks = await tracksColl.query().fetch();
@@ -411,7 +426,7 @@ export const MediaAssetService = {
     },
 
     saveTrackCanvasVideo: async (trackId: string, sourceUri: string): Promise<string> => {
-        if (Platform.OS === 'web' || !sourceUri) return sourceUri;
+        if (isUnsupportedWeb() || !sourceUri) return sourceUri;
         await MediaAssetService.init();
 
         if (sourceUri.startsWith(CANVAS_DIR)) {
@@ -454,7 +469,7 @@ export const MediaAssetService = {
     },
 
     removeTrackCanvasVideo: async (trackId: string): Promise<void> => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         await purgeEntityFiles(CANVAS_DIR, `canvas_track_${trackId}.`);
     },
 
@@ -463,7 +478,7 @@ export const MediaAssetService = {
      * Migración ligera en segundo plano para usuarios existentes con archivos en cacheDirectory o nombres antiguos.
      */
     migrateLegacyCacheAssets: (): void => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         setTimeout(async () => {
             try {
                 await MediaAssetService.init();
@@ -513,7 +528,7 @@ export const MediaAssetService = {
      * Garbage Collector para eliminar archivos huérfanos que ya no existen en WatermelonDB.
      */
     runGarbageCollector: (): void => {
-        if (Platform.OS === 'web') return;
+        if (isUnsupportedWeb()) return;
         setTimeout(async () => {
             try {
                 await MediaAssetService.init();
@@ -546,6 +561,7 @@ export const MediaAssetService = {
                 // 3. Limpiar CDs de álbumes huérfanos
                 const albumsColl = database.collections.get<Album>('albums');
                 const allAlbums = await albumsColl.query().fetch();
+                await cleanOrphanFiles(ALBUM_DIR, /^album_(.+)\.[a-z0-9]+$/i, new Set(allAlbums.map(a => a.id)));
                 await cleanOrphanFiles(CD_DIR, /^album_cd_(.+)\.[a-z0-9]+$/i, new Set(allAlbums.map(a => a.id)));
 
                 // 4. Limpiar vídeos Canvas huérfanos

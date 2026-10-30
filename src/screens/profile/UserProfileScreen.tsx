@@ -1,3 +1,10 @@
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { STAT_TABLES } from '../../services/ScreenDataChanges';
+import { SmartListSummaryService } from '../../services/SmartListSummaryService';
+import Animated from 'react-native-reanimated';
+import { useCascadeEntry } from '../../hooks/useCascadeEntry';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     View,
@@ -19,6 +26,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import SectionHeader from '@/components/common/SectionHeader';
 import { MediaCard } from '@/components/cards/MediaCard';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -35,11 +43,31 @@ import Track from '../../database/models/Track';
 const { width } = Dimensions.get('window');
 
 interface UserProfileProps {
-    readonly tracksCount: number;
-    readonly albumsCount: number;
-    readonly artistsCount: number;
-    readonly playlistsCount: number;
+    readonly tracksCount: number | null;
+    readonly albumsCount: number | null;
+    readonly artistsCount: number | null;
+    readonly playlistsCount: number | null;
     readonly playlists: Playlist[];
+    readonly showTierBadge?: boolean;
+}
+
+function ProfileSection({ index, ready = true, style, children }: Readonly<{
+    index: number;
+    ready?: boolean;
+    style: React.ComponentProps<typeof View>['style'];
+    children: React.ReactNode;
+}>) {
+    const cascade = useCascadeEntry();
+    return (
+        <View style={style} pointerEvents={ready ? 'auto' : 'none'}
+            accessibilityElementsHidden={!ready} importantForAccessibility={ready ? 'auto' : 'no-hide-descendants'}>
+            {ready ? (
+                <Animated.View entering={cascade.section(index)}>{children}</Animated.View>
+            ) : (
+                <View style={{ opacity: 0 }}>{children}</View>
+            )}
+        </View>
+    );
 }
 
 function UserProfileScreenBase({
@@ -48,6 +76,7 @@ function UserProfileScreenBase({
     artistsCount,
     playlistsCount,
     playlists,
+    showTierBadge = true,
 }: UserProfileProps) {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
@@ -73,62 +102,29 @@ function UserProfileScreenBase({
     const [topAlbums, setTopAlbums] = useState<any[]>([]);
     const [topArtists, setTopArtists] = useState<any[]>([]);
 
-    useEffect(() => {
-        useStatsStore.getState().fetchStats();
-    }, []);
-
-    useEffect(() => {
-        let isMounted = true;
-        const loadTopStats = async () => {
-            try {
-                const stats = await HistoryService.getDetailedStatsForPeriod('all', 'duration');
-                if (isMounted) {
-                    setTopAlbums(stats.topAlbums.slice(0, 10));
-                    setTopArtists(stats.topArtists.slice(0, 10));
-                }
-            } catch (err) {
-                console.error('Error loading top albums/artists in UserProfile:', err);
-            }
-        };
-        loadTopStats();
-        return () => {
-            isMounted = false;
-        };
-    }, []);
-
-    // Smart playlists
+    const [statsReady, setStatsReady] = useState(false);
     const [smartLists, setSmartLists] = useState<any[]>([]);
-
-    useEffect(() => {
-        let isMounted = true;
-        const loadSmartLists = async () => {
-            try {
-                const lists = SmartListService.getSmartLists();
-                const loaded = await Promise.all(
-                    lists.map(async (list) => {
-                        const tracks = await list.getTracks();
-                        return {
-                            id: `smart-list-${list.id}`,
-                            smartId: list.id,
-                            title: list.name,
-                            subtitle: `${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')}`,
-                            trackCount: tracks.length,
-                        };
-                    })
-                );
-                if (isMounted) {
-                    setSmartLists(loaded.filter(item => item.trackCount > 0));
-                }
-            } catch (err) {
-                console.error('Error loading smart lists in UserProfile:', err);
-            }
-        };
-
-        loadSmartLists();
-        return () => {
-            isMounted = false;
-        };
+    const mounted = React.useRef(true);
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const loadProfileStats = useCallback(async () => {
+        try {
+            const [, stats] = await Promise.all([
+                useStatsStore.getState().fetchStats(),
+                HistoryService.getDetailedStatsForPeriod('all', 'duration'),
+            ]);
+            if (mounted.current) { setTopAlbums(stats.topAlbums.slice(0, 10)); setTopArtists(stats.topArtists.slice(0, 10)); }
+        } finally { if (mounted.current) setStatsReady(true); }
+    }, []);
+    const loadSmartLists = useCallback(async () => {
+        const lists = await SmartListSummaryService.get();
+        if (mounted.current) setSmartLists(lists.filter(list => list.trackCount > 0).map(list => ({
+            id: `smart-list-${list.id}`, smartId: list.id, title: list.name,
+            subtitle: `${list.trackCount} ${list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')}`,
+            trackCount: list.trackCount,
+        })));
     }, [t]);
+    useObservedRefresh(loadProfileStats, STAT_TABLES);
+    useObservedRefresh(loadSmartLists, ['tracks', 'playback_history']);
 
     // Edit Name via EditAliasSheet
     const handleEditName = useCallback(() => {
@@ -202,19 +198,19 @@ function UserProfileScreenBase({
 
     const handleTopArtistPress = useCallback(() => {
         if (topArtistId) {
-            navigation.navigate('ArtistDetail', { artistId: topArtistId });
+            navigation.navigate('ArtistDetail', { artistId: topArtistId }, { pop: true });
         }
     }, [topArtistId, navigation]);
 
     const handleSmartListPress = useCallback((smartListId: string) => {
-        navigation.navigate('SmartListDetail', { smartListId });
+        navigation.navigate('SmartListDetail', { smartListId }, { pop: true });
     }, [navigation]);
 
     const handlePlaylistPress = useCallback((playlistId: string) => {
         if (playlistId === 'favorites') {
             navigation.navigate('FavoritesDetail');
         } else {
-            navigation.navigate('PlaylistDetail', { playlistId });
+            navigation.navigate('PlaylistDetail', { playlistId }, { pop: true });
         }
     }, [navigation]);
 
@@ -234,31 +230,33 @@ function UserProfileScreenBase({
                     imageUrl={userAvatarUri}
                     placeholderIcon="person"
                     subtitle={
-                        <View style={styles.subtitleRow}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.userTierBadge,
-                                    userTier === 'VIP' && styles.userTierBadgeVip,
-                                    userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
-                                ]}
-                                onPress={() => navigation.navigate('Support')}
-                                activeOpacity={0.7}
-                            >
-                                {userTier === 'VIP' && (
-                                    <MaterialCommunityIcons name="crown" size={13} color="#FBBF24" />
-                                )}
-                                {userTier === 'SUPPORTER' && (
-                                    <Ionicons name="heart" size={12} color="#2DD4BF" />
-                                )}
-                                <Text style={[
-                                    styles.userTierBadgeText,
-                                    userTier === 'VIP' && styles.userTierBadgeTextVip,
-                                    userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
-                                ]}>
-                                    {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        showTierBadge ? (
+                            <View style={styles.subtitleRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.userTierBadge,
+                                        userTier === 'VIP' && styles.userTierBadgeVip,
+                                        userTier === 'SUPPORTER' && styles.userTierBadgeSupporter,
+                                    ]}
+                                    onPress={() => navigation.navigate('Support')}
+                                    activeOpacity={0.7}
+                                >
+                                    {userTier === 'VIP' && (
+                                        <MaterialCommunityIcons name="crown" size={13} color="#FBBF24" />
+                                    )}
+                                    {userTier === 'SUPPORTER' && (
+                                        <Ionicons name="heart" size={12} color="#2DD4BF" />
+                                    )}
+                                    <Text style={[
+                                        styles.userTierBadgeText,
+                                        userTier === 'VIP' && styles.userTierBadgeTextVip,
+                                        userTier === 'SUPPORTER' && styles.userTierBadgeTextSupporter,
+                                    ]}>
+                                        {userTier === 'VIP' ? 'VIP' : userTier === 'SUPPORTER' ? 'SUPPORTER' : 'USER'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : undefined
                     }
                     onBack={() => navigation.goBack()}
                     onPickPhoto={handlePickPhoto}
@@ -266,7 +264,7 @@ function UserProfileScreenBase({
                 />
 
                 {/* --- 1. CONTADOR DE BIBLIOTECA (VISUAL) --- */}
-                <View style={styles.sectionWrapper}>
+                <ProfileSection index={0} style={styles.sectionWrapper} ready={tracksCount !== null && albumsCount !== null && artistsCount !== null && playlistsCount !== null}>
                     <TouchableOpacity
                         style={styles.statsCard}
                         onPress={() => navigation.navigate('Biblioteca')}
@@ -278,39 +276,37 @@ function UserProfileScreenBase({
                         </View>
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{tracksCount}</Text>
+                                <Text style={styles.statValue}>{tracksCount ?? ' '}</Text>
                                 <Text style={styles.statLabel}>{t('library.songs')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{albumsCount}</Text>
+                                <Text style={styles.statValue}>{albumsCount ?? ' '}</Text>
                                 <Text style={styles.statLabel}>{t('library.albums')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{artistsCount}</Text>
+                                <Text style={styles.statValue}>{artistsCount ?? ' '}</Text>
                                 <Text style={styles.statLabel}>{t('library.artists')}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{playlistsCount + 1}</Text>
+                                <Text style={styles.statValue}>{playlistsCount === null ? ' ' : playlistsCount + 1}</Text>
                                 <Text style={styles.statLabel}>{t('library.playlists')}</Text>
                             </View>
                         </View>
                     </TouchableOpacity>
-                </View>
+                </ProfileSection>
 
                 {/* --- 2. ARTISTAS FAVORITOS (MÁS ESCUCHADOS TOTAL) --- */}
                 {topArtists.length > 0 && (
-                    <View style={styles.sectionWrapper}>
+                    <ProfileSection index={1} style={styles.sectionWrapper}>
                         <SectionHeader
                             title={t('profile.top_artists_title') || 'Tus artistas favoritos'}
                         />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.horizontalScrollContent}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {topArtists.map((artist) => (
                                 <MediaCard
@@ -320,24 +316,22 @@ function UserProfileScreenBase({
                                     title={artist.name}
                                     subtitle={t('library.artist_singular')}
                                     imageUrl={artist.imageUrl}
-                                    onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id })}
+                                    onPress={() => navigation.navigate('ArtistDetail', { artistId: artist.id }, { pop: true })}
                                 />
                             ))}
-                        </ScrollView>
-                    </View>
+                        </HorizontalScrollContainer>
+                    </ProfileSection>
                 )}
 
                 {/* --- 3. ÁLBUMES FAVORITOS (MÁS ESCUCHADOS TOTAL) --- */}
                 {topAlbums.length > 0 && (
-                    <View style={styles.sectionWrapper}>
+                    <ProfileSection index={2} style={styles.sectionWrapper}>
                         <SectionHeader
                             title={t('profile.top_albums_title') || 'Tus álbumes favoritos'}
                         />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.horizontalScrollContent}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {topAlbums.map((album) => (
                                 <MediaCard
@@ -347,24 +341,22 @@ function UserProfileScreenBase({
                                     title={album.title}
                                     subtitle={album.artistName || t('library.album_singular')}
                                     imageUrl={album.coverUrl}
-                                    onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id })}
+                                    onPress={() => navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true })}
                                 />
                             ))}
-                        </ScrollView>
-                    </View>
+                        </HorizontalScrollContainer>
+                    </ProfileSection>
                 )}
 
                 {/* --- 4. LISTAS INTELIGENTES (SMART PLAYLISTS) --- */}
                 {smartLists.length > 0 && (
-                    <View style={styles.sectionWrapper}>
+                    <ProfileSection index={3} style={styles.sectionWrapper}>
                         <SectionHeader
                             title={t('profile.smart_playlists_title') || 'Listas inteligentes'}
                         />
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.horizontalScrollContent}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {smartLists.map((item) => (
                                 <MediaCard
@@ -376,20 +368,18 @@ function UserProfileScreenBase({
                                     onPress={() => handleSmartListPress(item.smartId)}
                                 />
                             ))}
-                        </ScrollView>
-                    </View>
+                        </HorizontalScrollContainer>
+                    </ProfileSection>
                 )}
 
                 {/* --- 5. SUS PLAYLISTS (MIS LISTAS DE REPRODUCCIÓN) --- */}
-                <View style={styles.sectionWrapper}>
+                <ProfileSection index={4} style={styles.sectionWrapper}>
                     <SectionHeader
                         title={t('profile.my_playlists_title') || 'Tus playlists'}
                     />
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
+                    <HorizontalScrollContainer
                         contentContainerStyle={styles.horizontalScrollContent}
-                        keyboardShouldPersistTaps="handled"
+                        arrowTop={60}
                     >
                         {/* Favoritos como playlist destacada */}
                         <MediaCard
@@ -411,11 +401,11 @@ function UserProfileScreenBase({
                                 onPress={() => handlePlaylistPress(playlist.id)}
                             />
                         ))}
-                    </ScrollView>
-                </View>
+                    </HorizontalScrollContainer>
+                </ProfileSection>
 
                 {/* --- 6. RESUMEN RÁPIDO DE ACTIVIDAD / DESTACADOS --- */}
-                <View style={styles.sectionWrapper}>
+                <ProfileSection index={5} style={styles.sectionWrapper} ready={statsReady}>
                     <SectionHeader
                         title={t('profile.quick_stats_title') || 'Destacados de reproducción'}
                     />
@@ -496,7 +486,7 @@ function UserProfileScreenBase({
                             </View>
                         )}
                     </View>
-                </View>
+                </ProfileSection>
             </ScrollView>
         </View>
     );
@@ -703,13 +693,13 @@ const getStyles = (
 });
 
 const ObservableUserProfileScreen = withObservables([], () => ({
-    tracksCount: database.get('tracks').query().observeCount(),
-    albumsCount: database.get('albums').query().observeCount(),
-    artistsCount: database.get('artists').query().observeCount(),
-    playlistsCount: database.get('playlists').query().observeCount(),
-    playlists: database.get<Playlist>('playlists').query().observe(),
+    tracksCount: observeScreenData(() => database.get('tracks').query().observeCount(), null),
+    albumsCount: observeScreenData(() => database.get('albums').query().observeCount(), null),
+    artistsCount: observeScreenData(() => database.get('artists').query().observeCount(), null),
+    playlistsCount: observeScreenData(() => database.get('playlists').query().observeCount(), null),
+    playlists: observeScreenData(() => database.get<Playlist>('playlists').query().observeWithColumns(['name', 'description', 'cover_url', 'cover_custom_url']), []),
 }))(UserProfileScreenBase);
 
-export default function UserProfileScreen() {
-    return <ObservableUserProfileScreen />;
+export default function UserProfileScreen({ showTierBadge = true }: Readonly<{ showTierBadge?: boolean }> = {}) {
+    return <ObservableUserProfileScreen showTierBadge={showTierBadge} />;
 }

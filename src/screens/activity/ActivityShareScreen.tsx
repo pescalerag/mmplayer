@@ -1,3 +1,8 @@
+import { useToastStore } from '../../store/useToastStore';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
+import appIcon from '../../assets/images/splash-icon.png';
+import { STATS_THEMES } from '../../theme/shareThemes';
+import i18n from '../../constants/i18n';
 import React, { useRef, useState } from 'react';
 import {
   View,
@@ -5,13 +10,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
   ScrollView,
 } from 'react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
@@ -20,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSettingsStore, StatsCardTheme } from '../../store/useSettingsStore';
 import { useAppTheme } from '../../hooks/useAppTheme';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 
 function formatDuration(seconds: number, t: any): string {
   if (!seconds || seconds <= 0) return `0 ${t('activity.min_suffix', { defaultValue: 'min' })}`;
@@ -124,64 +128,6 @@ const THEME_CONFIGS: Record<StatsCardTheme, ThemeConfig> = {
   },
 };
 
-interface StatsThemeOption {
-  id: StatsCardTheme;
-  nameKey: string;
-  colors: [string, string, string];
-  accent: string;
-}
-
-const STATS_THEMES: StatsThemeOption[] = [
-  {
-    id: 'default',
-    nameKey: 'support.stats_theme_default',
-    colors: ['#05020a', '#1a0a33', '#33125d'],
-    accent: '#8B5CF6',
-  },
-  {
-    id: 'glass',
-    nameKey: 'support.stats_theme_glass',
-    colors: ['#020617', '#0d3257', '#174f85'],
-    accent: '#38BDF8',
-  },
-  {
-    id: 'holographic',
-    nameKey: 'support.stats_theme_holographic',
-    colors: ['#060012', '#3b0a57', '#8a1674'],
-    accent: '#EC4899',
-  },
-  {
-    id: 'gold',
-    nameKey: 'support.stats_theme_gold',
-    colors: ['#070501', '#2d1f07', '#5c3e0c'],
-    accent: '#FBBF24',
-  },
-  {
-    id: 'emerald',
-    nameKey: 'support.stats_theme_emerald',
-    colors: ['#010906', '#063321', '#0b5a38'],
-    accent: '#10B981',
-  },
-  {
-    id: 'sunset',
-    nameKey: 'support.stats_theme_sunset',
-    colors: ['#0c0309', '#4a0d24', '#851b2e'],
-    accent: '#F43F5E',
-  },
-  {
-    id: 'midnight',
-    nameKey: 'support.stats_theme_midnight',
-    colors: ['#000000', '#12151f', '#222838'],
-    accent: '#E2E8F0',
-  },
-  {
-    id: 'crimson',
-    nameKey: 'support.stats_theme_crimson',
-    colors: ['#080103', '#380611', '#660b1e'],
-    accent: '#E11D48',
-  },
-];
-
 interface ShareCardProps {
   formattedPeriodText: string;
   metric: 'duration' | 'plays';
@@ -236,7 +182,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
           {/* Header Branding */}
           <View style={cardStyles.brandHeader}>
             <Image
-              source={require('../../assets/images/splash-icon.png')}
+              source={appIcon}
               style={cardStyles.appIcon}
               contentFit="contain"
             />
@@ -351,7 +297,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
                         {song.title}
                       </Text>
                       <Text style={cardStyles.itemDetail} numberOfLines={1}>
-                        {song.artistName || 'Desconocido'}
+                        {song.artistName || i18n.t('actions.unknown')}
                       </Text>
                     </View>
                   ))}
@@ -398,6 +344,7 @@ const ShareCard = React.forwardRef<any, ShareCardProps>(
 ShareCard.displayName = 'ShareCard';
 
 export default function ActivityShareScreen() {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useScreenDimensions();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -454,8 +401,10 @@ export default function ActivityShareScreen() {
         });
       }
     } catch (err) {
-      console.error('[ActivityShareScreen] Error capturing or sharing:', err);
       setIsCapturing(false);
+      if ((err as any)?.code === 'USER_CANCELLED') return;
+      console.error('[ActivityShareScreen] Error capturing or sharing:', err);
+      useToastStore.getState().showToast(t('player.share_image_error'), 'close-circle', '#EF4444');
     }
   };
 
@@ -466,8 +415,8 @@ export default function ActivityShareScreen() {
 
   const totalLabel =
     metric === 'duration'
-      ? 'TIEMPO TOTAL DE ESCUCHA'
-      : 'TOTAL DE REPRODUCCIONES';
+      ? t('activity.total_listening_label')
+      : t('activity.total_plays_label');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 14) }]}>

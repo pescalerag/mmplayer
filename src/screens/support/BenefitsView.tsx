@@ -1,3 +1,4 @@
+import { STATS_THEMES, LOCALCAST_THEMES } from '../../theme/shareThemes';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,203 +12,50 @@ import ColorPicker, {
 } from 'reanimated-color-picker';
 import { useSettingsStore, StatsCardTheme, LocalCastTheme, AppTheme } from '../../store/useSettingsStore';
 import { useAppTheme, LEGENDARY_ACCENT } from '../../hooks/useAppTheme';
-import { getDynamicTagTextColor } from '../../utils/color';
+import { getDynamicTagTextColor, hexToRgba } from '../../utils/color';
+import { normalizeAppIcon } from '../../utils/appIcon';
+import { LEGENDARY_PALETTE } from '../../theme/legendaryTheme';
+import { DEVEL_BRAND_GRADIENT, DEVEL_PALETTE } from '../../theme/develTheme';
+import { RETRO_PALETTE } from '../../theme/retroTheme';
+import { applyAppTheme, applyStandaloneAppIcon } from '../../services/AppThemeService';
 
 // Using require to safely handle the dynamic import if not installed fully native
-let setAppIcon: (name: string | null, isInBackground?: boolean) => Promise<any>;
 let getAppIcon: () => Promise<string>;
 try {
     const dynamicIcon = require('@howincodes/expo-dynamic-app-icon');
-    setAppIcon = dynamicIcon.setAppIcon;
     getAppIcon = dynamicIcon.getAppIcon;
 } catch (e) {
-    setAppIcon = async () => console.warn('Dynamic icons module not linked');
     getAppIcon = async () => 'DEFAULT';
 }
 
 const ICONS = [
     { id: 'DEFAULT', nameKey: 'support.icon_original', image: require('../../assets/images/icon.png') },
-    { id: 'dark', nameKey: 'support.icon_dark', image: require('../../assets/images/dark-icon.png') },
-    { id: 'supporter', nameKey: 'support.icon_supporter', image: require('../../assets/images/supporter-icon.png') },
-    { id: 'retro', nameKey: 'support.icon_retro', image: require('../../assets/images/retro-icon.png') },
-    { id: 'darkblue', nameKey: 'support.icon_dark_blue', image: require('../../assets/images/android-icon-darkblue.png') },
-    { id: 'develpink', nameKey: 'support.icon_devel_pink', image: require('../../assets/images/android-icon-devel-pink.png') },
-    { id: 'labgreen', nameKey: 'support.icon_lab_green', image: require('../../assets/images/android-icon-labgreen.png') },
-    { id: 'orange', nameKey: 'support.icon_orange', image: require('../../assets/images/android-icon-orange.png') },
-    { id: 'pink', nameKey: 'support.icon_pink', image: require('../../assets/images/android-icon-pink.png') },
-    { id: 'red', nameKey: 'support.icon_red', image: require('../../assets/images/android-icon-red.png') },
-    { id: 'white', nameKey: 'support.icon_white', image: require('../../assets/images/android-icon-white.png') }
+    { id: 'dark', nameKey: 'support.icon_dark', image: require('../../assets/images/app-icons/logoBlack.png') },
+    { id: 'aqua', nameKey: 'support.icon_aqua', image: require('../../assets/images/app-icons/logoAqua.png') },
+    { id: 'labgreen', nameKey: 'support.icon_lab_green', image: require('../../assets/images/app-icons/logoGreen.png') },
+    { id: 'pink', nameKey: 'support.icon_pink', image: require('../../assets/images/app-icons/logoMagenta.png') },
+    { id: 'red', nameKey: 'support.icon_red', image: require('../../assets/images/app-icons/logoRed.png') },
+    { id: 'white', nameKey: 'support.icon_white', image: require('../../assets/images/app-icons/logoWhite.png') },
+    { id: 'yellow', nameKey: 'support.icon_yellow', image: require('../../assets/images/app-icons/logoYellow.png') }
 ];
 
-interface StatsThemeOption {
-    id: StatsCardTheme;
-    nameKey: string;
-    descKey: string;
-    colors: [string, string, string];
-    accent: string;
-    badgeText: string;
-    isVipOnly: boolean;
-}
-
-const STATS_THEMES: StatsThemeOption[] = [
+const APP_THEME_OPTIONS = [
     {
-        id: 'default',
-        nameKey: 'support.stats_theme_default',
-        descKey: 'support.stats_theme_default_desc',
-        colors: ['#05020a', '#1a0a33', '#33125d'],
-        accent: '#8B5CF6',
-        badgeText: 'STATS',
-        isVipOnly: false,
+        id: 'legendary', nameKey: 'support.app_theme_legendary', descKey: 'support.app_theme_legendary_desc',
+        accent: LEGENDARY_ACCENT, gradient: [LEGENDARY_PALETTE.background, LEGENDARY_PALETTE.card, '#345943'],
+        image: require('../../assets/images/app-icons/logoLegend.png'),
     },
     {
-        id: 'glass',
-        nameKey: 'support.stats_theme_glass',
-        descKey: 'support.stats_theme_glass_desc',
-        colors: ['#020617', '#0d3257', '#174f85'],
-        accent: '#38BDF8',
-        badgeText: 'STATS',
-        isVipOnly: true,
+        id: 'develETSII', nameKey: 'support.app_theme_devel', descKey: 'support.app_theme_devel_desc',
+        accent: DEVEL_PALETTE.coral, gradient: DEVEL_BRAND_GRADIENT,
+        image: require('../../assets/images/app-icons/logodevelETSII.png'),
     },
     {
-        id: 'holographic',
-        nameKey: 'support.stats_theme_holographic',
-        descKey: 'support.stats_theme_holographic_desc',
-        colors: ['#060012', '#3b0a57', '#8a1674'],
-        accent: '#EC4899',
-        badgeText: 'STATS',
-        isVipOnly: true,
+        id: 'retro', nameKey: 'support.app_theme_retro', descKey: 'support.app_theme_retro_desc',
+        accent: RETRO_PALETTE.amber, gradient: [RETRO_PALETTE.background, '#442716', '#382342'],
+        image: require('../../assets/images/app-icons/logoCRTRetro.png'),
     },
-    {
-        id: 'gold',
-        nameKey: 'support.stats_theme_gold',
-        descKey: 'support.stats_theme_gold_desc',
-        colors: ['#070501', '#2d1f07', '#5c3e0c'],
-        accent: '#FBBF24',
-        badgeText: 'STATS',
-        isVipOnly: true,
-    },
-    {
-        id: 'emerald',
-        nameKey: 'support.stats_theme_emerald',
-        descKey: 'support.stats_theme_emerald_desc',
-        colors: ['#010906', '#063321', '#0b5a38'],
-        accent: '#10B981',
-        badgeText: 'STATS',
-        isVipOnly: true,
-    },
-    {
-        id: 'sunset',
-        nameKey: 'support.stats_theme_sunset',
-        descKey: 'support.stats_theme_sunset_desc',
-        colors: ['#0c0309', '#4a0d24', '#851b2e'],
-        accent: '#F43F5E',
-        badgeText: 'STATS',
-        isVipOnly: true,
-    },
-    {
-        id: 'midnight',
-        nameKey: 'support.stats_theme_midnight',
-        descKey: 'support.stats_theme_midnight_desc',
-        colors: ['#000000', '#12151f', '#222838'],
-        accent: '#E2E8F0',
-        badgeText: 'STATS',
-        isVipOnly: true,
-    },
-    {
-        id: 'crimson',
-        nameKey: 'support.stats_theme_crimson',
-        descKey: 'support.stats_theme_crimson_desc',
-        colors: ['#080103', '#380611', '#660b1e'],
-        accent: '#E11D48',
-        badgeText: 'STATS',
-        isVipOnly: true,
-    },
-];
-
-interface LocalCastThemeOption {
-    id: LocalCastTheme;
-    nameKey: string;
-    descKey: string;
-    colors: [string, string, string];
-    accent: string;
-    subAccent: string;
-    isVipOnly: boolean;
-}
-
-const LOCALCAST_THEMES: LocalCastThemeOption[] = [
-    {
-        id: 'default',
-        nameKey: 'support.localcast_theme_default',
-        descKey: 'support.localcast_theme_default_desc',
-        colors: ['#0d0f12', '#161b22', '#22183b'],
-        accent: '#8B5CF6',
-        subAccent: '#A78BFA',
-        isVipOnly: false,
-    },
-    {
-        id: 'cyberpunk',
-        nameKey: 'support.localcast_theme_cyberpunk',
-        descKey: 'support.localcast_theme_cyberpunk_desc',
-        colors: ['#030712', '#081226', '#20072e'],
-        accent: '#00F0FF',
-        subAccent: '#FF007F',
-        isVipOnly: true,
-    },
-    {
-        id: 'gold',
-        nameKey: 'support.localcast_theme_gold',
-        descKey: 'support.localcast_theme_gold_desc',
-        colors: ['#080602', '#1c1408', '#38280f'],
-        accent: '#FBBF24',
-        subAccent: '#FDE68A',
-        isVipOnly: true,
-    },
-    {
-        id: 'aurora',
-        nameKey: 'support.localcast_theme_aurora',
-        descKey: 'support.localcast_theme_aurora_desc',
-        colors: ['#020c10', '#062024', '#0d3b36'],
-        accent: '#10B981',
-        subAccent: '#06B6D4',
-        isVipOnly: true,
-    },
-    {
-        id: 'emerald',
-        nameKey: 'support.localcast_theme_emerald',
-        descKey: 'support.localcast_theme_emerald_desc',
-        colors: ['#010906', '#032014', '#063826'],
-        accent: '#10B981',
-        subAccent: '#6EE7B7',
-        isVipOnly: true,
-    },
-    {
-        id: 'sunset',
-        nameKey: 'support.localcast_theme_sunset',
-        descKey: 'support.localcast_theme_sunset_desc',
-        colors: ['#0c0309', '#2d0a1c', '#4d1028'],
-        accent: '#F43F5E',
-        subAccent: '#FDA4AF',
-        isVipOnly: true,
-    },
-    {
-        id: 'midnight',
-        nameKey: 'support.localcast_theme_midnight',
-        descKey: 'support.localcast_theme_midnight_desc',
-        colors: ['#000000', '#0f121a', '#181e2b'],
-        accent: '#E2E8F0',
-        subAccent: '#94A3B8',
-        isVipOnly: true,
-    },
-    {
-        id: 'crimson',
-        nameKey: 'support.localcast_theme_crimson',
-        descKey: 'support.localcast_theme_crimson_desc',
-        colors: ['#080103', '#24040c', '#400815'],
-        accent: '#E11D48',
-        subAccent: '#FECDD3',
-        isVipOnly: true,
-    },
-];
+] as const;
 
 interface AccentPresetOption {
     id: string;
@@ -245,7 +93,7 @@ const ACCENT_PRESETS: AccentPresetOption[] = [
 
 export default function BenefitsView() {
     const { t } = useTranslation();
-    const { colors, fonts } = useAppTheme();
+    const { colors, fonts, appTheme: effectiveAppTheme } = useAppTheme();
     const userTier = useSettingsStore(state => state.userTier);
 
     const activeAppIcon = useSettingsStore(state => state.appIcon) || 'DEFAULT';
@@ -261,7 +109,7 @@ export default function BenefitsView() {
     const setStoreCustomAccent = useSettingsStore(state => state.setCustomAccentColor);
 
     const activeAppTheme = useSettingsStore(state => state.activeAppTheme) || 'none';
-    const setStoreAppTheme = useSettingsStore(state => state.setActiveAppTheme);
+    const activeThemeOption = APP_THEME_OPTIONS.find(option => option.id === effectiveAppTheme);
 
     // Hierarchy: VIP unlocks both SUPPORTER and VIP benefits
     const isSupporterOrVIP = userTier === 'SUPPORTER' || userTier === 'VIP';
@@ -274,7 +122,7 @@ export default function BenefitsView() {
 
     const setHexOnJS = (hex: string) => setCustomHexCode(hex);
 
-    const handleAccentSelect = (hexColor: string) => {
+    const handleAccentSelect = async (hexColor: string) => {
         if (!isVip && hexColor.toUpperCase() !== '#8B5CF6') {
             Alert.alert(
                 t('support.vip_benefits_locked_title'),
@@ -285,7 +133,13 @@ export default function BenefitsView() {
 
         // Selecting a custom accent manually deactivates any active app theme
         if (activeAppTheme !== 'none') {
-            setStoreAppTheme('none');
+            try {
+                await applyAppTheme('none');
+            } catch (error) {
+                console.warn('Could not restore the default icon:', error);
+                Alert.alert(t('common.error'), t('support.icon_updated_error'));
+                return;
+            }
         }
 
         const targetColor = hexColor.toUpperCase() === '#8B5CF6' ? null : hexColor;
@@ -301,8 +155,10 @@ export default function BenefitsView() {
             if (getAppIcon) {
                 getAppIcon()
                     .then((currentIcon) => {
-                        if (currentIcon && currentIcon !== activeAppIcon) {
-                            setStoreAppIcon(currentIcon);
+                        if (currentIcon === 'develpink' && useSettingsStore.getState().activeAppTheme !== 'develETSII') return;
+                        if (currentIcon === 'crt' && useSettingsStore.getState().activeAppTheme !== 'retro') return;
+                        if (currentIcon && normalizeAppIcon(currentIcon) !== activeAppIcon) {
+                            setStoreAppIcon(normalizeAppIcon(currentIcon));
                         }
                     })
                     .catch((err) => {
@@ -321,20 +177,8 @@ export default function BenefitsView() {
             return;
         }
 
-        // Manually selecting an icon deactivates any active app theme
-        if (activeAppTheme !== 'none') {
-            setStoreAppTheme('none');
-        }
-
         try {
-            if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                const targetIconName = iconId === 'DEFAULT' ? null : iconId;
-                const result = await setAppIcon(targetIconName, false);
-                if (result === false) {
-                    throw new Error('setAppIcon failed');
-                }
-            }
-            setStoreAppIcon(iconId);
+            await applyStandaloneAppIcon(iconId);
             Alert.alert(
                 t('common.success'),
                 t('support.icon_updated_success')
@@ -380,7 +224,7 @@ export default function BenefitsView() {
         );
     };
 
-    const SHOW_APP_THEMES_FEATURE = false; // Deshabilitado para v2.3.0 - Vendrá en una futura versión
+    const SHOW_APP_THEMES_FEATURE = true;
 
     const handleAppThemeSelect = async (themeId: AppTheme) => {
         if (!SHOW_APP_THEMES_FEATURE) {
@@ -395,30 +239,12 @@ export default function BenefitsView() {
             return;
         }
 
-        setStoreAppTheme(themeId);
-
-        // When legendary theme is activated, also apply the legend icon
-        if (themeId === 'legendary') {
-            try {
-                if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                    await setAppIcon('legend', false);
-                }
-                setStoreAppIcon('legend');
-                // Disable custom accent color (theme overrides it)
-                setStoreCustomAccent(null);
-            } catch (e) {
-                console.warn('Could not set legend icon:', e);
-            }
-        } else if (themeId === 'none') {
-            // Restore default icon when theme is deactivated
-            try {
-                if (Platform.OS === 'android' || Platform.OS === 'ios') {
-                    await setAppIcon(null, false);
-                }
-                setStoreAppIcon('DEFAULT');
-            } catch (e) {
-                console.warn('Could not reset icon:', e);
-            }
+        try {
+            await applyAppTheme(themeId);
+        } catch (error) {
+            console.warn('Could not apply app theme:', error);
+            Alert.alert(t('common.error'), t('support.icon_updated_error'));
+            return;
         }
 
         Alert.alert(
@@ -516,17 +342,17 @@ export default function BenefitsView() {
                 </Text>
 
                 {/* Active theme info chip */}
-                {activeAppTheme === 'legendary' && (
-                    <View style={styles.themeActiveChip}>
-                        <MaterialCommunityIcons name="crown" size={13} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
-                        <Text style={styles.themeActiveChipText}>{t('support.app_theme_active')}: {t('support.app_theme_legendary').toUpperCase()}</Text>
+                {activeThemeOption && (
+                    <View style={[styles.themeActiveChip, { backgroundColor: hexToRgba(activeThemeOption.accent, 0.15), borderColor: hexToRgba(activeThemeOption.accent, 0.35) }]}>
+                        <MaterialCommunityIcons name="palette-swatch-outline" size={13} color={activeThemeOption.accent} style={{ marginRight: 6 }} />
+                        <Text style={[styles.themeActiveChipText, { color: activeThemeOption.accent }]}>{t('support.app_theme_active')}: {t(activeThemeOption.nameKey).toUpperCase()}</Text>
                     </View>
                 )}
 
                 <View style={styles.grid}>
                     {/* Option: No Theme */}
                     {(() => {
-                        const isActive = activeAppTheme === 'none';
+                        const isActive = effectiveAppTheme === 'none';
                         return (
                             <TouchableOpacity
                                 style={[
@@ -555,29 +381,29 @@ export default function BenefitsView() {
                         );
                     })()}
 
-                    {/* Option: Legendary Theme */}
-                    {(() => {
-                        const isActive = activeAppTheme === 'legendary';
+                    {APP_THEME_OPTIONS.map(option => {
+                        const isActive = effectiveAppTheme === option.id;
                         const isLocked = !isSupporterOrVIP;
                         return (
                             <TouchableOpacity
+                                key={option.id}
                                 style={[
                                     styles.itemCard,
                                     { backgroundColor: colors.cardBackground },
-                                    isActive && { borderColor: LEGENDARY_ACCENT, borderWidth: 2 }
+                                    isActive && { borderColor: option.accent, borderWidth: 2 }
                                 ]}
                                 activeOpacity={0.7}
-                                onPress={() => handleAppThemeSelect('legendary')}
+                                onPress={() => handleAppThemeSelect(option.id)}
                             >
                                 <View style={styles.previewWrapper}>
                                     <LinearGradient
-                                        colors={['#2A1604', '#78350F', LEGENDARY_ACCENT]}
+                                        colors={option.gradient}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                         style={[styles.themePreviewBox]}
                                     >
                                         <Image
-                                            source={require('../../assets/images/android-icon-legend.png')}
+                                            source={option.image}
                                             style={styles.themePreviewIcon}
                                         />
                                     </LinearGradient>
@@ -589,20 +415,20 @@ export default function BenefitsView() {
                                         </View>
                                     )}
                                 </View>
-                                <Text style={[styles.itemName, { color: colors.text }, isActive && { color: LEGENDARY_ACCENT, fontFamily: fonts.bold }]}>
-                                    {t('support.app_theme_legendary')}
+                                <Text style={[styles.itemName, { color: colors.text }, isActive && { color: option.accent, fontFamily: fonts.bold }]}>
+                                    {t(option.nameKey)}
                                 </Text>
                                 <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                                    {t('support.app_theme_legendary_desc')}
+                                    {t(option.descKey)}
                                 </Text>
                                 {isActive && (
                                     <View style={styles.activeBadge}>
-                                        <Ionicons name="checkmark-circle" size={20} color={LEGENDARY_ACCENT} />
+                                        <Ionicons name="checkmark-circle" size={20} color={option.accent} />
                                     </View>
                                 )}
                             </TouchableOpacity>
                         );
-                    })()}
+                    })}
                 </View>
             </View>
             )}
@@ -633,11 +459,11 @@ export default function BenefitsView() {
                 </Text>
 
                 {/* Legendary theme override notice */}
-                {SHOW_APP_THEMES_FEATURE && activeAppTheme === 'legendary' && (
-                    <View style={styles.themeOverrideNotice}>
-                        <MaterialCommunityIcons name="information-outline" size={14} color={LEGENDARY_ACCENT} style={{ marginRight: 6 }} />
-                        <Text style={styles.themeOverrideNoticeText}>
-                            {t('support.app_theme_active')} — {t('support.app_theme_legendary')}
+                {SHOW_APP_THEMES_FEATURE && activeThemeOption && (
+                    <View style={[styles.themeOverrideNotice, { backgroundColor: hexToRgba(activeThemeOption.accent, 0.10), borderColor: hexToRgba(activeThemeOption.accent, 0.25) }]}>
+                        <MaterialCommunityIcons name="information-outline" size={14} color={activeThemeOption.accent} style={{ marginRight: 6 }} />
+                        <Text style={[styles.themeOverrideNoticeText, { color: activeThemeOption.accent }]}>
+                            {t('support.app_theme_active')} — {t(activeThemeOption.nameKey)}
                         </Text>
                     </View>
                 )}
@@ -1371,9 +1197,9 @@ const styles = StyleSheet.create({
     themeActiveChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 184, 0, 0.15)',
+        backgroundColor: 'rgba(201, 170, 100, 0.15)',
         borderWidth: 1,
-        borderColor: 'rgba(245, 184, 0, 0.35)',
+        borderColor: 'rgba(201, 170, 100, 0.35)',
         borderRadius: 10,
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -1381,7 +1207,7 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
     themeActiveChipText: {
-        color: '#F5B800',
+        color: LEGENDARY_ACCENT,
         fontSize: 11,
         fontWeight: '800',
         letterSpacing: 0.5,
@@ -1389,16 +1215,16 @@ const styles = StyleSheet.create({
     themeOverrideNotice: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(245, 184, 0, 0.1)',
+        backgroundColor: 'rgba(201, 170, 100, 0.1)',
         borderWidth: 1,
-        borderColor: 'rgba(245, 184, 0, 0.25)',
+        borderColor: 'rgba(201, 170, 100, 0.25)',
         borderRadius: 8,
         paddingHorizontal: 10,
         paddingVertical: 6,
         marginBottom: 12,
     },
     themeOverrideNoticeText: {
-        color: '#F5B800',
+        color: LEGENDARY_ACCENT,
         fontSize: 12,
         fontWeight: '600',
         flex: 1,

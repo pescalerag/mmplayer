@@ -16,8 +16,8 @@ export const ABSliderMarkers: React.FC<ABSliderMarkersProps> = ({ duration }) =>
   if (pointA === null && pointB === null) return null;
 
   // Slider has padding on the edges where the track starts/ends.
-  // By default, for react-native-community/slider, this is around 15dp on both iOS and Android.
-  const SLIDER_PADDING = Platform.OS === 'android' ? 15 : 15;
+  // By default, for react-native-community/slider, this is around 15dp on both iOS and Android, and 10px on web (thumb radius).
+  const SLIDER_PADDING = Platform.OS === 'web' ? 10 : 15;
 
   const getX = (time: number) => {
     const ratio = Math.min(Math.max(time / duration, 0), 1);

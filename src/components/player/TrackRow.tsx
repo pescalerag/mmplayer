@@ -3,7 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import React, { memo } from "react";
-import { Keyboard, StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { Keyboard, StyleSheet, Text, View } from "react-native";
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { clamp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { State } from "react-native-track-player";
@@ -197,11 +198,12 @@ function TrackRow({
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[animatedStyle, { backgroundColor: colors.background }]}>
           <TouchableOpacity
+            testID={`track-row-${track.id}`}
             style={[styles.row, isCurrentTrack && !isSelectionMode && styles.rowActive]}
             delayPressIn={85}
             onPress={() => {
               if (isSelectionMode) {
-                useMultiSelectStore.getState().toggleTrack(track);
+                useMultiSelectStore.getState().toggleTrack(track, playlistId);
                 return;
               }
               if (!preventAutoHistory) {
@@ -210,13 +212,21 @@ function TrackRow({
                   type: "track",
                   context: "manual",
                   title: track.title,
-                  subtitle: artistName || "Artista desconocido",
+                  subtitle: artistName || i18n.t('metadata.unknown_artist'),
                   imageUrl: coverUrl || null,
                 });
               }
               onPress?.(track.id);
             }}
             onLongPress={() => {
+              if (isSelectionMode) return;
+              Keyboard.dismiss();
+              openMenu(track, {}, playlistId);
+            }}
+            // @ts-ignore - Web context menu triggers track menu on right-click
+            onContextMenu={(e: any) => {
+              e?.preventDefault?.();
+              e?.stopPropagation?.();
               if (isSelectionMode) return;
               Keyboard.dismiss();
               openMenu(track, {}, playlistId);
@@ -288,6 +298,7 @@ function TrackRow({
             <View style={styles.rightCol}>
               <Text style={styles.duration}>{formatTrackTime(track.duration)}</Text>
               <TouchableOpacity
+                testID={`track-menu-${track.id}`}
                 style={styles.moreButton}
                 onPress={() => {
                   Keyboard.dismiss();

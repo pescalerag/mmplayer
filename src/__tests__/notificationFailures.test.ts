@@ -3,7 +3,7 @@ import { database } from '../database';
 import { navigationRef, waitForNavigationReady } from '../navigation/navigationRef';
 import { Linking } from 'react-native';
 
-beforeEach(() => { jest.clearAllMocks(); jest.spyOn(console, 'error').mockImplementation(() => {}); jest.spyOn(console, 'warn').mockImplementation(() => {}); });
+beforeEach(() => { jest.clearAllMocks(); jest.spyOn(navigationRef, 'isReady').mockReturnValue(true); jest.spyOn(console, 'error').mockImplementation(() => {}); jest.spyOn(console, 'warn').mockImplementation(() => {}); });
 afterEach(() => jest.restoreAllMocks());
 
 it('returns safe defaults when notifications cannot be fetched or counted', async () => {
@@ -37,7 +37,7 @@ it('waits for navigation and opens a valid notification URL', async () => {
 it.each(['invalid-json', '{}'])('falls back to the notification screen for an invalid payload: %s', async payload => {
   (waitForNavigationReady as jest.Mock).mockResolvedValue(true);
   await NotificationService.handleNotificationPressEvent({ id: 'news', data: { actionType: 'open_url', actionPayload: payload } });
-  expect(navigationRef.navigate).toHaveBeenCalledWith('Notifications');
+  expect(navigationRef.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'NAVIGATE', payload: expect.objectContaining({ name: 'Main', params: expect.objectContaining({ screen: 'Inicio', params: expect.objectContaining({ screen: 'Notifications' }) }) }) }));
   expect(Linking.openURL).not.toHaveBeenCalled();
 });
 
@@ -50,4 +50,13 @@ it('ignores missing events and does not navigate before the navigator is ready',
   expect(navigationRef.navigate).not.toHaveBeenCalled();
   (waitForNavigationReady as jest.Mock).mockRejectedValueOnce(Error('Unavailable'));
   await expect(NotificationService.handleNotificationPressEvent({ id: 'news' })).resolves.toBeUndefined();
+});
+
+
+it('can initialize local desktop summaries without checking the mobile update feed', async () => {
+  jest.spyOn(NotificationService, 'getUnreadCount').mockResolvedValue(0);
+  const summaries = jest.spyOn(NotificationService, 'checkAndGenerateSummaries').mockResolvedValue(undefined);
+  const updates = jest.spyOn(NotificationService, 'checkForAppUpdates').mockResolvedValue(undefined);
+  await NotificationService.init({ checkAppUpdates: false });
+  expect(summaries).toHaveBeenCalledTimes(1);expect(updates).not.toHaveBeenCalled();
 });

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { DisplayStats, SmartListItem } from '../../screens/activity/utils/activityStatUtils';
 import LibraryCard from '../cards/LibraryCard';
+import { HorizontalScrollContainer } from '../layouts/HorizontalScrollContainer';
 import Animated from 'react-native-reanimated';
 import { useCascadeEntry } from '@/hooks/useCascadeEntry';
 
@@ -185,12 +186,7 @@ export function ActivityHighlightsTab({
             >
               Playlists para ti
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalScroll}
-              keyboardShouldPersistTaps="handled"
-            >
+            <HorizontalScrollContainer contentContainerStyle={styles.horizontalScroll}>
               {visibleSmartLists.map((list) => {
                 const countText = `${list.trackCount} ${
                   list.trackCount === 1 ? t('library.song_singular') : t('library.song_plural')
@@ -207,7 +203,7 @@ export function ActivityHighlightsTab({
                   </View>
                 );
               })}
-            </ScrollView>
+            </HorizontalScrollContainer>
           </View>
         </Animated.View>
       )}

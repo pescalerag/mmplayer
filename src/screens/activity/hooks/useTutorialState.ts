@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Platform } from 'react-native';
 
 export function useTutorialState(hasSeenActivityTutorial: boolean, isLoading: boolean) {
   const [isTutorialVisible, setIsTutorialVisible] = useState(false);
@@ -22,7 +22,7 @@ export function useTutorialState(hasSeenActivityTutorial: boolean, isLoading: bo
 
   // Auto-launch tutorial on first visit
   useEffect(() => {
-    if (!hasSeenActivityTutorial && !isLoading) {
+    if (!hasSeenActivityTutorial && !isLoading && Platform.OS !== 'web') {
       const timer = setTimeout(() => {
         setIsTutorialVisible(true);
       }, 500);

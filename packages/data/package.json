@@ -1,0 +1,13 @@
+{
+  "name": "@mmplayer/data",
+  "version": "3.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/createDatabase.ts",
+    "./playlists": "./src/playlists.ts",
+    "./history": "./src/history.ts"
+  },
+  "peerDependencies": {
+    "@nozbe/watermelondb": "^0.28.0"
+  }
+}

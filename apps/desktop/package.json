@@ -1,0 +1,46 @@
+{
+  "name": "@mmplayer/desktop",
+  "version": "3.0.0-beta.1",
+  "private": true,
+  "type": "module",
+  "main": "build/main.cjs",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node scripts/test.mjs",
+    "test:electron": "node scripts/smoke.mjs",
+    "test:windows-identity": "node scripts/test-windows-identity.mjs",
+    "installer": "node scripts/installer.mjs",
+    "installer:preview": "node scripts/installer.mjs --preview",
+    "installer:beta": "node scripts/installer.mjs --unsigned-beta",
+    "test:package": "node scripts/test-package.mjs",
+    "test:beta": "node scripts/test-beta.mjs",
+    "publish:beta": "node scripts/publish-beta.mjs",
+    "test:sheets": "node scripts/test-sheets.mjs"
+  },
+  "dependencies": {
+    "@mmplayer/core": "*",
+    "@mmplayer/data": "*",
+    "@mmplayer/platform": "*",
+    "@mmplayer/ui": "*",
+    "desktop-uri-decoder": "npm:decode-uri-component@0.5.1",
+    "music-metadata": "12.2.3",
+    "node-taglib-sharp": "6.0.3",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
+  },
+  "devDependencies": {
+    "@electron/asar": "3.4.1",
+    "@electron/fuses": "1.8.0",
+    "@types/node": "24.19.2",
+    "@types/react-dom": "19.3.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.9.1",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "vite": "8.3.4"
+  }
+}

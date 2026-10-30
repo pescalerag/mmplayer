@@ -40,8 +40,9 @@ const BASE_PALETTE = [
   "#06B6D4", // Cian
 ];
 
-export default function TagFormModal() {
+export default function TagFormModal({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { isVisible, tag, closeForm, onSaveCallback, setColorRowRef } = useTagFormStore();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -137,7 +138,7 @@ export default function TagFormModal() {
 
   // Manejar botón físico de atrás en Android
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || Platform.OS === "web") return;
     const onBackPress = () => {
       closeForm();
       return true;
@@ -223,42 +224,8 @@ export default function TagFormModal() {
 
   if (!shouldRender && !isVisible) return null;
 
-  return (
-    <View
-      style={[styles.containerAbsolute, { zIndex: 10000 }]}
-      pointerEvents={isVisible ? "auto" : "none"}
-    >
-      {/* Fondo oscuro animado */}
-      <TouchableWithoutFeedback
-        onPress={() => {
-          Keyboard.dismiss();
-          closeForm();
-        }}
-      >
-        <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
-      </TouchableWithoutFeedback>
-
-      {/* Contenedor del bottom sheet */}
-      <Animated.View
-        style={[styles.keyboardAvoid, { paddingBottom: keyboardHeight }]}
-        pointerEvents="box-none"
-      >
-        <AnimatedReanimated.View
-          style={[
-            styles.sheetContainer,
-            {
-              paddingBottom: insets.bottom + 20,
-            },
-            customColorMode && { minHeight: 560 },
-            sheetAnimatedStyle,
-          ]}
-        >
-          <GestureDetector gesture={handlePanGesture}>
-            <View style={styles.handleContainer}>
-              <View style={styles.dragIndicator} />
-            </View>
-          </GestureDetector>
-
+  const content = (
+    <>
           <View style={styles.header}>
             <Text style={[styles.headerTitle, { color: colors.accent }]} numberOfLines={1}>
               {t('tags.manager')}
@@ -323,7 +290,7 @@ export default function TagFormModal() {
           </View>
 
           {customColorMode && (
-            <View style={styles.colorPickerOverlay}>
+            <View style={[styles.colorPickerOverlay, embedded && { position: "relative", bottom: 0, left: 0, right: 0 }]}>
               {/* Header: preview dot + hex label */}
               <View style={styles.pickerHeader}>
                 <View
@@ -401,13 +368,54 @@ export default function TagFormModal() {
               {tag ? t('actions.save_changes') : t('tags.create_tag')}
             </Text>
           </TouchableOpacity>
+    </>
+  );
+  if (embedded) return isVisible ? content : null;
+
+  return (
+    <View
+      style={[styles.containerAbsolute, { zIndex: 10000 }]}
+      pointerEvents={isVisible ? "auto" : "none"}
+    >
+      {/* Fondo oscuro animado */}
+      <TouchableWithoutFeedback
+        onPress={() => {
+          Keyboard.dismiss();
+          closeForm();
+        }}
+      >
+        <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
+      </TouchableWithoutFeedback>
+
+      {/* Contenedor del bottom sheet */}
+      <Animated.View
+        style={[styles.keyboardAvoid, { paddingBottom: keyboardHeight }]}
+        pointerEvents="box-none"
+      >
+        <AnimatedReanimated.View
+          style={[
+            styles.sheetContainer,
+            {
+              paddingBottom: insets.bottom + 20,
+            },
+            customColorMode && { minHeight: 560 },
+            sheetAnimatedStyle,
+          ]}
+        >
+          <GestureDetector gesture={handlePanGesture}>
+            <View style={styles.handleContainer}>
+              <View style={styles.dragIndicator} />
+            </View>
+          </GestureDetector>
+
+          {content}
         </AnimatedReanimated.View>
       </Animated.View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useAppTheme>['colors']) => StyleSheet.create({
   containerAbsolute: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -417,16 +425,18 @@ const styles = StyleSheet.create({
   },
   keyboardAvoid: {
     flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    ...(Platform.OS === 'web' ? { alignItems: 'center' as const } : {}),
   },
   sheetContainer: {
-    backgroundColor: "#121212",
+    ...(Platform.OS === 'web' ? { width: '100%' as const, maxWidth: 560, borderRadius: 20 } : {}),
+    backgroundColor: colors.sheetBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
     maxHeight: SCREEN_HEIGHT * 0.85,
     borderTopWidth: 1,
-    borderColor: "#282828",
+    borderColor: colors.border,
   },
   handleContainer: {
     width: "100%",
@@ -484,7 +494,7 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     zIndex: 999,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: colors.inputBackground,
     padding: 15,
     borderRadius: 16,
     alignItems: "center",
@@ -545,7 +555,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.1 }],
   },
   input: {
-    backgroundColor: "#1A1A1A",
+    backgroundColor: colors.inputBackground,
     borderRadius: 12,
     height: 48,
     color: "#FFFFFF",

@@ -1,3 +1,4 @@
+import i18n from '../../constants/i18n';
 // src/components/MiniPlayer.tsx
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +24,7 @@ import { usePlaybackState } from '../../hooks/usePlaybackState';
 import { openClearQueueSheet } from '../../store/useUIStore';
 import BlurredBackground from '@/components/layouts/BlurredBackground';
 import PlayPauseButton from '@/components/common/PlayPauseButton';
-import { extractColorFromImage } from '../../../modules/native-equalizer';
+import { useAlbumCoverColor } from '../../hooks/useAlbumCoverColor';
 
 // Helper functions for hex color conversions and dark overlay generation
 const hexToHsl = (hex: string): { h: number, s: number, l: number } => {
@@ -91,32 +92,7 @@ const MiniPlayerBackground = withObservables(['track'], ({ track }: { track: any
     album: track.album.observe().pipe(catchError(() => of(null))),
 }))(({ album }: { album: Album | null }) => {
     const { colors } = useAppTheme();
-    const [coverColor, setCoverColor] = React.useState<string | null>(null);
-
-    React.useEffect(() => {
-        let isMounted = true;
-        if (!album?.coverUrl) {
-            setCoverColor(null);
-            return;
-        }
-
-        extractColorFromImage(album.coverUrl)
-            .then(color => {
-                if (isMounted) {
-                    setCoverColor(color);
-                }
-            })
-            .catch(err => {
-                console.error("Error extracting cover color in MiniPlayer:", err);
-                if (isMounted) {
-                    setCoverColor(null);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [album?.coverUrl]);
+    const coverColor = useAlbumCoverColor(album?.coverUrl, album);
 
     const overlayColors = React.useMemo(() => {
         if (coverColor) {
@@ -322,7 +298,7 @@ const MiniPlayerUI = ({ track, album, artist, artists, onPress }: MiniPlayerUIPr
                                 <View style={styles.info}>
                                     <Text style={styles.title} numberOfLines={1}>{track.title}</Text>
                                     <Text style={styles.artist} numberOfLines={1}>
-                                        {artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || 'Artista Desconocido')}
+                                        {artists && artists.length > 0 ? artists.map(a => a.name).join(', ') : (artist?.name || i18n.t('metadata.unknown_artist'))}
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -412,7 +388,7 @@ const getStyles = (
     artist: { color: colors.textSecondary, fontSize: 12, fontFamily: fonts.regular, fontWeight: fontWeights.bold, marginTop: 2 },
     playPauseButton: { padding: spacing.xs || 4 },
     progressContainer: { width: '100%', height: 2.5, backgroundColor: colors.overlayAlpha15, position: 'absolute', bottom: 0 },
-    progressIndicator: { height: '100%', backgroundColor: colors.text },
+    progressIndicator: { height: '100%', backgroundColor: colors.tint },
 });
 
 export default MiniPlayer;

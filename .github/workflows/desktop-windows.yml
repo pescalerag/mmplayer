@@ -1,0 +1,81 @@
+name: Desktop Windows beta
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ''
+      signed:
+        type: boolean
+        default: false
+      unsignedBeta:
+        type: boolean
+        default: false
+    secrets:
+      WINDOWS_CERTIFICATE:
+        required: false
+      WINDOWS_CERTIFICATE_PASSWORD:
+        required: false
+permissions:
+  contents: read
+jobs:
+  desktop:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run desktop:typecheck
+      - run: npm run desktop:test:beta
+      - name: Build unsigned local test installer
+        if: ${{ !inputs.signed && !inputs.unsignedBeta }}
+        run: npm run desktop:installer:preview
+      - name: Build explicitly unsigned public beta
+        if: ${{ inputs.unsignedBeta }}
+        run: npm run desktop:installer:beta
+      - name: Build signed beta
+        if: ${{ inputs.signed }}
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: npm run desktop:installer
+      - name: Verify package and installer lifecycle
+        shell: pwsh
+        run: |
+          if ('${{ inputs.signed }}' -eq 'true') {
+            npm run test:package --workspace=@mmplayer/desktop -- --installer --require-signed
+          } elseif ('${{ inputs.unsignedBeta }}' -eq 'true') {
+            npm run test:package --workspace=@mmplayer/desktop -- --installer --unsigned-beta
+          } else {
+            npm run test:package --workspace=@mmplayer/desktop -- --installer
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: mmplayer-windows-beta
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/SHA256SUMS*.txt
+            apps/desktop/release/package-test-report.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-test-evidence
+          path: |
+            .tmp/desktop-sheets/**/report.json
+            .tmp/desktop-sheets/**/*.png
+            .tmp/desktop-electron-test/**/smoke*.png
+          retention-days: 14

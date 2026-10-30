@@ -1,3 +1,4 @@
+import { CrossfadeService } from './CrossfadeService';
 import CastContext, {
     CastSession,
     MediaStreamType,
@@ -53,6 +54,7 @@ export const ChromecastService = {
                 }
 
                 useCastStore.getState().setChromecastConnected(true, deviceName, session);
+                await CrossfadeService.flush();
                 useToastStore.getState().showToast(
                     i18n.t('toasts.chromecast_connected', { deviceName }),
                     'tv-outline',
@@ -79,6 +81,8 @@ export const ChromecastService = {
                                     if (loadInitialTrackFn) {
                                         loadInitialTrackFn();
                                     }
+                                } else if (data?.action === 'TIMESTAMP_SKIPPED' && Number.isFinite(data.position) && data.position >= 0) {
+                                    void this.syncTimestampJump(data.trackId, data.position).catch(console.error);
                                 } else if (data?.action === 'TRACK_ENDED' || data?.action === 'NEXT_TRACK') {
                                     const now = Date.now();
                                     if (now - lastSkipTime > 2000) {
@@ -263,6 +267,15 @@ export const ChromecastService = {
         }
     },
 
+    async updateTimestamps(config: import('../utils/trackTimestamps').SkipConfig, trackId?: string): Promise<void> {
+        if (!useCastStore.getState().isChromecastConnected) return;
+        try {
+            const session = await CastContext.getSessionManager().getCurrentCastSession();
+            const channel = activeCastChannel || await session?.addChannel(CAST_NAMESPACE);
+            await channel?.sendMessage({ action: 'UPDATE_TIMESTAMPS', skipConfig: config, trackId });
+        } catch (error) { console.warn('[Chromecast] Could not update timestamps:', error); }
+    },
+
     async sendLyricsUpdate(lyricsLRC: string): Promise<void> {
         try {
             if (activeCastChannel) {
@@ -322,8 +335,9 @@ export const ChromecastService = {
 
             let cleanCoverUrl: string | null = null;
             let lyricsLRC: string | null = null;
-            let title = track.title || 'Desconocido';
-            let artist = track.artist || 'Desconocido';
+            let skipConfig = { enabled: true, segments: [] } as import('../utils/trackTimestamps').SkipConfig;
+            let title = track.title || i18n.t('actions.unknown');
+            let artist = track.artist || i18n.t('actions.unknown');
             let albumTitle = track.album || track.albumTitle || '';
 
             const cleanId = track.id ? track.id.toString().split('-')[0] : '';
@@ -332,6 +346,11 @@ export const ChromecastService = {
                     const trackModel = await database.get<Track>('tracks').find(cleanId);
                     if (trackModel) {
                         lyricsLRC = trackModel.lyricsLRC || null;
+                        const { parseSkipConfig } = await import('../utils/trackTimestamps');
+                        const { useTimestampStore } = await import('../store/useTimestampStore');
+                        const timestamps = useTimestampStore.getState();
+                        skipConfig = parseSkipConfig(trackModel.skipSegments, trackModel.duration * 1000);
+                        if (timestamps.previewTrackId === cleanId) skipConfig = timestamps.previewConfig ?? { enabled: false, segments: [] };
                         title = trackModel.title || title;
                         const albumModel = await trackModel.album.fetch().catch(() => null);
                         if (albumModel) {
@@ -365,6 +384,7 @@ export const ChromecastService = {
                 customData: {
                     serverUrl: baseUrl,
                     lyricsLRC: lyricsLRC || null,
+                    skipConfig, trackId: cleanId,
                 },
                 mediaInfo: {
                     contentId: cleanAudioUrl,
@@ -374,6 +394,7 @@ export const ChromecastService = {
                     customData: {
                         serverUrl: baseUrl,
                         lyricsLRC: lyricsLRC || null,
+                        skipConfig, trackId: cleanId,
                     },
                     metadata: {
                         type: 'musicTrack' as const,
@@ -442,11 +463,21 @@ export const ChromecastService = {
         }
     },
 
-    async seekTo(position: number): Promise<void> {
+    async syncTimestampJump(trackId: string, position: number): Promise<void> {
+        const track = await TrackPlayer.getActiveTrack();
+        if (!track || String(track.id).split('-')[0] !== trackId || position >= (track.duration || 0)) return;
+        const { syncNativeTimestampSeek } = await import('./TrackPlayerFade');
+        await syncNativeTimestampSeek(position);
+    },
+
+    async seekTo(position: number, automatic = false): Promise<void> {
         try {
             const session = await CastContext.getSessionManager().getCurrentCastSession();
             if (session?.client) {
-                await session.client.seek({ position });
+                if (automatic) {
+                    const channel = activeCastChannel || await session.addChannel(CAST_NAMESPACE);
+                    await channel?.sendMessage({ action: 'TIMESTAMP_SEEK', position });
+                } else await session.client.seek({ position });
             }
         } catch (e) {
             console.error('[ChromecastService] seek error:', e);

@@ -1,0 +1,12 @@
+{
+  "name": "@mmplayer/ui",
+  "version": "3.0.0",
+  "private": true,
+  "exports": {
+    "./SectionHeader": "./src/SectionHeader.tsx"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0",
+    "react-native": "^0.81.5"
+  }
+}

@@ -2,7 +2,7 @@ import TrackPlayer, { Event, Track } from 'react-native-track-player';
 import { QueueActionsService } from '../services/QueueActionsService';
 import { usePlayerStore } from '../store/usePlayerStore';
 import {
-    refreshQueueSnapshot, setQueueSnapshot, subscribeToQueueSnapshot, useQueueSnapshotStore,
+    beginQueueMutation, refreshQueueSnapshot, setQueueSnapshot, subscribeToQueueSnapshot, useQueueSnapshotStore,
 } from '../store/useQueueSnapshotStore';
 
 jest.mock('../store/usePlayerStore', () => ({
@@ -72,6 +72,27 @@ describe('QueueSheet responsiveness and reconciliation', () => {
         await settle();
         stop?.();
         stop = undefined;
+    });
+
+    it('suppresses intermediate reset reads and publishes a replaced queue only once', async () => {
+        stop = subscribeToQueueSnapshot();
+        await settle();
+        (TrackPlayer.getQueue as jest.Mock).mockClear();
+        const published = jest.fn();
+        const unsubscribe = useQueueSnapshotStore.subscribe(published);
+        const finish = beginQueueMutation();
+        listener({ track: undefined, index: undefined });
+        listener({ track: { id: 'new' }, index: 0 });
+        await refreshQueueSnapshot();
+        expect(TrackPlayer.getQueue).not.toHaveBeenCalled();
+        expect(published).not.toHaveBeenCalled();
+        finish();
+        const nextQueue = [{ id: 'new', url: 'new.mp3' }];
+        setQueueSnapshot(nextQueue, 0);
+        setQueueSnapshot(nextQueue, 0);
+        expect(published).toHaveBeenCalledTimes(1);
+        expect(ids()).toEqual(['new']);
+        unsubscribe();
     });
 
     it('uses event data immediately and ignores an old initial read on reopening', async () => {

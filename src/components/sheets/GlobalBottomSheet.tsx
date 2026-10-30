@@ -1,3 +1,5 @@
+import { useColorPickerModalStore } from '../../store/useColorPickerModalStore';
+import QueueDestinationSheet from './QueueDestinationSheet';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useRef, useState } from 'react';
@@ -14,6 +16,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { sheetTransition } from '../../utils/sheetTransition';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SheetType, useUIStore } from '../../store/useUIStore';
 import { useTagFormStore } from '@/store/useTagFormStore';
@@ -57,9 +60,14 @@ export default function GlobalBottomSheet() {
 
   const activeSheet = useUIStore((state) => state.activeSheet);
   const closeSheet = useUIStore((state) => state.closeSheet);
+  const isColorPickerOpen = useColorPickerModalStore(state => state.request !== null);
   const isTagFormOpen = useTagFormStore((state) => state.isVisible);
 
   const [renderedSheet, setRenderedSheet] = useState<SheetType | null>(null);
+  const finishClosing = React.useCallback((sheet: SheetType | null) => {
+    setRenderedSheet(null);
+    if (sheet) sheetTransition.complete(sheet);
+  }, []);
 
   const effectiveSheet = activeSheet === 'queue' ? null : activeSheet;
   const isVisible = effectiveSheet !== null;
@@ -78,7 +86,7 @@ export default function GlobalBottomSheet() {
   const isNonDraggable = renderedSheet === 'notification-settings';
 
   const handlePanGesture = Gesture.Pan()
-    .enabled(!isTagFormOpen && !isNonDraggable)
+    .enabled(!isTagFormOpen && !isColorPickerOpen && !isNonDraggable)
     .activeOffsetY(5)
     .onUpdate((event) => {
       if (event.translationY > 0) {
@@ -107,9 +115,10 @@ export default function GlobalBottomSheet() {
   // Track activeSheet changes to handle mount/unmount and transitions
   useEffect(() => {
     if (effectiveSheet) {
+      sheetTransition.cancel();
       setRenderedSheet(effectiveSheet);
-      if (Platform.OS === 'android') {
-        NavigationBar.setBackgroundColorAsync('#121212').catch(() => { });
+      if (Platform.OS === 'android' && !useColorPickerModalStore.getState().request) {
+        NavigationBar.setBackgroundColorAsync(colors.sheetBackground).catch(() => { });
       }
       dragTranslateY.value = 0;
       slideTranslateY.value = withSpring(0, { damping: 22, stiffness: 220, mass: 0.8 });
@@ -126,22 +135,23 @@ export default function GlobalBottomSheet() {
       }).start();
       slideTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, (finished) => {
         if (finished) {
-          scheduleOnRN(setRenderedSheet, null);
+          scheduleOnRN(finishClosing, renderedSheet);
         }
       });
     }
-  }, [effectiveSheet, fadeAnim, slideTranslateY, dragTranslateY]);
+  }, [effectiveSheet, fadeAnim, slideTranslateY, dragTranslateY, colors.sheetBackground]);
 
   // Handle hardware back press on Android
   useEffect(() => {
-    if (!isVisible || isTagFormOpen) return;
+    if (!isVisible || isTagFormOpen || isColorPickerOpen) return;
     const onBackPress = () => {
+      if (Keyboard.isVisible()) { Keyboard.dismiss(); return true; }
       closeSheet();
       return true;
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [isVisible, isTagFormOpen, closeSheet]);
+  }, [isVisible, isTagFormOpen, isColorPickerOpen, closeSheet]);
 
   // Handle Keyboard height changes for input forms
   useEffect(() => {
@@ -174,6 +184,8 @@ export default function GlobalBottomSheet() {
 
   const renderContent = () => {
     switch (renderedSheet) {
+      case 'queue-destination':
+        return <QueueDestinationSheet />;
       case 'track-menu':
         return <TrackMenuSheet />;
       case 'lyrics-menu':
@@ -301,7 +313,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.sheetBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 14,

@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
 import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
     size?: number;
@@ -12,25 +13,26 @@ interface Props {
 }
 
 export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, iconType = 'normal' }: Readonly<Props>) {
+    const { t } = useTranslation();
     const playbackState = usePlaybackState();
     const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
-    const isTogglingRef = useRef(false);
+    const requestedPlaying = useRef<boolean | null>(null);
+    const requestVersion = useRef(0);
 
     const togglePlayback = async () => {
-        if (isTogglingRef.current) return;
-        isTogglingRef.current = true;
+        const nextPlaying = !(requestedPlaying.current ?? isPlaying);
+        requestedPlaying.current = nextPlaying;
+        const version = ++requestVersion.current;
         try {
-            if (isPlaying) {
-                await TrackPlayer.pause();
-            } else {
+            if (nextPlaying) {
                 await TrackPlayer.play();
+            } else {
+                await TrackPlayer.pause();
             }
         } catch (e) {
             console.error('❌ [PlayPauseButton] Error alternando estado:', e);
         } finally {
-            setTimeout(() => {
-                isTogglingRef.current = false;
-            }, 120);
+            if (version === requestVersion.current) requestedPlaying.current = null;
         }
     };
 
@@ -42,7 +44,7 @@ export default function PlayPauseButton({ size = 32, color = '#FFFFFF', style, i
     }
 
     return (
-        <TouchableOpacity onPress={togglePlayback} style={style}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t(isPlaying ? 'actions.pause' : 'actions.play')} onPress={togglePlayback} style={style}>
             <Ionicons name={iconName as any} size={size} color={color} />
         </TouchableOpacity>
     );

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Animated, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { ScannerService } from '../../services/ScannerService';
@@ -24,6 +24,8 @@ export default function SettingsAudioScreen() {
         setPreampLevel,
         fallbackGainDB,
         setFallbackGain,
+        crossfadeSeconds,
+        setCrossfadeSeconds,
         isFadeEnabled,
         setIsFadeEnabled,
         isEqualizerEnabled,
@@ -34,6 +36,8 @@ export default function SettingsAudioScreen() {
         setQueueAddBehavior,
     } = useSettingsStore();
 
+    const [crossfadeDraft, setCrossfadeDraft] = useState(crossfadeSeconds);
+    useEffect(() => { setCrossfadeDraft(crossfadeSeconds); }, [crossfadeSeconds]);
     const [bandFreqs, setBandFreqs] = useState<number[]>([]);
     const [bandRange, setBandRange] = useState<{ min: number; max: number }>({ min: -1500, max: 1500 });
     const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -164,6 +168,24 @@ export default function SettingsAudioScreen() {
                         </View>
 
                         <View style={styles.separator} />
+
+                        {(Platform.OS === 'android' || Platform.OS === 'web') && <>
+                            <View style={{ marginVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={styles.settingLabel}>{t('settings.crossfade')}</Text>
+                                    <Text style={[styles.settingLabel, { color: colors.accent }]}>
+                                        {crossfadeDraft > 0 ? t('settings.crossfade_seconds', { count: crossfadeDraft }) : t('settings.crossfade_off')}
+                                    </Text>
+                                </View>
+                                <Text style={styles.settingDescription}>{t('settings.crossfade_desc')}</Text>
+                                <Slider minimumValue={0} maximumValue={12} step={1} value={crossfadeDraft} onValueChange={setCrossfadeDraft}
+                                    onSlidingComplete={setCrossfadeSeconds}
+                                    accessibilityLabel={t('settings.crossfade')}
+                                    minimumTrackTintColor={colors.accent} maximumTrackTintColor="#282828" thumbTintColor="#FFFFFF"
+                                    style={{ width: '100%', height: 40, marginTop: 8 }} />
+                            </View>
+                            <View style={styles.separator} />
+                        </>}
 
                         <TouchableOpacity
                             style={[styles.buttonRow, isScanning && { opacity: 0.5 }]}

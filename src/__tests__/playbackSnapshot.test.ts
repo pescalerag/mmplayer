@@ -16,6 +16,21 @@ jest.mock('react-native-track-player', () => ({
 const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
 describe('event-driven player metadata', () => {
+    it('publishes a verified restored track without another native read, rejecting an older pending read', async () => {
+        let finish!: (track: any) => void;
+        (TrackPlayer.getActiveTrack as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const dispose = subscribeToPlaybackSnapshot();
+        const reads = (TrackPlayer.getActiveTrack as jest.Mock).mock.calls.length;
+        await refreshPlaybackSnapshot({ id: 'restored-instance', url: 'restored.mp3', artwork: 'restored-cover' });
+        expect(TrackPlayer.getActiveTrack).toHaveBeenCalledTimes(reads);
+        finish({ id: 'old-instance', artwork: 'old-cover' });
+        await settle();
+        expect(usePlaybackSnapshotStore.getState()).toEqual({ trackId: 'restored', artwork: 'restored-cover' });
+        await refreshPlaybackSnapshot(null);
+        expect(usePlaybackSnapshotStore.getState()).toEqual({ trackId: null, artwork: null });
+        expect(TrackPlayer.getActiveTrack).toHaveBeenCalledTimes(reads);
+        dispose();
+    });
     let onTrack: (event: any) => void;
     const remove = jest.fn();
     beforeEach(() => {

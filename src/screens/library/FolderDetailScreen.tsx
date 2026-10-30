@@ -1,3 +1,5 @@
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu, openFolderMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -8,15 +10,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { FlashList } from '@shopify/flash-list';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    ActivityIndicator,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +19,7 @@ import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
 import Album from '../../database/models/Album';
@@ -46,7 +42,7 @@ const TRACKS_PREVIEW = 10;
 const FolderTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function FolderTrackRow({
     track,
     album,
@@ -181,7 +177,7 @@ const FolderHeader = memo(function FolderHeader({
     };
 
     const handleAlbumPress = useCallback((album: Album) => {
-        navigation.navigate('AlbumDetail', { albumId: album.id });
+        navigation.navigate('AlbumDetail', { albumId: album.id }, { pop: true });
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
@@ -236,11 +232,9 @@ const FolderHeader = memo(function FolderHeader({
                             <ActivityIndicator color={colors.accent} />
                         </View>
                     ) : (
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.albumsScroll}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {(showAllAlbums ? albums : albums.slice(0, ALBUMS_PREVIEW)).map((album: Album) => (
                                 <AlbumCardWithNav
@@ -250,7 +244,7 @@ const FolderHeader = memo(function FolderHeader({
                                     onLongPress={handleAlbumLongPress}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     )}
                 </View>
             )}
@@ -418,10 +412,13 @@ function FolderDetailContentBase({ folderPath, folderName: passedFolderName, raw
 }
 
 const EnhancedFolderDetailContent = withObservables(['folderPath'], ({ folderPath }: { folderPath: string }) => ({
-    rawTracks: database.collections.get<Track>('tracks')
-        .query(Q.where('file_url', Q.like(`${folderPath}%`)))
-        .observe(),
-}))(FolderDetailContentBase);
+    data: observeScreenData(() => database.collections.get<Track>('tracks')
+        .query(Q.where('file_url', Q.like(`${folderPath}%`))).observeWithColumns(['title', 'duration', 'rating', 'file_url'])),
+}))(function LoadedFolderDetail({ data, folderPath, folderName }: { data?: Track[]; folderPath: string; folderName: string }) {
+    return <InvisibleScreenContent ready={!!data}>
+        <FolderDetailContentBase rawTracks={data ?? []} folderPath={folderPath} folderName={folderName} isLoadingContent={!data} />
+    </InvisibleScreenContent>;
+});
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 export default function FolderDetailScreen() {
@@ -432,7 +429,6 @@ export default function FolderDetailScreen() {
         <EnhancedFolderDetailContent
             folderPath={folderPath}
             folderName={folderName}
-            isLoadingContent={false}
         />
     );
 }

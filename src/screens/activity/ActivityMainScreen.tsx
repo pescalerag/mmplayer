@@ -62,7 +62,8 @@ export default function ActivityMainScreen() {
   const activeMetricRef = useRef(metric);
   activeMetricRef.current = metric;
 
-  const { hasSeenActivityTutorial, setHasSeenActivityTutorial } = useSettingsStore();
+  const hasSeenActivityTutorial = useSettingsStore(state => state.hasSeenActivityTutorial);
+  const setHasSeenActivityTutorial = useSettingsStore(state => state.setHasSeenActivityTutorial);
 
   const loadingSetterRef = useRef<(l: boolean) => void>(() => {});
   const handleDateLoadingChange = useCallback((loading: boolean) => {
@@ -157,13 +158,13 @@ export default function ActivityMainScreen() {
 
   const handleArtistPress = useCallback(() => {
     if (stats.topArtistId) {
-      navigation.navigate('ArtistDetail', { artistId: stats.topArtistId });
+      navigation.navigate('ArtistDetail', { artistId: stats.topArtistId }, { pop: true });
     }
   }, [navigation, stats.topArtistId]);
 
   const handleAlbumPress = useCallback(() => {
     if (stats.topAlbumId) {
-      navigation.navigate('AlbumDetail', { albumId: stats.topAlbumId });
+      navigation.navigate('AlbumDetail', { albumId: stats.topAlbumId }, { pop: true });
     }
   }, [navigation, stats.topAlbumId]);
 
@@ -203,21 +204,21 @@ export default function ActivityMainScreen() {
 
   const handleAlbumSelect = useCallback(
     (id: string) => {
-      navigation.navigate('AlbumDetail', { albumId: id });
+      navigation.navigate('AlbumDetail', { albumId: id }, { pop: true });
     },
     [navigation]
   );
 
   const handleArtistSelect = useCallback(
     (id: string) => {
-      navigation.navigate('ArtistDetail', { artistId: id });
+      navigation.navigate('ArtistDetail', { artistId: id }, { pop: true });
     },
     [navigation]
   );
 
   const handleSmartListPress = useCallback(
     (id: string) => {
-      navigation.navigate('SmartListDetail', { smartListId: id });
+      navigation.navigate('SmartListDetail', { smartListId: id }, { pop: true });
     },
     [navigation]
   );

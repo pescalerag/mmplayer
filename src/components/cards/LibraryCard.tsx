@@ -2,8 +2,10 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuPressable as Pressable } from '@/components/common/ContextMenuTouchables';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLibraryGridLayout } from '../../hooks/useScreenWidth';
 
 interface LibraryCardProps {
     readonly title: string;
@@ -24,8 +26,9 @@ const { width } = Dimensions.get('window');
 const cardWidth = (width - 70) / 3;
 
 export default function LibraryCard({ title, subtitle, duration, imageUrl, placeholderIcon, onPress, onLongPress, isPinned, smartListId, footer }: Readonly<LibraryCardProps>) {
+    const { cardWidth } = useLibraryGridLayout();
     const { colors, fonts, layout } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, cardWidth), [colors, fonts, layout, cardWidth]);
     const [imageError, setImageError] = useState(false);
 
     // Reiniciar error cuando cambie la URL de la imagen
@@ -62,9 +65,17 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
 
     return (
         <Pressable
+            testID="library-card"
             style={({ pressed }) => [styles.card, { opacity: pressed ? 0.7 : 1 }]}
             onPress={onPress}
             onLongPress={onLongPress}
+            // @ts-ignore - Web context menu triggers long press for right-click on desktop
+            onContextMenu={(e: any) => {
+                if (onLongPress) {
+                    e?.preventDefault?.();
+                    onLongPress();
+                }
+            }}
         >
             <View style={styles.imageContainer}>
                 {showImage && imageSource ? (
@@ -109,7 +120,7 @@ export default function LibraryCard({ title, subtitle, duration, imageUrl, place
     );
 }
 
-const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, cardWidth: number) => StyleSheet.create({
     card: {
         width: cardWidth,
         marginBottom: 20,

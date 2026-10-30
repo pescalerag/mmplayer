@@ -6,9 +6,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.BitmapFactory
-import android.net.Uri
-import androidx.palette.graphics.Palette
+import android.graphics.Shader
+import android.graphics.LinearGradient
+import android.graphics.SweepGradient
 import android.media.audiofx.Visualizer
 import android.util.Log
 import android.view.Choreographer
@@ -24,7 +24,16 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     private var active = false
     private var typeStr = "bars"
     private var isCoverMode = false
-    private var coverUrl: String? = null
+    private var isRainbowMode = false
+    private var rainbowLinear: Shader? = null
+    private var rainbowCircle: Shader? = null
+    private var rainbowWidth = 0
+    private var rainbowHeight = 0
+    private val rainbowColors = intArrayOf(
+        Color.rgb(255, 69, 69), Color.rgb(255, 170, 51), Color.rgb(255, 235, 59),
+        Color.rgb(74, 222, 128), Color.rgb(56, 189, 248), Color.rgb(167, 139, 250),
+        Color.rgb(255, 69, 69)
+    )
     private var coverColor: Int? = null
     private val defaultColor = Color.parseColor("#8B5CF6")
 
@@ -55,6 +64,15 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
     }
 
     fun setColor(hexOrRgba: String) {
+        isRainbowMode = hexOrRgba == "rainbow"
+        paint.shader = null
+        if (isRainbowMode) {
+            isCoverMode = false
+            paint.color = Color.WHITE
+            updateRainbowShaders()
+            invalidate()
+            return
+        }
         if (hexOrRgba == "cover") {
             isCoverMode = true
             paint.color = coverColor ?: defaultColor
@@ -69,68 +87,23 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
         invalidate()
     }
 
-    fun setCoverUrl(url: String?) {
-        if (url == coverUrl) return
-        coverUrl = url
-        coverColor = null
-        
-        if (url.isNullOrEmpty()) {
-            if (isCoverMode) {
-                paint.color = defaultColor
-                invalidate()
+    // Use the album's persisted color instead of decoding artwork in every view.
+    fun setCoverColor(color: String?) {
+        coverColor = try {
+            if (color.isNullOrEmpty()) null else {
+                val hsl = FloatArray(3)
+                androidx.core.graphics.ColorUtils.colorToHSL(Color.parseColor(color), hsl)
+                if (hsl[2] < 0.45f) hsl[2] = 0.65f
+                if (hsl[1] < 0.25f) hsl[1] = 0.65f
+                androidx.core.graphics.ColorUtils.HSLToColor(hsl)
             }
-            return
+        } catch (_: Exception) {
+            null
         }
-        
-        Thread {
-            try {
-                val bitmap = if (url.startsWith("content://")) {
-                    val uri = Uri.parse(url)
-                    context.contentResolver.openInputStream(uri).use { inputStream ->
-                        BitmapFactory.decodeStream(inputStream)
-                    }
-                } else {
-                    val cleanPath = url.removePrefix("file://")
-                    BitmapFactory.decodeFile(cleanPath)
-                }
-
-                if (bitmap != null) {
-                    Palette.from(bitmap).generate { palette ->
-                        val extractedColor = palette?.getDominantColor(defaultColor)
-                            ?: palette?.getVibrantColor(defaultColor)
-                            ?: defaultColor
-                        
-                        // Ensure the color has enough contrast and is bright/vibrant
-                        val hsl = FloatArray(3)
-                        androidx.core.graphics.ColorUtils.colorToHSL(extractedColor, hsl)
-                        if (hsl[2] < 0.45f) {
-                            hsl[2] = 0.65f // Boost lightness
-                        }
-                        if (hsl[1] < 0.25f) {
-                            hsl[1] = 0.65f // Boost saturation
-                        }
-                        val adjustedColor = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
-                        
-                        coverColor = adjustedColor
-                        
-                        post {
-                            if (isCoverMode) {
-                                paint.color = adjustedColor
-                                invalidate()
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error extracting color from cover: ${e.message}", e)
-                post {
-                    if (isCoverMode) {
-                        paint.color = defaultColor
-                        invalidate()
-                    }
-                }
-            }
-        }.start()
+        if (isCoverMode) {
+            paint.color = coverColor ?: defaultColor
+            invalidate()
+        }
     }
 
     private fun resolveColor(color: String): Int {
@@ -181,7 +154,18 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        if (isRainbowMode) updateRainbowShaders()
         Log.d(TAG, "onSizeChanged: ${w}x${h}")
+    }
+
+    // Reuse native gradients across frames; no color timers or JS updates.
+    private fun updateRainbowShaders() {
+        if (width <= 0 || height <= 0) return
+        if (rainbowLinear != null && rainbowWidth == width && rainbowHeight == height) return
+        rainbowWidth = width
+        rainbowHeight = height
+        rainbowLinear = LinearGradient(0f, 0f, width.toFloat(), 0f, rainbowColors, null, Shader.TileMode.CLAMP)
+        rainbowCircle = SweepGradient(width / 2f, height / 2f, rainbowColors, null)
     }
 
     private fun hasAudioPermission(): Boolean {
@@ -302,12 +286,19 @@ class NativeVisualizerView(context: Context, appContext: AppContext) : ExpoView(
         if (w <= 0 || h <= 0) return
 
         if (!hasAudioPermission()) {
+            val originalColor = paint.color
+            paint.shader = null
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = 2f
             paint.color = Color.parseColor("#444444")
             canvas.drawLine(0f, h / 2, w, h / 2, paint)
+            paint.color = originalColor
             return
         }
+
+        paint.shader = if (isRainbowMode) {
+            if (typeStr == "circle") rainbowCircle else rainbowLinear
+        } else null
 
         if (captureListener == null && active) {
             attachToSharedVisualizer()

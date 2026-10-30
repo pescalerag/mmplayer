@@ -23,6 +23,7 @@ export default class Track extends Model {
     @field('replay_gain') replayGain: number | null;
     @field('replay_peak') replayPeak: number | null;
     @field('lyrics_lrc') lyricsLRC: string | null;
+    @text('skip_segments') skipSegments: string | null;
     @field('lyrics_fetch_failed') lyricsFetchFailed: boolean;
     @text('bg_video') bgVideo: string | null;
     @field('rating') rating: number | null;

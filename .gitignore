@@ -19,6 +19,7 @@ expo-env.d.ts
 *.jks
 *.p8
 *.p12
+*.pfx
 *.key
 *.mobileprovision
 android/
@@ -61,9 +62,12 @@ error.log
 *.tsbuildinfo
 
 # Build artifacts
+.tmp/
 *.tgz
 coverage/
 build/
+apps/desktop/release/
+.android-auto-debug/
 
 # Documentation
 react-native-track-player-api/

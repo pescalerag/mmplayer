@@ -1,8 +1,11 @@
+import { summarizeTrackRatings } from '../../utils/trackRatings';
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openPlaylistMenu, openPlaylistSelectorEdit } from '@/store/useUIStore';
 import { Ionicons } from "@expo/vector-icons";
 import { Q } from "@nozbe/watermelondb";
 import withObservables from "@nozbe/with-observables";
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -55,7 +58,7 @@ const PlaylistTrackRowWithMetadata = withObservables(
   ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
   }),
 )(function PlaylistTrackRowWithMetadata({
   track,
@@ -132,7 +135,7 @@ const ReorderTrackRowWithMetadata = withObservables(
   ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
   }),
 )(function ReorderTrackRowWithMetadata({
   track,
@@ -239,8 +242,9 @@ function PlaylistDetailContent({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
-  const [resolvedItems, setResolvedItems] = useState<{ track: Track; playlistTrackId: string }[]>([]);
+  const [trackModels, setTrackModels] = useState<Track[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(true);
+  const [hasLoadedTracks, setHasLoadedTracks] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [localPlaylistTracks, setLocalPlaylistTracks] = useState<PlaylistTrack[]>(playlistTracks);
   const excludedSongs = useSettingsStore((state) => state.excludedSongs);
@@ -270,28 +274,27 @@ function PlaylistDetailContent({
     }
   }, [canReorder, isReorderMode]);
 
-  // Resolve Track records from PlaylistTrack relation
+  const trackIdKey = React.useMemo(() => JSON.stringify([...new Set(localPlaylistTracks.map(item => item.track.id as string))].sort((a, b) => a.localeCompare(b))), [localPlaylistTracks]);
   useEffect(() => {
-    let isMounted = true;
-    const loadTracks = async () => {
-      setLoadingTracks(true);
-      try {
-        const validItems = await PlaylistService.resolvePlaylistTracks(localPlaylistTracks);
+    const ids: string[] = JSON.parse(trackIdKey);
+    setLoadingTracks(true);
+    if (!ids.length) { setTrackModels([]); setLoadingTracks(false); setHasLoadedTracks(true); return; }
+    const subscription = database.get<Track>('tracks').query(Q.where('id', Q.oneOf(ids)))
+      .observeWithColumns(['rating', 'duration', 'file_url'])
+      .subscribe({
+        next: models => { setTrackModels([...models]); setLoadingTracks(false); setHasLoadedTracks(true); },
+        error: error => { console.error('Error loading playlist tracks:', error); setLoadingTracks(false); setHasLoadedTracks(true); },
+      });
+    return () => subscription.unsubscribe();
+  }, [trackIdKey]);
 
-        if (isMounted) {
-          setResolvedItems(validItems);
-          setLoadingTracks(false);
-        }
-      } catch (err) {
-        console.error("Error loading playlist tracks:", err);
-        if (isMounted) setLoadingTracks(false);
-      }
-    };
-    loadTracks();
-    return () => {
-      isMounted = false;
-    };
-  }, [localPlaylistTracks]);
+  const resolvedItems = React.useMemo(() => {
+    const byId = new Map(trackModels.map(track => [track.id, track]));
+    return localPlaylistTracks.flatMap(item => {
+      const track = byId.get(item.track.id);
+      return track ? [{ track, playlistTrackId: item.id }] : [];
+    });
+  }, [trackModels, localPlaylistTracks]);
 
   const { tracks, instanceIds } = React.useMemo(() => {
     const excluded = excludedSongs || [];
@@ -307,6 +310,8 @@ function PlaylistDetailContent({
 
     return { tracks: validTracks, instanceIds: validInstanceIds };
   }, [resolvedItems, excludedSongs]);
+
+  const rating = React.useMemo(() => summarizeTrackRatings(tracks), [tracks]);
 
   // Player States
   const playbackState = usePlaybackState();
@@ -478,16 +483,17 @@ function PlaylistDetailContent({
       <DetailHeaderLayout
         title={playlist.name}
         placeholderIcon="musical-notes"
-        renderCover={() => (
+        renderCover={({ width, height }) => (
           <PlaylistCover
             playlistId={playlist.id}
             customCoverUrl={playlist.coverCustomUrl || playlist.coverUrl}
             width={width}
-            height={380}
+            height={height}
             borderRadius={0}
           />
         )}
         subtitle={playlist.description || t('actions.custom_playlist_subtitle')}
+        rating={loadingTracks ? undefined : rating}
         metaInfo={`${localPlaylistTracks.length} ${localPlaylistTracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
         onBack={handleBack}
         onDelete={handleDelete}
@@ -643,6 +649,7 @@ function PlaylistDetailContent({
   }
 
   return (
+    <InvisibleScreenContent ready={hasLoadedTracks}>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlashList
         data={localPlaylistTracks}
@@ -654,6 +661,7 @@ function PlaylistDetailContent({
         showsVerticalScrollIndicator={false}
       />
     </View>
+    </InvisibleScreenContent>
   );
 }
 
@@ -678,23 +686,16 @@ function PlaylistDetailErrorFallback() {
   );
 }
 
-const ObservablePlaylistDetail = withObservables(
-  ["playlistId"],
-  ({ playlistId }: { playlistId: string }) => ({
-    playlist: database.collections
-      .get<Playlist>("playlists")
-      .findAndObserve(playlistId)
-      .pipe(catchError(() => of(null))),
-    playlistTracks: database.collections
-      .get<PlaylistTrack>("playlist_tracks")
-      .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc))
-      .observe(),
-  }),
-)(function ObservablePlaylistDetail({ playlist, playlistTracks }: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] }) {
-  if (!playlist) {
-    return <PlaylistDetailErrorFallback />;
-  }
-  return <PlaylistDetailContent playlist={playlist} playlistTracks={playlistTracks} />;
+const ObservablePlaylistDetail = withObservables(["playlistId"], ({ playlistId }: { playlistId: string }) => ({
+  data: observeScreenData(() => combineLatest({
+    playlist: database.collections.get<Playlist>("playlists").findAndObserve(playlistId).pipe(catchError(() => of(null))),
+    playlistTracks: database.collections.get<PlaylistTrack>("playlist_tracks")
+      .query(Q.where("playlist_id", playlistId), Q.sortBy("order", Q.asc)).observeWithColumns(['order', 'track_id']),
+  })),
+}))(function LoadedPlaylistDetail({ data }: { data?: { playlist: Playlist | null; playlistTracks: PlaylistTrack[] } }) {
+  if (!data) return <InvisibleScreenContent />;
+  if (!data.playlist) return <PlaylistDetailErrorFallback />;
+  return <PlaylistDetailContent key={data.playlist.id} playlist={data.playlist} playlistTracks={data.playlistTracks} />;
 });
 
 export default function PlaylistDetailScreen() {

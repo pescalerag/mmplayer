@@ -2,6 +2,9 @@ import { database } from '../database';
 import Track from '../database/models/Track';
 import PlaybackHistory from '../database/models/PlaybackHistory';
 import { HistoryService } from './HistoryService';
+import { evaluateListenDuration } from '../../packages/data/src/history';
+
+export { evaluateListenDuration };
 
 const records = new Map<string, PlaybackHistory>();
 const pending = new Map<string, Promise<void>>();
@@ -9,9 +12,9 @@ const pending = new Map<string, Promise<void>>();
 async function resolveListenDuration(trackId: string, seconds: number) {
   try {
     const track = await database.get<Track>('tracks').find(trackId.split('-')[0]);
-    if (track.duration > 0) return { seconds: Math.min(seconds, track.duration), minimum: track.duration * 0.5 };
+    return evaluateListenDuration(track.duration, seconds);
   } catch { /* Keep the existing threshold for unknown or deleted tracks. */ }
-  return { seconds: Math.min(seconds, 600), minimum: 20 };
+  return evaluateListenDuration(null, seconds);
 }
 
 async function persistListen(trackId: string, seconds: number, complete: boolean) {

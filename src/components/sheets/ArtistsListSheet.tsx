@@ -1,3 +1,4 @@
+import { openArtist } from '../../navigation/destinations';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,13 +19,10 @@ export default function ArtistsListSheet() {
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
-  const { props: { artists }, close: closeSheet } = useSheetProps<{ artists: any[] }>('artists-list');
+  const { props: { artists }, close: closeSheet, closeThen } = useSheetProps<{ artists: any[] }>('artists-list');
 
   const handleArtistPress = (artistId: string) => {
-    closeSheet();
-    setTimeout(() => {
-      navigation.navigate('ArtistDetail', { artistId });
-    }, 150);
+    closeThen(() => openArtist(artistId));
   };
 
   return (

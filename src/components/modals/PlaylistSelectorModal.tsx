@@ -25,7 +25,7 @@ export default function PlaylistSelectorModal() {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
   const { t } = useTranslation();
-  const { isVisible, props: { tracksToAssociate = [], playlistToEdit, isCreatingDirectly }, close: closeSelector } = useSheetProps<{ tracksToAssociate: any[]; playlistToEdit: any; isCreatingDirectly: boolean }>('playlist-selector');
+  const { isVisible, props: { tracksToAssociate = [], playlistToEdit, isCreatingDirectly, onCreated }, close: closeSelector, openNested } = useSheetProps<{ tracksToAssociate: any[]; playlistToEdit: any; isCreatingDirectly: boolean; onCreated?: () => void }>('playlist-selector');
 
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [alreadyPresentPlaylists, setAlreadyPresentPlaylists] = useState<Record<string, boolean>>({});
@@ -75,12 +75,21 @@ export default function PlaylistSelectorModal() {
     }
   }, [isVisible, playlistToEdit, isCreatingDirectly, loadPlaylists]);
 
-  const handleDuplicateTracks = (playlistId: string, existingTrackIds: string[], duplicateTracks: typeof tracksToAssociate) => {
-    const showToast = (count: number) => {
-      const msg = count === 1 ? t('toasts.added_to_playlist') : t('toasts.added_to_playlist_plural', { count });
+  const addTracksToPlaylist = async (playlistId: string, trackIds: string[]) => {
+    try {
+      await PlaylistService.addMultipleTracksToPlaylist(playlistId, trackIds);
+      setAlreadyPresentPlaylists(current => ({ ...current, [playlistId]: true }));
+      const msg = trackIds.length === 1
+        ? t('toasts.added_to_playlist')
+        : t('toasts.added_to_playlist_plural', { count: trackIds.length });
       useToastStore.getState().showToast(msg, 'list-circle');
-    };
+      useMultiSelectStore.getState().exitSelectionMode();
+    } catch (e) {
+      console.error('Error adding songs to playlist:', e);
+    }
+  };
 
+  const handleDuplicateTracks = (playlistId: string, existingTrackIds: string[], duplicateTracks: typeof tracksToAssociate) => {
     if (tracksToAssociate.length === 1) {
       const singleTrack = tracksToAssociate[0];
       Alert.alert(
@@ -88,7 +97,7 @@ export default function PlaylistSelectorModal() {
         t('actions.duplicate_song_confirm', { title: singleTrack.title }),
         [
           { text: t('actions.cancel'), style: "cancel" },
-          { text: t('actions.add'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, [singleTrack.id]); showToast(1); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } }
+          { text: t('actions.add'), onPress: () => { void addTracksToPlaylist(playlistId, [singleTrack.id]); } }
         ]
       );
       return;
@@ -98,9 +107,9 @@ export default function PlaylistSelectorModal() {
     const buttons: AlertButton[] = [{ text: t('actions.cancel'), style: "cancel" }];
 
     if (newTracks.length > 0) {
-      buttons.push({ text: t('actions.only_new'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, newTracks.map((t: any) => t.id)); showToast(newTracks.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
+      buttons.push({ text: t('actions.only_new'), onPress: () => { void addTracksToPlaylist(playlistId, newTracks.map((t: any) => t.id)); } });
     }
-    buttons.push({ text: t('actions.add_all'), onPress: async () => { await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map((t: any) => t.id)); showToast(tracksToAssociate.length); closeSelector(); useMultiSelectStore.getState().exitSelectionMode(); } });
+    buttons.push({ text: t('actions.add_all'), onPress: () => { void addTracksToPlaylist(playlistId, tracksToAssociate.map((t: any) => t.id)); } });
 
     const message = newTracks.length > 0
       ? t('actions.duplicate_songs_partial', { duplicateCount: duplicateTracks.length, totalCount: tracksToAssociate.length })
@@ -118,11 +127,7 @@ export default function PlaylistSelectorModal() {
       if (duplicateTracks.length > 0) {
         handleDuplicateTracks(playlistId, existingTrackIds, duplicateTracks);
       } else {
-        await PlaylistService.addMultipleTracksToPlaylist(playlistId, tracksToAssociate.map((t: any) => t.id));
-        const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_playlist') : t('toasts.added_to_playlist_plural', { count: tracksToAssociate.length });
-        useToastStore.getState().showToast(msg, 'list-circle');
-        closeSelector();
-        useMultiSelectStore.getState().exitSelectionMode();
+        await addTracksToPlaylist(playlistId, tracksToAssociate.map((t: any) => t.id));
       }
     } catch (e) {
       console.error('Error añadiendo canciones a playlist:', e);
@@ -142,6 +147,15 @@ export default function PlaylistSelectorModal() {
           const msg = tracksToAssociate.length === 1 ? t('toasts.added_to_new_playlist') : t('toasts.added_to_new_playlist_plural', { count: tracksToAssociate.length });
           useToastStore.getState().showToast(msg, 'list-circle');
           useMultiSelectStore.getState().exitSelectionMode();
+          setPlaylists(current => [playlist, ...current]);
+          setAlreadyPresentPlaylists(current => ({ ...current, [playlist.id]: true }));
+          setIsCreating(false);
+          setPlaylistName('');
+          setPlaylistDesc('');
+          Keyboard.dismiss();
+          onCreated?.();
+          if (isCreatingDirectly) closeSelector();
+          return;
         } else {
           useToastStore.getState().showToast(t('toasts.playlist_created'), 'list-circle');
         }
@@ -241,8 +255,14 @@ export default function PlaylistSelectorModal() {
           </View>
 
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.createButton}
-            onPress={() => setIsCreating(true)}
+            onPress={() => {
+              if (!openNested('playlist-selector', {
+                tracksToAssociate, playlistToEdit: null, isCreatingDirectly: true,
+                onCreated: () => { void loadPlaylists(); },
+              })) setIsCreating(true);
+            }}
           >
             <Ionicons name="add" size={20} color={colors.onAccent} />
             <Text style={styles.createButtonText}>{t('playlist.create_new_playlist')}</Text>

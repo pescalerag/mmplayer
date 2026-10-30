@@ -129,11 +129,13 @@ export function useSyncedLyrics(track: Track | null, currentPosition?: number) {
                     return;
                 }
             }
-            const { position } = await TrackPlayer.getProgress();
-            const pos = sanitizePos(position);
+            const progress = await TrackPlayer.getProgress();
+            if (hookTrackIdRef.current !== (track?.id ?? null)) return;
+            if (progress.trackId && progress.trackId.split('-')[0] !== track?.id) return;
+            const pos = sanitizePos(progress.position);
 
             const timeSinceChange = Date.now() - trackChangeTimeRef.current;
-            if (timeSinceChange < 1500 && pos > 2.0) {
+            if (!progress.trackId && timeSinceChange < 1500 && pos > 2.0) {
                 return;
             }
 
@@ -311,9 +313,11 @@ export function useSyncedLyrics(track: Track | null, currentPosition?: number) {
                     }
                 }
 
+                if (hookTrackIdRef.current !== (track?.id ?? null)) return;
+                if (progress.trackId && progress.trackId.split('-')[0] !== track?.id) return;
                 const pos = sanitizePos(progress.position);
                 const timeSinceChange = Date.now() - trackChangeTimeRef.current;
-                if (timeSinceChange < 1500 && pos > 2.0) {
+                if (!progress.trackId && timeSinceChange < 1500 && pos > 2.0) {
                     return;
                 }
 

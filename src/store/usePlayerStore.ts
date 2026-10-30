@@ -1,3 +1,7 @@
+import { CrossfadeService } from '../services/CrossfadeService';
+import { startPlaybackTiming } from '../utils/playbackTiming';
+import { Platform } from 'react-native';
+import { readPlaybackSnapshot, tryReadNativePlaybackSnapshot } from '../services/playbackSnapshot';
 import { Collection } from "@nozbe/watermelondb";
 import { createMMKV } from "react-native-mmkv";
 import TrackPlayer, { RepeatMode, Track as TPTrack } from "react-native-track-player";
@@ -18,19 +22,42 @@ import { useSettingsStore } from "./useSettingsStore";
 import { useToastStore } from "./useToastStore";
 import { refreshPlaybackSnapshot } from "./usePlaybackSnapshotStore";
 import { beginQueueSnapshotRead, publishNativeQueue } from "./useQueueSnapshotStore";
+import { beginActiveQueueEdit, getQueueSession, removeDeletedTracksFromInactiveQueues, selectShuffleOnQueueEnd, useMultipleQueuesStore } from './useMultipleQueuesStore';
+import type { QueueSession } from './useMultipleQueuesStore';
 
 const storage = createMMKV();
 const PERSISTENCE_KEY = "@player_persistence";
 const RECENTS_KEY = "@player_recents";
-let isHandlingQueueEnded = false;
+const queuesHandlingEnd = new Set<number>();
 let instanceCounter = 0;
 let queueStatusRevision = 0;
 let activeTrackRevision = 0;
 let lastConsumedQueueTransition: string | null = null;
+let lastNativeQueueRevision = -1;
+const INSERT_AFTER_ACTIVE = -2;
+const INSERT_AFTER_MANUAL_QUEUE = -3;
+
+export function applyNativeManualQueueSize(size: number | undefined, revision: number | undefined) {
+  if (size === undefined || revision === undefined || !Number.isFinite(size) || !Number.isFinite(revision) || revision < lastNativeQueueRevision || useMultipleQueuesStore.getState().isSwitching) return;
+  lastNativeQueueRevision = revision;
+  usePlayerStore.setState({ userQueueSize: Math.max(0, size) });
+}
 
 // The service and mounted UI receive the same native event. Consume manual
 // entries once, and ignore index shifts caused by inserting the playing item.
 export function consumeUserQueueTransition(event: { track?: TPTrack | { id?: string }; lastTrack?: TPTrack | { id?: string }; index?: number; lastIndex?: number }) {
+  if (useMultipleQueuesStore.getState().isSwitching) return;
+  const crossfade = event as typeof event & { crossfade?: boolean; transitionId?: string; queueRevision?: number; userQueueSize?: number };
+  if (crossfade.queueRevision !== undefined && crossfade.userQueueSize !== undefined) {
+    applyNativeManualQueueSize(crossfade.userQueueSize, crossfade.queueRevision);
+    return;
+  }
+  if (crossfade.crossfade && crossfade.transitionId) {
+    if (lastConsumedQueueTransition === crossfade.transitionId) return;
+    lastConsumedQueueTransition = crossfade.transitionId;
+    if ((event.track as TPTrack)?.isManual) usePlayerStore.setState(state => ({ userQueueSize: Math.max(0, state.userQueueSize - 1) }));
+    return;
+  }
   if (event.index === undefined || event.lastIndex === undefined || event.index <= event.lastIndex) return;
   if (event.lastTrack?.id && event.lastTrack.id === event.track?.id) return;
   const transition = `${event.lastTrack?.id ?? ''}:${event.track?.id ?? ''}:${event.lastIndex}:${event.index}`;
@@ -119,7 +146,8 @@ async function restorePlaybackPosition(position: number): Promise<void> {
   const loaded = await pollDuration(30);
 
   if (loaded) {
-    await TrackPlayer.seekTo(position);
+    const { TimestampService } = await import('../services/TimestampService');
+    await TimestampService.seekAutomatically(position);
     console.log(`[Store] Restaurado minutaje a la posición: ${position}s`);
   } else {
     console.warn(`[Store] No se pudo restaurar el minutaje (posición: ${position}s) porque el track no cargó a tiempo.`);
@@ -133,6 +161,15 @@ async function restoreActiveTrackModel(
   if (!activeTPTrack?.id) {
     return { trackModel: null, activeTrackInstanceId: null };
   }
+  if (activeTPTrack.id.toString().startsWith('ext_')) {
+    const { createExternalTrack } = await import('../services/ExternalAudioService');
+    const cleanId = activeTPTrack.id.toString().split('-')[0];
+    const model = createExternalTrack({ fileUrl: activeTPTrack.url, title: activeTPTrack.title,
+      artist: activeTPTrack.artist, album: activeTPTrack.album, coverUrl: activeTPTrack.artwork, duration: activeTPTrack.duration } as any);
+    (model as any).id = cleanId;
+    PlaybackTimeTracker.setAccumulatedSeconds(activeTPTrack.id.toString(), accumulatedTime);
+    return { trackModel: model, activeTrackInstanceId: (activeTPTrack as any).instanceId ?? null };
+  }
 
   let trackModel: Track | null = null;
   let activeTrackInstanceId: string | null = null;
@@ -144,8 +181,8 @@ async function restoreActiveTrackModel(
       (activeTPTrack.id.includes('-') ? activeTPTrack.id.substring(cleanId.length + 1) : null);
     trackModel = await database.get<Track>("tracks").find(cleanId);
 
+    PlaybackTimeTracker.setAccumulatedSeconds(activeTPTrack.id.toString(), accumulatedTime);
     if (accumulatedTime > 0) {
-      PlaybackTimeTracker.setAccumulatedSeconds(activeTPTrack.id.toString(), accumulatedTime);
       console.log(`[Store] Restaurado tracker con ${accumulatedTime}s acumulados para track: ${activeTPTrack.id}`);
     }
   } catch (dbError) {
@@ -205,9 +242,11 @@ async function updateRelocatedShuffleQueue(
   );
 }
 
-async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack> {
-  const album = await track.album?.fetch?.().catch(() => null);
-  const artists = (await track.queryCollaborators?.fetch?.().catch(() => [])) as Artist[];
+export async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack> {
+  const [album, artists] = await Promise.all([
+    track.album?.fetch?.().catch(() => null),
+    track.queryCollaborators?.fetch?.().catch(() => []),
+  ]) as [Album | null | undefined, Artist[] | undefined];
   let artistNames =
     artists && artists.length > 0
       ? artists.map((a) => a.name).join(", ")
@@ -215,7 +254,7 @@ async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack>
 
   if (!artistNames) {
     const primaryArtist = await track.artist?.fetch?.().catch(() => null);
-    artistNames = primaryArtist?.name || (track as any)?.artistName || "Artista desconocido";
+    artistNames = primaryArtist?.name || (track as any)?.artistName || i18n.t('metadata.unknown_artist');
   }
 
   const uniqueSuffix = instanceId || `${Date.now()}-${++instanceCounter}`;
@@ -225,12 +264,13 @@ async function mapToTPTrack(track: Track, instanceId?: string): Promise<TPTrack>
     url: track.fileUrl,
     title: track.title,
     artist: artistNames,
-    album: album?.title || (track as any)?.albumTitle || "Álbum desconocido",
+    album: album?.title || (track as any)?.albumTitle || i18n.t('metadata.unknown_album'),
     artwork: album?.coverUrl || (track as any)?.coverUrl || undefined,
     duration: track.duration,
     instanceId: instanceId || uniqueSuffix,
     replayGain: track.replayGain ?? null,
     replayPeak: track.replayPeak ?? null,
+    skipSegments: track.skipSegments ?? null,
   };
 }
 
@@ -259,6 +299,7 @@ interface PlayerState {
     index: number,
     context?: string,
     instanceIds?: string[],
+    autoplay?: boolean,
   ) => Promise<void>;
   startShuffled: (tracks: Track[], context?: string, instanceIds?: string[]) => Promise<void>;
   playRandomQueueOnEnd: () => Promise<void>;
@@ -269,7 +310,7 @@ interface PlayerState {
   addToQueueEnd: (track: Track) => Promise<void>;
   addMultipleToQueueNext: (tracks: Track[]) => Promise<void>;
   addMultipleToQueueEnd: (tracks: Track[]) => Promise<void>;
-  updateQueueStatus: (currentIndex?: number) => Promise<void>;
+  updateQueueStatus: (currentIndex?: number, knownQueue?: { queue: TPTrack[]; repeatMode: number; shuffleOnQueueEnd?: boolean }) => Promise<void>;
   cancelQueueLoading: () => Promise<void>;
   clearPlayer: () => Promise<void>;
   setShuffleState: (enabled: boolean, queue: TPTrack[]) => void;
@@ -278,7 +319,7 @@ interface PlayerState {
   clearUserQueue: () => Promise<void>;
   clearContextQueue: () => Promise<void>;
   savePlaybackState: () => Promise<void>;
-  restorePlaybackState: () => Promise<void>;
+  restorePlaybackState: (session?: QueueSession, shuffleOnQueueEnd?: boolean) => Promise<void>;
   saveRecentsState: () => Promise<void>;
   restoreRecentsState: () => Promise<void>;
   recentMedia: RecentItem[];
@@ -292,6 +333,8 @@ interface PlayerState {
   handleRelocatedTracks: (relocatedTrackIds: string[]) => Promise<void>;
   checkAndPauseIfTracksActiveOrQueued: (trackIds: string[]) => Promise<boolean>;
   isRestoring: boolean;
+  isPreparingExternal: boolean;
+  isPreparingQueue: boolean;
   isQueueLoading: boolean;
   isSyncingLyrics: boolean;
   setIsSyncingLyrics: (value: boolean) => void;
@@ -376,6 +419,27 @@ async function addTracksSafely(tpTracks: TPTrack[], insertIndex?: number) {
   }
 }
 
+/** Replacing media items keeps the Android engine and its playback parameters.
+ * Pause first: clear/add preserves playWhenReady, including an old play intent.
+ */
+async function replacePlaybackQueue(tracks: TPTrack[]) {
+  const operation = (async () => {
+    await (TrackPlayer.pause as (bypassFade?: boolean) => Promise<void>)(true);
+    if (Platform.OS === 'android') {
+      await TrackPlayer.setQueue(tracks);
+    } else {
+      await TrackPlayer.stop().catch(() => {});
+      await TrackPlayer.reset();
+      lastAppliedSpeed = null;
+      lastAppliedPitch = null;
+      await TrackPlayer.add(tracks);
+    }
+  })();
+  activeBatchPromise = operation;
+  try { await operation; }
+  finally { if (activeBatchPromise === operation) activeBatchPromise = null; }
+}
+
 async function removeIndicesInChunks(indices: number[]): Promise<void> {
   const CHUNK_SIZE = 50;
   const processChunk = async (i: number): Promise<void> => {
@@ -416,12 +480,8 @@ async function setupShuffledPlayback(
       await TrackPlayer.remove(oldIndices).catch(() => { });
     }
   } else {
-    await TrackPlayer.stop().catch(() => { });
-    await TrackPlayer.reset();
-    lastAppliedSpeed = null;
-    lastAppliedPitch = null;
     useCastStore.setState({ castPosition: 0 });
-    await addTracksSafely(initialTpTracks);
+    await replacePlaybackQueue(initialTpTracks);
 
     if (currentLoadId !== loadId) return;
 
@@ -441,17 +501,21 @@ function loadShuffledOriginalQueueInBackground(
   savePlaybackState: () => Promise<void>
 ) {
   void (async () => {
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      const originalTpTracks = await Promise.all(
-        tracks.map((t, idx) => mapToTPTrack(t, instanceIds?.[idx]))
-      );
+      const originalTpTracks: TPTrack[] = [];
+      for (let index = 0; index < tracks.length && currentLoadId === loadId; index += 15) {
+        const chunk = await Promise.all(tracks.slice(index, index + 15).map((track, offset) => mapToTPTrack(track, instanceIds?.[index + offset])));
+        originalTpTracks.push(...chunk);
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+      }
       if (currentLoadId === loadId) {
         set({ shuffleOriginalQueue: originalTpTracks });
         await savePlaybackState();
       }
     } catch (bgError) {
       console.error("Background original queue mapping error:", bgError);
-    }
+    } finally { finishQueueEdit(); }
   })();
 }
 
@@ -549,11 +613,16 @@ function loadQueueRemainingChunksInBackground({
 }: QueueRemainingChunksOptions) {
   void (async () => {
     try {
+      // Seed upcoming audio before spending time inserting a long played prefix.
+      const upcoming = remainingNextTracks.slice(0, chunkSize);
+      if (upcoming.length > 0) {
+        await loadChunkBatch(upcoming, remainingNextInstances?.slice(0, chunkSize), chunkSize, loadId, false, updateQueueStatus);
+      }
       if (previousTracks.length > 0) {
         await loadChunkBatch(previousTracks, previousInstances, chunkSize, loadId, true, updateQueueStatus);
       }
-      if (remainingNextTracks.length > 0) {
-        await loadChunkBatch(remainingNextTracks, remainingNextInstances, chunkSize, loadId, false, updateQueueStatus);
+      if (remainingNextTracks.length > chunkSize) {
+        await loadChunkBatch(remainingNextTracks.slice(chunkSize), remainingNextInstances?.slice(chunkSize), chunkSize, loadId, false, updateQueueStatus);
       }
       if (currentLoadId === loadId) {
         await savePlaybackState();
@@ -635,7 +704,7 @@ async function refreshRecentTrack(
     const artistNames =
       collaborators.length > 0
         ? collaborators.map((a) => a.name).join(", ")
-        : "Artista desconocido";
+        : i18n.t('metadata.unknown_artist');
     const imageUrl = album?.coverUrl || null;
 
     const hasChanged = item.title !== track.title || item.subtitle !== artistNames || item.imageUrl !== imageUrl;
@@ -668,7 +737,7 @@ async function refreshRecentAlbum(
     }
 
     const artist = await album.artist.fetch().catch(() => null);
-    const artistName = artist?.name || "Varios Artistas";
+    const artistName = artist?.name || i18n.t('metadata.various_artists');
     const imageUrl = album.coverUrl || null;
 
     const hasChanged = item.title !== album.title || item.subtitle !== artistName || item.imageUrl !== imageUrl;
@@ -753,6 +822,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   recentMedia: [],
   recentPlaylists: [],
   isRestoring: false,
+  isPreparingExternal: false,
+  isPreparingQueue: false,
   isQueueLoading: false,
   isSyncingLyrics: false,
   setIsSyncingLyrics: (value) => set({ isSyncingLyrics: value }),
@@ -762,153 +833,177 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   windowVersion: 0,
 
   cancelQueueLoading: async () => {
-    ++currentLoadId;
+    const cancelledLoadId = ++currentLoadId;
     set({ isQueueLoading: false });
     if (activeBatchPromise) {
       try {
         await activeBatchPromise;
       } catch { }
     }
+    if (currentLoadId === cancelledLoadId) set({ isPreparingQueue: false });
   },
 
-  loadQueue: async (tracks, index, context = "unknown", instanceIds?: string[]) => {
-    await get().cancelQueueLoading();
-    const loadId = ++currentLoadId;
+  loadQueue: async (tracks, index, context = "unknown", instanceIds?: string[], autoplay = true) => {
+    const timing = startPlaybackTiming('loadQueue');
+    timing('request');
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      set({ isQueueLoading: true });
-      const CHUNK_SIZE = 15;
+      await get().cancelQueueLoading();
+      const loadId = ++currentLoadId;
+      try {
+        set({ isQueueLoading: true, isPreparingExternal: !autoplay });
+        const CHUNK_SIZE = 15;
 
-      const initialChunk = tracks.slice(index, index + CHUNK_SIZE);
-      const initialInstances = instanceIds ? instanceIds.slice(index, index + CHUNK_SIZE) : undefined;
-      const initialTpTracks = await Promise.all(
-        initialChunk.map((t, i) => mapToTPTrack(t, initialInstances?.[i]))
-      );
+        const initialChunk = tracks.slice(index, index + 1);
+        const initialInstances = instanceIds ? instanceIds.slice(index, index + 1) : undefined;
+        const initialTpTracks = await Promise.all(
+          initialChunk.map((t, i) => mapToTPTrack(t, initialInstances?.[i]))
+        );
+        timing('selected-metadata');
 
-      if (currentLoadId !== loadId) return;
+        if (currentLoadId !== loadId) return;
 
-      await flushCurrentTrackToHistory();
-      await TrackPlayer.stop().catch(() => { });
-      await TrackPlayer.reset();
-      lastAppliedSpeed = null;
-      lastAppliedPitch = null;
-      useCastStore.setState({ castPosition: 0 });
-      await addTracksSafely(initialTpTracks);
+        await flushCurrentTrackToHistory();
+        timing('history');
+        if (currentLoadId !== loadId) return;
+        set({ isPreparingQueue: true });
+        useCastStore.setState({ castPosition: 0 });
+        await replacePlaybackQueue(initialTpTracks);
+        timing('native-replaced');
 
-      if (currentLoadId !== loadId) return;
+        if (currentLoadId !== loadId) return;
 
-      await get().applySpeedAndPitch();
-      if (useCastStore.getState().isServerRunning) {
-        LocalCastService.setPlayIntent(true);
-      }
-      await TrackPlayer.play();
+        await get().applySpeedAndPitch();
+        timing('parameters');
+        if (useCastStore.getState().isServerRunning) {
+          LocalCastService.setPlayIntent(true);
+        }
+        if (autoplay) await TrackPlayer.play();
+        timing('play-sent');
 
-      set({
-        activeTrack: tracks[index],
-        activeTrackInstanceId: instanceIds ? instanceIds[index] : (initialTpTracks[0]?.instanceId || initialTpTracks[0]?.id),
-        playbackContext: context,
-        isShuffleEnabled: false,
-        shuffleOriginalQueue: [],
-        userQueueSize: 0,
-      });
-
-      const previousTracks = tracks.slice(0, index);
-      const previousInstances = instanceIds ? instanceIds.slice(0, index) : undefined;
-      const remainingNextTracks = tracks.slice(index + CHUNK_SIZE);
-      const remainingNextInstances = instanceIds ? instanceIds.slice(index + CHUNK_SIZE) : undefined;
-
-      if (previousTracks.length > 0 || remainingNextTracks.length > 0) {
-        loadQueueRemainingChunksInBackground({
-          previousTracks,
-          previousInstances,
-          remainingNextTracks,
-          remainingNextInstances,
-          chunkSize: CHUNK_SIZE,
-          loadId,
-          set,
-          updateQueueStatus: get().updateQueueStatus,
-          savePlaybackState: get().savePlaybackState,
+        set({
+          activeTrack: tracks[index],
+          activeTrackInstanceId: instanceIds ? instanceIds[index] : (initialTpTracks[0]?.instanceId || initialTpTracks[0]?.id),
+          playbackContext: context,
+          isShuffleEnabled: false,
+          shuffleOriginalQueue: [],
+          userQueueSize: 0,
+          isPreparingQueue: false,
         });
-      } else {
-        set({ isQueueLoading: false });
+        void get().updateQueueStatus();
+
+        const previousTracks = tracks.slice(0, index);
+        const previousInstances = instanceIds ? instanceIds.slice(0, index) : undefined;
+        const remainingNextTracks = tracks.slice(index + 1);
+        const remainingNextInstances = instanceIds ? instanceIds.slice(index + 1) : undefined;
+
+        if (previousTracks.length > 0 || remainingNextTracks.length > 0) {
+          loadQueueRemainingChunksInBackground({
+            previousTracks,
+            previousInstances,
+            remainingNextTracks,
+            remainingNextInstances,
+            chunkSize: CHUNK_SIZE,
+            loadId,
+            set,
+            updateQueueStatus: get().updateQueueStatus,
+            savePlaybackState: get().savePlaybackState,
+          });
+        } else {
+          set({ isQueueLoading: false });
+          void get().savePlaybackState();
+        }
+      } catch (error) {
+        console.error("Error loading queue:", error);
+        if (currentLoadId === loadId) {
+          set({ isQueueLoading: false, isPreparingQueue: false });
+        }
+        if (!autoplay) throw error;
       }
-    } catch (error) {
-      console.error("Error loading queue:", error);
-      if (currentLoadId === loadId) {
-        set({ isQueueLoading: false });
-      }
-    }
+    } finally { finishQueueEdit(); }
   },
 
   startShuffled: async (tracks, context = "unknown", instanceIds?: string[]) => {
-    await get().cancelQueueLoading();
-    const loadId = ++currentLoadId;
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      set({ isQueueLoading: true });
-      const CHUNK_SIZE = 15;
+      await get().cancelQueueLoading();
+      const loadId = ++currentLoadId;
+      try {
+        set({ isQueueLoading: true });
+        const CHUNK_SIZE = 15;
 
-      const indices = Array.from({ length: tracks.length }, (_, i) => i);
-      const shuffledIndices = shuffleArray(indices);
-      const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
-      const shuffledInstances = instanceIds ? shuffledIndices.map((i) => instanceIds[i]) : undefined;
+        const indices = Array.from({ length: tracks.length }, (_, i) => i);
+        const shuffledIndices = shuffleArray(indices);
+        const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
+        const shuffledInstances = instanceIds ? shuffledIndices.map((i) => instanceIds[i]) : undefined;
 
-      const initialChunk = shuffledTracks.slice(0, CHUNK_SIZE);
-      const initialInstances = shuffledInstances ? shuffledInstances.slice(0, CHUNK_SIZE) : undefined;
-      const initialTpTracks = await Promise.all(
-        initialChunk.map((t, i) => mapToTPTrack(t, initialInstances?.[i]))
-      );
+        const initialChunk = shuffledTracks.slice(0, 1);
+        const initialInstances = shuffledInstances ? shuffledInstances.slice(0, 1) : undefined;
+        const initialTpTracks = await Promise.all(
+          initialChunk.map((t, i) => mapToTPTrack(t, initialInstances?.[i]))
+        );
 
-      if (currentLoadId !== loadId) return;
+        if (currentLoadId !== loadId) return;
 
-      await flushCurrentTrackToHistory();
-      await setupShuffledPlayback(initialTpTracks, context, loadId, get().applySpeedAndPitch);
-      if (currentLoadId !== loadId) return;
+        await flushCurrentTrackToHistory();
+        if (currentLoadId !== loadId) return;
+        set({ isPreparingQueue: true });
+        await setupShuffledPlayback(initialTpTracks, context, loadId, get().applySpeedAndPitch);
+        if (currentLoadId !== loadId) return;
 
-      set({
-        activeTrack: shuffledTracks[0],
-        activeTrackInstanceId: shuffledInstances ? shuffledInstances[0] : (initialTpTracks[0]?.instanceId || initialTpTracks[0]?.id),
-        playbackContext: context,
-        isShuffleEnabled: true,
-        shuffleOriginalQueue: [],
-        userQueueSize: 0,
-        hasPrevious: false,
-        hasNext: shuffledTracks.length > 1 || useSettingsStore.getState().shuffleOnQueueEnd,
-      });
+        set({
+          activeTrack: shuffledTracks[0],
+          activeTrackInstanceId: shuffledInstances ? shuffledInstances[0] : (initialTpTracks[0]?.instanceId || initialTpTracks[0]?.id),
+          playbackContext: context,
+          isShuffleEnabled: true,
+          shuffleOriginalQueue: [],
+          userQueueSize: 0,
+          hasPrevious: false,
+          hasNext: shuffledTracks.length > 1 || selectShuffleOnQueueEnd(useMultipleQueuesStore.getState()),
+          isPreparingQueue: false,
+        });
+        void get().updateQueueStatus();
 
-      loadShuffledOriginalQueueInBackground(tracks, instanceIds, loadId, set, get().savePlaybackState);
-      loadShuffledRemainingChunksInBackground(
-        shuffledTracks.slice(CHUNK_SIZE),
-        shuffledInstances ? shuffledInstances.slice(CHUNK_SIZE) : undefined,
-        loadId,
-        CHUNK_SIZE,
-        set,
-        get().updateQueueStatus,
-        get().savePlaybackState
-      );
-    } catch (error) {
-      console.error("Error starting shuffled queue:", error);
-      if (currentLoadId === loadId) {
-        set({ isQueueLoading: false });
+        loadShuffledOriginalQueueInBackground(tracks, instanceIds, loadId, set, get().savePlaybackState);
+        loadShuffledRemainingChunksInBackground(
+          shuffledTracks.slice(1),
+          shuffledInstances ? shuffledInstances.slice(1) : undefined,
+          loadId,
+          CHUNK_SIZE,
+          set,
+          get().updateQueueStatus,
+          get().savePlaybackState
+        );
+      } catch (error) {
+        console.error("Error starting shuffled queue:", error);
+        if (currentLoadId === loadId) {
+          set({ isQueueLoading: false, isPreparingQueue: false });
+        }
       }
-    }
+    } finally { finishQueueEdit(); }
   },
 
   playRandomQueueOnEnd: async () => {
-    const { shuffleOnQueueEnd } = useSettingsStore.getState();
-    if (!shuffleOnQueueEnd) return;
+    const queueAtStart = useMultipleQueuesStore.getState().activeId;
+    const canAutoplay = () => !useMultipleQueuesStore.getState().isSwitching
+      && useMultipleQueuesStore.getState().activeId === queueAtStart
+      && selectShuffleOnQueueEnd(useMultipleQueuesStore.getState());
+    if (!canAutoplay()) return;
 
-    if (isHandlingQueueEnded) return;
+    if (queuesHandlingEnd.has(queueAtStart)) return;
     const { isQueueLoading } = get();
     if (isQueueLoading) return;
+    queuesHandlingEnd.add(queueAtStart);
 
     try {
       const repeatMode = await TrackPlayer.getRepeatMode();
-      if (repeatMode !== RepeatMode.Off) return;
-
-      isHandlingQueueEnded = true;
+      if (repeatMode !== RepeatMode.Off || !canAutoplay()) return;
 
       const availableTracks = await ShuffleService.getEligibleShuffleTracks();
 
-      if (availableTracks.length === 0) return;
+      if (availableTracks.length === 0 || !canAutoplay()) return;
 
       console.log('[usePlayerStore] Queue ended with shuffleOnQueueEnd active. Triggering random playback.');
       useToastStore.getState().showToast(
@@ -920,7 +1015,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       console.error('[usePlayerStore] Error in playRandomQueueOnEnd:', e);
     } finally {
       const resetTimer = setTimeout(() => {
-        isHandlingQueueEnded = false;
+        queuesHandlingEnd.delete(queueAtStart);
       }, 2000);
       (resetTimer as any)?.unref?.();
     }
@@ -928,7 +1023,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   skipToNext: async () => {
     try {
-      const { shuffleOnQueueEnd } = useSettingsStore.getState();
+      const shuffleOnQueueEnd = selectShuffleOnQueueEnd(useMultipleQueuesStore.getState());
       // Native skips already handle repeat mode and the end of the queue.
       // Only inspect the adjacent item when random autoplay needs an end check.
       if (shuffleOnQueueEnd) {
@@ -949,41 +1044,46 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   playSingleTrack: async (track, context = "unknown") => {
-    await get().cancelQueueLoading();
-    const loadId = ++currentLoadId;
-    set({ isQueueLoading: true });
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      const tpTrack = await mapToTPTrack(track);
-      if (currentLoadId !== loadId) return;
-      await flushCurrentTrackToHistory();
-      await TrackPlayer.stop().catch(() => { });
-      await TrackPlayer.reset();
-      lastAppliedSpeed = null;
-      lastAppliedPitch = null;
-      useCastStore.setState({ castPosition: 0 });
-      await addTracksSafely([tpTrack]);
-      if (currentLoadId !== loadId) return;
-      await get().applySpeedAndPitch();
-      if (useCastStore.getState().isServerRunning) {
-        LocalCastService.setPlayIntent(true);
+      await get().cancelQueueLoading();
+      const loadId = ++currentLoadId;
+      set({ isQueueLoading: true });
+      try {
+        const tpTrack = await mapToTPTrack(track);
+        if (currentLoadId !== loadId) return;
+        await flushCurrentTrackToHistory();
+        if (currentLoadId !== loadId) return;
+        set({ isPreparingQueue: true });
+        useCastStore.setState({ castPosition: 0 });
+        await replacePlaybackQueue([tpTrack]);
+        if (currentLoadId !== loadId) return;
+        await get().applySpeedAndPitch();
+        if (useCastStore.getState().isServerRunning) {
+          LocalCastService.setPlayIntent(true);
+        }
+        await TrackPlayer.play();
+        set({ activeTrack: track, activeTrackInstanceId: tpTrack.instanceId, playbackContext: context, userQueueSize: 0, isQueueLoading: false, isPreparingQueue: false });
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (error) {
+        console.error("Error playing single track:", error);
+        if (currentLoadId === loadId) {
+          set({ isQueueLoading: false, isPreparingQueue: false });
+        }
       }
-      await TrackPlayer.play();
-      set({ activeTrack: track, activeTrackInstanceId: null, playbackContext: context, userQueueSize: 0, isQueueLoading: false });
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (error) {
-      console.error("Error playing single track:", error);
-      if (currentLoadId === loadId) {
-        set({ isQueueLoading: false });
-      }
-    }
+    } finally { finishQueueEdit(); }
   },
 
   setActiveTrackById: async (trackId, instanceId) => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const queueAtStart = useMultipleQueuesStore.getState().activeId;
     const revision = ++activeTrackRevision;
     try {
       const cleanId = trackId.split('-')[0];
       const instId = instanceId || (trackId.includes('-') ? trackId.substring(cleanId.length + 1) : null);
+      if (get().activeTrack?.id === cleanId && get().activeTrackInstanceId === instId) return;
       if (cleanId.startsWith('ext_')) {
         const current = get().activeTrack;
         if (current?.id.toString() === cleanId) {
@@ -992,7 +1092,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         return;
       }
       const track = await database.get<Track>("tracks").find(cleanId);
-      if (revision !== activeTrackRevision) return;
+      if (revision !== activeTrackRevision || useMultipleQueuesStore.getState().isSwitching
+        || useMultipleQueuesStore.getState().activeId !== queueAtStart) return;
       set({ activeTrack: track, activeTrackInstanceId: instId });
     } catch (error) {
       console.error("Error setting active track by ID:", error);
@@ -1000,8 +1101,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   syncWithTrackPlayer: async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const queueAtStart = useMultipleQueuesStore.getState().activeId;
     const revision = ++activeTrackRevision;
-    const isCurrent = () => revision === activeTrackRevision;
+    const isCurrent = () => revision === activeTrackRevision && !useMultipleQueuesStore.getState().isSwitching
+      && useMultipleQueuesStore.getState().activeId === queueAtStart;
     // Foreground reads and event-driven metadata lookups share the same ordering guard.
     void refreshPlaybackSnapshot();
     try {
@@ -1025,167 +1129,201 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   addToQueueNext: async (track) => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      const tpTrack = await mapToTPTrack(track);
-      (tpTrack as any).isManual = true;
-      const currentIndex = await TrackPlayer.getActiveTrackIndex();
-
-      if (currentIndex !== undefined && currentIndex !== null) {
-        const queue = await TrackPlayer.getQueue();
-        if (currentIndex + 1 < queue.length) {
-          await TrackPlayer.add([tpTrack], currentIndex + 1);
+      try {
+        const tpTrack = await mapToTPTrack(track);
+        (tpTrack as any).isManual = true;
+        if (Platform.OS === 'android') {
+          await TrackPlayer.add([tpTrack], INSERT_AFTER_ACTIVE);
         } else {
-          await TrackPlayer.add([tpTrack]);
+          const currentIndex = await TrackPlayer.getActiveTrackIndex();
+
+          if (currentIndex !== undefined && currentIndex !== null) {
+            const queue = await TrackPlayer.getQueue();
+            if (currentIndex + 1 < queue.length) {
+              await TrackPlayer.add([tpTrack], currentIndex + 1);
+            } else {
+              await TrackPlayer.add([tpTrack]);
+            }
+          } else {
+            await TrackPlayer.add([tpTrack]);
+          }
         }
-      } else {
-        await TrackPlayer.add([tpTrack]);
+        // Incrementar el tamaño de la cola manual
+        set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (error) {
+        console.error("Error adding to queue next:", error);
       }
-      // Incrementar el tamaño de la cola manual
-      set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (error) {
-      console.error("Error adding to queue next:", error);
-    }
+    } finally { finishQueueEdit(); }
   },
 
   addToQueueEnd: async (track) => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      const tpTrack = await mapToTPTrack(track);
-      (tpTrack as any).isManual = true;
+      try {
+        const tpTrack = await mapToTPTrack(track);
+        (tpTrack as any).isManual = true;
 
-      const { queueAddBehavior } = useSettingsStore.getState();
-      const currentIndex = await TrackPlayer.getActiveTrackIndex();
+        const { queueAddBehavior } = useSettingsStore.getState();
+        const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
-      if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
-        const { userQueueSize } = get();
-        const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
-        const queue = await TrackPlayer.getQueue();
+        if (queueAddBehavior === 'user_queue' && Platform.OS === 'android') {
+          await TrackPlayer.add([tpTrack], INSERT_AFTER_MANUAL_QUEUE);
+          set(state => ({ userQueueSize: state.userQueueSize + 1 }));
+        } else if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
+          const { userQueueSize } = get();
+          const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
+          const queue = await TrackPlayer.getQueue();
 
-        if (insertIndex < queue.length) {
-          await TrackPlayer.add([tpTrack], insertIndex);
+          if (insertIndex < queue.length) {
+            await TrackPlayer.add([tpTrack], insertIndex);
+          } else {
+            await TrackPlayer.add([tpTrack]);
+          }
+          set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
+        } else if (queueAddBehavior === 'user_queue') {
+          // Nada reproduciéndose actualmente, pero en modo cola de usuario
+          await TrackPlayer.add([tpTrack]);
+          set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
         } else {
+          // Comportamiento legado: al final de la cola de contexto / de toda la lista
           await TrackPlayer.add([tpTrack]);
         }
-        set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
-      } else if (queueAddBehavior === 'user_queue') {
-        // Nada reproduciéndose actualmente, pero en modo cola de usuario
-        await TrackPlayer.add([tpTrack]);
-        set((state) => ({ userQueueSize: state.userQueueSize + 1 }));
-      } else {
-        // Comportamiento legado: al final de la cola de contexto / de toda la lista
-        await TrackPlayer.add([tpTrack]);
-      }
 
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (error) {
-      console.error("Error adding to queue end:", error);
-    }
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (error) {
+        console.error("Error adding to queue end:", error);
+      }
+    } finally { finishQueueEdit(); }
   },
 
   addMultipleToQueueNext: async (tracks) => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      if (tracks.length === 0) return;
-      const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
-      tpTracks.forEach((t) => ((t as any).isManual = true));
-      const currentIndex = await TrackPlayer.getActiveTrackIndex();
-
-      if (currentIndex !== undefined && currentIndex !== null) {
-        const queue = await TrackPlayer.getQueue();
-        if (currentIndex + 1 < queue.length) {
-          await TrackPlayer.add(tpTracks, currentIndex + 1);
+      try {
+        if (tracks.length === 0) return;
+        const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
+        tpTracks.forEach((t) => ((t as any).isManual = true));
+        if (Platform.OS === 'android') {
+          await TrackPlayer.add(tpTracks, INSERT_AFTER_ACTIVE);
         } else {
-          await TrackPlayer.add(tpTracks);
+          const currentIndex = await TrackPlayer.getActiveTrackIndex();
+
+          if (currentIndex !== undefined && currentIndex !== null) {
+            const queue = await TrackPlayer.getQueue();
+            if (currentIndex + 1 < queue.length) {
+              await TrackPlayer.add(tpTracks, currentIndex + 1);
+            } else {
+              await TrackPlayer.add(tpTracks);
+            }
+          } else {
+            await TrackPlayer.add(tpTracks);
+          }
         }
-      } else {
-        await TrackPlayer.add(tpTracks);
+        // Incrementar el tamaño de la cola manual
+        set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (error) {
+        console.error("Error adding multiple to queue next:", error);
       }
-      // Incrementar el tamaño de la cola manual
-      set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (error) {
-      console.error("Error adding multiple to queue next:", error);
-    }
+    } finally { finishQueueEdit(); }
   },
 
   addMultipleToQueueEnd: async (tracks) => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      if (tracks.length === 0) return;
-      const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
-      tpTracks.forEach((t) => ((t as any).isManual = true));
+      try {
+        if (tracks.length === 0) return;
+        const tpTracks = await Promise.all(tracks.map((t) => mapToTPTrack(t)));
+        tpTracks.forEach((t) => ((t as any).isManual = true));
 
-      const { queueAddBehavior } = useSettingsStore.getState();
-      const currentIndex = await TrackPlayer.getActiveTrackIndex();
+        const { queueAddBehavior } = useSettingsStore.getState();
+        const currentIndex = await TrackPlayer.getActiveTrackIndex();
 
-      if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
-        const { userQueueSize } = get();
-        const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
-        const queue = await TrackPlayer.getQueue();
+        if (queueAddBehavior === 'user_queue' && Platform.OS === 'android') {
+          await TrackPlayer.add(tpTracks, INSERT_AFTER_MANUAL_QUEUE);
+          set(state => ({ userQueueSize: state.userQueueSize + tpTracks.length }));
+        } else if (queueAddBehavior === 'user_queue' && currentIndex !== undefined && currentIndex !== null) {
+          const { userQueueSize } = get();
+          const insertIndex = currentIndex + 1 + Math.max(0, userQueueSize);
+          const queue = await TrackPlayer.getQueue();
 
-        if (insertIndex < queue.length) {
-          await TrackPlayer.add(tpTracks, insertIndex);
+          if (insertIndex < queue.length) {
+            await TrackPlayer.add(tpTracks, insertIndex);
+          } else {
+            await TrackPlayer.add(tpTracks);
+          }
+          set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
+        } else if (queueAddBehavior === 'user_queue') {
+          // Nada reproduciéndose actualmente, pero en modo cola de usuario
+          await TrackPlayer.add(tpTracks);
+          set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
         } else {
+          // Comportamiento legado: al final de la cola de contexto / de toda la lista
           await TrackPlayer.add(tpTracks);
         }
-        set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
-      } else if (queueAddBehavior === 'user_queue') {
-        // Nada reproduciéndose actualmente, pero en modo cola de usuario
-        await TrackPlayer.add(tpTracks);
-        set((state) => ({ userQueueSize: state.userQueueSize + tracks.length }));
-      } else {
-        // Comportamiento legado: al final de la cola de contexto / de toda la lista
-        await TrackPlayer.add(tpTracks);
-      }
 
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (error) {
-      console.error("Error adding multiple to queue end:", error);
-    }
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (error) {
+        console.error("Error adding multiple to queue end:", error);
+      }
+    } finally { finishQueueEdit(); }
   },
 
   clearPlayer: async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      await get().cancelQueueLoading();
-      await flushCurrentTrackToHistory();
-      await TrackPlayer.reset();
-      lastAppliedSpeed = null;
-      lastAppliedPitch = null;
-      storage.remove(PERSISTENCE_KEY);
-      storage.remove("@player_position");
-      storage.remove("@player_accumulated");
-      set({
-        activeTrack: null,
-        activeTrackInstanceId: null,
-        prevTrack: null,
-        nextTrack: null,
-        playbackContext: null,
-        hasNext: false,
-        hasPrevious: false,
-        isShuffleEnabled: false,
-        shuffleOriginalQueue: [],
-        userQueueSize: 0,
-        isQueueLoading: false,
-      });
+      try {
+        await get().cancelQueueLoading();
+        await flushCurrentTrackToHistory();
+        await TrackPlayer.reset();
+        lastAppliedSpeed = null;
+        lastAppliedPitch = null;
+        storage.remove(PERSISTENCE_KEY);
+        storage.remove("@player_position");
+        storage.remove("@player_accumulated");
+        set({
+          activeTrack: null,
+          activeTrackInstanceId: null,
+          prevTrack: null,
+          nextTrack: null,
+          playbackContext: null,
+          hasNext: false,
+          hasPrevious: false,
+          isShuffleEnabled: false,
+          shuffleOriginalQueue: [],
+          userQueueSize: 0,
+          isQueueLoading: false,
+        });
 
-      // Cerrar el PlayerScreen si está abierto
-      if (navigationRef.isReady()) {
-        const currentRoute = navigationRef.getCurrentRoute();
-        const rootState = navigationRef.getRootState();
+        // Cerrar el PlayerScreen si está abierto
+        if (navigationRef.isReady()) {
+          const currentRoute = navigationRef.getCurrentRoute();
+          const rootState = navigationRef.getRootState();
 
-        if (
-          currentRoute?.name === 'PlayerHome' ||
-          (rootState && rootState.routes[rootState.index]?.name === 'Player')
-        ) {
-          navigationRef.navigate('Main');
+          if (
+            currentRoute?.name === 'PlayerHome' ||
+            (rootState && rootState.routes[rootState.index]?.name === 'Player')
+          ) {
+            navigationRef.navigate('Main');
+          }
         }
-      }
 
-    } catch (error) {
-      console.error("Error in clearPlayer:", error);
-    }
+      } catch (error) {
+        console.error("Error in clearPlayer:", error);
+      }
+    } finally { finishQueueEdit(); }
   },
 
   setShuffleState: (enabled, queue) =>
@@ -1195,74 +1333,78 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }),
 
   toggleShuffle: async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      const { isShuffleEnabled, shuffleOriginalQueue } = get();
-      const currentQueue = await TrackPlayer.getQueue();
-      const activeIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
+      try {
+        const { isShuffleEnabled, shuffleOriginalQueue } = get();
+        const currentQueue = await TrackPlayer.getQueue();
+        const activeIndex = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
 
-      if (currentQueue.length <= 1) {
-        set({ isShuffleEnabled: !isShuffleEnabled, shuffleOriginalQueue: [] });
-        return;
+        if (currentQueue.length <= 1) {
+          set({ isShuffleEnabled: !isShuffleEnabled, shuffleOriginalQueue: [] });
+          return;
+        }
+
+        const currentIndex = Math.max(0, Math.min(activeIndex, currentQueue.length - 1));
+        const currentTrack = currentQueue[currentIndex];
+
+        if (!isShuffleEnabled) {
+          // Save current queue as original queue
+          set({ isShuffleEnabled: true, shuffleOriginalQueue: currentQueue });
+
+          // Get all other tracks (excluding current track)
+          const otherTracks = currentQueue.filter((_, idx) => idx !== currentIndex);
+          const shuffledOthers = shuffleArray(otherTracks);
+
+          // 1. Clear upcoming tracks
+          await TrackPlayer.removeUpcomingTracks();
+
+          // 2. Clear previous tracks if any, leaving currentTrack at index 0
+          if (currentIndex > 0) {
+            const previousIndices = Array.from({ length: currentIndex }, (_, i) => i);
+            await TrackPlayer.remove(previousIndices);
+          }
+
+          // 3. Add shuffled other tracks after currentTrack
+          if (shuffledOthers.length > 0) {
+            await TrackPlayer.add(shuffledOthers);
+          }
+        } else {
+          // Turning shuffle OFF: restore original queue order
+          let tracksToRestore: TPTrack[] = [];
+          if (shuffleOriginalQueue.length > 0) {
+            const originalIdx = shuffleOriginalQueue.findIndex(t => t?.id === currentTrack?.id);
+            const restoreIdx = Math.max(0, originalIdx);
+
+            const upcomingOriginal = shuffleOriginalQueue.slice(restoreIdx + 1);
+            const previousOriginal = shuffleOriginalQueue.slice(0, restoreIdx);
+            tracksToRestore = [...upcomingOriginal, ...previousOriginal];
+          }
+
+          // 1. Clear upcoming tracks
+          await TrackPlayer.removeUpcomingTracks();
+
+          // 2. Clear previous tracks if any, leaving currentTrack at index 0
+          if (currentIndex > 0) {
+            const previousIndices = Array.from({ length: currentIndex }, (_, i) => i);
+            await TrackPlayer.remove(previousIndices);
+          }
+
+          // 3. Add restored original tracks after currentTrack
+          if (tracksToRestore.length > 0) {
+            await TrackPlayer.add(tracksToRestore);
+          }
+
+          set({ isShuffleEnabled: false, shuffleOriginalQueue: [] });
+        }
+
+        await get().updateQueueStatus(0);
+        await get().savePlaybackState();
+      } catch (e) {
+        console.error('Error toggling shuffle in usePlayerStore:', e);
       }
-
-      const currentIndex = Math.max(0, Math.min(activeIndex, currentQueue.length - 1));
-      const currentTrack = currentQueue[currentIndex];
-
-      if (!isShuffleEnabled) {
-        // Save current queue as original queue
-        set({ isShuffleEnabled: true, shuffleOriginalQueue: currentQueue });
-
-        // Get all other tracks (excluding current track)
-        const otherTracks = currentQueue.filter((_, idx) => idx !== currentIndex);
-        const shuffledOthers = shuffleArray(otherTracks);
-
-        // 1. Clear upcoming tracks
-        await TrackPlayer.removeUpcomingTracks();
-
-        // 2. Clear previous tracks if any, leaving currentTrack at index 0
-        if (currentIndex > 0) {
-          const previousIndices = Array.from({ length: currentIndex }, (_, i) => i);
-          await TrackPlayer.remove(previousIndices);
-        }
-
-        // 3. Add shuffled other tracks after currentTrack
-        if (shuffledOthers.length > 0) {
-          await TrackPlayer.add(shuffledOthers);
-        }
-      } else {
-        // Turning shuffle OFF: restore original queue order
-        let tracksToRestore: TPTrack[] = [];
-        if (shuffleOriginalQueue.length > 0) {
-          const originalIdx = shuffleOriginalQueue.findIndex(t => t?.id === currentTrack?.id);
-          const restoreIdx = Math.max(0, originalIdx);
-
-          const upcomingOriginal = shuffleOriginalQueue.slice(restoreIdx + 1);
-          const previousOriginal = shuffleOriginalQueue.slice(0, restoreIdx);
-          tracksToRestore = [...upcomingOriginal, ...previousOriginal];
-        }
-
-        // 1. Clear upcoming tracks
-        await TrackPlayer.removeUpcomingTracks();
-
-        // 2. Clear previous tracks if any, leaving currentTrack at index 0
-        if (currentIndex > 0) {
-          const previousIndices = Array.from({ length: currentIndex }, (_, i) => i);
-          await TrackPlayer.remove(previousIndices);
-        }
-
-        // 3. Add restored original tracks after currentTrack
-        if (tracksToRestore.length > 0) {
-          await TrackPlayer.add(tracksToRestore);
-        }
-
-        set({ isShuffleEnabled: false, shuffleOriginalQueue: [] });
-      }
-
-      await get().updateQueueStatus(0);
-      await get().savePlaybackState();
-    } catch (e) {
-      console.error('Error toggling shuffle in usePlayerStore:', e);
-    }
+    } finally { finishQueueEdit(); }
   },
 
   // Llamado por TrackPlayerSync cuando el track avanza hacia adelante
@@ -1335,125 +1477,99 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   clearUserQueue: async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      const queue = await TrackPlayer.getQueue();
-      const activeIndex = await TrackPlayer.getActiveTrackIndex();
+      try {
+        const queue = await TrackPlayer.getQueue();
+        const activeIndex = await TrackPlayer.getActiveTrackIndex();
 
-      if (activeIndex === undefined || activeIndex === null) return;
+        if (activeIndex === undefined || activeIndex === null) return;
 
-      const indicesToRemove = queue
-        .map((track, index) => index > activeIndex && (track as any).isManual ? index : -1)
-        .filter(index => index !== -1);
+        const indicesToRemove = queue
+          .map((track, index) => index > activeIndex && (track as any).isManual ? index : -1)
+          .filter(index => index !== -1);
 
-      if (indicesToRemove.length > 0) {
-        // Ordenamos los índices de mayor a menor para que al borrar desde el final
-        // no afecte a los índices de las posiciones anteriores.
-        indicesToRemove.sort((a, b) => b - a);
-        await removeIndicesInChunks(indicesToRemove);
+        if (indicesToRemove.length > 0) {
+          // Ordenamos los índices de mayor a menor para que al borrar desde el final
+          // no afecte a los índices de las posiciones anteriores.
+          indicesToRemove.sort((a, b) => b - a);
+          await removeIndicesInChunks(indicesToRemove);
+        }
+
+        set({ userQueueSize: 0 });
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (e) {
+        console.error("Error clearing user queue:", e);
       }
-
-      set({ userQueueSize: 0 });
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (e) {
-      console.error("Error clearing user queue:", e);
-    }
+    } finally { finishQueueEdit(); }
   },
 
   clearContextQueue: async () => {
+    if (useMultipleQueuesStore.getState().isSwitching) return;
+    const finishQueueEdit = beginActiveQueueEdit();
     try {
-      await get().cancelQueueLoading();
-      const queue = await TrackPlayer.getQueue();
-      const activeIndex = await TrackPlayer.getActiveTrackIndex();
+      try {
+        await get().cancelQueueLoading();
+        const queue = await TrackPlayer.getQueue();
+        const activeIndex = await TrackPlayer.getActiveTrackIndex();
 
-      if (activeIndex === undefined || activeIndex === null) return;
+        if (activeIndex === undefined || activeIndex === null) return;
 
-      const indicesToRemove = queue
-        .map((track, index) => index > activeIndex && !(track as any).isManual ? index : -1)
-        .filter(index => index !== -1);
+        const indicesToRemove = queue
+          .map((track, index) => index > activeIndex && !(track as any).isManual ? index : -1)
+          .filter(index => index !== -1);
 
-      if (indicesToRemove.length === 0) return;
+        if (indicesToRemove.length === 0) return;
 
-      indicesToRemove.sort((a, b) => b - a);
-      await removeIndicesInChunks(indicesToRemove);
+        indicesToRemove.sort((a, b) => b - a);
+        await removeIndicesInChunks(indicesToRemove);
 
-      await get().updateQueueStatus();
-      await get().savePlaybackState();
-    } catch (e) {
-      console.error("Error clearing context queue:", e);
-    }
+        await get().updateQueueStatus();
+        await get().savePlaybackState();
+      } catch (e) {
+        console.error("Error clearing context queue:", e);
+      }
+    } finally { finishQueueEdit(); }
   },
 
   // ── Persistencia en disco ──
   // ── Persistencia en disco ──
   savePlaybackState: async () => {
+    const multiple = useMultipleQueuesStore.getState();
+    if (multiple.isSwitching) return;
+    const queueId = multiple.activeId;
     try {
-      const { activeTrack } = get();
-      if ((activeTrack as any)?.isExternal) {
+      const { queue, index, progress, repeatMode } = await readPlaybackSnapshot();
+      const latest = useMultipleQueuesStore.getState();
+      if (latest.isSwitching || latest.activeId !== queueId) return;
+      if (!queue.length) {
+        storage.remove(PERSISTENCE_KEY); storage.remove('@player_position'); storage.remove('@player_accumulated');
+        latest.saveSession(queueId, null);
         return;
       }
-
-      const queue = await TrackPlayer.getQueue();
-      const index = await TrackPlayer.getActiveTrackIndex();
-      const {
-        playbackContext,
-        isShuffleEnabled,
-        shuffleOriginalQueue,
-        userQueueSize,
-        playbackSpeed,
-        playbackPitch,
-        isVinylModeEnabled,
-      } = get();
-
-      if (queue.length === 0) {
-        storage.remove(PERSISTENCE_KEY);
-        storage.remove("@player_position");
-        storage.remove("@player_accumulated");
-        return;
-      }
-
-      // Guardar el estado general sin position y accumulatedTime en el JSON de la cola
-      const payload = JSON.stringify({
-        queue,
-        index,
-        playbackContext,
-        isShuffleEnabled,
-        shuffleOriginalQueue,
-        userQueueSize,
-        playbackSpeed,
-        playbackPitch,
-        isVinylModeEnabled,
-      });
-      storage.set(PERSISTENCE_KEY, payload);
-
-      // Guardar minutaje y acumulado en claves separadas (primitivas numéricas) para micro-optimizar
-      try {
-        const progress = await TrackPlayer.getProgress();
-        storage.set("@player_position", progress.position);
-      } catch (error_) {
-        console.error("Error obteniendo posición del track:", error_);
-      }
-
-      if (index !== undefined && index !== null && index >= 0 && index < queue.length) {
-        const activeTPTrack = queue[index];
-        if (activeTPTrack?.id) {
-          try {
-            const accumulatedTime = PlaybackTimeTracker.getAccumulatedSeconds(activeTPTrack.id.toString());
-            storage.set("@player_accumulated", accumulatedTime);
-          } catch (error_) {
-            console.error("Error obteniendo acumulado del tracker:", error_);
-          }
-        }
-      }
+      const player = get();
+      const activeIndex = index ?? 0;
+      const accumulatedTime = queue[activeIndex]?.id ? PlaybackTimeTracker.getAccumulatedSeconds(queue[activeIndex].id.toString()) : 0;
+      const session = { queue, index: activeIndex, position: progress.position, accumulatedTime,
+        playbackContext: player.playbackContext, isShuffleEnabled: player.isShuffleEnabled,
+        shuffleOriginalQueue: player.shuffleOriginalQueue, userQueueSize: player.userQueueSize,
+        playbackSpeed: player.playbackSpeed, playbackPitch: player.playbackPitch, isVinylModeEnabled: player.isVinylModeEnabled, repeatMode };
+      storage.set(PERSISTENCE_KEY, JSON.stringify(session));
+      storage.set('@player_position', progress.position); storage.set('@player_accumulated', accumulatedTime);
+      latest.saveSession(queueId, session);
     } catch (error) {
-      console.error("Error guardando estado de reproducción:", error);
+      console.error('Error guardando estado de reproducción:', error);
     }
   },
 
-  restorePlaybackState: async () => {
+  restorePlaybackState: async (suppliedSession, suppliedShuffleOnQueueEnd) => {
+    const timing = startPlaybackTiming('restoreQueue');
+    timing('request');
     set({ isRestoring: true });
     try {
-      const savedData = storage.getString(PERSISTENCE_KEY);
+      const savedData = suppliedSession ?? storage.getString(PERSISTENCE_KEY);
       if (!savedData) {
         return;
       }
@@ -1468,37 +1584,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         playbackSpeed,
         playbackPitch,
         isVinylModeEnabled,
-      } = JSON.parse(savedData);
+        repeatMode,
+        position: savedPosition,
+        accumulatedTime: savedAccumulated,
+      } = typeof savedData === 'string' ? JSON.parse(savedData) : savedData;
 
       if (!queue || queue.length === 0) return;
 
       // Obtener posición y acumulado de sus claves primitivas (evita parsear el JSON de la cola cada segundo)
-      const position = storage.getNumber("@player_position") || 0;
-      const accumulatedTime = storage.getNumber("@player_accumulated") || 0;
+      const multiple = useMultipleQueuesStore.getState();
+      const session = suppliedSession ?? (multiple.isSwitching ? null : getQueueSession(multiple.activeId));
+      const position = session?.position ?? (multiple.isSwitching ? savedPosition : storage.getNumber('@player_position')) ?? 0;
+      const accumulatedTime = session?.accumulatedTime ?? (multiple.isSwitching ? savedAccumulated : storage.getNumber('@player_accumulated')) ?? 0;
 
       // 1. Rehidratar el motor nativo de TrackPlayer
-      await TrackPlayer.reset();
-      lastAppliedSpeed = null;
-      lastAppliedPitch = null;
-      await TrackPlayer.add(queue);
+      await replacePlaybackQueue(queue);
+      timing('native-replaced');
+      set({ playbackSpeed: playbackSpeed ?? 1.0, playbackPitch: playbackPitch ?? 1.0,
+        isVinylModeEnabled: isVinylModeEnabled ?? true });
       await get().applySpeedAndPitch();
+      timing('parameters');
 
       const safeIndex =
-        index !== undefined && index !== null && index < queue.length
+        index !== undefined && index !== null && index >= 0 && index < queue.length
           ? index
           : 0;
-      await TrackPlayer.skip(safeIndex);
-
-      await restorePlaybackPosition(position);
+      if (suppliedSession || session) {
+        // The native engine accepts the initial position before duration metadata is loaded.
+        await TrackPlayer.skip(safeIndex, Math.max(0, position));
+      } else {
+        await TrackPlayer.skip(safeIndex);
+        await restorePlaybackPosition(position);
+      }
 
       // Iniciamos pausado para no sorprender al usuario al abrir la app
-      await TrackPlayer.pause();
+      await (TrackPlayer.pause as (bypassFade?: boolean) => Promise<void>)(true);
+      timing('position-paused');
+      if (repeatMode !== undefined) await TrackPlayer.setRepeatMode(repeatMode);
+      else if (session) await TrackPlayer.setRepeatMode(session.repeatMode);
 
       // 2. Rehidratar el modelo WatermelonDB por ID
       const { trackModel, activeTrackInstanceId } = await restoreActiveTrackModel(
         queue[safeIndex],
         accumulatedTime
       );
+      timing('active-model');
 
       // 3. Rehidratar Zustand
       set({
@@ -1514,9 +1644,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       // 4. Actualizar hasPrevious / hasNext
-      await get().updateQueueStatus(safeIndex);
+      // Controls update synchronously from the installed queue; adjacent artwork
+      // models must not hold the queue selector locked while the DB resolves them.
+      const statusUpdate = get().updateQueueStatus(safeIndex, suppliedSession ? { queue, repeatMode: repeatMode ?? RepeatMode.Off,
+        shuffleOnQueueEnd: suppliedShuffleOnQueueEnd } : undefined);
+      if (suppliedSession) void statusUpdate.catch(error => console.error('Error refreshing restored queue:', error));
+      else await statusUpdate;
+      timing('ready');
     } catch (error) {
       console.error("Error restaurando estado de reproducción:", error);
+      if (suppliedSession) throw error;
     } finally {
       setTimeout(() => {
         set({ isRestoring: false });
@@ -1524,18 +1661,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  updateQueueStatus: async (currentIndex?: number) => {
+  updateQueueStatus: async (currentIndex?: number, knownQueue?: { queue: TPTrack[]; repeatMode: number; shuffleOnQueueEnd?: boolean }) => {
     const revision = ++queueStatusRevision;
     const snapshotRevision = beginQueueSnapshotRead();
     try {
-      const [queue, index, repeatMode] = await Promise.all([
-        TrackPlayer.getQueue(),
-        currentIndex ?? TrackPlayer.getActiveTrackIndex(),
-        TrackPlayer.getRepeatMode(),
-      ]);
+      const snapshot = !knownQueue && Platform.OS === 'android' ? await tryReadNativePlaybackSnapshot() : null;
+      const [queue, index, repeatMode]: [TPTrack[], number | null | undefined, number] = snapshot
+        ? [snapshot.queue, snapshot.index, snapshot.repeatMode]
+        : knownQueue ? [knownQueue.queue, currentIndex, knownQueue.repeatMode] : await Promise.all([
+          TrackPlayer.getQueue(), currentIndex ?? TrackPlayer.getActiveTrackIndex(), TrackPlayer.getRepeatMode(),
+        ]);
+      if (snapshot) applyNativeManualQueueSize(snapshot.userQueueSize, snapshot.queueRevision);
       if (revision !== queueStatusRevision) return;
       publishNativeQueue(queue, index, snapshotRevision);
-      const { shuffleOnQueueEnd } = useSettingsStore.getState();
+      const shuffleOnQueueEnd = knownQueue?.shuffleOnQueueEnd ?? selectShuffleOnQueueEnd(useMultipleQueuesStore.getState());
 
       if (index === undefined || index === null || queue.length === 0) {
         set({ hasPrevious: false, hasNext: false, prevTrack: null, nextTrack: null });
@@ -1661,6 +1800,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   handleDeletedEntities: async (trackIds, albumIds, artistIds) => {
+    removeDeletedTracksFromInactiveQueues(trackIds);
     try {
       const state = get();
       let shouldUpdateRecents = false;
@@ -1732,6 +1872,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   handleRelocatedTracks: async (relocatedTrackIds) => {
     try {
       if (!relocatedTrackIds || relocatedTrackIds.length === 0) return;
+      const multiple = useMultipleQueuesStore.getState();
+      await Promise.all(multiple.slots.filter(slot => slot.id !== multiple.activeId).map(async slot => {
+        const session = getQueueSession(slot.id);
+        if (!session || !session.queue.some(track => relocatedTrackIds.includes(track.id.toString().split('-')[0]))) return;
+        const updated = await updateRelocatedShuffleQueue(session.queue, relocatedTrackIds);
+        const queue = updated.map((track, index) => ({ ...session.queue[index], ...track, id: session.queue[index].id }));
+        const shuffleOriginalQueue = await updateRelocatedShuffleQueue(session.shuffleOriginalQueue, relocatedTrackIds);
+        multiple.saveSession(slot.id, { ...session, queue, shuffleOriginalQueue });
+      }));
 
       const state = get();
       const activeTrack = state.activeTrack;
@@ -1808,6 +1957,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       if (isActiveTrackTarget || isAnyQueueTarget) {
         await TrackPlayer.pause().catch(() => { });
+        const release = await CrossfadeService.block();
+        release();
         return true;
       }
       return false;
@@ -1827,12 +1978,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const artistNames =
         artists.length > 0
           ? artists.map((a) => a.name).join(", ")
-          : "Artista desconocido";
+          : i18n.t('metadata.unknown_artist');
 
       const title = track.title;
       const artist = artistNames;
-      const albumTitle = album?.title || "Álbum desconocido";
+      const albumTitle = album?.title || i18n.t('metadata.unknown_album');
       const artwork = album?.coverUrl || undefined;
+      const metadata = { title, artist, album: albumTitle, artwork, skipSegments: track.skipSegments ?? null };
 
       const activeTrack = get().activeTrack;
       if (activeTrack?.id === trackId) {
@@ -1847,12 +1999,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const tpTrackId = tpTrack.id.toString();
         if (tpTrackId.startsWith(`${trackId}-`) || tpTrack.url === track.fileUrl) {
           metadataUpdates.push(
-            TrackPlayer.updateMetadataForTrack(i, {
-              title,
-              artist,
-              album: albumTitle,
-              artwork,
-            })
+            TrackPlayer.updateMetadataForTrack(i, metadata)
           );
           updatedAny = true;
         }

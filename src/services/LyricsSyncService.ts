@@ -1,3 +1,4 @@
+import { foregroundLyricsRequests } from "./lyricsRequests";
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../database';
 import Track from '../database/models/Track';
@@ -22,14 +23,26 @@ async function resolveArtistName(track: Track): Promise<string> {
     }
 }
 
-async function fetchAndPersistLyrics(track: Track): Promise<'ok' | 'not_found' | 'rate_limited' | 'network_error'> {
+type FetchResult = 'ok' | 'not_found' | 'rate_limited' | 'network_error';
+const pending = new Map<string, Promise<FetchResult>>();
+function fetchAndPersistLyrics(track: Track): Promise<FetchResult> {
+    const existing = pending.get(track.id);
+    if (existing) return existing;
+    const request = fetchAndPersistLyricsOnce(track).finally(() => pending.delete(track.id));
+    pending.set(track.id, request);
+    return request;
+}
+async function fetchAndPersistLyricsOnce(track: Track): Promise<FetchResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
         const title = encodeURIComponent(track.title);
         const artist = encodeURIComponent(await resolveArtistName(track));
         const url = `https://lrclib.net/api/get?track_name=${title}&artist_name=${artist}`;
 
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'MMPlayer V2.1.0 (https://github.com/pescalerag/mmplayer)' }
+            headers: { 'User-Agent': 'MMPlayer V3.0.0 (https://github.com/pescalerag/mmplayer)' },
+            signal: controller.signal
         });
 
         if (response.status === 429) return 'rate_limited';
@@ -38,6 +51,7 @@ async function fetchAndPersistLyrics(track: Track): Promise<'ok' | 'not_found' |
             const data = await response.json();
             const foundLyrics: string | null = data.syncedLyrics || data.plainLyrics || null;
             await database.write(async () => {
+                if (track.lyricsLRC || track.lyricsFetchFailed) return;
                 await track.update(t => {
                     if (foundLyrics) t.lyricsLRC = foundLyrics;
                     else t.lyricsFetchFailed = true;
@@ -46,14 +60,16 @@ async function fetchAndPersistLyrics(track: Track): Promise<'ok' | 'not_found' |
             return foundLyrics ? 'ok' : 'not_found';
         }
 
+        if (response.status !== 404) return 'network_error';
         await database.write(async () => {
+            if (track.lyricsLRC || track.lyricsFetchFailed) return;
             await track.update(t => { t.lyricsFetchFailed = true; });
         });
         return 'not_found';
 
     } catch {
         return 'network_error';
-    }
+    } finally { clearTimeout(timeout); }
 }
 
 export const LyricsSyncService = {
@@ -109,14 +125,17 @@ export const LyricsSyncService = {
         }
     },
 
-    async prefetchForQueue(currentIndex: number, queueIds: string[]): Promise<void> {
+    async prefetchForQueue(currentIndex: number, queueIds: string[], shouldContinue: () => boolean = () => true): Promise<void> {
         const slice = queueIds.slice(currentIndex, currentIndex + PREFETCH_LOOKAHEAD);
         for (const rawId of slice) {
+            if (!shouldContinue()) break;
             try {
                 const cleanId = rawId.toString().split('-')[0];
-                const track = await database.get<Track>('tracks').find(cleanId);
-                if (!track.lyricsLRC && !track.lyricsFetchFailed) {
-                    await fetchAndPersistLyrics(track);
+                const tracks = database.get<Track>('tracks');
+                const track = await tracks.find(String(rawId)).catch(() => tracks.find(cleanId));
+                if (!track.lyricsLRC && !track.lyricsFetchFailed && !foregroundLyricsRequests.has(track.id)) {
+                    const result = await fetchAndPersistLyrics(track);
+                    if (result === 'rate_limited') break;
                 }
             } catch { }
         }

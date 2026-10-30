@@ -1,18 +1,21 @@
+import { HeaderHistoryControls } from './HeaderHistoryControls';
+import { RatingSummary } from '../../utils/trackRatings';
+import { RatingSummaryCaption } from '../library/RatingSummaryCaption';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo } from 'react';
 import {
-    Dimensions,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import MarqueeText from '@/components/common/MarqueeText';
+import { useScreenDimensions } from '../../hooks/useScreenWidth';
 
-const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380;
 
 interface DetailHeaderLayoutProps {
@@ -21,6 +24,7 @@ interface DetailHeaderLayoutProps {
     placeholderIcon: keyof typeof Ionicons.glyphMap;
     subtitle?: React.ReactNode;
     metaInfo?: string;
+    rating?: RatingSummary;
     onBack: () => void;
     onHome?: () => void;
     onDelete?: () => void;
@@ -31,7 +35,7 @@ interface DetailHeaderLayoutProps {
     renderExtra?: () => React.ReactNode;
     renderHeaderPrefix?: () => React.ReactNode;
     isFavorites?: boolean;
-    renderCover?: () => React.ReactNode;
+    renderCover?: (size: { width: number; height: number }) => React.ReactNode;
 }
 
 const DetailHeaderLayout = ({
@@ -40,6 +44,7 @@ const DetailHeaderLayout = ({
     placeholderIcon,
     subtitle,
     metaInfo,
+    rating,
     onBack,
     onHome,
     onDelete,
@@ -52,8 +57,13 @@ const DetailHeaderLayout = ({
     isFavorites = false,
     renderCover,
 }: DetailHeaderLayoutProps) => {
+    const { width: screenWidth, height: panelHeight } = useScreenDimensions();
+    // Leave space for the first content rows even in short desktop panels.
+    const headerHeight = Platform.OS === 'web'
+        ? Math.min(500, Math.max(220, panelHeight * 0.52))
+        : HEADER_HEIGHT;
     const { colors, fonts, layout } = useAppTheme();
-    const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
+    const styles = React.useMemo(() => getStyles(colors, fonts, layout, screenWidth, headerHeight), [colors, fonts, layout, screenWidth, headerHeight]);
     const imageSource = React.useMemo(() => {
         if (!imageUrl) return null;
         if (imageUrl.startsWith('file://') && !imageUrl.includes('?t=')) {
@@ -63,9 +73,9 @@ const DetailHeaderLayout = ({
     }, [imageUrl]);
 
     return (
-        <View style={styles.headerContainer}>
+        <View testID="detail-header" style={styles.headerContainer}>
             {renderCover ? (
-                renderCover()
+                renderCover({ width: screenWidth, height: headerHeight })
             ) : isFavorites ? (
                 <LinearGradient
                     colors={[colors.accent, colors.accentDark || '#4C1D95']}
@@ -97,9 +107,11 @@ const DetailHeaderLayout = ({
             />
 
             {/* Botón atrás */}
+            <HeaderHistoryControls style={{ position: 'absolute', top: 50, left: 16, zIndex: 10 }}>
             <TouchableOpacity style={styles.backButton} onPress={onBack}>
                 <Ionicons name="chevron-back" size={28} color={colors.text} />
             </TouchableOpacity>
+            </HeaderHistoryControls>
 
             {/* Botones de Acción Derechos */}
             <View style={styles.actionButtonsContainer}>
@@ -174,6 +186,7 @@ const DetailHeaderLayout = ({
                 {metaInfo && (
                     <Text style={[styles.metaInfo, renderExtra ? { marginRight: 120 } : null]}>{metaInfo}</Text>
                 )}
+                {rating && <View style={renderExtra ? { marginRight: 120 } : undefined}><RatingSummaryCaption rating={rating} align="left" /></View>}
             </View>
 
             {/* Render Extra (FAB, Photo button, etc.) */}
@@ -184,15 +197,15 @@ const DetailHeaderLayout = ({
 
 export default memo(DetailHeaderLayout);
 
-const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
+const getStyles = (colors: any, fonts: any, layout: any, width: number, headerHeight: number) => StyleSheet.create({
     headerContainer: {
         width,
-        height: HEADER_HEIGHT,
+        height: headerHeight,
         position: 'relative',
     },
     headerImage: {
         width,
-        height: HEADER_HEIGHT,
+        height: headerHeight,
     },
     headerPlaceholder: {
         backgroundColor: colors.cardBackground,
@@ -204,7 +217,7 @@ const getStyles = (colors: any, fonts: any, layout: any) => StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        height: HEADER_HEIGHT * 0.75,
+        height: headerHeight * 0.75,
     },
     backButton: {
         position: 'absolute',

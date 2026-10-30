@@ -7,6 +7,10 @@ jest.mock('react-native', () => ({
   EventEmitter: jest.fn(),
   View: 'View',
   Text: 'Text',
+  Image: {
+    resolveAssetSource: jest.fn((asset) =>
+      asset && typeof asset === 'object' ? asset : { uri: 'file:///test-image.png' }),
+  },
   StyleSheet: { create: (s) => s },
   Alert: { alert: jest.fn() },
   Linking: {
@@ -81,6 +85,7 @@ const mockTrackPlayer = {
   getActiveTrackIndex: jest.fn().mockResolvedValue(0),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),
   reset: jest.fn().mockResolvedValue(undefined),
+    setQueue: jest.fn().mockResolvedValue(undefined),
   play: jest.fn().mockResolvedValue(undefined),
   pause: jest.fn().mockResolvedValue(undefined),
   stop: jest.fn().mockResolvedValue(undefined),
@@ -117,6 +122,8 @@ const mockNativeEqualizerModule = {
   release: jest.fn().mockResolvedValue(undefined),
   extractColorFromImage: jest.fn().mockResolvedValue('#ff0000'),
   setReplayGainSettings: jest.fn().mockResolvedValue(undefined),
+  setCrossfadeSettings: jest.fn().mockResolvedValue(undefined),
+  getPlaybackSnapshot: jest.fn().mockResolvedValue(null),
 };
 
 jest.mock('expo-modules-core', () => ({
@@ -210,7 +217,7 @@ jest.mock('./src/store/useCastStore', () => ({
   },
 }));
 jest.mock('./src/navigation/navigationRef', () => {
-  const navigationRef = { isReady: () => false, navigate: jest.fn() };
+  const navigationRef = { isReady: () => false, navigate: jest.fn(), dispatch: jest.fn(), getRootState: jest.fn(() => ({ key: 'root', type: 'stack', routeNames: ['Main'], routes: [{ name: 'Main' }], index: 0 })), getCurrentRoute: jest.fn() };
   return {
     navigationRef,
     waitForNavigationReady: jest.fn(async () => navigationRef.isReady()),

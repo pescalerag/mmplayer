@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { useNativeStackOptions } from './useNativeStackOptions';
 
 import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
 import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
@@ -10,13 +11,9 @@ import { TagsStackParamList } from './types';
 const Stack = createNativeStackNavigator<TagsStackParamList>();
 
 export default function TagsNavigator() {
+    const screenOptions = useNativeStackOptions();
     return (
-        <Stack.Navigator screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            contentStyle: { backgroundColor: 'transparent' },
-            freezeOnBlur: false
-        }}>
+        <Stack.Navigator screenOptions={screenOptions}>
             <Stack.Screen name="Tags" component={TagManagementScreen} />
             <Stack.Screen name="TagDetail" component={TagDetailScreen} getId={({ params }) => params.tagId} />
             <Stack.Screen name="ArtistDetail" component={ArtistDetailScreen} getId={({ params }) => params.artistId} />

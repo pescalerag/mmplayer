@@ -1,3 +1,7 @@
+import { useObservedRefresh } from '../../hooks/useObservedRefresh';
+import { scheduleScreenRefresh } from '../../utils/scheduleScreenRefresh';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -38,7 +42,7 @@ const { width } = Dimensions.get('window');
 const SmartTrackRow = withObservables(['track'], ({ track }: { track: Track }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function SmartTrackRow({
     track,
     album,
@@ -172,11 +176,11 @@ function SmartListDetailContent({ smartListId, tracks, loading }: Readonly<Smart
                 subtitle={listDef?.description || 'Lista inteligente'}
                 metaInfo={`${tracks.length} ${tracks.length === 1 ? t('library.song_singular') : t('library.song_plural')} · ${formatAlbumDuration(totalDuration)}`}
                 onBack={handleBack}
-                renderCover={() => (
+                renderCover={({ width, height }) => (
                     <PlaylistCover
                         playlistId={`smart-list-${smartListId}`}
                         width={width}
-                        height={380}
+                        height={height}
                         borderRadius={0}
                     />
                 )}
@@ -282,9 +286,13 @@ const getRatingQuery = (id: string) => {
     return coll.query(Q.where('rating', Q.oneOf([4.0, 4.5, 5.0])));
 };
 
+function LoadedSmartListDetail({ data, smartListId }: { data?: Track[]; smartListId: string }) {
+    return <InvisibleScreenContent ready={!!data}><SmartListDetailContent tracks={data ?? []} smartListId={smartListId} loading={!data} /></InvisibleScreenContent>;
+}
+
 const ObservableRatingDetail = withObservables(['smartListId'], ({ smartListId }: { smartListId: string }) => ({
-    tracks: getRatingQuery(smartListId).observe(),
-}))(SmartListDetailContent);
+    data: observeScreenData(() => getRatingQuery(smartListId).observe()),
+}))(LoadedSmartListDetail);
 
 const getGenreQuery = (genre: string) => {
     return database.collections.get<Track>('tracks').query(
@@ -296,44 +304,23 @@ const getGenreQuery = (genre: string) => {
 const ObservableGenreDetail = withObservables(['smartListId'], ({ smartListId }: { smartListId: string }) => {
     const genre = decodeURIComponent(smartListId.replace('genre_', ''));
     return {
-        tracks: getGenreQuery(genre).observe(),
+        data: observeScreenData(() => getGenreQuery(genre).observe()),
     };
-})(SmartListDetailContent);
+})(LoadedSmartListDetail);
 
 // ─── HISTORY STATE-BASED COMPONENT ───
 function HistorySmartListDetail({ smartListId }: { smartListId: string }) {
-    const [tracks, setTracks] = useState<Track[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const loadTracks = useCallback(async () => {
-        setLoading(true);
-        try {
-            const lists = SmartListService.getSmartLists();
-            const listDef = lists.find(l => l.id === smartListId);
-            if (listDef) {
-                const resolved = await listDef.getTracks();
-                setTracks(resolved);
-            }
-        } catch (e) {
-            console.error('Error loading history smart list:', e);
-        } finally {
-            setLoading(false);
-        }
+    const [result, setResult] = useState<{ id: string; tracks: Track[] } | null>(null);
+    const mounted = React.useRef(true);
+    React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+    const load = useCallback(async () => {
+        const list = SmartListService.getSmartLists().find(item => item.id === smartListId);
+        const tracks = await (list?.getTracks() ?? Promise.resolve([]));
+        if (mounted.current) setResult({ id: smartListId, tracks });
     }, [smartListId]);
-
-    useFocusEffect(
-        useCallback(() => {
-            loadTracks();
-        }, [loadTracks])
-    );
-
-    return (
-        <SmartListDetailContent
-            smartListId={smartListId}
-            tracks={tracks}
-            loading={loading}
-        />
-    );
+    useObservedRefresh(load, ['playback_history', 'tracks']);
+    const ready = result?.id === smartListId;
+    return <InvisibleScreenContent ready={ready}><SmartListDetailContent smartListId={smartListId} tracks={ready ? result.tracks : []} loading={!ready} /></InvisibleScreenContent>;
 }
 
 // ─── MAIN EXPORT CHOOSE COMPONENT ───

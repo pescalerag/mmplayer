@@ -49,6 +49,17 @@ export const SmartListService = {
         }
       },
       {
+        id: 'top_50_year',
+        name: translate('smart_playlists.year_title', { year: now.getFullYear() }),
+        description: translate('smart_playlists.year_desc', { year: now.getFullYear() }),
+        placeholderIcon: 'calendar-number-outline',
+        group: 'listening',
+        getTracks: async () => {
+          const fromDate = HistoryService.getPeriodRange('year').from;
+          return SmartListService.getTopTracksByDuration(50, fromDate || undefined);
+        }
+      },
+      {
         id: 'top_50',
         name: translate('smart_playlists.all_title'),
         description: translate('smart_playlists.all_desc'),

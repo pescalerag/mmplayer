@@ -12,7 +12,11 @@ const BASE_MEDIA_DIR = `${FileSystem.documentDirectory}media_assets/`;
 const ARTIST_DIR = `${BASE_MEDIA_DIR}artist_images/`;
 const PLAYLIST_DIR = `${BASE_MEDIA_DIR}playlist_covers/`;
 const CD_DIR = `${BASE_MEDIA_DIR}cd_covers/`;
+const ALBUM_DIR = `${BASE_MEDIA_DIR}album_covers/`;
 const CANVAS_DIR = `${BASE_MEDIA_DIR}canvas_videos/`;
+
+const isUnsupportedWeb = (): boolean =>
+  Platform.OS === 'web' && !(globalThis as any).window?.mmplayer;
 
 export interface StorageBreakdown {
   deviceTotalBytes: number;
@@ -26,6 +30,7 @@ export interface StorageBreakdown {
   artistImagesBytes: number;
   playlistCoversBytes: number;
   cdCoversBytes: number;
+  albumCoversBytes: number;
   canvasVideosBytes: number;
   lyricsBytes: number;
   cacheBytes: number;
@@ -43,7 +48,7 @@ const getUtf8ByteLength = (str: string): number => {
 };
 
 const getDirectorySize = async (dirPath: string): Promise<number> => {
-  if (Platform.OS === 'web' || !dirPath) return 0;
+  if (isUnsupportedWeb() || !dirPath) return 0;
   try {
     const info = await FileSystem.getInfoAsync(dirPath);
     if (!info.exists) return 0;
@@ -69,7 +74,7 @@ const getDirectorySize = async (dirPath: string): Promise<number> => {
 };
 
 const clearDirectoryFiles = async (dirPath: string) => {
-  if (Platform.OS === 'web' || !dirPath) return;
+  if (isUnsupportedWeb() || !dirPath) return;
   try {
     const info = await FileSystem.getInfoAsync(dirPath);
     if (info.exists) {
@@ -98,13 +103,16 @@ export const StorageService = {
     let deviceUsedBytes = 0;
     let deviceFreeBytes = 0;
 
-    if (Platform.OS === 'android') {
+    const isDesktop = Platform.OS === 'web' && !!(globalThis as any).window?.mmplayer;
+    if (Platform.OS === 'android' || isDesktop) {
       try {
         const stats = await getStorageStats();
+        if (isDesktop && (!Number.isFinite(stats.totalBytes) || stats.totalBytes <= 0)) throw Error("Unable to read desktop disk capacity");
         deviceTotalBytes = stats.totalBytes || 0;
         deviceFreeBytes = stats.freeBytes || 0;
         deviceUsedBytes = stats.usedBytes || (deviceTotalBytes - deviceFreeBytes);
       } catch (e) {
+        if (isDesktop) throw e;
         console.warn('[StorageService] Error fetching native storage stats:', e);
       }
     }
@@ -115,9 +123,19 @@ export const StorageService = {
     try {
       const tracksColl = database.collections.get<Track>('tracks');
       const tracks = await tracksColl.query().fetch();
+      if (isDesktop) {
+        let cursor = 0;
+        await Promise.all(Array.from({ length: Math.min(8, tracks.length) }, async () => {
+          while (cursor < tracks.length) {
+            const track = tracks[cursor++];
+            const info = await FileSystem.getInfoAsync(track.fileUrl);
+            if (info.exists && !info.isDirectory && Number.isFinite(info.size)) audioFilesBytes += info.size || 0;
+          }
+        }));
+      }
       for (const track of tracks) {
         const tSize = (track as any).size;
-        if (tSize && typeof tSize === 'number' && tSize > 0) {
+        if (!isDesktop && tSize && typeof tSize === 'number' && tSize > 0) {
           audioFilesBytes += tSize;
         }
         if (track.lyricsLRC) {
@@ -132,13 +150,16 @@ export const StorageService = {
     const artistImagesBytes = await getDirectorySize(ARTIST_DIR);
     const playlistCoversBytes = await getDirectorySize(PLAYLIST_DIR);
     const cdCoversBytes = await getDirectorySize(CD_DIR);
-    const canvasVideosBytes = await getDirectorySize(CANVAS_DIR);
+    const albumCoversBytes = await getDirectorySize(ALBUM_DIR) + (isDesktop
+      ? await getDirectorySize('mmplayer-media://asset/artwork/') : 0);
+    const canvasVideosBytes = await getDirectorySize(CANVAS_DIR) + (isDesktop ? await getDirectorySize(`${BASE_MEDIA_DIR}canvas_thumbnails/`) : 0);
     const cacheBytes = FileSystem.cacheDirectory ? await getDirectorySize(FileSystem.cacheDirectory) : 0;
 
     const mmplayerTotalBytes =
       artistImagesBytes +
       playlistCoversBytes +
       cdCoversBytes +
+      albumCoversBytes +
       canvasVideosBytes +
       lyricsBytes +
       cacheBytes;
@@ -161,6 +182,7 @@ export const StorageService = {
       artistImagesBytes,
       playlistCoversBytes,
       cdCoversBytes,
+      albumCoversBytes,
       canvasVideosBytes,
       lyricsBytes,
       cacheBytes,
@@ -168,7 +190,7 @@ export const StorageService = {
   },
 
   clearCache: async (): Promise<void> => {
-    if (Platform.OS === 'web' || !FileSystem.cacheDirectory) return;
+    if (isUnsupportedWeb() || !FileSystem.cacheDirectory) return;
     try {
       const files = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
       for (const file of files) {
@@ -244,6 +266,7 @@ export const StorageService = {
 
   clearAllCanvasVideos: async (): Promise<void> => {
     await clearDirectoryFiles(CANVAS_DIR);
+    if (Platform.OS === 'web' && (globalThis as any).window?.mmplayer) await clearDirectoryFiles(`${BASE_MEDIA_DIR}canvas_thumbnails/`);
     try {
       const tracksColl = database.collections.get<Track>('tracks');
       const tracks = await tracksColl.query().fetch();

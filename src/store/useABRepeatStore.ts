@@ -1,16 +1,19 @@
 import { create } from 'zustand';
-import TrackPlayer from 'react-native-track-player';
 import * as Haptics from 'expo-haptics';
 import { useToastStore } from './useToastStore';
 import { useCastStore } from './useCastStore';
 import i18n from '../constants/i18n';
+import { useTimestampStore } from './useTimestampStore';
+import { evaluateABButtonPress, shouldTriggerABLoop } from '../utils/trackTimestamps';
+import { TimestampService } from '../services/TimestampService';
 
-interface ABRepeatState {
+export interface ABRepeatState {
     pointA: number | null;
     pointB: number | null;
-    setPointA: (time: number) => void;
-    setPointB: (time: number) => void;
+    setPointA: (time: number | null) => void;
+    setPointB: (time: number | null) => void;
     clearAB: () => void;
+    reset: () => void;
     handleButtonPress: (currentPosition: number) => void;
     handleLongPress: () => void;
     checkLoop: (currentPosition: number) => Promise<number | null>; // Returns seek position if seeked
@@ -22,27 +25,17 @@ export const useABRepeatStore = create<ABRepeatState>((set, get) => ({
     setPointA: (time) => set({ pointA: time }),
     setPointB: (time) => set({ pointB: time }),
     clearAB: () => set({ pointA: null, pointB: null }),
+    reset: () => set({ pointA: null, pointB: null }),
     handleButtonPress: (currentPosition) => {
         const { pointA, pointB } = get();
-        if (pointA === null) {
-            set({ pointA: currentPosition });
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            useToastStore.getState().showToast(i18n.t('toasts.ab_point_a_set'), "flag-outline");
-        } else if (pointB === null) {
-            if (currentPosition > pointA) {
-                set({ pointB: currentPosition });
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                useToastStore.getState().showToast(i18n.t('toasts.ab_point_b_set'), "repeat");
-            } else {
-                set({ pointA: currentPosition });
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                useToastStore.getState().showToast(i18n.t('toasts.ab_point_a_updated'), "flag-outline");
-            }
-        } else {
-            set({ pointA: null, pointB: null });
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            useToastStore.getState().showToast(i18n.t('toasts.ab_deactivated'), "close-outline");
+        const action = evaluateABButtonPress(pointA, pointB, currentPosition, useTimestampStore.getState().config);
+        if (action.type === 'reject_b_muted') {
+            useToastStore.getState().showToast(i18n.t(action.toastKey), action.toastIcon);
+            return;
         }
+        set({ pointA: action.pointA, pointB: action.pointB });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        useToastStore.getState().showToast(i18n.t(action.toastKey), action.toastIcon);
     },
     handleLongPress: () => {
         const { pointA, pointB } = get();
@@ -53,17 +46,20 @@ export const useABRepeatStore = create<ABRepeatState>((set, get) => ({
         }
     },
     checkLoop: async (currentPosition) => {
+        const timestamps = useTimestampStore.getState();
+        if (timestamps.trackId && timestamps.previewTrackId === timestamps.trackId) return null;
         // Evitar bucles A-B si Cast está activo
         if (useCastStore.getState().isServerRunning) {
             return null;
         }
         const { pointA, pointB } = get();
         if (pointA !== null && pointB !== null && pointA < pointB) {
-            // Si se supera el punto B o se retrocede antes del punto A (con margen de 0.5s de tolerancia)
-            if (currentPosition >= pointB || currentPosition < pointA - 0.5) {
+            if (TimestampService.nativeHandlesAB()) return null;
+            const target = shouldTriggerABLoop(currentPosition, pointA, pointB);
+            if (target !== null) {
                 try {
-                    await TrackPlayer.seekTo(pointA);
-                    return pointA;
+                    await TimestampService.seekAutomatically(target);
+                    return target;
                 } catch (err) {
                     console.error("Error seeking to point A in loop:", err);
                 }

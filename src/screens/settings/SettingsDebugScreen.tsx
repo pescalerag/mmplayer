@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScannerService } from '../../services/ScannerService';
@@ -30,6 +30,13 @@ export default function SettingsDebugScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.sectionCard}>
+                        {Platform.OS !== 'web' && (__DEV__ ? ['DebugErrors', 'DebugTests'] : ['DebugErrors']).map((route, index) => <TouchableOpacity key={route} style={styles.buttonRow} onPress={() => navigation.navigate(route)}>
+                            <View style={{ flex: 1, paddingRight: 15 }}>
+                                <Text style={styles.settingLabel}>{t(index === 0 ? 'runtimeDebug.errors' : 'runtimeDebug.tests')}</Text>
+                                <Text style={styles.settingDescription}>{t(index === 0 ? 'runtimeDebug.errorsDescription' : 'runtimeDebug.testsDescription')}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>)}
                         <TouchableOpacity
                             style={styles.buttonRow}
                             onPress={() => navigation.navigate('DebugHistory')}
@@ -74,6 +81,7 @@ export default function SettingsDebugScreen() {
                             <Ionicons name="build" size={20} color={colors.accent} />
                         </TouchableOpacity>
 
+                        {Platform.OS !== 'web' && <>
                         <View style={styles.separator} />
 
                         <TouchableOpacity
@@ -117,7 +125,9 @@ export default function SettingsDebugScreen() {
                             </View>
                             <Ionicons name="image" size={20} color={colors.accent} />
                         </TouchableOpacity>
+                        </>}
 
+                        {Platform.OS !== 'web' && <>
                         <View style={styles.separator} />
 
                         <TouchableOpacity
@@ -145,6 +155,7 @@ export default function SettingsDebugScreen() {
                             </View>
                             <Ionicons name="trash" size={24} color="#EF4444" />
                         </TouchableOpacity>
+                        </>}
                     </View>
                 </ScrollView>
             )}

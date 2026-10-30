@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { useNativeStackOptions } from './useNativeStackOptions';
 
 import AlbumDetailScreen from '../screens/library/AlbumDetailScreen';
 import ArtistDetailScreen from '../screens/library/ArtistDetailScreen';
@@ -13,13 +14,9 @@ import { SearchStackParamList } from './types';
 const Stack = createNativeStackNavigator<SearchStackParamList>();
 
 export default function SearchNavigator() {
+    const screenOptions = useNativeStackOptions();
     return (
-        <Stack.Navigator screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            contentStyle: { backgroundColor: 'transparent' },
-            freezeOnBlur: false
-        }}>
+        <Stack.Navigator screenOptions={screenOptions}>
             <Stack.Screen name="Search" component={SearchScreen} />
             <Stack.Screen
                 name="ArtistDetail"

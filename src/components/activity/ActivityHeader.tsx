@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { LayoutChangeEvent, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { HeaderHistoryControls } from '../layouts/HeaderHistoryControls';
+import { TutorialHelpButton } from '../common/TutorialHelpButton';
 
 interface ActivityHeaderProps {
   readonly includeTopInset?: boolean;
@@ -38,7 +40,7 @@ export function ActivityHeader({
 
   return (
     <View style={[styles.header, { paddingTop: (includeTopInset ? insets.top : 0) + 10, paddingBottom: 12 }]}>
-      {isFromProfile && (
+      <HeaderHistoryControls>{isFromProfile && (
         <TouchableOpacity
           onPress={onBack}
           style={[styles.backButton, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
@@ -46,19 +48,16 @@ export function ActivityHeader({
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-      )}
+      )}</HeaderHistoryControls>
       <Text style={[styles.headerTitle, { fontFamily: fonts.bold, color: colors.text }]}>
         {t('activity.title')}
       </Text>
       <View style={styles.headerRightActions}>
-        <TouchableOpacity
+        <TutorialHelpButton
           onPress={onHelp}
           style={styles.headerIconBtn}
-          activeOpacity={0.7}
           accessibilityLabel={t('activity_tutorial.help_btn')}
-        >
-          <Ionicons name="help-circle-outline" size={20} color={colors.text} />
-        </TouchableOpacity>
+        />
         <TouchableOpacity
           onPress={onHistory}
           style={styles.headerIconBtn}

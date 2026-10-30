@@ -1,8 +1,11 @@
 import { create } from 'zustand';
 import { HistoryService } from '../services/HistoryService';
-import { RetainedResource } from '../utils/retainedResource';
+import { ObservedResource } from '../utils/observedResource';
+import { observeTableChanges, STAT_TABLES } from '../services/ScreenDataChanges';
 
-const weeklyStatsResource = new RetainedResource<Awaited<ReturnType<typeof HistoryService.getWeeklyStats>>>(1);
+const weeklyStatsResource = new ObservedResource<Awaited<ReturnType<typeof HistoryService.getWeeklyStats>>>(() => observeTableChanges(STAT_TABLES), 1);
+
+let latestStatsRequest = 0;
 
 interface StatsState {
     totalHours: number;
@@ -40,9 +43,11 @@ export const useStatsStore = create<StatsState>((set) => ({
     topSongDuration: 0,
     isLoading: true,
     fetchStats: async () => {
-        set({ isLoading: weeklyStatsResource.read('weekly') === undefined });
+        const request = ++latestStatsRequest;
+        set({ isLoading: weeklyStatsResource.read(new Date().toDateString()) === undefined });
         try {
-            const stats = await weeklyStatsResource.load('weekly', () => HistoryService.getWeeklyStats());
+            const stats = await weeklyStatsResource.load(new Date().toDateString(), () => HistoryService.getWeeklyStats());
+            if (request !== latestStatsRequest) return;
             set({
                 totalHours: stats.totalHours,
                 topArtist: stats.topArtist,
@@ -62,7 +67,7 @@ export const useStatsStore = create<StatsState>((set) => ({
         } catch (err) {
             console.error("[useStatsStore] Failed to fetch weekly stats:", err);
         } finally {
-            set({ isLoading: false });
+            if (request === latestStatsRequest) set({ isLoading: false });
         }
     }
 }));

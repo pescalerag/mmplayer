@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Easing,
+    Platform,
     ScrollView,
     StyleProp,
     StyleSheet,
@@ -38,7 +39,7 @@ export default function MarqueeText({
         setTextWidth(0);
     }
 
-    const overflows = containerWidth > 0 && textWidth > containerWidth;
+    const overflows = containerWidth > 0 && textWidth > containerWidth + 1;
 
     useEffect(() => {
         let isCancelled = false;
@@ -109,7 +110,7 @@ export default function MarqueeText({
                     showsHorizontalScrollIndicator={false}
                 >
                     <Text
-                        style={style}
+                        style={[style, Platform.OS === 'web' ? ({ whiteSpace: 'nowrap' } as any) : null]}
                         onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
                     >
                         {text}
@@ -135,11 +136,11 @@ export default function MarqueeText({
                             { transform: [{ translateX }] },
                         ]}
                     >
-                        <Text style={[style, { width: textWidth }]} numberOfLines={1}>
+                        <Text style={[style, { width: textWidth }, Platform.OS === 'web' ? ({ whiteSpace: 'nowrap' } as any) : null]} numberOfLines={1}>
                             {text}
                         </Text>
                         <View style={{ width: spacing }} />
-                        <Text style={[style, { width: textWidth }]} numberOfLines={1}>
+                        <Text style={[style, { width: textWidth }, Platform.OS === 'web' ? ({ whiteSpace: 'nowrap' } as any) : null]} numberOfLines={1}>
                             {text}
                         </Text>
                     </Animated.View>

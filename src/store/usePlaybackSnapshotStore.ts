@@ -8,10 +8,11 @@ export const usePlaybackSnapshotStore = create(() => ({
     artwork: null as string | null,
 }));
 
-let refreshCurrentSubscription: (() => Promise<void>) | undefined;
+type ActiveTrack = Awaited<ReturnType<typeof TrackPlayer.getActiveTrack>>;
+let refreshCurrentSubscription: ((knownTrack?: ActiveTrack | null) => Promise<void>) | undefined;
 
-export async function refreshPlaybackSnapshot() {
-    await refreshCurrentSubscription?.();
+export async function refreshPlaybackSnapshot(knownTrack?: ActiveTrack | null) {
+    await refreshCurrentSubscription?.(knownTrack);
 }
 
 export function subscribeToPlaybackSnapshot() {
@@ -31,10 +32,10 @@ export function subscribeToPlaybackSnapshot() {
         revision++;
         publish(track);
     });
-    const refresh = async () => {
+    const refresh = async (knownTrack?: ActiveTrack | null) => {
         const requestedRevision = ++revision;
         try {
-            const track = await TrackPlayer.getActiveTrack();
+            const track = knownTrack === undefined ? await TrackPlayer.getActiveTrack() : knownTrack ?? undefined;
             if (!disposed && requestedRevision === revision) publish(track);
         } catch {
             // Setup or teardown may overlap a foreground transition.

@@ -1,8 +1,12 @@
+import { openAlbum } from '../../navigation/destinations';
+import { summarizeTrackRatings } from '../../utils/trackRatings';
+import { combineLatest, of } from 'rxjs';
+import { observeScreenData } from '../../utils/observeScreenData';
+import { InvisibleScreenContent } from '../../components/layouts/InvisibleScreenContent';
 import { openAlbumMenu, openArtistMenu } from '@/store/useUIStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
 import withObservables from '@nozbe/with-observables';
-import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -12,17 +16,8 @@ import { pickDocumentForCopy } from '../../services/DocumentPickerService';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { MediaAssetService } from '../../services/MediaAssetService';
-import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ContextMenuTouchableOpacity as TouchableOpacity } from '@/components/common/ContextMenuTouchables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DetailHeaderLayout from '@/components/layouts/DetailHeaderLayout';
 
@@ -31,6 +26,7 @@ import TrackPlayer, { State } from 'react-native-track-player';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
 import LibraryCard from '@/components/cards/LibraryCard';
 import SectionHeader from '@/components/common/SectionHeader';
+import { HorizontalScrollContainer } from '@/components/layouts/HorizontalScrollContainer';
 import { ArtistStatisticsSection } from '@/components/activity/charts/ArtistStatisticsSection';
 import TrackRow from '@/components/player/TrackRow';
 import { database } from '../../database';
@@ -65,7 +61,7 @@ const TRACKS_PREVIEW = 10;
 const ArtistTrackRow = withObservables(['track', 'onPress'], ({ track, onPress }: { track: Track; onPress?: (trackId: string) => void }) => ({
     track: track.observe(),
     album: track.album.observe().pipe(catchError(() => of(null))),
-    artists: track.queryCollaborators.observe() as any,
+    artists: track.queryCollaborators.observeWithColumns(['name']) as any,
 }))(function ArtistTrackRow({ track, album, artists, index, contextId, onPress }: { track: Track; album: Album | null; artists: Artist[]; index?: number; contextId: string; onPress?: (trackId: string) => void }) {
     const { t } = useTranslation();
     const artistNames = artists.length > 0
@@ -127,6 +123,7 @@ const ArtistHeader = memo(function ArtistHeader({
     setShowAllTracks,
     onMore,
 }: any) {
+    const rating = useMemo(() => summarizeTrackRatings(tracks), [tracks]);
     const { colors } = useAppTheme();
     const handleBack = () => {
         navigation.goBack();
@@ -177,15 +174,7 @@ const ArtistHeader = memo(function ArtistHeader({
     };
 
     const handleAlbumPress = useCallback((album: Album) => {
-        const routes = navigation.getState()?.routes;
-        const previousRoute = routes && routes.length > 1 ? routes[routes.length - 2] : null;
-        const params = previousRoute?.params as { albumId?: string } | undefined;
-
-        if (previousRoute?.name === 'AlbumDetail' && params?.albumId === album.id) {
-            navigation.goBack();
-        } else {
-            navigation.navigate('AlbumDetail', { albumId: album.id });
-        }
+        openAlbum(album.id);
     }, [navigation]);
 
     const handleAlbumLongPress = useCallback((album: Album) => {
@@ -205,6 +194,7 @@ const ArtistHeader = memo(function ArtistHeader({
                 imageUrl={showHeaderImage ? artist.imageUrl : null}
                 placeholderIcon="person"
                 metaInfo={metaInfo}
+                rating={isLoadingContent ? undefined : rating}
                 onBack={handleBack}
                 onMore={onMore}
                 onPickPhoto={handlePickPhoto}
@@ -244,11 +234,9 @@ const ArtistHeader = memo(function ArtistHeader({
                             <ActivityIndicator color={colors.accent} />
                         </View>
                     ) : (
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
+                        <HorizontalScrollContainer
                             contentContainerStyle={styles.albumsScroll}
-                            keyboardShouldPersistTaps="handled"
+                            arrowTop={60}
                         >
                             {(showAllAlbums ? albums : albums.slice(0, ALBUMS_PREVIEW)).map((album: Album) => (
                                 <AlbumCardWithNav
@@ -258,7 +246,7 @@ const ArtistHeader = memo(function ArtistHeader({
                                     onLongPress={handleAlbumLongPress}
                                 />
                             ))}
-                        </ScrollView>
+                        </HorizontalScrollContainer>
                     )}
                 </View>
             )}
@@ -478,14 +466,20 @@ function ArtistDetailContentBase({ artist, albums, tracks: rawTracks, isLoadingC
 }
 
 const EnhancedArtistDetailContent = withObservables(['artist'], ({ artist }: { artist: Artist }) => ({
+    data: observeScreenData(() => combineLatest({
     artist: artist.observe(),
     albums: database.collections.get<Album>('albums')
         .query(Q.where('artist_id', artist.id))
-        .observe(),
+        .observeWithColumns(['title', 'cover_url', 'year']),
     tracks: database.collections.get<Track>('tracks')
-        .query(Q.on('track_collaborators', 'artist_id', artist.id))
-        .observe(),
-}))(ArtistDetailContentBase);
+        .query(Q.experimentalJoinTables(['track_collaborators']), Q.or(Q.where('artist_id', artist.id), Q.on('track_collaborators', 'artist_id', artist.id)))
+        .observeWithColumns(['title', 'rating', 'duration', 'file_url', 'artist_id']),
+    })),
+}))(function LoadedArtistDetail({ data, artist }: { data?: Omit<Props, 'isLoadingContent'>; artist: Artist }) {
+    return <InvisibleScreenContent ready={!!data}>
+        <ArtistDetailContentBase artist={data?.artist ?? artist} albums={data?.albums ?? []} tracks={data?.tracks ?? []} isLoadingContent={!data} />
+    </InvisibleScreenContent>;
+});
 
 function ArtistDetailErrorFallback() {
     const { colors } = useAppTheme();
@@ -508,12 +502,13 @@ function ArtistDetailErrorFallback() {
 }
 
 const ObservableArtistDetailMiddle = withObservables(['artistId'], ({ artistId }: { artistId: string }) => ({
-    artist: database.collections.get<Artist>('artists').findAndObserve(artistId).pipe(catchError(() => of(null))),
-}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist | null }) {
+    artist: observeScreenData(() => database.collections.get<Artist>('artists').findAndObserve(artistId).pipe(catchError(() => of(null)))),
+}))(function ObservableArtistDetailMiddle({ artist }: { artist: Artist | null | undefined }) {
+    if (artist === undefined) return <InvisibleScreenContent />;
     if (!artist) {
         return <ArtistDetailErrorFallback />;
     }
-    return <EnhancedArtistDetailContent artist={artist} isLoadingContent={false} />;
+    return <EnhancedArtistDetailContent artist={artist} />;
 });
 
 // ─── ENTRY POINT ─────────────────────────────────────────────────────────────

@@ -1,0 +1,641 @@
+import React from 'react';
+import { ScreenHeaderLayout } from '../../components/layouts/ScreenHeaderLayout';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import Constants from 'expo-constants';
+import { useTranslation } from 'react-i18next';
+import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '../../hooks/useAppTheme';
+export interface SettingsViewProps {
+    readonly actions: { exportDatabase: (format?: 'zip') => void; importDatabase: (format?: 'zip') => void; importMusicZip: () => void };
+    readonly showSupport?: boolean;
+    readonly extraContent?: React.ReactNode;
+    readonly tracksCount: number | null;
+    readonly albumsCount: number | null;
+    readonly artistsCount: number | null;
+}
+
+export function SettingsScreenView({ tracksCount, albumsCount, artistsCount, actions, showSupport = true, extraContent }: SettingsViewProps) {
+    const navigation = useNavigation<any>();
+    const { t } = useTranslation();
+    const { colors } = useAppTheme();
+
+    return (
+        <ScreenHeaderLayout title={t('settings.title')} showBackButton={true}>
+            {({ headerHeight, bottomPadding }) => (
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingTop: headerHeight + 20,
+                            paddingBottom: bottomPadding
+                        }
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {extraContent}
+                    {/* --- SECCIÓN DE ESTADÍSTICAS --- */}
+                    <TouchableOpacity
+                        style={styles.statsCard}
+                        onPress={() => navigation.navigate('Biblioteca')}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.sectionTitle}>{t('settings.library_status')}</Text>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: colors.accent }]}>{tracksCount ?? '…'}</Text>
+                                <Text style={styles.statLabel}>{t('library.songs')}</Text>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: colors.accent }]}>{albumsCount ?? '…'}</Text>
+                                <Text style={styles.statLabel}>{t('library.albums')}</Text>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: colors.accent }]}>{artistsCount ?? '…'}</Text>
+                                <Text style={styles.statLabel}>{t('library.artists')}</Text>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* --- MENÚ DE OPCIONES DE CONFIGURACIÓN --- */}
+                    <View style={styles.sectionCard}>
+                        {/* ALMACENAMIENTO */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsStorage')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="pie-chart-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.storage_title', 'Almacenamiento')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t(Platform.OS === 'web' ? 'settings.storage_desc_desktop' : 'settings.storage_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* APARIENCIA */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsAppearance')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="eye-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.visualization')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.visualization_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* AUDIO */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsAudio')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="volume-high-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.audio_section')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.audio_section_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        {/* REPRODUCCIÓN ALEATORIA */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsShuffle')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="shuffle-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.shuffle_title', 'Reproducción aleatoria')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.shuffle_desc', 'Exclusiones y opciones de reproducción aleatoria')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('SettingsOther')} activeOpacity={0.7} testID="settings-other">
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}><Ionicons name="ellipsis-horizontal-circle-outline" size={22} color={colors.accent} /></View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('discord.other_settings')}</Text>
+                                    <Text style={styles.settingDescription}>{t('discord.other_description')}</Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+                        <View style={styles.separator} />
+                        {/* GESTOS */}
+                        {Platform.OS !== 'web' && <>
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsGestures')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="hand-left-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.swipe_actions')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.swipe_actions_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+                        </>}
+                        {/* IDIOMA */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsLanguage')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="language-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.language')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.language_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* IMÁGENES DE ARTISTAS */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsArtistImages')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="image-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.artist_images_title')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.artist_images_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity style={styles.menuRow} onPress={() => navigation.navigate('SettingsAlbumCovers')} activeOpacity={0.7}>
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}><Ionicons name="albums-outline" size={22} color={colors.accent} /></View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.album_covers_title')}</Text>
+                                    <Text style={styles.settingDescription}>{t('settings.album_covers_desc_short')}</Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+                        <View style={styles.separator} />
+
+                        {/* EXCLUSIONES */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsExclusions')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="close-circle-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.exclusions')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.exclusions_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* DEPURACIÓN */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('SettingsDebug')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="bug-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.debug')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t(Platform.OS === 'web' ? 'settings.debug_desc_desktop' : 'settings.debug_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* --- SECCIÓN DE COPIAS DE SEGURIDAD --- */}
+                    <View style={styles.sectionCard}>
+                        {/* EXPORTAR COPIA */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => actions.exportDatabase()}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="cloud-upload-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_export')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.backup_export_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* IMPORTAR COPIA */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => actions.importDatabase()}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="cloud-download-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_import')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.backup_import_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => actions.exportDatabase('zip')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="archive-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_export_zip')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.backup_export_zip_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => actions.importDatabase('zip')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="folder-open-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.backup_import_zip')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.backup_import_zip_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => actions.importMusicZip()}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="musical-notes-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.music_zip_import')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.music_zip_import_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {showSupport && <>
+                    {/* --- SECCIÓN APOYO, DONACIONES Y SÍGUENOS --- */}
+                    <View style={styles.sectionCard}>
+                        {/* Apoyo y Tiers */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => navigation.navigate('Support')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="sparkles-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.support_tiers')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.support_tiers_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* Donaciones (Ko-Fi) */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => Linking.openURL('https://ko-fi.com/pescalerag')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="cafe-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.donations_kofi')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.donations_kofi_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="open-outline" size={18} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* Proyecto Oficial GitHub */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => Linking.openURL('https://github.com/pescalerag/mmplayer')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="logo-github" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.follow_us')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.follow_us_desc')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.accent} />
+                        </TouchableOpacity>
+
+                        <View style={styles.separator} />
+
+                        {/* Sugerencias o reportar un bug */}
+                        <TouchableOpacity
+                            style={styles.menuRow}
+                            onPress={() => Linking.openURL('https://docs.google.com/forms/d/e/1FAIpQLSf-r0sFET00F_sYOCK2oVBOIKv3ZGQpPDgwOoB6OXCwZg1xsQ/viewform?usp=publish-editor')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.menuRowLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.accent} />
+                                </View>
+                                <View style={styles.menuTextContainer}>
+                                    <Text style={styles.settingLabel}>{t('settings.feedback', 'Sugerencias o reportar un bug')}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {t('settings.feedback_desc', 'Envíanos tus sugerencias o infórmanos de un problema')}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="open-outline" size={18} color={colors.accent} />
+                        </TouchableOpacity>
+                    </View>
+
+                    </>}
+                    {/* --- SECCIÓN DE APP INFO FOOTER --- */}
+                    <View style={styles.infoTextContainer}>
+                        <Text style={styles.infoText}>MMPlayer v{Constants.expoConfig?.version || '3.0.0'}</Text>
+                        <Text style={styles.infoTextSub}>{t('settings.credits')}</Text>
+                    </View>
+                </ScrollView>
+            )}
+        </ScreenHeaderLayout>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: 20,
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontFamily: 'Montserrat',
+        fontWeight: '900',
+        color: '#FFFFFF',
+        marginBottom: 24,
+    },
+    statsCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+    },
+    sectionCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#FFFFFF',
+        marginBottom: 16,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    statItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    statValue: {
+        fontSize: 22,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        color: '#8B5CF6',
+    },
+    statLabel: {
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '800',
+        color: '#9A9A9A',
+        marginTop: 4,
+    },
+    divider: {
+        width: 1,
+        height: 30,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    infoTextContainer: {
+        marginTop: 20,
+        marginBottom: 40,
+        alignItems: 'center',
+    },
+    infoText: {
+        color: '#888888',
+        fontSize: 14,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+    },
+    infoTextSub: {
+        color: '#666666',
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        marginTop: 4,
+    },
+    smokeEffect: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 160,
+        zIndex: 1,
+    },
+    settingLabel: {
+        fontSize: 16,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#FFFFFF',
+    },
+    settingDescription: {
+        fontSize: 12,
+        fontFamily: 'Montserrat',
+        fontWeight: '700',
+        color: '#888',
+        marginTop: 4,
+        lineHeight: 16,
+    },
+    menuRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+    },
+    menuRowLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        paddingRight: 15,
+        gap: 12,
+    },
+    iconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    menuTextContainer: {
+        flex: 1,
+    },
+    separator: {
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    betaBadge: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.25)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 6,
+        alignSelf: 'center',
+    },
+    betaBadgeText: {
+        color: '#F59E0B',
+        fontSize: 9,
+        fontWeight: '900',
+        fontFamily: 'Montserrat',
+        letterSpacing: 0.5,
+    },
+});
+

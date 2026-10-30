@@ -3,14 +3,19 @@ import {
   StyleSheet,
   Text,
   View,
+  Platform,
+  TouchableOpacity as NativeTouchableOpacity,
   StyleProp,
   ViewStyle,
   TextStyle
 } from 'react-native';
-import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
+import { ScrollView, TouchableOpacity as GestureTouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useAppTheme } from '@/hooks/useAppTheme';
+
+// Browser menus need native click/keyboard activation; keep mobile gestures intact.
+const TouchableOpacity = Platform.OS === 'web' ? NativeTouchableOpacity : GestureTouchableOpacity;
 
 interface BaseMenuSheetProps {
   title?: string;
@@ -22,6 +27,7 @@ interface BaseMenuSheetProps {
   headerLeft?: React.ReactNode;
   circularImage?: boolean;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 export function BaseMenuSheet({
@@ -34,6 +40,7 @@ export function BaseMenuSheet({
   headerLeft,
   circularImage,
   children,
+  footer,
 }: BaseMenuSheetProps) {
   const { colors, fonts, layout } = useAppTheme();
   const styles = React.useMemo(() => getStyles(colors, fonts, layout), [colors, fonts, layout]);
@@ -86,6 +93,7 @@ export function BaseMenuSheet({
       >
         {children}
       </ScrollView>
+      {footer}
     </View>
   );
 }
@@ -114,6 +122,7 @@ export function MenuOption({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       style={[styles.optionRow, containerStyle]}
       onPress={onPress}
       activeOpacity={0.7}
@@ -138,6 +147,7 @@ const getStyles = (colors: any, fonts: any, layout: any) =>
     container: {
       width: '100%',
       maxHeight: '100%',
+      flexShrink: 1,
     },
     header: {
       flexDirection: 'row',

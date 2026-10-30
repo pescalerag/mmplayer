@@ -1,3 +1,4 @@
+jest.mock('../hooks/useObservedRefresh', () => ({ useObservedRefresh: jest.fn() }));
 import React from 'react';
 import { database } from '../database';
 import { useMusicSearch } from '../hooks/useMusicSearch';

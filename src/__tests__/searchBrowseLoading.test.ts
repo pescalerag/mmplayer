@@ -21,7 +21,7 @@ describe('search browse data without blocking initial screen rendering', () => {
         jest.spyOn(React, 'useState').mockReturnValue([null, updateTags]);
         jest.spyOn(React, 'useEffect').mockImplementation(effect => { cleanup = effect() || undefined; });
         (scheduleScreenRefresh as jest.Mock).mockImplementation(callback => { start = callback; return cancel; });
-        query.mockReturnValue({ observe: () => rows });
+        query.mockReturnValue({ observeWithColumns: () => rows });
         (database.get as jest.Mock).mockReturnValue({ query });
     });
     afterEach(() => { cleanup?.(); jest.restoreAllMocks(); });

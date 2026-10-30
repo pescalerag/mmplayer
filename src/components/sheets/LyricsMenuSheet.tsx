@@ -1,7 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { openLyricsDocument } from '../../navigation/destinations';
+import { navigationRef } from '../../navigation/navigationRef';
+import type { ShareLyricsParams } from '../../navigation/types';
 import { useSheetProps } from '@/hooks/useSheetProps';
 import { openTrackMenu } from '@/store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -11,24 +13,18 @@ import { BaseMenuSheet, MenuOption } from '@/components/sheets/BaseMenuSheet';
 
 export default function LyricsMenuSheet() {
   const { colors } = useAppTheme();
-  const { props: { track, onImportSuccess }, close: closeMenu } = useSheetProps<{ track: any; onImportSuccess: (lyrics: string) => void }>('lyrics-menu');
+  const { props: { track, onImportSuccess }, close: closeMenu, closeThen } = useSheetProps<{ track: any; onImportSuccess: (lyrics: string) => void }>('lyrics-menu');
   const hasLyrics = !!track?.lyricsLRC?.trim();
   const isFetchingLyrics = usePlayerStore(state => state.isFetchingLyrics);
   const { t } = useTranslation();
-  const navigation = useNavigation<any>();
 
   if (!track) return null;
 
   const handleMorePress = () => {
-    closeMenu();
-    openTrackMenu(track, {
-      album: (albumId: any) => navigation.navigate('AlbumDetail', { albumId }),
-      artist: (artistId: any) => navigation.navigate('ArtistDetail', { artistId }),
-    });
+    closeThen(() => openTrackMenu(track));
   };
 
   const handleShareLyrics = async () => {
-    closeMenu();
     try {
       const album = await track.album?.fetch();
       const artist = await track.artist?.fetch();
@@ -45,7 +41,7 @@ export default function LyricsMenuSheet() {
             .map((l: string) => ({ text: l.trim() }))
             .filter((l: any) => l.text.length > 0);
 
-      navigation.navigate('ShareLyrics', {
+      const params: ShareLyricsParams = {
         trackId: track.id,
         title: track.title,
         artist: artistName,
@@ -53,7 +49,8 @@ export default function LyricsMenuSheet() {
         coverUrl: album?.coverUrl || null,
         lyricsLines: lines,
         initialIndex: 0,
-      });
+      };
+      closeThen(() => navigationRef.navigate('ShareLyrics', params));
     } catch (e) {
       console.error('[LyricsMenuSheet] Error preparing lyrics share:', e);
     }
@@ -177,7 +174,7 @@ export default function LyricsMenuSheet() {
         text={t('lyrics.edit') || 'Editar letras'}
         disabled={isFetchingLyrics}
         containerStyle={isFetchingLyrics ? { opacity: 0.4 } : undefined}
-        onPress={() => { closeMenu(); navigation.navigate('LyricsEditor'); }}
+        onPress={() => { const trackId = track.id; closeThen(() => openLyricsDocument('LyricsEditor', trackId)); }}
       />
 
       <MenuOption
@@ -185,7 +182,7 @@ export default function LyricsMenuSheet() {
         text={t('lyrics.sync') || 'Sincronizar letras'}
         disabled={!hasLyrics || isFetchingLyrics}
         containerStyle={(!hasLyrics || isFetchingLyrics) ? { opacity: 0.4 } : undefined}
-        onPress={() => { closeMenu(); navigation.navigate('LyricsSync'); }}
+        onPress={() => { const trackId = track.id; closeThen(() => openLyricsDocument('LyricsSync', trackId)); }}
       />
 
       <MenuOption
