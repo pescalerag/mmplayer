@@ -1,5 +1,7 @@
 import TrackPlayer, { Event, State } from 'react-native-track-player';
 jest.mock('../services/AndroidAutoService', () => ({ startAndroidAutoService: jest.fn() }));
+// Presence has its own lifecycle tests; this suite isolates playback listeners.
+jest.mock('../services/DiscordPresenceService', () => ({ startDiscordPresence: jest.fn() }));
 jest.mock('../services/playerBootstrap', () => ({ ensurePlaybackReady: jest.fn().mockResolvedValue(undefined) }));
 import { PlaybackService, PlaybackTimeTracker } from '../services/PlaybackService';
 import { HistoryService } from '../services/HistoryService';

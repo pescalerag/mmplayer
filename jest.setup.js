@@ -7,6 +7,10 @@ jest.mock('react-native', () => ({
   EventEmitter: jest.fn(),
   View: 'View',
   Text: 'Text',
+  Image: {
+    resolveAssetSource: jest.fn((asset) =>
+      asset && typeof asset === 'object' ? asset : { uri: 'file:///test-image.png' }),
+  },
   StyleSheet: { create: (s) => s },
   Alert: { alert: jest.fn() },
   Linking: {

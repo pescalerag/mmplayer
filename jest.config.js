@@ -6,6 +6,7 @@ module.exports = {
   setupFiles: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '\\.(png|jpe?g|webp|gif)$': '<rootDir>/tests/mocks/imageAsset.cjs',
   },
   transform: {
     '^.+\\.tsx?$': [
